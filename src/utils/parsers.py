@@ -11,6 +11,23 @@ logger = structlog.get_logger()
 # Python standard library modules (3.10+)
 _PYTHON_STDLIB: frozenset[str] = frozenset(sys.stdlib_module_names)
 
+# Go standard library packages (common top-level)
+_GO_STDLIB: frozenset[str] = frozenset({
+    "archive", "bufio", "builtin", "bytes", "compress", "container",
+    "context", "crypto", "database", "debug", "embed", "encoding",
+    "errors", "expvar", "flag", "fmt", "go", "hash", "html", "image",
+    "index", "internal", "io", "log", "maps", "math", "mime", "net",
+    "os", "path", "plugin", "reflect", "regexp", "runtime", "slices",
+    "sort", "strconv", "strings", "sync", "syscall", "testing", "text",
+    "time", "unicode", "unsafe",
+})
+
+# Rust standard/core crates to skip
+_RUST_STD_CRATES: frozenset[str] = frozenset({
+    "std", "core", "alloc", "proc_macro", "test",
+    "self", "super", "crate",
+})
+
 # Node.js built-in modules
 _NODE_BUILTINS: frozenset[str] = frozenset({
     "assert", "buffer", "child_process", "cluster", "console", "constants",
@@ -293,3 +310,240 @@ def _parse_from_line(
         image, tag = rest, "latest"
 
     return image.strip(), tag.strip()
+
+
+# --- Go import extraction ---
+
+# Single import: import "github.com/gin-gonic/gin"
+_GO_SINGLE_IMPORT_RE = re.compile(r'^\s*import\s+"([^"]+)"')
+
+# Import block: import ( ... )
+_GO_IMPORT_BLOCK_RE = re.compile(
+    r'import\s*\((.*?)\)', re.DOTALL
+)
+
+# Individual import inside block: "github.com/gin-gonic/gin"
+_GO_BLOCK_ITEM_RE = re.compile(r'"([^"]+)"')
+
+
+def extract_go_imports(code: str) -> list[str]:
+    """Extract third-party module paths from Go code.
+
+    Handles:
+      import "github.com/gin-gonic/gin"     -> "github.com/gin-gonic/gin"
+      import ( "fmt" ; "github.com/..." )    -> skip "fmt", keep third-party
+
+    Skips: Go standard library packages.
+    """
+    modules: set[str] = set()
+
+    # Single imports
+    for line in code.splitlines():
+        match = _GO_SINGLE_IMPORT_RE.match(line)
+        if match:
+            normalized = _normalize_go_import(match.group(1))
+            if normalized is not None:
+                modules.add(normalized)
+
+    # Import blocks
+    for block_match in _GO_IMPORT_BLOCK_RE.finditer(code):
+        block_content = block_match.group(1)
+        for item_match in _GO_BLOCK_ITEM_RE.finditer(block_content):
+            normalized = _normalize_go_import(item_match.group(1))
+            if normalized is not None:
+                modules.add(normalized)
+
+    return sorted(modules)
+
+
+def _normalize_go_import(import_path: str) -> str | None:
+    """Normalize a Go import path, skip stdlib."""
+    top_level = import_path.split("/")[0]
+
+    # Standard library: no dots in top-level (e.g. "fmt", "net", "os")
+    if top_level in _GO_STDLIB:
+        return None
+
+    # Third-party modules always have a domain with a dot
+    if "." not in top_level:
+        return None
+
+    return import_path
+
+
+# --- Rust import extraction ---
+
+# use serde::Deserialize;
+_RUST_USE_RE = re.compile(r'^\s*(?:pub\s+)?use\s+(\w+)')
+
+# extern crate serde;
+_RUST_EXTERN_CRATE_RE = re.compile(r'^\s*extern\s+crate\s+(\w+)')
+
+
+def extract_rust_imports(code: str) -> list[str]:
+    """Extract third-party crate names from Rust code.
+
+    Handles:
+      use serde::Deserialize;       -> "serde"
+      use serde_json::Value;        -> "serde_json"
+      extern crate rand;            -> "rand"
+      pub use tokio::runtime;       -> "tokio"
+
+    Skips: std, core, alloc, self, super, crate.
+    Normalizes underscores to hyphens for crates.io lookup.
+    """
+    crates: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            continue
+
+        crate_name = _extract_rust_crate(stripped)
+        if crate_name is not None:
+            crates.add(crate_name)
+
+    return sorted(crates)
+
+
+def _extract_rust_crate(line: str) -> str | None:
+    """Extract crate name from a single Rust line."""
+    match = _RUST_USE_RE.match(line)
+    if match:
+        crate = match.group(1)
+        return _normalize_rust_crate(crate)
+
+    match = _RUST_EXTERN_CRATE_RE.match(line)
+    if match:
+        crate = match.group(1)
+        return _normalize_rust_crate(crate)
+
+    return None
+
+
+def _normalize_rust_crate(crate: str) -> str | None:
+    """Normalize a Rust crate name, skip std crates."""
+    if crate in _RUST_STD_CRATES:
+        return None
+
+    # crates.io uses hyphens, Rust code uses underscores
+    return crate.replace("_", "-")
+
+
+# --- go.mod parsing ---
+
+
+def parse_go_mod(content: str) -> dict[str, str]:
+    """Parse go.mod require blocks to {module: version}.
+
+    Handles:
+      require github.com/gin-gonic/gin v1.9.1      -> single require
+      require ( ... )                                -> block require
+
+    Skips: replace, exclude, indirect requirements.
+    """
+    result: dict[str, str] = {}
+
+    # Single-line requires
+    for match in re.finditer(
+        r'^\s*require\s+([\w./-]+)\s+(v[\w.+-]+)',
+        content,
+        re.MULTILINE,
+    ):
+        result[match.group(1)] = match.group(2)
+
+    # Block requires
+    for block_match in re.finditer(
+        r'require\s*\((.*?)\)', content, re.DOTALL
+    ):
+        block = block_match.group(1)
+        for line in block.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//"):
+                continue
+            # Skip indirect dependencies
+            if "// indirect" in stripped:
+                continue
+            parts = stripped.split()
+            if len(parts) >= 2:
+                result[parts[0]] = parts[1]
+
+    return result
+
+
+# --- Cargo.toml parsing ---
+
+
+def parse_cargo_toml(content: str) -> dict[str, str]:
+    """Parse Cargo.toml [dependencies] to {crate: version}.
+
+    Handles:
+      serde = "1.0"                          -> simple version
+      serde = { version = "1.0", ... }       -> table with version
+      tokio = { version = "1", features = [...] }
+
+    Only parses [dependencies] and [dev-dependencies] sections.
+    """
+    result: dict[str, str] = {}
+    current_section: str = ""
+
+    dep_sections = {"[dependencies]", "[dev-dependencies]", "[build-dependencies]"}
+
+    for line in content.splitlines():
+        stripped = line.strip()
+
+        # Track which section we're in
+        if stripped.startswith("["):
+            current_section = stripped.split("]")[0] + "]"
+            # Also handle [dependencies.serde] style
+            continue
+
+        if current_section not in dep_sections and not current_section.startswith(
+            "[dependencies."
+        ):
+            continue
+
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        parsed = _parse_cargo_dep_line(stripped, current_section)
+        if parsed is not None:
+            name, version = parsed
+            result[name] = version
+
+    return result
+
+
+def _parse_cargo_dep_line(
+    line: str, section: str
+) -> tuple[str, str] | None:
+    """Parse a single Cargo.toml dependency line."""
+    # Handle dotted section: [dependencies.serde]
+    if section.startswith("[dependencies."):
+        crate_name = section.split(".", 1)[1].rstrip("]")
+        version_match = re.match(r'version\s*=\s*"([^"]+)"', line)
+        if version_match:
+            return crate_name, version_match.group(1)
+        return None
+
+    if "=" not in line:
+        return None
+
+    name, _, value = line.partition("=")
+    name = name.strip()
+    value = value.strip()
+
+    if not name or not value:
+        return None
+
+    # Simple: serde = "1.0"
+    if value.startswith('"'):
+        version = value.strip('"')
+        return name, version
+
+    # Table: serde = { version = "1.0", ... }
+    version_match = re.search(r'version\s*=\s*"([^"]+)"', value)
+    if version_match:
+        return name, version_match.group(1)
+
+    return name, ""

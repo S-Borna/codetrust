@@ -1,4 +1,4 @@
-"""MCP server entry point — CodeTrust Layer 1 + Layer 2 tools."""
+"""MCP server entry point — CodeTrust Layer 1 + Layer 2 + Deep Scan tools."""
 
 import os
 import time
@@ -407,6 +407,135 @@ def _format_docker_report(
         lines.append("")
 
     return "\n".join(lines)
+
+
+@mcp.tool(name="codetrust_deep_scan")
+async def codetrust_deep_scan(
+    code: str,
+    filename: str = "untitled",
+    language: str = "python",
+    verify_imports: bool = True,
+    verify_docker: bool = False,
+    dockerfile_content: str = "",
+    requirements_content: str = "",
+) -> str:
+    """Run all validation layers in a single pass.
+
+    Combines static analysis with import and Docker verification
+    for a comprehensive code quality report.
+
+    Args:
+        code: Source code to analyze.
+        filename: Name of the file being scanned.
+        language: Programming language (python, javascript, typescript).
+        verify_imports: Whether to verify imports against registries.
+        verify_docker: Whether to verify Docker images.
+        dockerfile_content: Raw Dockerfile content (required if verify_docker).
+        requirements_content: Raw requirements.txt for version pinning.
+
+    Returns:
+        Markdown-formatted combined report with overall verdict.
+    """
+    logger.info("mcp_deep_scan", filename=filename, language=language)
+    start = time.monotonic()
+
+    sections: list[str] = ["# CodeTrust Deep Scan Report", ""]
+
+    # Layer 1: Static analysis (always runs locally)
+    findings = analyzer.scan_code(code, filename)
+    static_report = analyzer.build_report(findings, title="Static Analysis")
+    sections.append(static_report)
+    sections.append("")
+
+    # Layer 2a: Import verification
+    import_report = await _deep_scan_imports(
+        code, language, requirements_content, verify_imports
+    )
+    if import_report:
+        sections.append(import_report)
+        sections.append("")
+
+    # Layer 2b: Docker verification
+    docker_report = await _deep_scan_docker(dockerfile_content, verify_docker)
+    if docker_report:
+        sections.append(docker_report)
+        sections.append("")
+
+    # Overall verdict
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+    verdict = _compute_deep_verdict(findings, import_report, docker_report)
+    sections.append(f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)")
+
+    return "\n".join(sections)
+
+
+async def _deep_scan_imports(
+    code: str,
+    language: str,
+    requirements_content: str,
+    verify_imports: bool,
+) -> str:
+    """Run import verification as part of deep scan."""
+    if not verify_imports:
+        return ""
+
+    lang = Language(language)
+    imports = _extract_imports(code, lang)
+
+    if not imports:
+        return "## Import Verification\n\nNo third-party imports found."
+
+    registry = await _get_registry()
+    results = await registry.verify_packages(lang, imports, requirements_content)
+    elapsed_ms = 0  # timing is rolled into the parent
+    return _format_import_report(results, elapsed_ms)
+
+
+async def _deep_scan_docker(
+    dockerfile_content: str,
+    verify_docker: bool,
+) -> str:
+    """Run Docker verification as part of deep scan."""
+    if not verify_docker or not dockerfile_content:
+        return ""
+
+    parsed = parse_dockerfile_from(dockerfile_content)
+    if not parsed:
+        return "## Docker Image Verification\n\nNo FROM statements found."
+
+    docker = await _get_docker()
+    inputs = [DockerImageInput(image=img, tag=tag) for img, tag in parsed]
+    results = await docker.verify_images(inputs)
+    return _format_docker_report(results, 0)
+
+
+def _compute_deep_verdict(
+    findings: list[Finding],
+    import_report: str,
+    docker_report: str,
+) -> str:
+    """Compute the overall deep scan verdict."""
+    has_block = any(f.severity == Severity.BLOCK for f in findings)
+    has_warn = any(f.severity == Severity.WARN for f in findings)
+
+    if has_block:
+        return "BLOCK"
+
+    # Check import failures
+    if import_report and "### Failed" in import_report:
+        return "BLOCK"
+
+    # Check docker failures
+    if docker_report and "### Failed" in docker_report:
+        return "BLOCK"
+
+    if has_warn:
+        return "WARN"
+
+    if import_report and "### Warnings" in import_report:
+        return "WARN"
+
+    return "PASS"
 
 
 if __name__ == "__main__":

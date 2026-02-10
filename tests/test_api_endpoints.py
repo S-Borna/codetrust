@@ -389,3 +389,94 @@ class TestDeepScan:
             json={"filename": "test.py"},
         )
         assert response.status_code == 422
+
+    @patch.object(RegistryService, "verify_packages", new_callable=AsyncMock)
+    def test_deep_scan_with_imports(
+        self, mock_verify: AsyncMock, client: TestClient
+    ) -> None:
+        """Deep scan includes import verification when requested."""
+        mock_verify.return_value = [
+            PackageResult(
+                package="fastapi",
+                registry=Registry.PYPI,
+                status=VerifyStatus.VERIFIED,
+                severity=Severity.INFO,
+                latest_version="0.115.0",
+                message="Package exists on PyPI",
+            ),
+        ]
+        response = client.post(
+            "/v1/scan/deep",
+            json={
+                "code": "import fastapi\n",
+                "filename": "app.py",
+                "language": "python",
+                "verify_imports": True,
+                "verify_docker": False,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["import_verification"] is not None
+        assert data["import_verification"]["verified"] == 1
+
+    @patch.object(DockerVerifyService, "verify_images", new_callable=AsyncMock)
+    def test_deep_scan_with_docker(
+        self, mock_verify: AsyncMock, client: TestClient
+    ) -> None:
+        """Deep scan includes Docker verification when requested."""
+        mock_verify.return_value = [
+            DockerImageResult(
+                image="python",
+                tag="3.12-slim",
+                status=VerifyStatus.VERIFIED,
+                severity=Severity.INFO,
+                message="Image tag verified",
+            ),
+        ]
+        response = client.post(
+            "/v1/scan/deep",
+            json={
+                "code": "x = 1\n",
+                "filename": "app.py",
+                "verify_imports": False,
+                "verify_docker": True,
+                "dockerfile_content": "FROM python:3.12-slim\n",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["docker_verification"] is not None
+        assert data["docker_verification"]["verified"] == 1
+
+    @patch.object(RegistryService, "verify_packages", new_callable=AsyncMock)
+    def test_deep_scan_failed_import_blocks(
+        self, mock_verify: AsyncMock, client: TestClient
+    ) -> None:
+        """Deep scan with failed imports returns BLOCK verdict."""
+        mock_verify.return_value = [
+            PackageResult(
+                package="nonexistent",
+                registry=Registry.PYPI,
+                status=VerifyStatus.NOT_FOUND,
+                severity=Severity.BLOCK,
+                message="Package not found",
+            ),
+        ]
+        response = client.post(
+            "/v1/scan/deep",
+            json={
+                "code": "import nonexistent\n",
+                "filename": "app.py",
+                "language": "python",
+                "verify_imports": True,
+                "verify_docker": False,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["overall_verdict"] == "BLOCK"
+        assert data["import_verification"]["failed"] == 1

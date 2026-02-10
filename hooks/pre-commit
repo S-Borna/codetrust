@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""
+CodeTrust pre-commit hook.
+Scans staged files for anti-patterns before allowing a commit.
+
+Install: cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+"""
+
+import re
+import subprocess
+import sys
+
+BLOCK_PATTERNS: list[tuple[str, str]] = [
+    (r"<<[-']?\w+", "Heredoc detected — use template files instead"),
+    (
+        r"""(?i)(api[_-]?key|secret|password|token|credentials)\s*[:=]\s*['"][^'"]{8,}['"]""",
+        "Possible hardcoded secret",
+    ),
+    (r"\b(eval|exec)\s*\(", "eval/exec is a security risk"),
+    (
+        r"""(execute|cursor\.execute)\s*\(\s*(?:f['"]|.*\.format\s*\()""",
+        "Possible SQL injection via string formatting",
+    ),
+    (r"pickle\.loads?\s*\(", "pickle.load is unsafe with untrusted data"),
+]
+
+WARN_PATTERNS: list[tuple[str, str]] = [
+    (r"(?i)#\s*(todo|hack|fixme|xxx|temp)\b", "Unresolved marker"),
+    (r"\bconsole\.(log|debug|info)\b", "Use structured logger, not console.log"),
+    (r"^\s*print\s*\(", "Use structlog, not print()"),
+    (r"from\s+\S+\s+import\s+\*", "Wildcard import — import explicitly"),
+    (r":\s*[Aa]ny\b", "Avoid Any type — use explicit types"),
+    (r"except\s*:", "Bare except — catch specific exceptions"),
+]
+
+
+def get_staged_files() -> list[str]:
+    """Get list of staged files for commit."""
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+        capture_output=True,
+        text=True,
+    )
+    return [f for f in result.stdout.strip().split("\n") if f]
+
+
+def scan_file(filepath: str) -> tuple[list[str], list[str]]:
+    """Scan a single file for anti-patterns."""
+    blocks: list[str] = []
+    warns: list[str] = []
+    try:
+        with open(filepath, encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                for pattern, msg in BLOCK_PATTERNS:
+                    if re.search(pattern, line):
+                        blocks.append(f"  \U0001f6ab {filepath}:{i} \u2014 {msg}")
+                for pattern, msg in WARN_PATTERNS:
+                    if re.search(pattern, line):
+                        warns.append(f"  \u26a0\ufe0f  {filepath}:{i} \u2014 {msg}")
+    except (OSError, UnicodeDecodeError):
+        pass
+    return blocks, warns
+
+
+def main() -> int:
+    """Run pre-commit checks on staged files."""
+    files = get_staged_files()
+    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh"}
+    # Exclude test files — they intentionally contain anti-patterns as fixtures
+    test_prefixes = ("tests/", "test_")
+    source_files = [
+        f
+        for f in files
+        if any(f.endswith(ext) for ext in source_exts)
+        and not any(f.startswith(p) or f.split("/")[-1].startswith("test_") for p in test_prefixes)
+    ]
+
+    if not source_files:
+        return 0
+
+    all_blocks: list[str] = []
+    all_warns: list[str] = []
+    for filepath in source_files:
+        b, w = scan_file(filepath)
+        all_blocks.extend(b)
+        all_warns.extend(w)
+
+    if all_warns:
+        print("\n\u26a0\ufe0f  CodeTrust Warnings:")
+        print("\n".join(all_warns))
+
+    if all_blocks:
+        print("\n\U0001f6ab CodeTrust BLOCKED this commit:")
+        print("\n".join(all_blocks))
+        print("\nFix the issues above before committing.\n")
+        return 1
+
+    if not all_blocks and not all_warns:
+        print("\u2705 CodeTrust: All checks passed.")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

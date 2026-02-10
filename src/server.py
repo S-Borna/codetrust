@@ -17,8 +17,10 @@ from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.static_analyzer import StaticAnalyzer
 from src.utils.parsers import (
+    extract_go_imports,
     extract_js_imports,
     extract_python_imports,
+    extract_rust_imports,
     parse_dockerfile_from,
 )
 
@@ -296,6 +298,10 @@ def _extract_imports(code: str, language: Language) -> list[str]:
         return extract_python_imports(code)
     if language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
         return extract_js_imports(code)
+    if language == Language.GO:
+        return extract_go_imports(code)
+    if language == Language.RUST:
+        return extract_rust_imports(code)
     return []
 
 

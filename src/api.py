@@ -29,8 +29,10 @@ from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.static_analyzer import StaticAnalyzer
 from src.utils.parsers import (
+    extract_go_imports,
     extract_js_imports,
     extract_python_imports,
+    extract_rust_imports,
     parse_dockerfile_from,
 )
 
@@ -240,6 +242,10 @@ async def _verify_imports_from_code(
         imports = extract_python_imports(code)
     elif language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
         imports = extract_js_imports(code)
+    elif language == Language.GO:
+        imports = extract_go_imports(code)
+    elif language == Language.RUST:
+        imports = extract_rust_imports(code)
     else:
         imports = []
 

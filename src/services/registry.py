@@ -1,4 +1,4 @@
-"""Layer 2: Package registry verification service (PyPI, npm)."""
+"""Layer 2: Package registry verification service (PyPI, npm, Go proxy, crates.io)."""
 
 import asyncio
 
@@ -10,7 +10,12 @@ from src.models.enums import Language, Registry, Severity, VerifyStatus
 from src.models.responses import PackageResult
 from src.services.cache import CacheService
 from src.utils.parsers import parse_requirements_txt
-from src.utils.similarity import suggest_npm_package, suggest_pypi_package
+from src.utils.similarity import (
+    suggest_crates_package,
+    suggest_go_module,
+    suggest_npm_package,
+    suggest_pypi_package,
+)
 
 logger = structlog.get_logger()
 
@@ -343,6 +348,10 @@ class RegistryService:
                 return await self.verify_python_package(package, version)
             if language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
                 return await self.verify_npm_package(package, version)
+            if language == Language.GO:
+                return await self.verify_go_module(package, version)
+            if language == Language.RUST:
+                return await self.verify_crates_package(package, version)
             return PackageResult(
                 package=package,
                 registry=Registry.PYPI,
@@ -401,6 +410,324 @@ class RegistryService:
             raise
         except httpx.HTTPError as exc:
             logger.warning("npm_error", package=package, error=str(exc))
+            raise
+
+    # --- Go proxy verification ---
+
+    async def verify_go_module(
+        self, module: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a Go module exists on proxy.golang.org.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET proxy.golang.org/{module}/@latest
+        3. If 200: exists -> check version if specified
+        4. If 404/410: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "go", f"{module}:{version}" if version else module
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                module, Registry.GO_PROXY, version, cached
+            )
+
+        return await self._check_go_module(module, version, cache_key)
+
+    async def _check_go_module(
+        self, module: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual Go proxy API check."""
+        try:
+            data = await self._check_go_proxy(module)
+        except httpx.TimeoutException:
+            return PackageResult(
+                package=module,
+                registry=Registry.GO_PROXY,
+                status=VerifyStatus.TIMEOUT,
+                severity=Severity.WARN,
+                message=f"Timeout verifying '{module}'.",
+            )
+        except httpx.HTTPError as exc:
+            return PackageResult(
+                package=module,
+                registry=Registry.GO_PROXY,
+                status=VerifyStatus.ERROR,
+                severity=Severity.WARN,
+                message=f"HTTP error verifying '{module}': {exc}",
+            )
+
+        if data is None:
+            suggestion = suggest_go_module(module)
+            await self._cache.set_json(
+                cache_key,
+                {"exists": False, "latest": "", "deprecated": False},
+                settings.cache_ttl_not_found,
+            )
+            return PackageResult(
+                package=module,
+                registry=Registry.GO_PROXY,
+                status=VerifyStatus.NOT_FOUND,
+                severity=Severity.BLOCK,
+                message=f"Module '{module}' not found on Go proxy.",
+                suggestion=suggestion,
+            )
+
+        return await self._process_go_response(
+            module, version, data, cache_key
+        )
+
+    async def _process_go_response(
+        self,
+        module: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful Go proxy response."""
+        latest = str(data.get("Version", ""))
+
+        await self._cache.set_json(
+            self._cache._make_key("go", module),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version:
+            return await self._check_go_version(module, version, latest)
+
+        return PackageResult(
+            package=module,
+            registry=Registry.GO_PROXY,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Module '{module}' exists on Go proxy.",
+        )
+
+    async def _check_go_version(
+        self, module: str, version: str, latest: str
+    ) -> PackageResult:
+        """Check if a specific Go module version exists."""
+        try:
+            url = settings.go_proxy_url.replace(
+                "/@latest", f"/@v/{version}.info"
+            ).format(package=module)
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                return PackageResult(
+                    package=module,
+                    registry=Registry.GO_PROXY,
+                    status=VerifyStatus.VERIFIED,
+                    severity=Severity.INFO,
+                    requested_version=version,
+                    latest_version=latest,
+                    message=f"Module '{module}@{version}' verified.",
+                )
+        except (httpx.TimeoutException, httpx.HTTPError):
+            pass
+
+        return PackageResult(
+            package=module,
+            registry=Registry.GO_PROXY,
+            status=VerifyStatus.VERSION_MISMATCH,
+            severity=Severity.WARN,
+            requested_version=version,
+            latest_version=latest,
+            message=f"Version '{version}' not found for '{module}'.",
+            suggestion=f"Latest version is {latest}.",
+        )
+
+    async def _check_go_proxy(
+        self, module: str
+    ) -> dict[str, object] | None:
+        """Raw Go proxy call. Returns JSON or None on 404/410."""
+        url = settings.go_proxy_url.format(package=module)
+        try:
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("go_proxy_timeout", module=module)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("go_proxy_error", module=module, error=str(exc))
+            raise
+
+    # --- crates.io verification ---
+
+    _CRATES_USER_AGENT: str = "CodeTrust/1.0.0 (https://github.com/codetrust)"
+
+    async def verify_crates_package(
+        self, crate: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a Rust crate exists on crates.io.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET crates.io/api/v1/crates/{crate}
+        3. If 200: exists -> check version if specified
+        4. If 404: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "crates", f"{crate}:{version}" if version else crate
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                crate, Registry.CRATES, version, cached
+            )
+
+        return await self._check_crates_package(crate, version, cache_key)
+
+    async def _check_crates_package(
+        self, crate: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual crates.io API check."""
+        try:
+            data = await self._check_crates(crate)
+        except httpx.TimeoutException:
+            return PackageResult(
+                package=crate,
+                registry=Registry.CRATES,
+                status=VerifyStatus.TIMEOUT,
+                severity=Severity.WARN,
+                message=f"Timeout verifying '{crate}'.",
+            )
+        except httpx.HTTPError as exc:
+            return PackageResult(
+                package=crate,
+                registry=Registry.CRATES,
+                status=VerifyStatus.ERROR,
+                severity=Severity.WARN,
+                message=f"HTTP error verifying '{crate}': {exc}",
+            )
+
+        if data is None:
+            suggestion = suggest_crates_package(crate)
+            await self._cache.set_json(
+                cache_key,
+                {"exists": False, "latest": "", "deprecated": False},
+                settings.cache_ttl_not_found,
+            )
+            return PackageResult(
+                package=crate,
+                registry=Registry.CRATES,
+                status=VerifyStatus.NOT_FOUND,
+                severity=Severity.BLOCK,
+                message=f"Crate '{crate}' not found on crates.io.",
+                suggestion=suggestion,
+            )
+
+        return await self._process_crates_response(
+            crate, version, data, cache_key
+        )
+
+    async def _process_crates_response(
+        self,
+        crate: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful crates.io response."""
+        crate_data = data.get("crate", {})
+        if not isinstance(crate_data, dict):
+            crate_data = {}
+        latest = str(crate_data.get("max_version", ""))
+
+        await self._cache.set_json(
+            self._cache._make_key("crates", crate),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version:
+            return self._check_crates_version(
+                crate, version, data, latest
+            )
+
+        return PackageResult(
+            package=crate,
+            registry=Registry.CRATES,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Crate '{crate}' exists on crates.io.",
+        )
+
+    def _check_crates_version(
+        self,
+        crate: str,
+        version: str,
+        data: dict[str, object],
+        latest: str,
+    ) -> PackageResult:
+        """Check if a specific version exists on crates.io."""
+        versions_list = data.get("versions", [])
+        if not isinstance(versions_list, list):
+            versions_list = []
+
+        version_nums = [
+            str(v.get("num", ""))
+            for v in versions_list
+            if isinstance(v, dict)
+        ]
+
+        if version in version_nums:
+            return PackageResult(
+                package=crate,
+                registry=Registry.CRATES,
+                status=VerifyStatus.VERIFIED,
+                severity=Severity.INFO,
+                requested_version=version,
+                latest_version=latest,
+                message=f"Crate '{crate}=={version}' verified.",
+            )
+
+        return PackageResult(
+            package=crate,
+            registry=Registry.CRATES,
+            status=VerifyStatus.VERSION_MISMATCH,
+            severity=Severity.WARN,
+            requested_version=version,
+            latest_version=latest,
+            message=f"Version '{version}' not found for '{crate}'.",
+            suggestion=f"Latest version is {latest}.",
+        )
+
+    async def _check_crates(
+        self, crate: str
+    ) -> dict[str, object] | None:
+        """Raw crates.io API call. Returns JSON or None on 404."""
+        url = settings.crates_url.format(package=crate)
+        try:
+            response = await self._http.get(
+                url,
+                timeout=settings.http_timeout,
+                headers={"User-Agent": self._CRATES_USER_AGENT},
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("crates_timeout", crate=crate)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("crates_error", crate=crate, error=str(exc))
             raise
 
     def _build_cached_result(

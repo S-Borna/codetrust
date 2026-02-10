@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codetrust"
+version = "1.0.0"
+description = "AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "Said", email = "" },
+]
+keywords = ["mcp", "code-quality", "verification", "hallucination", "claude-code", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    # MCP server
+    "mcp[cli]>=1.0.0",
+    # Validation
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    # API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    # HTTP client
+    "httpx>=0.27.0",
+    # Cache
+    "redis[hiredis]>=5.0.0",
+    # Logging
+    "structlog>=24.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-httpx>=0.30.0",
+    "fakeredis[json]>=2.20.0",
+    "ruff>=0.5.0",
+    "httpx[cli]>=0.27.0",
+]
+
+[project.scripts]
+codetrust-mcp = "src.server:mcp.run"
+codetrust-api = "src.api:run"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific
+]
+ignore = ["E501", "B008"]  # line length handled by formatter; B008 is standard FastAPI pattern
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

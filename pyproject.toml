@@ -52,6 +52,8 @@ dependencies = [
     "PyJWT>=2.8.0",
     # Migrations
     "alembic>=1.13.0",
+    # Sync DB driver for Alembic migrations
+    "psycopg2-binary>=2.9.0",
 ]
 
 [project.optional-dependencies]

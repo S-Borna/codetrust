@@ -13,6 +13,7 @@ from fastapi.security import APIKeyHeader
 
 from src.config import settings
 from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
+from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AstScanRequest,
@@ -221,6 +222,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# IP-based rate limiting - runs before auth, catches unauthenticated floods
+app.add_middleware(IPRateLimitMiddleware)
 
 
 def _get_registry(request: Request) -> RegistryService:

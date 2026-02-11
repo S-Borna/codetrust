@@ -381,6 +381,8 @@ class TestSarifAPIEndpoints:
         app.state.sandbox = SandboxService()
         app.state.db = None
         app.state.billing = None
+        app.state.auth = None
+        app.state.rate_limiter = None
 
         return TestClient(app, raise_server_exceptions=False)
 

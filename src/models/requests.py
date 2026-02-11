@@ -49,7 +49,7 @@ class StaticScanRequest(BaseModel):
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
-    code: str = Field(..., min_length=1, max_length=500_000)
+    code: str = Field(..., min_length=0, max_length=500_000)
     filename: str = Field(default="untitled")
     language: Language | None = Field(default=None, strict=False)
 
@@ -59,7 +59,7 @@ class AstScanRequest(BaseModel):
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
-    code: str = Field(..., min_length=1, max_length=500_000)
+    code: str = Field(..., min_length=0, max_length=500_000)
     filename: str = Field(default="untitled")
     language: Language = Field(..., strict=False, description="Language is required for AST parsing")
     max_nesting: int = Field(default=4, ge=1, le=20)
@@ -71,7 +71,7 @@ class SandboxRequest(BaseModel):
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
-    code: str = Field(..., min_length=1, max_length=500_000)
+    code: str = Field(..., min_length=0, max_length=500_000)
     language: Language = Field(..., strict=False, description="Language determines sandbox image")
     timeout: int = Field(default=10, ge=1, le=30, description="Max seconds")
     filename: str = Field(default="untitled")
@@ -82,7 +82,7 @@ class DeepScanRequest(BaseModel):
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
-    code: str = Field(..., min_length=1, max_length=500_000)
+    code: str = Field(..., min_length=0, max_length=500_000)
     filename: str = Field(default="untitled")
     language: Language | None = Field(default=None, strict=False)
     verify_imports: bool = Field(default=True)
@@ -112,7 +112,7 @@ class MidActionInput(BaseModel):
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
 
-    code: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=0)
     filename: str = Field(default="untitled")
     language: Language | None = Field(default=None, strict=False)
     verify_imports: bool = Field(

@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { ApiClient, ApiError } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
+import { scanCodeOffline } from "./embedded-scanner";
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
 import type {
@@ -110,7 +111,21 @@ async function runStaticScan(
         deps.statusBar.setVerdict(response.verdict, response.total_findings);
         logScanResult(deps.outputChannel, "Static", response.verdict, response.findings);
     } catch (err) {
-        handleScanError(deps, err);
+        // Fallback to embedded offline scanner when API is unavailable
+        deps.outputChannel.appendLine(
+            `  API unavailable — using embedded scanner`,
+        );
+        const response = scanCodeOffline(document.getText(), document.fileName);
+        deps.diagnostics.setFindingsDiagnostics(
+            document.uri,
+            response.findings,
+            config.severityThreshold,
+        );
+        deps.statusBar.setVerdict(
+            `${response.verdict} (offline)`,
+            response.total_findings,
+        );
+        logScanResult(deps.outputChannel, "Static (offline)", response.verdict, response.findings);
     }
 }
 

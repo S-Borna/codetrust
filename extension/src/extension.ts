@@ -56,6 +56,23 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
 
+    // Scan on open
+    context.subscriptions.push(
+        vscode.workspace.onDidOpenTextDocument((document) => {
+            if (config.scanOnSave) {
+                handleScanOnSave(deps, document).catch((err: unknown) => {
+                    const msg = err instanceof Error ? err.message : "Unknown error";
+                    outputChannel.appendLine(`Open-scan error: ${msg}`);
+                });
+            }
+        }),
+    );
+
+    // Scan all already-open documents on activation
+    for (const document of vscode.workspace.textDocuments) {
+        handleScanOnSave(deps, document).catch(() => {});
+    }
+
     // Clear diagnostics when a file is closed
     context.subscriptions.push(
         vscode.workspace.onDidCloseTextDocument((document) => {

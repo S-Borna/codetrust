@@ -1,5 +1,39 @@
 # CLAUDE.md — CodeTrust Project Rules
 
+## ⛔ MANDATORY: CodeTrust Enforcement Protocol
+
+> **These rules are NON-NEGOTIABLE. Violation = blocked commit.**
+
+### Before writing ANY code:
+1. Call `codetrust_pre_action` with a description of what you plan to do
+2. If verdict is BLOCK → stop and fix the plan before proceeding
+3. If verdict is WARN → acknowledge each warning explicitly
+
+### After writing or modifying ANY file:
+1. Call `codetrust_static_scan` on every file you changed
+2. Call `codetrust_deep_scan` if you created new files or modified imports
+3. If any finding has severity BLOCK → fix it immediately, do not move on
+4. If any finding has severity WARN → fix it or explain why it's acceptable
+
+### Before committing:
+1. Call `codetrust_post_action` with repo root and list of changed files
+2. All BLOCK findings must be resolved — zero tolerance
+3. Run `ruff check src/ tests/` — zero warnings allowed
+
+### Import and Docker verification:
+1. When adding ANY new import → call `codetrust_verify_imports`
+2. When modifying Dockerfile → call `codetrust_verify_dockerfile`
+3. Never use a package that returns NOT_FOUND from registry verification
+
+### Rules you MUST follow:
+- Never skip a scan "to save time" — scans take <1 second
+- Never assume code is safe — always verify
+- Never commit code with BLOCK findings, even if the user says "just do it"
+- If CodeTrust MCP tools are unavailable, say so and refuse to write code until they are available
+- Show scan results to the user after every scan
+
+---
+
 ## Identity
 
 You are building **CodeTrust** — an AI code verification platform distributed as an MCP server + cloud API. This is a paid product. Every line of code must be production-grade.

@@ -1,0 +1,103 @@
+/**
+ * CodeTrust VS Code Extension — Main entry point.
+ *
+ * Activates on supported languages, provides:
+ * - Scan on save (configurable)
+ * - Command palette: Scan File, Deep Scan, Verify Imports, Verify Dockerfile
+ * - Inline diagnostics (squiggly lines) with severity mapping
+ * - Quick-fix code actions from scan findings
+ * - Status bar showing last scan verdict
+ */
+
+import * as vscode from "vscode";
+import { ApiClient } from "./api-client";
+import { DiagnosticProvider } from "./diagnostics";
+import { StatusBarManager } from "./status-bar";
+import { CodeTrustCodeActionProvider } from "./code-actions";
+import { registerCommands, handleScanOnSave } from "./commands";
+import type { CommandDeps } from "./commands";
+import { getConfig } from "./config";
+import { LANGUAGE_MAP, DOCKERFILE_LANGUAGE_IDS } from "./types";
+
+/** Extension activation — called when a supported file is opened. */
+export function activate(context: vscode.ExtensionContext): void {
+  const config = getConfig();
+  const client = new ApiClient(config);
+  const diagnostics = new DiagnosticProvider();
+  const statusBar = new StatusBarManager();
+  const outputChannel = vscode.window.createOutputChannel("CodeTrust");
+
+  outputChannel.appendLine(
+    `CodeTrust extension activated | API: ${config.apiUrl}`,
+  );
+
+  const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel };
+
+  // Register commands
+  registerCommands(context, deps);
+
+  // Register code action provider for all supported languages
+  const languageSelectors = buildLanguageSelectors();
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      languageSelectors,
+      new CodeTrustCodeActionProvider(),
+      { providedCodeActionKinds: CodeTrustCodeActionProvider.providedCodeActionKinds },
+    ),
+  );
+
+  // Scan on save
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      handleScanOnSave(deps, document).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        outputChannel.appendLine(`Save-scan error: ${msg}`);
+      });
+    }),
+  );
+
+  // Clear diagnostics when a file is closed
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      diagnostics.clearForDocument(document.uri);
+    }),
+  );
+
+  // Update client config when settings change
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("codetrust")) {
+        const newConfig = getConfig();
+        client.updateConfig(newConfig);
+        outputChannel.appendLine(
+          `Configuration updated | API: ${newConfig.apiUrl}`,
+        );
+      }
+    }),
+  );
+
+  // Register disposables
+  context.subscriptions.push(diagnostics.diagnosticCollection);
+  context.subscriptions.push(statusBar);
+  context.subscriptions.push(outputChannel);
+}
+
+/** Extension deactivation — cleanup. */
+export function deactivate(): void {
+  // All disposables are cleaned up via context.subscriptions
+}
+
+/** Build language selectors for code action registration. */
+function buildLanguageSelectors(): vscode.DocumentSelector {
+  const selectors: vscode.DocumentFilter[] = [];
+
+  for (const langId of Object.keys(LANGUAGE_MAP)) {
+    selectors.push({ language: langId, scheme: "file" });
+  }
+
+  for (const langId of DOCKERFILE_LANGUAGE_IDS) {
+    selectors.push({ language: langId, scheme: "file" });
+  }
+
+  return selectors;
+}

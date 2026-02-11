@@ -51,8 +51,24 @@ class StaticAnalyzer:
         """Apply a single regex rule to all lines of code."""
         findings: list[Finding] = []
         pattern = re.compile(rule["pattern"])
+        skip_comments = bool(rule.get("skip_comments"))
+        in_docstring = False
 
         for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.count('"""') == 1 or stripped.count("'''") == 1:
+                in_docstring = not in_docstring
+            if skip_comments and (
+                in_docstring
+                or stripped.startswith("#")
+                or stripped.startswith('"""')
+                or stripped.startswith("'''")
+            ):
+                continue
+
+            if "noqa" in line:
+                continue
+
             if pattern.search(line):
                 findings.append(
                     Finding(

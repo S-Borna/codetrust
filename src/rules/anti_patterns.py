@@ -6,11 +6,11 @@ from src.models.enums import Severity
 # The static analyzer iterates over these and applies each regex to every line.
 #
 # Optional keys:
-#   file_types  – list of extensions (e.g. [".sql"]) where the rule applies.
+#   file_types  - list of extensions (e.g. [".sql"]) where the rule applies.
 #                 If omitted the rule applies to ALL files EXCEPT those claimed
 #                 by another language group (see LANGUAGE_EXCLUSIVE below).
-#   skip_comments – skip lines that look like comments / docstrings.
-#   special_handler – delegate to a named method instead of plain regex.
+#   skip_comments - skip lines that look like comments / docstrings.
+#   special_handler - delegate to a named method instead of plain regex.
 
 # Extensions that have their own dedicated rule sets.
 # Generic rules will NOT fire on these file types.

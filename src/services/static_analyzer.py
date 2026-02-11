@@ -8,7 +8,13 @@ import structlog
 
 from src.models.enums import Severity
 from src.models.responses import Finding, StaticScanResponse
-from src.rules.anti_patterns import ANTI_PATTERNS, MAX_FUNCTION_LENGTH, SQL_EXTENSIONS
+from src.rules.anti_patterns import (
+    ANTI_PATTERNS,
+    DEVOPS_EXTENSIONS,
+    DEVOPS_FILENAMES,
+    MAX_FUNCTION_LENGTH,
+    SQL_EXTENSIONS,
+)
 from src.rules.enterprise import (
     FORBIDDEN_PATTERNS,
     RECOMMENDED_DIRS,
@@ -22,6 +28,11 @@ logger = structlog.get_logger()
 class StaticAnalyzer:
     """Regex-based anti-pattern detection. Runs locally, no network calls."""
 
+    def _is_devops_file(self, filename: str, ext: str) -> bool:
+        """Check if a file is a DevOps/infrastructure file."""
+        basename = os.path.basename(filename).lower()
+        return ext in DEVOPS_EXTENSIONS or basename in DEVOPS_FILENAMES
+
     def scan_code(self, code: str, filename: str = "") -> list[Finding]:
         """Run all anti-pattern rules against a code string."""
         findings: list[Finding] = []
@@ -29,19 +40,35 @@ class StaticAnalyzer:
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
         for rule in ANTI_PATTERNS:
+            handler = rule.get("special_handler", "")
+
             # --- file-type routing ---
             rule_file_types = rule.get("file_types")
             if rule_file_types:
                 # Rule is language-specific — only run on matching extensions
                 if ext not in rule_file_types:
-                    continue
+                    # Also match DevOps filenames (e.g. "Dockerfile" has no ext)
+                    basename = os.path.basename(filename).lower()
+                    if basename not in DEVOPS_FILENAMES:
+                        continue
+                    if not any(ft in DEVOPS_EXTENSIONS for ft in rule_file_types):
+                        continue
             else:
                 # Generic rule — skip files that belong to a dedicated language
                 if ext in SQL_EXTENSIONS:
                     continue
 
-            if rule.get("special_handler") == "check_function_length":
+            if handler == "check_function_length":
                 findings.extend(self._check_function_lengths(lines, filename))
+                continue
+            if handler == "check_connection_timeout":
+                findings.extend(self._check_connection_timeout(lines, filename))
+                continue
+            if handler == "check_dockerfile_healthcheck":
+                findings.extend(self._check_dockerfile_healthcheck(lines, filename))
+                continue
+            if handler == "check_compose_healthcheck":
+                findings.extend(self._check_compose_healthcheck(lines, filename))
                 continue
 
             findings.extend(
@@ -170,6 +197,81 @@ class StaticAnalyzer:
                     last_content_line = i + 1
 
         return last_content_line
+
+    def _check_connection_timeout(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag network/DB connection calls that lack a timeout parameter."""
+        findings: list[Finding] = []
+        pattern = re.compile(
+            r"(?:from_url|AsyncClient|Client|create_async_engine|create_engine|aiohttp\.ClientSession)\s*\("
+        )
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            if pattern.search(line):
+                # Look within a 5-line window for timeout parameters
+                window = "\n".join(lines[max(0, line_num - 1):min(len(lines), line_num + 5)])
+                if re.search(r"(?:timeout|connect_timeout|socket_timeout|socket_connect_timeout)", window):
+                    continue
+                findings.append(
+                    Finding(
+                        rule_id="connection_no_timeout",
+                        severity=Severity.WARN,
+                        message="Network/DB connection without explicit timeout. Add connect_timeout or socket_timeout.",
+                        file=filename,
+                        line=line_num,
+                        suggestion="Add timeout parameter to avoid indefinite blocking.",
+                    )
+                )
+        return findings
+
+    def _check_dockerfile_healthcheck(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag Dockerfiles that have CMD but no HEALTHCHECK."""
+        findings: list[Finding] = []
+        full_text = "\n".join(lines)
+        has_cmd = bool(re.search(r"^CMD\s", full_text, re.MULTILINE))
+        has_healthcheck = bool(re.search(r"^HEALTHCHECK\s", full_text, re.MULTILINE))
+        if has_cmd and not has_healthcheck:
+            cmd_line = next(
+                (i for i, l in enumerate(lines, 1) if re.match(r"^CMD\s", l)),
+                1,
+            )
+            findings.append(
+                Finding(
+                    rule_id="dockerfile_no_healthcheck",
+                    severity=Severity.INFO,
+                    message="Dockerfile has CMD but no HEALTHCHECK instruction.",
+                    file=filename,
+                    line=cmd_line,
+                    suggestion="Add HEALTHCHECK to enable container orchestration health monitoring.",
+                )
+            )
+        return findings
+
+    def _check_compose_healthcheck(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag docker-compose services that have no healthcheck."""
+        findings: list[Finding] = []
+        # Simple heuristic: find 'image:' lines and check if 'healthcheck:' appears
+        # in the same service block (before next service at same indent level)
+        for line_num, line in enumerate(lines, start=1):
+            if re.match(r"^\s{2,4}image:\s", line):
+                # Look ahead for healthcheck before next service
+                block = "\n".join(lines[line_num:min(len(lines), line_num + 20)])
+                if "healthcheck:" not in block:
+                    findings.append(
+                        Finding(
+                            rule_id="compose_no_healthcheck",
+                            severity=Severity.INFO,
+                            message="Docker Compose service has no healthcheck defined.",
+                            file=filename,
+                            line=line_num,
+                            suggestion="Add healthcheck for reliable orchestration.",
+                        )
+                    )
+        return findings
 
     def check_repo_structure(self, root: str) -> list[Finding]:
         """Check repository for required/recommended files and structure issues."""

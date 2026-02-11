@@ -15,6 +15,10 @@ from src.models.enums import Severity
 # Extensions that have their own dedicated rule sets.
 # Generic rules will NOT fire on these file types.
 SQL_EXTENSIONS: set[str] = {".sql"}
+DEVOPS_EXTENSIONS: set[str] = {".dockerfile", ".toml", ".yml", ".yaml"}
+
+# File-name patterns that are treated as DevOps files regardless of extension.
+DEVOPS_FILENAMES: set[str] = {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile"}
 
 ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
@@ -217,6 +221,66 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded ID as string in INSERT. Use integers or let AUTO_INCREMENT handle IDs.",
         "severity": Severity.INFO,
         "file_types": [".sql"],
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  DEVOPS / INFRASTRUCTURE RULES
+    # ═══════════════════════════════════════════════════════════════
+
+    # --- Python: network connections without timeout ---
+    {
+        "id": "connection_no_timeout",
+        "pattern": r"(?:from_url|AsyncClient|Client|create_async_engine|create_engine)\s*\(",
+        "message": "Network/DB connection without explicit timeout. Add connect_timeout or socket_timeout.",
+        "severity": Severity.WARN,
+        "special_handler": "check_connection_timeout",
+    },
+    # --- Python: unbounded retry loop ---
+    {
+        "id": "unbounded_retry",
+        "pattern": r"(?:max_retries|retry|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)",
+        "message": "High retry count without timeout guard. Use a total timeout to bound retries.",
+        "severity": Severity.WARN,
+    },
+    # --- Python: sleep in retry without total timeout ---
+    {
+        "id": "retry_exponential_unbounded",
+        "pattern": r"sleep\s*\(.*\*\*",
+        "message": "Exponential backoff without total timeout cap. Add a deadline to prevent indefinite blocking.",
+        "severity": Severity.WARN,
+    },
+    # --- Dockerfile: missing HEALTHCHECK ---
+    {
+        "id": "dockerfile_no_healthcheck",
+        "pattern": r"^CMD\s",
+        "message": "Dockerfile has CMD but no HEALTHCHECK. Add HEALTHCHECK for container orchestration.",
+        "severity": Severity.INFO,
+        "special_handler": "check_dockerfile_healthcheck",
+        "file_types": [".dockerfile"],
+    },
+    # --- Docker Compose: missing healthcheck ---
+    {
+        "id": "compose_no_healthcheck",
+        "pattern": r"^\s+image:\s",
+        "message": "Service has no healthcheck defined. Add healthcheck for reliable orchestration.",
+        "severity": Severity.INFO,
+        "special_handler": "check_compose_healthcheck",
+        "file_types": [".yml", ".yaml"],
+    },
+    # --- Shell/Procfile: blocking pre-start without timeout ---
+    {
+        "id": "blocking_prestart",
+        "pattern": r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)",
+        "message": "Migration blocks server start. Wrap in 'timeout' or run as a separate step.",
+        "severity": Severity.WARN,
+    },
+    # --- YAML/TOML: healthcheck timeout too low ---
+    {
+        "id": "healthcheck_timeout_low",
+        "pattern": r"(?i)healthcheck.*timeout.*[:=]\s*(?:[1-9]|[12]\d)\b",
+        "message": "Healthcheck timeout under 30s may be too aggressive for cold starts.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml", ".toml"],
     },
 ]
 

@@ -6,17 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust — Trust the code. Ship with proof.</title>
     <meta name="description"
-        content="7-layer verification platform for AI-generated code. 590 tests. Zero hallucinated packages. Python, JS, TS, Go, Rust, SQL, Docker.">
+        content="7-layer verification platform for AI-generated code. 672 tests. Zero hallucinated packages. Python, JS, TS, Go, Rust, SQL, Docker, YAML.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow">
 
     <meta property="og:title" content="CodeTrust — Trust the code. Ship with proof.">
-    <meta property="og:description" content="AI code verification. 7 layers. 590 tests. Zero tolerance.">
+    <meta property="og:description" content="AI code verification. 7 layers. 672 tests. Zero tolerance.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.saidborna.com">
     <meta name="twitter:card" content="summary_large_image">
 
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -1009,12 +1011,7 @@
      ═══════════════════════════════════════════════════════════════════ -->
     <header class="topbar">
         <a href="#" class="topbar-logo">
-            <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
-                <path d="M32 56s20-10 20-25V12.5L32 5 12 12.5V31c0 15 20 25 20 25z" stroke="#6366f1" stroke-width="4"
-                    fill="none" />
-                <path d="M23 32l6 6 12-12" stroke="#10b981" stroke-width="4.5" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </svg>
+            <img src="favicon.png" alt="CodeTrust" width="24" height="24" style="border-radius: 4px;">
             Code<span class="trust">Trust</span>
         </a>
 
@@ -1043,12 +1040,14 @@
      ═══════════════════════════════════════════════════════════════════ -->
     <section class="hero">
         <div class="hero-content">
-            <span class="hero-version">590 tests passing — 7 layers — zero hallucinations</span>
+            <img src="logo.png" alt="CodeTrust" width="280" style="margin-bottom: 2rem; display: inline-block;">
+            <span class="hero-version">672 tests passing — 7 layers — 49 rules — zero hallucinations</span>
             <h1>Trust the code<br><em>Ship with proof</em></h1>
             <p class="hero-text">
                 AI writes code fast. But fast doesn't mean safe. CodeTrust runs every line through
                 7 verification layers — catching hallucinated packages, broken configs, anti-patterns,
-                and SQL issues before they hit production. Built by one engineer. Backed by 590 tests.
+                container issues, and CI/CD misconfigurations before they hit production. Built by one engineer. Backed
+                by 672 tests.
             </p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
@@ -1190,7 +1189,8 @@
                 <div class="pipe-num">01</div>
                 <div class="pipe-content">
                     <h4>Static Analysis</h4>
-                    <p>Regex engine. 28+ rules. Catches secrets, eval, injection, debug statements.</p>
+                    <p>Regex engine. 49 rules. Catches secrets, eval, injection, debug statements, container & CI/CD
+                        issues.</p>
                     <div class="pipe-detail">~2ms per file</div>
                 </div>
             </div>
@@ -1252,7 +1252,7 @@
      ═══════════════════════════════════════════════════════════════════ -->
     <section class="rules-section" id="rules">
         <div class="section-tag">What we catch</div>
-        <h2 class="reveal">28+ rules across every layer</h2>
+        <h2 class="reveal">49 rules across every layer</h2>
         <p class="section-desc reveal">BLOCK stops the pipeline — WARN flags risk — INFO improves</p>
 
         <div class="rule-tabs reveal" id="ruleTabs">
@@ -1260,6 +1260,8 @@
             <button class="rule-tab" data-cat="security">Security</button>
             <button class="rule-tab" data-cat="quality">Code Quality</button>
             <button class="rule-tab" data-cat="infra">Infra &amp; SQL</button>
+            <button class="rule-tab" data-cat="container">Container</button>
+            <button class="rule-tab" data-cat="cicd">CI/CD</button>
         </div>
 
         <div class="rule-grid reveal" id="ruleGrid">
@@ -1336,6 +1338,59 @@
                 <div class="rule-msg">GRANT ALL gives excessive privileges on production</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
+            <!-- Container Hardening -->
+            <div class="rule-card visible" data-cat="container">
+                <div class="rule-id">docker_root_user</div>
+                <div class="rule-msg">Container runs as root — add USER directive</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="container">
+                <div class="rule-id">docker_env_secret</div>
+                <div class="rule-msg">Secret value baked into Docker ENV — use runtime injection</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="container">
+                <div class="rule-id">docker_latest_tag</div>
+                <div class="rule-msg">FROM image:latest — pin to a specific version tag</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="container">
+                <div class="rule-id">docker_no_workdir</div>
+                <div class="rule-msg">No WORKDIR set — files land in root directory</div>
+                <span class="rule-sev sev-info">INFO</span>
+            </div>
+            <!-- CI/CD -->
+            <div class="rule-card visible" data-cat="cicd">
+                <div class="rule-id">ci_unpinned_action</div>
+                <div class="rule-msg">GitHub Action uses unpinned @master/@main — pin to SHA or version tag</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="cicd">
+                <div class="rule-id">ci_no_timeout</div>
+                <div class="rule-msg">CI job has no timeout-minutes — runaway builds waste resources</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <!-- Symptom-Fix Detection -->
+            <div class="rule-card visible" data-cat="quality">
+                <div class="rule-id">except_swallow</div>
+                <div class="rule-msg">Exception caught and silently ignored — log or re-raise</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="quality">
+                <div class="rule-id">suppress_lint</div>
+                <div class="rule-msg">Linter suppression without justification — add reasoning comment</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="security">
+                <div class="rule-id">debug_mode_enabled</div>
+                <div class="rule-msg">Debug mode enabled in production config — disable before deploy</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="security">
+                <div class="rule-id">hardcoded_ip</div>
+                <div class="rule-msg">Hardcoded IP address — use DNS or configuration</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
         </div>
     </section>
 
@@ -1352,8 +1407,9 @@
                 <span class="lang-chip">TypeScript</span>
                 <span class="lang-chip">Go</span>
                 <span class="lang-chip">Rust</span>
-                <span class="lang-chip">SQL<span class="lang-new">new</span></span>
+                <span class="lang-chip">SQL</span>
                 <span class="lang-chip">Dockerfile</span>
+                <span class="lang-chip">YAML / CI<span class="lang-new">new</span></span>
             </div>
         </div>
     </section>
@@ -1395,7 +1451,7 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast<br>CodeTrust verifies it's right</h2>
-            <p>590 tests, 7 verification layers, 28+ rules. Zero tolerance for hallucinated packages — built and
+            <p>672 tests, 7 verification layers, 49 rules. Zero tolerance for hallucinated packages — built and
                 maintained by one engineer who refuses to ship unchecked code</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
@@ -1410,7 +1466,7 @@
      FOOTER
      ═══════════════════════════════════════════════════════════════════ -->
     <footer>
-        <span>&copy; 2025 Said Borna. All rights reserved.</span>
+        <span>&copy; 2026 Said Borna. All rights reserved.</span>
         <div class="footer-links">
             <a href="https://pypi.org/project/codetrust/">PyPI</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a>

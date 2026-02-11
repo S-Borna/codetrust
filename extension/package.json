@@ -1,8 +1,8 @@
 {
     "name": "codetrust",
     "displayName": "CodeTrust",
-    "description": "AI code verification — catches hallucinated packages, broken configs, anti-patterns, and SQL issues inline",
-    "version": "1.5.0",
+    "description": "AI code verification — catches hallucinated packages, broken configs, anti-patterns, container & CI/CD issues inline",
+    "version": "1.8.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",
@@ -26,7 +26,10 @@
         "code-quality",
         "ai-safety",
         "sql",
-        "sql-linter"
+        "sql-linter",
+        "dockerfile",
+        "yaml",
+        "ci-cd"
     ],
     "activationEvents": [
         "onLanguage:python",
@@ -35,7 +38,8 @@
         "onLanguage:go",
         "onLanguage:rust",
         "onLanguage:dockerfile",
-        "onLanguage:sql"
+        "onLanguage:sql",
+        "onLanguage:yaml"
     ],
     "main": "./out/extension.js",
     "contributes": {

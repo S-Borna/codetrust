@@ -59,7 +59,42 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "pickle.load is unsafe with untrusted data. Use JSON or msgpack.",
         "severity": Severity.BLOCK,
     },
-    # --- WARN severity ---
+
+    # ═══════════════════════════════════════════════════════════════
+    #  SYMPTOM-FIX DETECTION (Root Cause Enforcement — Law 3)
+    #  "Fix the cause, never the symptom"
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "except_swallow",
+        "pattern": r"^\s*except[\s:]",
+        "message": "Exception caught and silently swallowed (pass/...). Handle the error or re-raise.",
+        "severity": Severity.BLOCK,
+        "special_handler": "check_except_swallow",
+    },
+    {
+        "id": "null_coalesce_smell",
+        "pattern": r"\w+\s*=\s*\w+\s+or\s+(?:\"\"|''|\[\]|\{\}|None|0|False)\s*$",
+        "message": "Defensive 'x = x or default' hides why x could be None. Fix the root cause.",
+        "severity": Severity.WARN,
+        "skip_comments": True,
+    },
+    {
+        "id": "suppress_lint",
+        "pattern": r"(?:#\s*noqa\b|#\s*type:\s*ignore|@SuppressWarnings|eslint-disable|pragma:\s*no\s*cover)",
+        "message": "Lint/type/coverage warning suppressed. Fix the underlying issue instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "sleep_no_context",
+        "pattern": r"(?:time\.)?sleep\s*\(",
+        "message": "sleep() without explanation. Why is a delay needed? Document or fix root cause.",
+        "severity": Severity.INFO,
+        "special_handler": "check_sleep_no_context",
+        "skip_comments": True,
+    },
+
+    # --- WARN severity (generic) ---
     {
         "id": "todo_hack",
         "pattern": r"(?i)#\s*(todo|hack|fixme|xxx|temp)\b",
@@ -108,6 +143,26 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mutable default argument. Use None and assign inside function.",
         "severity": Severity.WARN,
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  ANTI-ASSUMPTION RULES (Law 2: "Assume nothing")
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "debug_mode_enabled",
+        "pattern": r"(?i)(?:^|\s)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1|\"true\")\b",
+        "message": "Debug mode enabled. Ensure this is not shipped to production.",
+        "severity": Severity.WARN,
+        "skip_comments": True,
+    },
+    {
+        "id": "hardcoded_port",
+        "pattern": r"(?:port|PORT)\s*[:=]\s*\d{4,5}\b",
+        "message": "Hardcoded port number. Use environment variable or configuration.",
+        "severity": Severity.INFO,
+        "skip_comments": True,
+    },
+
     # --- INFO severity ---
     {
         "id": "magic_number",
@@ -249,6 +304,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Exponential backoff without total timeout cap. Add a deadline to prevent indefinite blocking.",
         "severity": Severity.WARN,
     },
+
+    # ─── Container Hardening ──────────────────────────────────────
+
     # --- Dockerfile: missing HEALTHCHECK ---
     {
         "id": "dockerfile_no_healthcheck",
@@ -258,6 +316,43 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "special_handler": "check_dockerfile_healthcheck",
         "file_types": [".dockerfile"],
     },
+    # --- Dockerfile: running as root ---
+    {
+        "id": "docker_root_user",
+        "pattern": r"^CMD\s",
+        "message": "Dockerfile runs as root. Add USER instruction to drop privileges.",
+        "severity": Severity.WARN,
+        "special_handler": "check_docker_root_user",
+        "file_types": [".dockerfile"],
+    },
+    # --- Dockerfile: unpinned base image ---
+    {
+        "id": "docker_latest_tag",
+        "pattern": r"^FROM\s+\S+:latest\b|^FROM\s+[^:\s]+\s*$",
+        "message": "Unpinned base image (:latest or no tag). Pin to specific version for reproducibility.",
+        "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
+    },
+    # --- Dockerfile: no WORKDIR ---
+    {
+        "id": "docker_no_workdir",
+        "pattern": r"^CMD\s",
+        "message": "Dockerfile has no WORKDIR. Set explicit working directory.",
+        "severity": Severity.INFO,
+        "special_handler": "check_docker_no_workdir",
+        "file_types": [".dockerfile"],
+    },
+    # --- Dockerfile: secrets in ENV/ARG ---
+    {
+        "id": "docker_env_secret",
+        "pattern": r"(?i)^(?:ENV|ARG)\s+\S*(?:password|secret|token|api_key|private_key)",
+        "message": "Secret in Dockerfile ENV/ARG. Use runtime secrets or build-time --secret flag.",
+        "severity": Severity.BLOCK,
+        "file_types": [".dockerfile"],
+    },
+
+    # ─── Docker Compose ──────────────────────────────────────────
+
     # --- Docker Compose: missing healthcheck ---
     {
         "id": "compose_no_healthcheck",
@@ -267,12 +362,44 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "special_handler": "check_compose_healthcheck",
         "file_types": [".yml", ".yaml"],
     },
+
+    # ─── CI/CD Pipeline ─────────────────────────────────────────
+
     # --- Shell/Procfile: blocking pre-start without timeout ---
     {
         "id": "blocking_prestart",
         "pattern": r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)",
         "message": "Migration blocks server start. Wrap in 'timeout' or run as a separate step.",
         "severity": Severity.WARN,
+    },
+    # --- GitHub Actions: unpinned action version ---
+    {
+        "id": "ci_unpinned_action",
+        "pattern": r"uses:\s*\S+@(?:main|master|latest|HEAD)\b",
+        "message": "CI action not pinned to SHA or version tag. Pin to specific version for reproducibility.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    # --- CI: no timeout on job ---
+    {
+        "id": "ci_no_timeout",
+        "pattern": r"^\s+runs-on:\s",
+        "message": "CI job has no timeout-minutes. Add timeout to prevent hung pipelines.",
+        "severity": Severity.INFO,
+        "special_handler": "check_ci_no_timeout",
+        "file_types": [".yml", ".yaml"],
+    },
+
+    # ─── IaC (Terraform / Config) ────────────────────────────────
+
+    # --- Hardcoded IP in infrastructure files ---
+    {
+        "id": "hardcoded_ip",
+        "pattern": r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b",
+        "message": "Hardcoded IP address in infrastructure file. Use DNS, variables, or service discovery.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl", ".yml", ".yaml", ".toml"],
+        "skip_comments": True,
     },
     # --- YAML/TOML: healthcheck timeout too low ---
     {
@@ -281,6 +408,15 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Healthcheck timeout under 30s may be too aggressive for cold starts.",
         "severity": Severity.INFO,
         "file_types": [".yml", ".yaml", ".toml"],
+    },
+    # --- API key in YAML/config ---
+    {
+        "id": "api_key_in_config",
+        "pattern": r"(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*[\"']?[^\s\"']{8,}",
+        "message": "API key or secret in config file. Use environment variables or secret manager.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml", ".toml", ".json"],
+        "skip_comments": True,
     },
 ]
 

@@ -5,32 +5,77 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-02-11
+
+### Added
+
+- **The Three Laws enforcement** — CodeTrust now enforces three core principles:
+  1. *Law 1: Don't hallucinate* — every reference must be verifiable
+  2. *Law 2: Assume nothing* — every choice must be justified
+  3. *Law 3: Fix the cause, never the symptom* — every fix must answer "why?"
+
+- **Symptom-Fix Detection rules** (Law 3) — 4 new rules
+  - `except_swallow` — BLOCK — flags `except: pass/...` that silently swallow errors
+  - `null_coalesce_smell` — WARN — flags `x = x or ""` defensive patterns
+  - `suppress_lint` — WARN — flags `noqa`, `type: ignore`, `eslint-disable`, `@SuppressWarnings`
+  - `sleep_no_context` — INFO — flags `sleep()` without preceding comment explaining why
+
+- **Anti-Assumption rules** (Law 2) — 2 new rules
+  - `debug_mode_enabled` — WARN — flags `DEBUG=True` left in code
+  - `hardcoded_port` — INFO — flags hardcoded port numbers
+
+- **Container Hardening rules** — 4 new rules
+  - `docker_root_user` — WARN — flags Dockerfiles running as root (no USER)
+  - `docker_latest_tag` — WARN — flags `FROM image:latest` or untagged images
+  - `docker_no_workdir` — INFO — flags Dockerfiles without WORKDIR
+  - `docker_env_secret` — BLOCK — flags secrets in ENV/ARG instructions
+
+- **CI/CD Pipeline rules** — 2 new rules
+  - `ci_unpinned_action` — WARN — flags `uses: action@main` instead of pinned SHA/version
+  - `ci_no_timeout` — INFO — flags CI jobs without `timeout-minutes`
+
+- **IaC rules** — 2 new rules
+  - `hardcoded_ip` — WARN — flags hardcoded IP addresses in infrastructure files
+  - `api_key_in_config` — BLOCK — flags API keys/secrets in YAML/TOML config files
+
+- **AI Drift Score** — composite trust metric (0-100, grades A-F) calculated from
+  scan findings, weighted by severity (BLOCK=10, WARN=3, INFO=1). Broken down by
+  category: anti_hallucination, anti_assumption, root_cause, container_hygiene, ci_cd, devops.
+  Available in API deep scan response and CLI `--json` output.
+
+- **CLI enhanced** — scan engine now includes all new rule categories, Dockerfile
+  file-level checks (USER, WORKDIR), CI rule routing, and drift score in output.
+
+- **Pre-commit hook enhanced** — added suppress_lint, null_coalesce, debug_mode,
+  docker_latest_tag, ci_unpinned_action, and docker_env_secret patterns.
+
+- **54 new tests** — comprehensive test coverage for all new rules, drift score
+  calculation, and CLI scan engine enhancements. Total: 672 tests passing.
+
 ## [1.7.0] - 2026-02-11
 
 ### Added
 
 - **DevOps anti-pattern rules** — 7 new rules, 18 tests (35 total rules)
   - `connection_no_timeout` — flags Redis/httpx/SQLAlchemy connections without timeout
-  - `unbounded_retry` — flags retry counts ≥ 5 without total deadline
+  - `unbounded_retry` — flags retry counts >= 5 without total deadline
   - `retry_exponential_unbounded` — flags exponential backoff without timeout cap
   - `blocking_prestart` — flags migrations blocking server startup (alembic && uvicorn)
   - `dockerfile_no_healthcheck` — flags Dockerfile CMD without HEALTHCHECK
   - `compose_no_healthcheck` — flags Docker Compose services without healthcheck
   - `healthcheck_timeout_low` — flags healthcheck timeouts under 30s
-- **Platform env var auto-detection** — falls back to `REDIS_URL`, `DATABASE_URL`,
-  `REDIS_PRIVATE_URL`, `DATABASE_PRIVATE_URL` when `CODETRUST_`-prefixed vars aren't set
-  (Railway, Render, Heroku, Fly.io compatibility)
+- **Offline local scanning** — CLI scan engine (`codetrust scan`) now includes
+  DevOps, SQL, and all generic rules with file-type routing. No API dependency.
+- **Pre-commit local fallback** — hook tries full CLI engine first (`python -m src.cli scan`),
+  falls back to embedded regex if CLI unavailable. Zero network dependency.
+- **CI local fallback** — GitHub Actions workflows check API health before scanning;
+  if API is unreachable, runs local scan automatically instead of silently failing.
+- SQL and DevOps file types added to scan coverage (`.sql`, `.yml`, `.yaml`, `.toml`)
 
 ### Fixed
 
-- **Railway healthcheck failure** — alembic migration retries blocked uvicorn from starting;
-  replaced nested retry loop with `timeout 30` guard
-- **Redis connection hang** — added `socket_timeout` and `socket_connect_timeout` (5s)
-  to prevent indefinite blocking during startup
-- **Alembic DB connection** — added `connect_timeout=5`, reduced retries from 5 to 3
-- **Database URL detection** — alembic env.py now checks `DATABASE_URL` / `DATABASE_PRIVATE_URL`
-  in addition to `CODETRUST_DATABASE_URL`
-- **PostgreSQL async driver** — auto-converts `postgresql://` → `postgresql+asyncpg://`
+- **Railway deployment** — restored clean `preDeployCommand` with timeout guard,
+  reverted unnecessary retry logic and env var fallback complexity
 
 ## [1.6.0] - 2026-02-11
 

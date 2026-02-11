@@ -46,3 +46,8 @@ SESSION_LOG.md
 node_modules/
 codetrust.db
 codetrust-report.md
+
+# VS Code Extension builds
+*.vsix
+CTfavicon.png
+.gitignore

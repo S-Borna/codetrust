@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "1.7.0"
+version = "1.8.0"
 description = "AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns"
 readme = "README.md"
 license = "LicenseRef-Proprietary"

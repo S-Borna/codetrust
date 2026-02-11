@@ -1,6 +1,6 @@
 # CodeTrust — Product Specification
 
-> **Version 1.5.0 | February 2026 | Proprietary License**
+> **Version 1.8.0 | February 2026 | Proprietary License**
 
 ---
 
@@ -55,9 +55,14 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 
 ### Layer 1: Statisk analys (regex + regler)
 
-- 35+ regler i tre svårighetsgrader: **BLOCK** (måste fixas), **WARN** (bör fixas), **INFO** (förslag)
+- 49 regler i tre svårighetsgrader: **BLOCK** (måste fixas), **WARN** (bör fixas), **INFO** (förslag)
 - Upptäcker: heredocs, hårdkodade hemligheter, `eval`/`exec`, SQL-injection via strängformattering, `pickle.load`, console.log, wildcard-imports, bare except, mutable defaults, magiska tal
-- Språkstöd: Python, JavaScript, TypeScript, Go, Rust, Java, Shell
+- **Symptom-Fix Detection**: except-swallow, suppress-lint, sleep_no_context, debug_mode_enabled
+- **Container Hardening**: docker_root_user, docker_latest_tag, docker_no_workdir, docker_env_secret
+- **CI/CD-regler**: ci_unpinned_action, ci_no_timeout
+- **IaC-regler**: hardcoded_ip, api_key_in_config
+- **AI Drift Score**: Komposit 0–100 trustpoäng med betyg A–F
+- Språkstöd: Python, JavaScript, TypeScript, Go, Rust, Java, Shell, Dockerfile, YAML
 
 ### Layer 2: Paketverifiering mot verkliga registries
 
@@ -144,7 +149,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 
 | Kapabilitet | CodeTrust | SonarQube | Semgrep | Snyk |
 |---|---|---|---|---|
-| **Statisk kodanalys** | 35+ regler, 7 språk | 5,000+ regler, 35+ språk | 3,000+ regler, 30+ språk | SAST med DeepCode AI |
+| **Statisk kodanalys** | 49 regler, 9 språk | 5,000+ regler, 35+ språk | 3,000+ regler, 30+ språk | SAST med DeepCode AI |
 | **Paketexistens-verifiering** | **Ja** (PyPI, npm, crates, Go) | Nej | Nej | Nej* |
 | **Typosquatting-skydd** | **Ja** (fuzzy matching, 500+ paket/ekosystem) | Nej | Nej | Nej |
 | **Docker image/tag-verifiering** | **Ja** (live Docker Hub API) | Nej | Nej | Container scanning (CVEs) |
@@ -170,8 +175,8 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 
 ### Där konkurrenterna vinner
 
-1. **Regeldjup** — SonarQube har 5,000+ regler vs våra 35+. De fångar fler kodkvalitetsproblem
-2. **Språkbredd** — SonarQube stöder 35+ språk, Semgrep 30+. Vi stöder 7
+1. **Regeldjup** — SonarQube har 5,000+ regler vs våra 49. De fångar fler kodkvalitetsproblem
+2. **Språkbredd** — SonarQube stöder 35+ språk, Semgrep 30+. Vi stöder 9
 3. **SCA/CVE-scanning** — Snyk och Semgrep Supply Chain mappar dependencies mot kända sårbarheter. Vi gör det inte
 4. **Enterprise features** — SSO, RBAC, compliance-rapporter, portfolio management hos SonarQube/Snyk
 5. **Taint analysis** — Semgrep och SonarQube gör cross-function/cross-file dataflödesanalys. Vi gör regex + AST
@@ -222,7 +227,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 - CLAUDE.md / .cursorrules installation
 - GitHub Action template
 - MCP Server (self-hosted)
-- Samtliga 35+ analysregler
+- Samtliga 49 analysregler
 - AST-analys (tree-sitter)
 
 ### Vad kräver cloud/API
@@ -435,10 +440,10 @@ CodeTrust har en generös free tier. CLI, pre-commit hook, VS Code extension och
 De verktygen hittar kodkvalitetsproblem och kända CVE:er i kända paket. CodeTrust löser ett annat problem: att verifiera att det AI föreslår *överhuvudtaget existerar och fungerar*. Ett paket utan CVE:er men som inte existerar kraschar din applikation. Använd CodeTrust *tillsammans med* befintliga verktyg.
 
 **Q: Fungerar CodeTrust offline?**
-Delvis. Statisk analys (35+ regler), AST-analys, pre-commit hook och VS Code-extensionens embedded scanner fungerar fullt offline. Paketverifiering och Docker-verifiering kräver internet (de kontaktar registries).
+Delvis. Statisk analys (49 regler), AST-analys, pre-commit hook och VS Code-extensionens embedded scanner fungerar fullt offline. Paketverifiering och Docker-verifiering kräver internet (de kontaktar registries).
 
 **Q: Vilka språk stöds?**
-Python, JavaScript, TypeScript, Go, Rust, Java, Shell. AST-analys via tree-sitter stöder de fem första.
+Python, JavaScript, TypeScript, Go, Rust, Java, Shell, Dockerfile, YAML. AST-analys via tree-sitter stöder de fem första.
 
 **Q: Hur snabbt är det?**
 Statisk analys: <100ms. Paketverifiering: ~500ms (med cache: <50ms). Full deep scan: ~1–2 sekunder. GitHub Action scan: ~10 sekunder.
@@ -552,4 +557,4 @@ En linter (ruff, ESLint) kontrollerar stil och syntax. CodeTrust verifierar att 
 
 ---
 
-*CodeTrust v1.5.0 — Proprietary License — Built for the AI coding era.*
+*CodeTrust v1.8.0 — Proprietary License — Built for the AI coding era.*

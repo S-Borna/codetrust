@@ -10,9 +10,12 @@ AI code verification platform — MCP server + cloud API that catches hallucinat
 
 | Layer | Capability | How |
 |-------|-----------|-----|
-| **Static Analysis** | Detect anti-patterns, secrets, eval/exec, SQL injection, etc. | Regex engine, 35+ rules |
-| **Package Verification** | Verify imports exist in real registries | PyPI, npm, Docker Hub |
+| **Static Analysis** | Detect anti-patterns, secrets, eval/exec, SQL injection, container & CI/CD issues | Regex engine, 49 rules |
+| **Package Verification** | Verify imports exist in real registries | PyPI, npm, crates.io, Go proxy |
 | **Docker Verification** | Verify base images and tags exist | Docker Hub API |
+| **Container Hardening** | Detect root user, latest tags, missing WORKDIR, exposed secrets | Dockerfile rules |
+| **CI/CD Analysis** | Unpinned actions, missing timeouts, hardcoded IPs | YAML/workflow rules |
+| **AI Drift Score** | Composite 0–100 trust metric across 6 categories | Grades A–F |
 | **Enterprise Checks** | Validate repo structure | README, LICENSE, tests, etc. |
 | **Deep Scan** | All layers combined in one pass | Orchestrated scan |
 

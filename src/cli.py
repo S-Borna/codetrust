@@ -44,9 +44,131 @@ WARN_RULES: list[tuple[str, str, str]] = [
     ("wildcard_import", r"from\s+\S+\s+import\s+\*", "Wildcard import."),
     ("bare_except", r"except\s*:", "Bare except — catch specific exceptions."),
     ("any_type", r":\s*[Aa]ny\b", "Avoid Any type."),
+    # Symptom-Fix Detection (Law 3)
+    (
+        "null_coalesce_smell",
+        r'\w+\s*=\s*\w+\s+or\s+(?:""|\'\'|\[\]|\{\}|None|0|False)\s*$',
+        "Defensive 'value or default' hides why value might be None.",
+    ),
+    (
+        "suppress_lint",
+        r"(?:#\s*noqa|#\s*type:\s*ignore|@SuppressWarnings|eslint-disable|pragma:\s*no\s*cover)",
+        "Lint suppression — fix the underlying issue instead.",
+    ),
+    # Anti-Assumption (Law 2)
+    (
+        "debug_mode_enabled",
+        r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1)\b",
+        "Debug mode enabled — ensure this is not shipped to production.",
+    ),
+    (
+        "hardcoded_port",
+        r"(?i)(?:port|PORT)\s*[:=]\s*\d{2,5}\b",
+        "Hardcoded port — use environment variable.",
+    ),
+    # DevOps
+    (
+        "unbounded_retry",
+        r"(?:max_retries|retry|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)",
+        "High retry count without timeout guard.",
+    ),
+    (
+        "retry_exponential_unbounded",
+        r"sleep\s*\(.*\*\*",
+        "Exponential backoff without total timeout cap.",
+    ),
+    (
+        "blocking_prestart",
+        r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)",
+        "Migration blocks server start — wrap in timeout.",
+    ),
 ]
 
-SOURCE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh"}
+# SQL-specific rules (only fire on .sql files)
+SQL_BLOCK_RULES: list[tuple[str, str, str]] = [
+    ("sql_select_star", r"(?i)\bSELECT\s+\*", "SELECT * — specify columns explicitly."),
+    ("sql_delete_no_where", r"(?i)^\s*DELETE\s+FROM\s+\w+\s*;", "DELETE without WHERE."),
+    (
+        "sql_update_no_where",
+        r"(?i)^\s*UPDATE\s+\w+\s+SET\s+(?!.*\\bWHERE\\b)[^;]*;\s*$",
+        "UPDATE without WHERE.",
+    ),
+    (
+        "sql_drop_no_if_exists",
+        r"(?i)\bDROP\s+(TABLE|DATABASE|INDEX|VIEW)\s+(?!IF\s+EXISTS\b)\w+",
+        "DROP without IF EXISTS.",
+    ),
+    ("sql_grant_all", r"(?i)\bGRANT\s+ALL\b", "GRANT ALL gives excessive privileges."),
+    (
+        "sql_foreign_key_checks_off",
+        r"(?i)SET\s+FOREIGN_KEY_CHECKS\s*=\s*0",
+        "Disabling foreign key checks.",
+    ),
+]
+
+SQL_WARN_RULES: list[tuple[str, str, str]] = [
+    (
+        "sql_float_for_money",
+        r"(?i)\b(selling_price|cost|price|amount|balance|salary|total|wholesale_cost)\s+FLOAT\b",
+        "FLOAT for money — use DECIMAL(10,2).",
+    ),
+    ("sql_varchar_no_length", r"(?i)\bVARCHAR\s*\(\s*\)", "VARCHAR without length."),
+    ("sql_todo_hack", r"(?i)--\s*(todo|hack|fixme|xxx|temp)\b", "Temporary marker in SQL."),
+]
+
+# Container Hardening rules (Dockerfiles)
+DOCKER_BLOCK_RULES: list[tuple[str, str, str]] = [
+    (
+        "docker_env_secret",
+        r"(?i)^(?:ENV|ARG)\s+\S*(?:SECRET|PASSWORD|TOKEN|API_KEY)\S*\s",
+        "Secret exposed via ENV/ARG — use build secrets or runtime env.",
+    ),
+]
+
+DOCKER_WARN_RULES: list[tuple[str, str, str]] = [
+    (
+        "docker_latest_tag",
+        r"^FROM\s+\S+:latest\b",
+        "FROM :latest — pin specific image version.",
+    ),
+]
+
+# CI/CD rules (GitHub Actions, etc.)
+CI_WARN_RULES: list[tuple[str, str, str]] = [
+    (
+        "ci_unpinned_action",
+        r"uses:\s*\S+@(?:main|master|latest)\b",
+        "Unpinned action — pin to SHA or version tag.",
+    ),
+]
+
+# DevOps-specific rules (Dockerfile, YAML, TOML)
+DEVOPS_WARN_RULES: list[tuple[str, str, str]] = [
+    (
+        "healthcheck_timeout_low",
+        r"(?i)healthcheck.*timeout.*[:=]\s*(?:[1-9]|[12]\d)\b",
+        "Healthcheck timeout under 30s may be too aggressive.",
+    ),
+    (
+        "hardcoded_ip",
+        r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b",
+        "Hardcoded IP address — use DNS or config variable.",
+    ),
+    (
+        "api_key_in_config",
+        r'(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*["\'][^"\']{8,}["\']',
+        "API key in config file — use environment variable.",
+    ),
+]
+
+SOURCE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
+               ".sql", ".yml", ".yaml", ".toml"}
+DEVOPS_EXTS = {".yml", ".yaml", ".toml"}
+SQL_EXTS = {".sql"}
+DOCKER_EXTS = set()  # Dockerfiles matched by name, not extension
+DOCKER_NAMES = {"dockerfile"}
+CI_DIRS = {".github"}  # CI files live under .github/workflows/
+DEVOPS_NAMES = {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile"}
 
 # --- Colors ---
 
@@ -69,7 +191,7 @@ def color(text: str, c: str) -> str:
 
 
 def scan_file(filepath: str) -> list[dict[str, str | int]]:
-    """Scan a single file for anti-patterns."""
+    """Scan a single file for anti-patterns, routing rules by file type."""
     findings: list[dict[str, str | int]] = []
     try:
         with open(filepath, encoding="utf-8", errors="ignore") as f:
@@ -77,14 +199,37 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
     except OSError:
         return findings
 
-    basename = os.path.basename(filepath)
+    basename = os.path.basename(filepath).lower()
+    ext = Path(filepath).suffix.lower()
+
     if basename.startswith("test_") or basename.startswith("conftest"):
         return findings  # Skip test files
+
+    is_dockerfile = basename.startswith("dockerfile")
+    is_ci = ".github" in filepath and ext in {".yml", ".yaml"}
+    is_devops = ext in DEVOPS_EXTS or basename in DEVOPS_NAMES
+
+    # Choose rule sets based on file type
+    if ext in SQL_EXTS:
+        block_rules = SQL_BLOCK_RULES
+        warn_rules = SQL_WARN_RULES
+    elif is_dockerfile:
+        block_rules = BLOCK_RULES + DOCKER_BLOCK_RULES
+        warn_rules = WARN_RULES + DOCKER_WARN_RULES + DEVOPS_WARN_RULES
+    elif is_ci:
+        block_rules = BLOCK_RULES
+        warn_rules = WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES
+    elif is_devops:
+        block_rules = BLOCK_RULES
+        warn_rules = WARN_RULES + DEVOPS_WARN_RULES
+    else:
+        block_rules = BLOCK_RULES
+        warn_rules = WARN_RULES
 
     for line_num, line in enumerate(lines, 1):
         if "noqa" in line:
             continue
-        for rule_id, pattern, message in BLOCK_RULES:
+        for rule_id, pattern, message in block_rules:
             if re.search(pattern, line):
                 findings.append({
                     "rule_id": rule_id,
@@ -93,7 +238,7 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
                     "file": filepath,
                     "line": line_num,
                 })
-        for rule_id, pattern, message in WARN_RULES:
+        for rule_id, pattern, message in warn_rules:
             if re.search(pattern, line):
                 findings.append({
                     "rule_id": rule_id,
@@ -102,6 +247,27 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
                     "file": filepath,
                     "line": line_num,
                 })
+
+    # File-level checks for Dockerfiles
+    if is_dockerfile:
+        content = "".join(lines)
+        if not re.search(r"^\s*USER\s+\S+", content, re.MULTILINE):
+            findings.append({
+                "rule_id": "docker_root_user",
+                "severity": "WARN",
+                "message": "Dockerfile has no USER instruction — runs as root.",
+                "file": filepath,
+                "line": 1,
+            })
+        if not re.search(r"^\s*WORKDIR\s+", content, re.MULTILINE):
+            findings.append({
+                "rule_id": "docker_no_workdir",
+                "severity": "INFO",
+                "message": "Dockerfile has no WORKDIR — set explicit working directory.",
+                "file": filepath,
+                "line": 1,
+            })
+
     return findings
 
 
@@ -230,6 +396,24 @@ def cmd_init(args: argparse.Namespace) -> int:
 # --- Scan command ---
 
 
+def _calculate_drift_score(findings: list[dict]) -> dict:
+    """Calculate AI Drift Score from CLI scan findings."""
+    weights = {"BLOCK": 10, "WARN": 3, "INFO": 1}
+    total_weight = sum(weights.get(f.get("severity", "INFO"), 1) for f in findings)
+    score = max(0, 100 - total_weight)
+    if score >= 90:
+        grade = "A"
+    elif score >= 70:
+        grade = "B"
+    elif score >= 50:
+        grade = "C"
+    elif score >= 30:
+        grade = "D"
+    else:
+        grade = "F"
+    return {"score": score, "grade": grade}
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     """Scan files for anti-patterns."""
     targets = args.targets
@@ -252,10 +436,13 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     blocks = [f for f in all_findings if f.get("severity") == "BLOCK"]
     warns = [f for f in all_findings if f.get("severity") == "WARN"]
+    infos = [f for f in all_findings if f.get("severity") == "INFO"]
+    drift = _calculate_drift_score(all_findings)
 
     # Output
     print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
-    print(f"   Files: {files_scanned} | Findings: {len(all_findings)}\n")
+    print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
+    print(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
 
     if blocks:
         print(color("  🚫 BLOCK — must fix:", RED))
@@ -271,7 +458,15 @@ def cmd_scan(args: argparse.Namespace) -> int:
             print(f"     ... and {len(warns) - 20} more")
         print()
 
-    if not blocks and not warns:
+    if infos and not args.json:
+        print(color("  i  INFO:", BLUE))
+        for f in infos[:10]:
+            print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        if len(infos) > 10:
+            print(f"     ... and {len(infos) - 10} more")
+        print()
+
+    if not blocks and not warns and not infos:
         print(color("  ✅ PASS — no issues found\n", GREEN))
 
     # JSON output
@@ -282,6 +477,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
             "total_findings": len(all_findings),
             "blocks": len(blocks),
             "warnings": len(warns),
+            "infos": len(infos),
+            "drift_score": drift,
             "findings": all_findings,
         }
         print(json.dumps(result, indent=2, default=str))

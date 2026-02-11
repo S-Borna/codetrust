@@ -1,59 +1,204 @@
 #!/usr/bin/env python3
-"""CodeTrust pre-commit hook — blocks commits with anti-patterns."""
+"""
+CodeTrust pre-commit hook — MANDATORY quality gate.
+Scans staged files for anti-patterns before allowing a commit.
 
+Install (recommended — version-controlled, cannot be deleted):
+    git config core.hooksPath hooks
+
+Legacy install (copies to .git/hooks — can be deleted):
+    cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+"""
+
+import os
 import re
 import subprocess
 import sys
 
-BLOCK_PATTERNS = [
-    (r"<<[-'']?\w+", "Heredoc detected"),
-    (r'(?i)(api[_-]?key|secret|password|token|credentials)\s*[:=]\s*["\'][^"\']{8,}["\']', "Possible hardcoded secret"),
+BLOCK_PATTERNS: list[tuple[str, str]] = [
+    (r"<<[-']?\w+", "Heredoc detected — use template files instead"),
+    (
+        r"""(?i)(api[_-]?key|secret|password|token|credentials)\s*[:=]\s*['"][^'"]{8,}['"]""",
+        "Possible hardcoded secret",
+    ),
     (r"\b(eval|exec)\s*\(", "eval/exec is a security risk"),
-    (r"pickle\.loads?\s*\(", "pickle.load is unsafe"),
+    (
+        r"""(execute|cursor\.execute)\s*\(\s*(?:f['"]|.*\.format\s*\()""",
+        "Possible SQL injection via string formatting",
+    ),
+    (r"pickle\.loads?\s*\(", "pickle.load is unsafe with untrusted data"),
+    # Container Hardening
+    (
+        r"(?i)^(?:ENV|ARG)\s+\S*(?:SECRET|PASSWORD|TOKEN|API_KEY)\S*\s",
+        "Secret exposed via Dockerfile ENV/ARG — use build secrets",
+    ),
 ]
 
-WARN_PATTERNS = [
+WARN_PATTERNS: list[tuple[str, str]] = [
     (r"(?i)#\s*(todo|hack|fixme|xxx|temp)\b", "Unresolved marker"),
-    (r"\bconsole\.(log|debug|info)\b", "Use structured logger"),
-    (r"^\s*print\s*\(", "Use logger, not print()"),
-    (r"from\s+\S+\s+import\s+\*", "Wildcard import"),
-    (r"except\s*:", "Bare except"),
+    (r"\bconsole\.(log|debug|info)\b", "Use structured logger, not console.log"),
+    (r"^\s*print\s*\(", "Use structlog, not print()"),
+    (r"from\s+\S+\s+import\s+\*", "Wildcard import — import explicitly"),
+    (r":\s*[Aa]ny\b", "Avoid Any type — use explicit types"),
+    (r"except\s*:", "Bare except — catch specific exceptions"),
+    # Symptom-Fix Detection (Law 3)
+    (
+        r'(?:#\s*noqa|#\s*type:\s*ignore|@SuppressWarnings|eslint-disable|pragma:\s*no\s*cover)',
+        "Lint suppression — fix the underlying issue instead",
+    ),
+    (
+        r"""\w+\s*=\s*\w+\s+or\s+(?:""|''|\[\]|\{\}|None|0|False)\s*$""",
+        "Defensive 'value or default' hides root cause",
+    ),
+    # Anti-Assumption (Law 2)
+    (r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1)\b", "Debug mode enabled"),
+    (r"(?i)(?:port|PORT)\s*[:=]\s*\d{2,5}\b", "Hardcoded port — use env variable"),
+    # DevOps rules
+    (r"(?:max_retries|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)", "High retry count without timeout guard"),
+    (r"sleep\s*\(.*\*\*", "Exponential backoff without total timeout cap"),
+    (r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)", "Migration blocks server start — wrap in timeout"),
+    # Container
+    (r"^FROM\s+\S+:latest\b", "FROM :latest — pin specific image version"),
+    # CI/CD
+    (r"uses:\s*\S+@(?:main|master|latest)\b", "Unpinned action — pin to SHA or version tag"),
 ]
 
-def main():
+
+def get_staged_files() -> list[str]:
+    """Get list of staged files for commit."""
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
-    files = [f for f in result.stdout.strip().split("\n") if f]
-    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh"}
-    files = [f for f in files if any(f.endswith(e) for e in source_exts)]
-    files = [f for f in files if not f.split("/")[-1].startswith("test_")]
+    return [f for f in result.stdout.strip().split("\n") if f]
 
-    blocks, warns = [], []
-    for filepath in files:
-        try:
-            with open(filepath, encoding="utf-8", errors="ignore") as fh:
-                for i, line in enumerate(fh, 1):
-                    for p, m in BLOCK_PATTERNS:
-                        if re.search(p, line):
-                            blocks.append(f"  \U0001f6ab {filepath}:{i} — {m}")
-                    for p, m in WARN_PATTERNS:
-                        if re.search(p, line):
-                            warns.append(f"  \u26a0\ufe0f  {filepath}:{i} — {m}")
-        except OSError:
-            pass
 
-    if warns:
+def _try_cli_scan(files: list[str]) -> int | None:
+    """Try scanning via `python -m src.cli scan` (offline, full engine).
+
+    Returns exit code on success, None if CLI is not available.
+    """
+    # Locate python in .venv or system
+    for py in (".venv/bin/python", "python3", "python"):
+        if " " not in py and not os.path.isabs(py):
+            # Check if available
+            check = subprocess.run(
+                [py, "-c", "import src.cli"],
+                capture_output=True,
+                timeout=5,
+            )
+            if check.returncode != 0:
+                continue
+        result = subprocess.run(
+            [py, "-m", "src.cli", "scan", "--json", *files],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode >= 0:
+            # Parse JSON output for pretty display
+            try:
+                import json
+                lines = result.stdout.strip().split("\n")
+                # Find JSON block (skip the pretty header)
+                for i, ln in enumerate(lines):
+                    if ln.strip().startswith("{"):
+                        data = json.loads("\n".join(lines[i:]))
+                        verdict = data.get("verdict", "PASS")
+                        total = data.get("total_findings", 0)
+                        blocks = data.get("blocks", 0)
+                        if blocks > 0:
+                            print(f"\n\U0001f6ab CodeTrust BLOCKED ({blocks} issues, {total} total)")
+                            for f in data.get("findings", []):
+                                if f.get("severity") == "BLOCK":
+                                    print(f"  \U0001f6ab {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+                            print("\nFix the issues above before committing.\n")
+                            return 1
+                        elif total > 0:
+                            print(f"\n\u26a0\ufe0f  CodeTrust: {verdict} ({total} warnings)")
+                            return 0
+                        else:
+                            print("\u2705 CodeTrust: All checks passed.")
+                            return 0
+                        break
+            except (json.JSONDecodeError, KeyError, IndexError):
+                pass
+            # Fallback: use raw exit code
+            return result.returncode
+    return None
+
+
+def scan_file(filepath: str) -> tuple[list[str], list[str]]:
+    """Scan a single file for anti-patterns (regex fallback)."""
+    blocks: list[str] = []
+    warns: list[str] = []
+    try:
+        with open(filepath, encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                for pattern, msg in BLOCK_PATTERNS:
+                    if re.search(pattern, line):
+                        blocks.append(f"  \U0001f6ab {filepath}:{i} \u2014 {msg}")
+                for pattern, msg in WARN_PATTERNS:
+                    if re.search(pattern, line):
+                        warns.append(f"  \u26a0\ufe0f  {filepath}:{i} \u2014 {msg}")
+    except (OSError, UnicodeDecodeError):
+        pass
+    return blocks, warns
+
+
+def main() -> int:
+    """Run pre-commit checks on staged files."""
+    files = get_staged_files()
+    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
+                   ".sql", ".yml", ".yaml", ".toml"}
+    # Exclude test files — they intentionally contain anti-patterns as fixtures
+    test_prefixes = ("tests/", "test_")
+    source_files = [
+        f
+        for f in files
+        if any(f.endswith(ext) for ext in source_exts)
+        and not any(f.startswith(p) or f.split("/")[-1].startswith("test_") for p in test_prefixes)
+    ]
+
+    if not source_files:
+        return 0
+
+    # Try full CLI engine first (offline, no API dependency)
+    cli_result = _try_cli_scan(source_files)
+    if cli_result is not None:
+        return cli_result
+
+    # Fallback to embedded regex scan
+    all_blocks: list[str] = []
+    all_warns: list[str] = []
+    for filepath in source_files:
+        b, w = scan_file(filepath)
+        all_blocks.extend(b)
+        all_warns.extend(w)
+
+    if all_warns:
         print("\n\u26a0\ufe0f  CodeTrust Warnings:")
-        print("\n".join(warns))
-    if blocks:
-        print("\n\U0001f6ab CodeTrust BLOCKED:")
-        print("\n".join(blocks))
+        print("\n".join(all_warns))
+
+    if all_blocks:
+        print("\n\U0001f6ab CodeTrust BLOCKED this commit:")
+        print("\n".join(all_blocks))
+        print("\nFix the issues above before committing.\n")
         return 1
-    if not blocks and not warns:
+
+    if not all_blocks and not all_warns:
         print("\u2705 CodeTrust: All checks passed.")
+
     return 0
+
+
+def _check_bypass_attempt() -> None:
+    """Warn if someone tries to bypass the hook via --no-verify."""
+    # This runs as a safeguard — the hook itself is bypassed by --no-verify,
+    # but the GitHub Action provides a second mandatory gate.
+    pass
+
 
 if __name__ == "__main__":
     sys.exit(main())

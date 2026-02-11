@@ -27,6 +27,11 @@ BLOCK_PATTERNS: list[tuple[str, str]] = [
         "Possible SQL injection via string formatting",
     ),
     (r"pickle\.loads?\s*\(", "pickle.load is unsafe with untrusted data"),
+    # Container Hardening
+    (
+        r"(?i)^(?:ENV|ARG)\s+\S*(?:SECRET|PASSWORD|TOKEN|API_KEY)\S*\s",
+        "Secret exposed via Dockerfile ENV/ARG — use build secrets",
+    ),
 ]
 
 WARN_PATTERNS: list[tuple[str, str]] = [
@@ -36,10 +41,26 @@ WARN_PATTERNS: list[tuple[str, str]] = [
     (r"from\s+\S+\s+import\s+\*", "Wildcard import — import explicitly"),
     (r":\s*[Aa]ny\b", "Avoid Any type — use explicit types"),
     (r"except\s*:", "Bare except — catch specific exceptions"),
+    # Symptom-Fix Detection (Law 3)
+    (
+        r'(?:#\s*noqa|#\s*type:\s*ignore|@SuppressWarnings|eslint-disable|pragma:\s*no\s*cover)',
+        "Lint suppression — fix the underlying issue instead",
+    ),
+    (
+        r"""\w+\s*=\s*\w+\s+or\s+(?:""|''|\[\]|\{\}|None|0|False)\s*$""",
+        "Defensive 'value or default' hides root cause",
+    ),
+    # Anti-Assumption (Law 2)
+    (r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1)\b", "Debug mode enabled"),
+    (r"(?i)(?:port|PORT)\s*[:=]\s*\d{2,5}\b", "Hardcoded port — use env variable"),
     # DevOps rules
     (r"(?:max_retries|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)", "High retry count without timeout guard"),
     (r"sleep\s*\(.*\*\*", "Exponential backoff without total timeout cap"),
     (r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)", "Migration blocks server start — wrap in timeout"),
+    # Container
+    (r"^FROM\s+\S+:latest\b", "FROM :latest — pin specific image version"),
+    # CI/CD
+    (r"uses:\s*\S+@(?:main|master|latest)\b", "Unpinned action — pin to SHA or version tag"),
 ]
 
 
@@ -53,8 +74,63 @@ def get_staged_files() -> list[str]:
     return [f for f in result.stdout.strip().split("\n") if f]
 
 
+def _try_cli_scan(files: list[str]) -> int | None:
+    """Try scanning via `python -m src.cli scan` (offline, full engine).
+
+    Returns exit code on success, None if CLI is not available.
+    """
+    # Locate python in .venv or system
+    for py in (".venv/bin/python", "python3", "python"):
+        if " " not in py and not os.path.isabs(py):
+            # Check if available
+            check = subprocess.run(
+                [py, "-c", "import src.cli"],
+                capture_output=True,
+                timeout=5,
+            )
+            if check.returncode != 0:
+                continue
+        result = subprocess.run(
+            [py, "-m", "src.cli", "scan", "--json", *files],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode >= 0:
+            # Parse JSON output for pretty display
+            try:
+                import json
+                lines = result.stdout.strip().split("\n")
+                # Find JSON block (skip the pretty header)
+                for i, ln in enumerate(lines):
+                    if ln.strip().startswith("{"):
+                        data = json.loads("\n".join(lines[i:]))
+                        verdict = data.get("verdict", "PASS")
+                        total = data.get("total_findings", 0)
+                        blocks = data.get("blocks", 0)
+                        if blocks > 0:
+                            print(f"\n\U0001f6ab CodeTrust BLOCKED ({blocks} issues, {total} total)")
+                            for f in data.get("findings", []):
+                                if f.get("severity") == "BLOCK":
+                                    print(f"  \U0001f6ab {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+                            print("\nFix the issues above before committing.\n")
+                            return 1
+                        elif total > 0:
+                            print(f"\n\u26a0\ufe0f  CodeTrust: {verdict} ({total} warnings)")
+                            return 0
+                        else:
+                            print("\u2705 CodeTrust: All checks passed.")
+                            return 0
+                        break
+            except (json.JSONDecodeError, KeyError, IndexError):
+                pass
+            # Fallback: use raw exit code
+            return result.returncode
+    return None
+
+
 def scan_file(filepath: str) -> tuple[list[str], list[str]]:
-    """Scan a single file for anti-patterns."""
+    """Scan a single file for anti-patterns (regex fallback)."""
     blocks: list[str] = []
     warns: list[str] = []
     try:
@@ -74,7 +150,8 @@ def scan_file(filepath: str) -> tuple[list[str], list[str]]:
 def main() -> int:
     """Run pre-commit checks on staged files."""
     files = get_staged_files()
-    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh"}
+    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
+                   ".sql", ".yml", ".yaml", ".toml"}
     # Exclude test files — they intentionally contain anti-patterns as fixtures
     test_prefixes = ("tests/", "test_")
     source_files = [
@@ -87,6 +164,12 @@ def main() -> int:
     if not source_files:
         return 0
 
+    # Try full CLI engine first (offline, no API dependency)
+    cli_result = _try_cli_scan(source_files)
+    if cli_result is not None:
+        return cli_result
+
+    # Fallback to embedded regex scan
     all_blocks: list[str] = []
     all_warns: list[str] = []
     for filepath in source_files:

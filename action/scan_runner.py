@@ -115,7 +115,8 @@ def scan_files(
     for file_path in files:
         try:
             code = file_path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        except OSError as exc:
+            print(f"Warning: cannot read {file_path}: {exc}")
             continue
 
         findings = analyzer.scan_code(code, str(file_path))

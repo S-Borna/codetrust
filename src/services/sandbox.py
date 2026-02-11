@@ -249,7 +249,7 @@ class SandboxService:
             proc.kill()
             await asyncio.wait_for(proc.wait(), timeout=5.0)
         except (ProcessLookupError, TimeoutError):
-            pass
+            return  # process already exited
 
     @staticmethod
     def _truncate_output(data: bytes) -> str:

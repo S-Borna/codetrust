@@ -6,12 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust — Trust the code. Ship with proof.</title>
     <meta name="description"
-        content="7-layer verification platform for AI-generated code. 672 tests. Zero hallucinated packages. Python, JS, TS, Go, Rust, SQL, Docker, YAML.">
+        content="9-layer verification platform for AI-generated code. 672 tests. Zero hallucinated packages. Python, JS, TS, Go, Rust, SQL, Docker, YAML.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow">
 
     <meta property="og:title" content="CodeTrust — Trust the code. Ship with proof.">
-    <meta property="og:description" content="AI code verification. 7 layers. 672 tests. Zero tolerance.">
+    <meta property="og:description" content="AI code verification. 9 layers. 672 tests. Zero tolerance.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.saidborna.com">
     <meta name="twitter:card" content="summary_large_image">
@@ -111,7 +111,7 @@
         }
 
         .topbar-logo .trust {
-            color: var(--indigo);
+            color: var(--green);
         }
 
         .topbar-nav {
@@ -515,7 +515,7 @@
         }
 
         /* ═══════════════════════════════════════════════════════════
-           PIPELINE — 7 layers
+           PIPELINE — 9 layers
            ═══════════════════════════════════════════════════════════ */
         .pipeline {
             padding: 8rem clamp(1.5rem, 6vw, 6rem);
@@ -1041,11 +1041,11 @@
     <section class="hero">
         <div class="hero-content">
             <img src="logo.png" alt="CodeTrust" width="280" style="margin-bottom: 2rem; display: inline-block;">
-            <span class="hero-version">672 tests passing — 7 layers — 49 rules — zero hallucinations</span>
+            <span class="hero-version">672 tests passing — 9 layers — 49 rules — zero hallucinations</span>
             <h1>Trust the code<br><em>Ship with proof</em></h1>
             <p class="hero-text">
                 AI writes code fast. But fast doesn't mean safe. CodeTrust runs every line through
-                7 verification layers — catching hallucinated packages, broken configs, anti-patterns,
+                9 verification layers — catching hallucinated packages, broken configs, anti-patterns,
                 container issues, and CI/CD misconfigurations before they hit production. Built by one engineer. Backed
                 by 672 tests.
             </p>
@@ -1180,8 +1180,8 @@
      ═══════════════════════════════════════════════════════════════════ -->
     <section class="pipeline" id="pipeline">
         <div class="section-tag">Architecture</div>
-        <h2 class="reveal">7 layers — each catches what<br>the last one can't</h2>
-        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 7, it ships. If not — you know exactly
+        <h2 class="reveal">9 layers — each catches what<br>the last one can't</h2>
+        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 9, it ships. If not — you know exactly
             why</p>
 
         <div class="pipe-track reveal">
@@ -1189,13 +1189,22 @@
                 <div class="pipe-num">01</div>
                 <div class="pipe-content">
                     <h4>Static Analysis</h4>
-                    <p>Regex engine. 49 rules. Catches secrets, eval, injection, debug statements, container & CI/CD
-                        issues.</p>
+                    <p>Regex engine — 15 core rules catching secrets, eval/exec, injection, heredocs, debug statements.
+                    </p>
                     <div class="pipe-detail">~2ms per file</div>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">02</div>
+                <div class="pipe-content">
+                    <h4>Root Cause Analysis</h4>
+                    <p>4 rules that detect symptom-fixing: swallowed exceptions, lint suppression, defensive
+                        null-coalescing, uncommented sleeps.</p>
+                    <div class="pipe-detail">Law 3: Fix the cause, never the symptom</div>
+                </div>
+            </div>
+            <div class="pipe-step">
+                <div class="pipe-num">03</div>
                 <div class="pipe-content">
                     <h4>SQL Analysis</h4>
                     <p>13 dedicated rules for .sql files. SELECT *, DELETE without WHERE, FLOAT for money, GRANT ALL.
@@ -1204,7 +1213,7 @@
                 </div>
             </div>
             <div class="pipe-step">
-                <div class="pipe-num">03</div>
+                <div class="pipe-num">04</div>
                 <div class="pipe-content">
                     <h4>AST Analysis</h4>
                     <p>Tree-sitter structural parsing. Complexity, nesting depth, unused variables, unreachable code.
@@ -1213,7 +1222,25 @@
                 </div>
             </div>
             <div class="pipe-step">
-                <div class="pipe-num">04</div>
+                <div class="pipe-num">05</div>
+                <div class="pipe-content">
+                    <h4>Container Hardening</h4>
+                    <p>10 rules for Dockerfiles and docker-compose: root user, :latest tags, missing WORKDIR, ENV
+                        secrets, no healthcheck.</p>
+                    <div class="pipe-detail">shipped in v1.8.0</div>
+                </div>
+            </div>
+            <div class="pipe-step">
+                <div class="pipe-num">06</div>
+                <div class="pipe-content">
+                    <h4>IaC &amp; Config Analysis</h4>
+                    <p>7 rules for YAML, TOML, Terraform: hardcoded IPs, debug mode, API keys in config, unbounded
+                        retries.</p>
+                    <div class="pipe-detail">CI/CD pipeline &amp; infrastructure</div>
+                </div>
+            </div>
+            <div class="pipe-step">
+                <div class="pipe-num">07</div>
                 <div class="pipe-content">
                     <h4>Package Verification</h4>
                     <p>Live registry checks. Every import verified against PyPI, npm, crates.io, Go proxy.</p>
@@ -1221,7 +1248,7 @@
                 </div>
             </div>
             <div class="pipe-step">
-                <div class="pipe-num">05</div>
+                <div class="pipe-num">08</div>
                 <div class="pipe-content">
                     <h4>Docker Verification</h4>
                     <p>Validates base images and tags exist on Docker Hub and GHCR before you build.</p>
@@ -1229,18 +1256,11 @@
                 </div>
             </div>
             <div class="pipe-step">
-                <div class="pipe-num">06</div>
+                <div class="pipe-num">09</div>
                 <div class="pipe-content">
-                    <h4>Enterprise Checks</h4>
-                    <p>Repo structure audit. README, LICENSE, tests, .gitignore, CI config.</p>
-                    <div class="pipe-detail">production-readiness gate</div>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">07</div>
-                <div class="pipe-content">
-                    <h4>Deep Scan</h4>
-                    <p>All layers orchestrated in a single pass. One endpoint. Complete verdict.</p>
+                    <h4>Enterprise Gate</h4>
+                    <p>Repo structure audit + all 8 layers orchestrated. README, LICENSE, tests, CI config. One
+                        endpoint, complete verdict.</p>
                     <div class="pipe-detail">POST /v1/scan/deep</div>
                 </div>
             </div>
@@ -1451,7 +1471,7 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast<br>CodeTrust verifies it's right</h2>
-            <p>672 tests, 7 verification layers, 49 rules. Zero tolerance for hallucinated packages — built and
+            <p>672 tests, 9 verification layers, 49 rules. Zero tolerance for hallucinated packages — built and
                 maintained by one engineer who refuses to ship unchecked code</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"

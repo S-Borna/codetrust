@@ -1,0 +1,41 @@
+# .cursorrules — CodeTrust Enforcement for Cursor AI
+#
+# These rules apply to ALL AI agents working in this project.
+# They mirror CLAUDE.md enforcement but in Cursor's format.
+
+## MANDATORY: CodeTrust Enforcement Protocol
+
+Before writing ANY code:
+1. Call codetrust_pre_action with a description of what you plan to do
+2. If verdict is BLOCK → stop and fix the plan
+3. If verdict is WARN → acknowledge each warning
+
+After writing or modifying ANY file:
+1. Call codetrust_static_scan on every file you changed
+2. Call codetrust_deep_scan if you created new files or modified imports
+3. If any finding has severity BLOCK → fix immediately
+4. If any finding has severity WARN → fix or explain
+
+Before committing:
+1. Call codetrust_post_action with repo root and list of changed files
+2. All BLOCK findings must be resolved — zero tolerance
+3. Run ruff check src/ tests/ — zero warnings
+
+## Absolute Prohibitions (enforced by CodeTrust pre-commit hook)
+- No eval() or exec()
+- No hardcoded secrets (use environment variables)
+- No heredocs (use template files)
+- No pickle.load with untrusted data
+- No SQL string formatting (use parameterized queries)
+- No print() — use structlog
+- No wildcard imports
+- No bare except:
+- No Any types
+- No mutable default arguments
+
+## Quality Standards
+- Every function has type annotations
+- Every public function has a docstring
+- Max 40 lines per function
+- All external HTTP calls wrapped in try/except
+- All Pydantic models use strict=True

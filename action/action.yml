@@ -1,0 +1,64 @@
+name: 'CodeTrust Scan'
+description: 'Scan code for anti-patterns, security issues, and hallucinated packages'
+author: 'CodeTrust'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  api-url:
+    description: 'CodeTrust API URL'
+    required: false
+    default: 'https://codetrust-api-production.up.railway.app'
+  api-key:
+    description: 'CodeTrust API key for cloud scanning'
+    required: false
+  files:
+    description: 'Space-separated list of files to scan (default: changed files)'
+    required: false
+  fail-on-block:
+    description: 'Fail the action if BLOCK findings are detected'
+    required: false
+    default: 'true'
+
+outputs:
+  verdict:
+    description: 'Scan verdict: PASS, WARN, or BLOCK'
+  total-findings:
+    description: 'Total number of findings'
+  blocks:
+    description: 'Number of BLOCK severity findings'
+  report:
+    description: 'Path to the markdown report file'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install httpx
+
+    - name: Run scan
+      shell: bash
+      env:
+        CODETRUST_API_URL: ${{ inputs.api-url }}
+        CODETRUST_API_KEY: ${{ inputs.api-key }}
+        CHANGED_FILES: ${{ inputs.files }}
+      run: |
+        if [ -z "$CHANGED_FILES" ]; then
+          # Auto-detect changed files
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM origin/$GITHUB_BASE_REF...HEAD | grep -E '\.(py|js|ts|go|rs|java|sh)$' || true)
+          else
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM HEAD~1 HEAD | grep -E '\.(py|js|ts|go|rs|java|sh)$' || true)
+          fi
+          export CHANGED_FILES
+        fi
+        python ${{ github.action_path }}/scan.py
+        echo "verdict=$(grep -oP '(?<=Verdict: )\w+' codetrust-report.md || echo PASS)" >> $GITHUB_OUTPUT

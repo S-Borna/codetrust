@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/codetrust)](https://pypi.org/project/codetrust/)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust)](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-blue.svg)](LICENSE)
 
 AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns before they hit production.
 
@@ -231,4 +231,4 @@ ruff check src/ tests/
 
 ## License
 
-MIT
+Proprietary — Copyright (c) 2026 Said Borna. All rights reserved. See [LICENSE](LICENSE).

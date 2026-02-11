@@ -1,152 +1,152 @@
 {
-  "name": "codetrust",
-  "displayName": "CodeTrust",
-  "description": "AI code verification — catches hallucinated packages, broken configs, and code anti-patterns inline",
-  "version": "1.4.0",
-  "publisher": "codetrust",
-  "license": "MIT",
-  "icon": "images/icon.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/codetrust/codetrust"
-  },
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Linters",
-    "Testing",
-    "Other"
-  ],
-  "keywords": [
-    "security",
-    "verification",
-    "anti-patterns",
-    "code-quality",
-    "ai-safety"
-  ],
-  "activationEvents": [
-    "onLanguage:python",
-    "onLanguage:javascript",
-    "onLanguage:typescript",
-    "onLanguage:go",
-    "onLanguage:rust",
-    "onLanguage:dockerfile"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "codetrust.scanFile",
-        "title": "CodeTrust: Scan File"
-      },
-      {
-        "command": "codetrust.verifyImports",
-        "title": "CodeTrust: Verify Imports"
-      },
-      {
-        "command": "codetrust.verifyDockerfile",
-        "title": "CodeTrust: Verify Dockerfile"
-      },
-      {
-        "command": "codetrust.deepScan",
-        "title": "CodeTrust: Deep Scan"
-      },
-      {
-        "command": "codetrust.clearDiagnostics",
-        "title": "CodeTrust: Clear Diagnostics"
-      }
+    "name": "codetrust",
+    "displayName": "CodeTrust",
+    "description": "AI code verification — catches hallucinated packages, broken configs, and code anti-patterns inline",
+    "version": "1.4.0",
+    "publisher": "codetrust",
+    "license": "MIT",
+    "icon": "images/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/codetrust/codetrust"
+    },
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Linters",
+        "Testing",
+        "Other"
     ],
-    "configuration": {
-      "title": "CodeTrust",
-      "properties": {
-        "codetrust.apiUrl": {
-          "type": "string",
-          "default": "http://localhost:8000",
-          "description": "CodeTrust API server URL"
-        },
-        "codetrust.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for authentication (X-API-Key header)"
-        },
-        "codetrust.scanOnSave": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically scan files on save"
-        },
-        "codetrust.severityThreshold": {
-          "type": "string",
-          "enum": [
-            "INFO",
-            "WARN",
-            "BLOCK"
-          ],
-          "default": "INFO",
-          "description": "Minimum severity level to show as diagnostics"
-        },
-        "codetrust.enabledLanguages": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "python",
-              "javascript",
-              "typescript",
-              "go",
-              "rust"
-            ]
-          },
-          "default": [
-            "python",
-            "javascript",
-            "typescript",
-            "go",
-            "rust"
-          ],
-          "description": "Languages to scan"
-        },
-        "codetrust.scanType": {
-          "type": "string",
-          "enum": [
-            "static",
-            "deep"
-          ],
-          "default": "static",
-          "description": "Scan type: 'static' for fast regex-based, 'deep' for full analysis"
-        },
-        "codetrust.verifyImportsOnSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Verify package imports on save (requires network)"
-        },
-        "codetrust.timeout": {
-          "type": "number",
-          "default": 15000,
-          "description": "Request timeout in milliseconds"
+    "keywords": [
+        "security",
+        "verification",
+        "anti-patterns",
+        "code-quality",
+        "ai-safety"
+    ],
+    "activationEvents": [
+        "onLanguage:python",
+        "onLanguage:javascript",
+        "onLanguage:typescript",
+        "onLanguage:go",
+        "onLanguage:rust",
+        "onLanguage:dockerfile"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "codetrust.scanFile",
+                "title": "CodeTrust: Scan File"
+            },
+            {
+                "command": "codetrust.verifyImports",
+                "title": "CodeTrust: Verify Imports"
+            },
+            {
+                "command": "codetrust.verifyDockerfile",
+                "title": "CodeTrust: Verify Dockerfile"
+            },
+            {
+                "command": "codetrust.deepScan",
+                "title": "CodeTrust: Deep Scan"
+            },
+            {
+                "command": "codetrust.clearDiagnostics",
+                "title": "CodeTrust: Clear Diagnostics"
+            }
+        ],
+        "configuration": {
+            "title": "CodeTrust",
+            "properties": {
+                "codetrust.apiUrl": {
+                    "type": "string",
+                    "default": "http://localhost:8000",
+                    "description": "CodeTrust API server URL"
+                },
+                "codetrust.apiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "API key for authentication (X-API-Key header)"
+                },
+                "codetrust.scanOnSave": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically scan files on save"
+                },
+                "codetrust.severityThreshold": {
+                    "type": "string",
+                    "enum": [
+                        "INFO",
+                        "WARN",
+                        "BLOCK"
+                    ],
+                    "default": "INFO",
+                    "description": "Minimum severity level to show as diagnostics"
+                },
+                "codetrust.enabledLanguages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "python",
+                            "javascript",
+                            "typescript",
+                            "go",
+                            "rust"
+                        ]
+                    },
+                    "default": [
+                        "python",
+                        "javascript",
+                        "typescript",
+                        "go",
+                        "rust"
+                    ],
+                    "description": "Languages to scan"
+                },
+                "codetrust.scanType": {
+                    "type": "string",
+                    "enum": [
+                        "static",
+                        "deep"
+                    ],
+                    "default": "static",
+                    "description": "Scan type: 'static' for fast regex-based, 'deep' for full analysis"
+                },
+                "codetrust.verifyImportsOnSave": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Verify package imports on save (requires network)"
+                },
+                "codetrust.timeout": {
+                    "type": "number",
+                    "default": 15000,
+                    "description": "Request timeout in milliseconds"
+                }
+            }
         }
-      }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js",
+        "package": "npx @vscode/vsce package"
+    },
+    "devDependencies": {
+        "@types/glob": "^8.1.0",
+        "@types/mocha": "^10.0.6",
+        "@types/node": "^20.11.0",
+        "@types/vscode": "^1.85.0",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "@vscode/test-electron": "^2.3.8",
+        "@vscode/vsce": "^2.22.0",
+        "eslint": "^8.56.0",
+        "mocha": "^10.3.0",
+        "typescript": "^5.3.3"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "package": "npx @vscode/vsce package"
-  },
-  "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "@vscode/test-electron": "^2.3.8",
-    "@vscode/vsce": "^2.22.0",
-    "eslint": "^8.56.0",
-    "mocha": "^10.3.0",
-    "typescript": "^5.3.3"
-  }
 }

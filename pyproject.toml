@@ -68,6 +68,7 @@ dev = [
 ]
 
 [project.scripts]
+codetrust = "src.cli:main"
 codetrust-mcp = "src.server:mcp.run"
 codetrust-api = "src.api:run"
 

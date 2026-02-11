@@ -1,44 +1,44 @@
-name: 'CodeTrust Scan'
-description: 'Scan code for anti-patterns, security issues, and hallucinated packages'
-author: 'CodeTrust'
+name: "CodeTrust Scan"
+description: "Scan code for anti-patterns, security issues, and hallucinated packages"
+author: "CodeTrust"
 
 branding:
-  icon: 'shield'
-  color: 'blue'
+  icon: "shield"
+  color: "blue"
 
 inputs:
   api-url:
-    description: 'CodeTrust API URL'
+    description: "CodeTrust API URL"
     required: false
-    default: 'https://codetrust-api-production.up.railway.app'
+    default: "https://codetrust-api-production.up.railway.app"
   api-key:
-    description: 'CodeTrust API key for cloud scanning'
+    description: "CodeTrust API key for cloud scanning"
     required: false
   files:
-    description: 'Space-separated list of files to scan (default: changed files)'
+    description: "Space-separated list of files to scan (default: changed files)"
     required: false
   fail-on-block:
-    description: 'Fail the action if BLOCK findings are detected'
+    description: "Fail the action if BLOCK findings are detected"
     required: false
-    default: 'true'
+    default: "true"
 
 outputs:
   verdict:
-    description: 'Scan verdict: PASS, WARN, or BLOCK'
+    description: "Scan verdict: PASS, WARN, or BLOCK"
   total-findings:
-    description: 'Total number of findings'
+    description: "Total number of findings"
   blocks:
-    description: 'Number of BLOCK severity findings'
+    description: "Number of BLOCK severity findings"
   report:
-    description: 'Path to the markdown report file'
+    description: "Path to the markdown report file"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: "3.12"
 
     - name: Install dependencies
       shell: bash

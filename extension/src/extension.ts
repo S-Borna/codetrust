@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Scan all already-open documents on activation
     for (const document of vscode.workspace.textDocuments) {
-        handleScanOnSave(deps, document).catch(() => {});
+        handleScanOnSave(deps, document).catch(() => { });
     }
 
     // Clear diagnostics when a file is closed

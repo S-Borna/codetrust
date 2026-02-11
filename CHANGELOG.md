@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Published to PyPI** — `pip install codetrust` — [pypi.org/project/codetrust](https://pypi.org/project/codetrust/)
+- **Published to VS Code Marketplace** — [SaidBorna.codetrust](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
+- **CLI tool** (`codetrust init/scan/status/doctor`) — install enforcement layers into any project
+- **Enforcement templates** — CLAUDE.md, .cursorrules, pre-commit hook, GitHub Action (in `src/templates/`)
 - **VS Code / Cursor Extension** (Phase 10) — editor extension for inline code verification
   - `extension/` TypeScript project with full VS Code extension scaffolding
   - Scan on save — automatic static analysis when saving supported files

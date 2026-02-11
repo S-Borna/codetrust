@@ -54,11 +54,13 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 ## 3. Vad CodeTrust gör — teknisk kapabilitet
 
 ### Layer 1: Statisk analys (regex + regler)
+
 - 35+ regler i tre svårighetsgrader: **BLOCK** (måste fixas), **WARN** (bör fixas), **INFO** (förslag)
 - Upptäcker: heredocs, hårdkodade hemligheter, `eval`/`exec`, SQL-injection via strängformattering, `pickle.load`, console.log, wildcard-imports, bare except, mutable defaults, magiska tal
 - Språkstöd: Python, JavaScript, TypeScript, Go, Rust, Java, Shell
 
 ### Layer 2: Paketverifiering mot verkliga registries
+
 - **PyPI** — verifierar Python-paket mot pypi.org (live API)
 - **npm** — verifierar JavaScript/TypeScript-paket mot registry.npmjs.org
 - **crates.io** — verifierar Rust-crates mot crates.io API
@@ -67,6 +69,7 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 - **Typosquatting-skydd** — fuzzy matching mot 500+ populära paket per ekosystem. Om `import reqeusts` inte hittas, föreslås `requests`
 
 ### Layer 3: AST-analys (tree-sitter)
+
 - Parsning till abstrakt syntaxträd för Python, JavaScript, TypeScript, Go, Rust
 - Cyklomatisk komplexitet per funktion (flaggar >10)
 - Oanvända variabler
@@ -74,24 +77,28 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 - Djup nesting (>4 nivåer)
 
 ### Layer 4: Docker-verifiering
+
 - Verifierar att base images existerar på Docker Hub (live API)
 - Verifierar att angivna taggar existerar
 - Föreslår tillgängliga taggar om den angivna saknas
 - Parsning av multi-stage builds (alla FROM-direktiv)
 
 ### Layer 5: Sandbox-exekvering
+
 - Kör kod i isolerade Docker-containrar
 - Säkerhetslimiter: 256MB minne, 10s timeout, ingen nätåtkomst, read-only filesystem
 - Fångar import-errors, syntax-errors, runtime-crashes
 - Stöd för Python, JavaScript, Go, Rust
 
 ### Layer 6: Enterprise-strukturvalidering
+
 - Verifierar att repot har: README, LICENSE, tester, .gitignore, pyproject.toml/package.json
 - Pre-action-kontroll (innan kod skrivs): validerar planen
 - Post-action-kontroll (efter kod skrivits): validerar slutresultatet
 - Genererar SARIF v2.1.0-output för GitHub Security-tabben
 
 ### Layer 7: Enforcement (blockering)
+
 - **CLAUDE.md / .cursorrules** — advisory rules direkt i projektets rot som AI läser
 - **VS Code-extension** — diagnostik i editorn (squiggly lines), scan-on-save, offline-fallback
 - **Pre-commit hook** — blockerar commits med BLOCK-findings. Versionskontrollerad via `core.hooksPath`
@@ -242,6 +249,7 @@ codetrust init
 ```
 
 `codetrust init` installerar automatiskt:
+
 1. `CLAUDE.md` — regler som AI-assistenter följer
 2. `.cursorrules` — regler för Cursor AI
 3. `hooks/pre-commit` — blockerar commits med anti-patterns
@@ -376,27 +384,29 @@ Layer 4 — Absolute        GitHub Action + branch protection
 
 | Kanal | Status | URL/Command |
 |-------|--------|-------------|
-| **PyPI** | Planerad | `pip install codetrust` |
-| **VS Code Marketplace** | Planerad | `ext install codetrust.codetrust` |
-| **GitHub** | Live | `github.com/S-Borna/codetrust` |
+| **PyPI** | **Live** | `pip install codetrust` — [pypi.org/project/codetrust](https://pypi.org/project/codetrust/) |
+| **VS Code Marketplace** | **Live** | `ext install SaidBorna.codetrust` — [marketplace.visualstudio.com](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) |
+| **GitHub** | **Live** | [github.com/S-Borna/codetrust](https://github.com/S-Borna/codetrust) |
 | **Docker Hub** | Planerad | `docker pull codetrust/codetrust` |
-| **Railway (cloud)** | Live | `codetrust-api-production.up.railway.app` |
+| **Railway (cloud)** | **Live** | [codetrust-api-production.up.railway.app](https://codetrust-api-production.up.railway.app) |
 
-### Publicering till PyPI (gratis)
+### Installera via PyPI
 
 ```bash
-pip install build twine
-python -m build
-twine upload dist/*          # kräver PyPI-konto + API token
+pip install codetrust
+codetrust scan .             # skanna aktuellt projekt
+codetrust init               # installera enforcement-lager
+codetrust doctor             # verifiera installation
 ```
 
-### Publicering till VS Code Marketplace (gratis)
+### Installera VS Code Extension
 
 ```bash
-cd extension
-npm install -g @vscode/vsce
-vsce package                 # skapar .vsix
-vsce publish                 # kräver Azure DevOps publisher
+# Från Marketplace (i VS Code)
+# Sök "CodeTrust" i Extensions-panelen
+
+# Eller via CLI
+code --install-extension SaidBorna.codetrust
 ```
 
 ### Self-hosting (Docker)
@@ -463,6 +473,7 @@ API-nycklar lagras som SHA-256-hashar i databasen (aldrig i klartext). De har fo
 Nej. MIT-licens, öppen källkod, self-hostbar. Du kan forka helt och hållet.
 
 **Q: Vilka kunder passar CodeTrust för?**
+
 - **Solo-utvecklare** som använder AI för kodning → gratis CLI
 - **Startup-team** (2–20 utvecklare) → CLI + GitHub Action + VS Code extension
 - **Enterprise** → Self-hostad API + SARIF + branch protection + scan logging

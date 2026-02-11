@@ -90,6 +90,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sandbox layer integrated into deep scan (optional `sandbox_run` field)
 - 63 new sandbox tests — **333 tests total**
 
+## [1.0.1] - 2026-02-10
+
+### Added
+
+- **Go & Rust Registry Support** (Phase 5) — extended registry verification to two new ecosystems
+  - `verify_go_module()` — verification against proxy.golang.org with version check
+  - `verify_crates_package()` — verification against crates.io with version check
+  - `extract_go_imports()` — regex parser for `import "..."` and `import (...)` blocks, skips stdlib
+  - `extract_rust_imports()` — regex parser for `use crate::` and `extern crate`, skips std/core/alloc
+  - `parse_go_mod()` — parses `require (...)` blocks to module→version mapping
+  - `parse_cargo_toml()` — parses `[dependencies]` to crate→version mapping
+  - Fuzzy matching suggestions for Go modules and Rust crates (top 200+ each)
+  - crates.io User-Agent header (`CodeTrust/1.0.0`)
+  - Language routing: `Language.GO` → Go proxy, `Language.RUST` → crates.io
+  - Comprehensive tests for Go/Rust verification, import extraction, manifest parsing
+
 ## [1.1.0] - 2026-02-10
 
 ### Added

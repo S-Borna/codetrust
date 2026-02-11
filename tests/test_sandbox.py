@@ -756,6 +756,10 @@ class TestSandboxAPIEndpoint:
         app.state.analyzer = StaticAnalyzer()
         app.state.ast_analyzer = AstAnalyzer()
         app.state.sandbox = SandboxService()
+        app.state.db = None
+        app.state.billing = None
+        app.state.auth = None
+        app.state.rate_limiter = None
 
         return TestClient(app, raise_server_exceptions=False)
 

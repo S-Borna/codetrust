@@ -4,8 +4,28 @@ import fakeredis.aioredis
 import httpx
 import pytest
 
+from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.services.cache import CacheService
 from src.services.registry import RegistryService
+
+
+@pytest.fixture(autouse=True)
+def _reset_ip_rate_limiter() -> None:
+    """Clear IP rate limiter buckets before every test.
+
+    The IPRateLimitMiddleware lives on the app singleton and its in-memory
+    buckets persist across tests.  All TestClient requests arrive from IP
+    'testclient', so without this reset the burst/window counters carry
+    over and cause spurious 429s.
+    """
+    from src.api import app
+
+    stack = app.middleware_stack
+    while stack is not None:
+        if isinstance(stack, IPRateLimitMiddleware):
+            stack._buckets.clear()
+            break
+        stack = getattr(stack, "app", None)
 
 
 @pytest.fixture()

@@ -168,6 +168,7 @@ Under byggandet av CodeTrust användes CodeTrust aktivt för att verifiera sin e
 | **PyPI** | **LIVE** | [`pip install codetrust`](https://pypi.org/project/codetrust/) |
 | **VS Code Marketplace** | **LIVE** | [`ext install SaidBorna.codetrust`](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) |
 | **Cloud API (Railway)** | **LIVE** | [`codetrust-api-production.up.railway.app`](https://codetrust-api-production.up.railway.app) |
+| **Website** | **LIVE** | [`codetrust.saidborna.com`](https://codetrust.saidborna.com) |
 | **GitHub** | **LIVE** | [`github.com/S-Borna/codetrust`](https://github.com/S-Borna/codetrust) |
 
 ### Installation (30 sekunder)
@@ -354,6 +355,7 @@ Nej. CodeTrust är proprietärt. Verktygen (CLI, extension, MCP-server) är grat
 
 - GitHub: [github.com/S-Borna](https://github.com/S-Borna)
 - Email: <said@saidborna.com>
+- Website: [codetrust.saidborna.com](https://codetrust.saidborna.com)
 - PyPI: [pypi.org/project/codetrust](https://pypi.org/project/codetrust/)
 - VS Code: [marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
 

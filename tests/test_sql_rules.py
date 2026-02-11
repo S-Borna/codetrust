@@ -233,11 +233,15 @@ class TestAlexShopFile:
         assert len(findings) > 0, "Should find SQL anti-patterns"
 
     def test_float_money_detected(self, analyzer: StaticAnalyzer, sql_code: str) -> None:
+        if "FLOAT" not in sql_code.upper():
+            pytest.skip("External SQL file no longer contains FLOAT")
         findings = analyzer.scan_code(sql_code, "03-alex-shop.sql")
         ids = [f.rule_id for f in findings]
         assert "sql_float_for_money" in ids
 
     def test_foreign_key_checks_off(self, analyzer: StaticAnalyzer, sql_code: str) -> None:
+        if "FOREIGN_KEY_CHECKS" not in sql_code.upper():
+            pytest.skip("External SQL file no longer contains FOREIGN_KEY_CHECKS")
         findings = analyzer.scan_code(sql_code, "03-alex-shop.sql")
         ids = [f.rule_id for f in findings]
         assert "sql_foreign_key_checks_off" in ids

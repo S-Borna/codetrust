@@ -56,9 +56,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/S-Borna/codetrust"
+Homepage = "https://codetrust.saidborna.com"
 Repository = "https://github.com/S-Borna/codetrust"
-Documentation = "https://github.com/S-Borna/codetrust#readme"
+Documentation = "https://codetrust.saidborna.com"
 "Bug Tracker" = "https://github.com/S-Borna/codetrust/issues"
 
 [project.optional-dependencies]

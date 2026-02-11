@@ -227,6 +227,7 @@ ruff check src/ tests/
 | **PyPI** | Live | `pip install codetrust` |
 | **VS Code Marketplace** | Live | Search "CodeTrust" or `code --install-extension SaidBorna.codetrust` |
 | **Cloud API** | Live | `https://codetrust-api-production.up.railway.app` |
+| **Website** | Live | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
 | **GitHub** | Live | `github.com/S-Borna/codetrust` |
 
 ## License

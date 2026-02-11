@@ -660,6 +660,10 @@ class TestAstScanEndpoint:
         app.state.docker = DockerVerifyService(cache, http_client)
         app.state.analyzer = StaticAnalyzer()
         app.state.ast_analyzer = AstAnalyzer()
+        app.state.db = None
+        app.state.billing = None
+        app.state.auth = None
+        app.state.rate_limiter = None
 
         return TestClient(app, raise_server_exceptions=False)
 
@@ -745,6 +749,10 @@ class TestDeepScanAstIntegration:
         app.state.docker = DockerVerifyService(cache, http_client)
         app.state.analyzer = StaticAnalyzer()
         app.state.ast_analyzer = AstAnalyzer()
+        app.state.db = None
+        app.state.billing = None
+        app.state.auth = None
+        app.state.rate_limiter = None
 
         return TestClient(app, raise_server_exceptions=False)
 

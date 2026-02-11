@@ -386,6 +386,7 @@ Layer 4 — Absolute        GitHub Action + branch protection
 |-------|--------|-------------|
 | **PyPI** | **Live** | `pip install codetrust` — [pypi.org/project/codetrust](https://pypi.org/project/codetrust/) |
 | **VS Code Marketplace** | **Live** | `ext install SaidBorna.codetrust` — [marketplace.visualstudio.com](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) |
+| **Website** | **Live** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
 | **GitHub** | **Live** | [github.com/S-Borna/codetrust](https://github.com/S-Borna/codetrust) |
 | **Docker Hub** | Planerad | `docker pull codetrust/codetrust` |
 | **Railway (cloud)** | **Live** | [codetrust-api-production.up.railway.app](https://codetrust-api-production.up.railway.app) |

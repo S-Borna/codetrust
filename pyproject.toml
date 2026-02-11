@@ -50,6 +50,8 @@ dependencies = [
     "stripe>=7.0.0",
     # Auth
     "PyJWT>=2.8.0",
+    # Migrations
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]

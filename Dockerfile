@@ -22,6 +22,10 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app /app
 
+# Copy Alembic config for migrations
+COPY alembic.ini .
+COPY alembic/ alembic/
+
 # Non-root user for security
 RUN useradd --create-home --shell /bin/bash codetrust
 USER codetrust
@@ -39,4 +43,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Default: run the FastAPI server
 # Override with: docker run codetrust python -m src.server  (for MCP mode)
-CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api:app --host 0.0.0.0 --port 8000"]

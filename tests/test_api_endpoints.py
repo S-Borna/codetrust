@@ -14,6 +14,7 @@ from src.models.responses import (
     PackageResult,
 )
 from src.services.ast_analyzer import AstAnalyzer
+from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
@@ -40,6 +41,8 @@ def _setup_app_state() -> None:
     app.state.sandbox = SandboxService()
     app.state.db = None  # Database not needed for existing endpoint tests
     app.state.billing = MagicMock(spec=BillingService)
+    app.state.auth = AuthService(http_client)
+    app.state.rate_limiter = None  # No rate limiting without DB
 
 
 @pytest.fixture()

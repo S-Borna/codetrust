@@ -249,3 +249,26 @@ class StatusResponse(BaseModel):
     model_config = ConfigDict(strict=True)
 
     status: str
+
+
+class TokenResponse(BaseModel):
+    """Response containing JWT token and user info."""
+
+    model_config = ConfigDict(strict=True)
+
+    token: str
+    user_id: str
+    plan: str
+    expires_in_minutes: int
+
+
+class RateLimitError(BaseModel):
+    """Response when rate limit is exceeded (429)."""
+
+    model_config = ConfigDict(strict=True)
+
+    error: str = "rate_limit_exceeded"
+    current_usage: int
+    daily_limit: int
+    plan: str
+    message: str

@@ -67,7 +67,7 @@ runs:
     - name: Install CodeTrust
       shell: bash
       run: |
-        pip install --quiet httpx pydantic structlog
+        pip install --quiet httpx pydantic structlog tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-go tree-sitter-rust tree-sitter-typescript
 
     - name: Run CodeTrust Scan
       id: scan

@@ -43,3 +43,4 @@ SESSION_LOG.md
 
 # Node (in case of front-end components)
 node_modules/
+codetrust.db

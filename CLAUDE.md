@@ -88,6 +88,7 @@ codetrust/
 ├── Procfile
 └── railway.toml
 ```
+
 ## Absolute Prohibitions
 
 - ❌ No `print()` — use `structlog` for all logging
@@ -169,7 +170,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     model_config = ConfigDict(env_prefix="CODETRUST_")
-    
+
     redis_url: str = "redis://localhost:6379"
     api_key: str = ""  # Required in production
     # ... etc

@@ -2,9 +2,11 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.database import DatabaseService
 
@@ -20,6 +22,7 @@ def _setup_app_state(app_obj: object) -> None:
     if state is None:
         return
 
+    http_client = httpx.AsyncClient()
     state.analyzer = StaticAnalyzer()
     state.ast_analyzer = AstAnalyzer()
     state.sandbox = SandboxService()
@@ -29,6 +32,8 @@ def _setup_app_state(app_obj: object) -> None:
     state.docker = MagicMock()
     state.billing = MagicMock(spec=BillingService)
     state.billing.is_configured.return_value = False
+    state.auth = AuthService(http_client)
+    state.rate_limiter = None
 
 
 @pytest.fixture()
@@ -37,6 +42,7 @@ def client_with_db(tmp_path: object) -> TestClient:
     import asyncio
 
     from src.api import app
+    from src.services.rate_limiter import RateLimiter
 
     _setup_app_state(app)
 
@@ -46,10 +52,13 @@ def client_with_db(tmp_path: object) -> TestClient:
     loop.run_until_complete(db.create_tables())
     loop.close()
     app.state.db = db
+    app.state.rate_limiter = RateLimiter(db)
 
     with patch("src.api.settings") as mock_settings:
         mock_settings.api_key = ""
         mock_settings.version = "1.0.0-test"
+        mock_settings.jwt_secret = ""
+        mock_settings.jwt_algorithm = "HS256"
         return TestClient(app, raise_server_exceptions=False)
 
 
@@ -60,10 +69,13 @@ def client_no_db() -> TestClient:
 
     _setup_app_state(app)
     app.state.db = None
+    app.state.rate_limiter = None
 
     with patch("src.api.settings") as mock_settings:
         mock_settings.api_key = ""
         mock_settings.version = "1.0.0-test"
+        mock_settings.jwt_secret = ""
+        mock_settings.jwt_algorithm = "HS256"
         return TestClient(app, raise_server_exceptions=False)
 
 

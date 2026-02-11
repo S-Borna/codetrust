@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     # --- OAuth (GitHub) ---
     github_client_id: str = ""
     github_client_secret: str = ""
+    github_token_url: str = "https://github.com/login/oauth/access_token"
+    github_user_url: str = "https://api.github.com/user"
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24  # 24 hours

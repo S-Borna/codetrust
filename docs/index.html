@@ -194,7 +194,9 @@
         }
 
         .hero-version {
-            display: inline-block;
+            display: block;
+            width: fit-content;
+            margin: 0 auto 2rem;
             font-family: 'IBM Plex Mono', monospace;
             font-size: 0.78rem;
             font-weight: 500;
@@ -202,7 +204,6 @@
             background: var(--green-dim);
             padding: 0.3rem 0.8rem;
             border-radius: 4px;
-            margin-bottom: 2rem;
             letter-spacing: 0.02em;
         }
 
@@ -1040,7 +1041,7 @@
      ═══════════════════════════════════════════════════════════════════ -->
     <section class="hero">
         <div class="hero-content">
-            <img src="logo.png" alt="CodeTrust" width="280" style="margin-bottom: 2rem; display: inline-block;">
+            <img src="logo.png" alt="CodeTrust" width="280" style="display: block; margin: 0 auto 2rem;">
             <span class="hero-version">672 tests passing — 9 layers — 49 rules — zero hallucinations</span>
             <h1>Trust the code<br><em>Ship with proof</em></h1>
             <p class="hero-text">

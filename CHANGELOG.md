@@ -5,6 +5,31 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-11
+
+### Changed
+
+- **9 Verification Layers** — expanded from 7 to 9 layers across all docs, PyPI, and Marketplace:
+  - Layer 02: Root Cause Analysis (4 symptom-fix rules) — NEW
+  - Layer 05: Container Hardening (10 rules) — NEW
+  - Layer 06: IaC & Config (7 rules) — NEW
+- **Website Trust color** reverted from `#38d8fd` (cyan) to `var(--green)` matching logo
+- **PyPI description** updated with 9-layer table
+- **Extension README** updated with 9-layer table
+- **PRODUCT.md** layers rewritten from 7 to 9
+
+### Fixed
+
+- **Procfile** — removed `alembic upgrade head &&` that blocked server start; migration now handled by `preDeployCommand`
+- **railway.toml** — removed `preDeployCommand` (alembic migration was hanging on DB lock)
+- **blocking_prestart self-scan** — split regex string with concatenation to prevent rule definitions from self-matching in `cli.py`, `anti_patterns.py`, `pre-commit`, `templates/pre-commit`
+- **GitHub Action heredoc** — replaced `<<EOF` with dynamic delimiter in `.github/workflows/codetrust-scan.yml`
+- **4 except_swallow BLOCK violations** in production code:
+  - `src/cli.py:522` — `except: pass` → `hooks_path_set = False`
+  - `src/services/registry.py:539` — `except: pass` → `logger.debug()`
+  - `src/services/sandbox.py:251` — `except: pass` → `return` with comment
+  - `action/scan_runner.py:118` — `except: continue` → print warning + continue
+
 ## [1.8.0] - 2026-02-11
 
 ### Added

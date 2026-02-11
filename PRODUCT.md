@@ -1,6 +1,6 @@
 # CodeTrust — Product Specification
 
-> **Version 1.5.0 | February 2026 | MIT License**
+> **Version 1.5.0 | February 2026 | Proprietary License**
 
 ---
 
@@ -127,8 +127,8 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 
 ### Om du utvärderar Enterprise-verktyg
 
-- **Ingen vendor lock-in** — MIT-licensierat, self-hostat
-- **Ingen per-seat-kostnad** — open source core, betala bara för cloud-kapacitet om du vill
+- **Self-hostbart** — kör på din egen infrastruktur
+- **Free tier** — 100 scans/dag utan kostnad via cloud API
 - **5 minuters setup** — `pip install codetrust && codetrust init`
 - **MCP-native** — enda verktyget som byggt för att ge realtidsfeedback till AI-assistenter
 
@@ -166,7 +166,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 4. **Offline-embedded** — VS Code-extension och pre-commit hook kräver ej internet
 5. **Noll konfiguration** — `codetrust init` ger 4 enforcement-lager direkt
 6. **Sandbox-exekvering** — kan faktiskt köra koden isolerat för att verifiera runtime
-7. **Gratis** — MIT-licens, ingen per-seat-kostnad
+7. **Free tier** — 100 scans/dag gratis, ingen per-seat-kostnad
 
 ### Där konkurrenterna vinner
 
@@ -181,7 +181,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 
 | Verktyg | Kostnad vid 10 utvecklare |
 |---------|--------------------------|
-| **CodeTrust** | **$0** (self-hosted, MIT) eller Free-tier (100 scans/dag) |
+| **CodeTrust** | **$0** (Free-tier, 100 scans/dag) |
 | **SonarQube Cloud** Team | ~$32/mån (100K LOC) |
 | **Semgrep** Teams SAST | $400/mån ($40/dev × 10) |
 | **Semgrep** + SCA + Secrets | $1,000/mån ($100/dev × 10) |
@@ -214,7 +214,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 | **Support** | Community | Email | Dedicated |
 | **SLA** | — | — | 99.9% |
 
-### Vad ingår alltid gratis (MIT-licens)
+### Vad ingår alltid gratis (Free tier)
 
 - CLI (`codetrust scan`, `codetrust init`)
 - Pre-commit hook (offline)
@@ -428,7 +428,7 @@ railway up                   # deployar till Railway
 ### Generellt
 
 **Q: Är CodeTrust gratis?**
-Ja. All källkod är MIT-licensierad. CLI, pre-commit hook, VS Code extension, MCP server, GitHub Action — allt är gratis. Cloud API har en free tier (100 scans/dag).
+CodeTrust har en generös free tier. CLI, pre-commit hook, VS Code extension och MCP server är gratis att använda. Cloud API har en free tier (100 scans/dag).
 
 **Q: Varför behöver jag CodeTrust om jag redan har SonarQube/Snyk/Semgrep?**
 De verktygen hittar kodkvalitetsproblem och kända CVE:er i kända paket. CodeTrust löser ett annat problem: att verifiera att det AI föreslår *överhuvudtaget existerar och fungerar*. Ett paket utan CVE:er men som inte existerar kraschar din applikation. Använd CodeTrust *tillsammans med* befintliga verktyg.
@@ -470,7 +470,7 @@ API-nycklar lagras som SHA-256-hashar i databasen (aldrig i klartext). De har fo
 ### Affär
 
 **Q: Finns det vendor lock-in?**
-Nej. MIT-licens, öppen källkod, self-hostbar. Du kan forka helt och hållet.
+Nej. CodeTrust körs lokalt via CLI, extension och MCP-server. Cloud API finns som option men krävs inte.
 
 **Q: Vilka kunder passar CodeTrust för?**
 
@@ -551,4 +551,4 @@ En linter (ruff, ESLint) kontrollerar stil och syntax. CodeTrust verifierar att 
 
 ---
 
-*CodeTrust v1.5.0 — MIT License — Built for the AI coding era.*
+*CodeTrust v1.5.0 — Proprietary License — Built for the AI coding era.*

@@ -343,7 +343,7 @@ Ja. Stateless API, Redis-cache, PostgreSQL-backend. Railway auto-scales. Majorit
 Nyss publicerat (februari 2026). PyPI + VS Code Marketplace + Cloud API live. Fokus nu: adoption och feedback.
 
 **Q: Är det open source?**
-Currently MIT-licensierat. Allt är öppet. Diskuterar BSL (Business Source License) för framtida enterprise-features.
+Nej. CodeTrust är proprietärt. Verktygen (CLI, extension, MCP-server) är gratis att använda, men källkoden är inte öppen.
 
 ---
 

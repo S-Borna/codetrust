@@ -1,0 +1,92 @@
+name: "CodeTrust Scan"
+description: "Run CodeTrust static analysis, import verification, and Docker checks on your code"
+author: "CodeTrust"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  api-key:
+    description: "CodeTrust API key (required for cloud mode)"
+    required: false
+    default: ""
+  scan-type:
+    description: "Scan type: static, ast, deep, imports, docker"
+    required: false
+    default: "deep"
+  fail-on:
+    description: "Fail the action on: block, warn, or never"
+    required: false
+    default: "block"
+  language:
+    description: "Language: python, javascript, typescript, go, rust"
+    required: false
+    default: "python"
+  path:
+    description: "Path to scan (file or directory)"
+    required: false
+    default: "."
+  sarif-file:
+    description: "Path to write SARIF output (empty = no SARIF)"
+    required: false
+    default: "codetrust-results.sarif"
+  api-url:
+    description: "CodeTrust API base URL"
+    required: false
+    default: "https://api.codetrust.dev"
+  max-file-size:
+    description: "Maximum file size in bytes to scan"
+    required: false
+    default: "500000"
+  include-pattern:
+    description: "Glob pattern for files to include (e.g. '*.py')"
+    required: false
+    default: ""
+
+outputs:
+  verdict:
+    description: "Overall scan verdict: PASS, WARN, or BLOCK"
+  total-findings:
+    description: "Total number of findings"
+  blocks:
+    description: "Number of BLOCK-severity findings"
+  warnings:
+    description: "Number of WARN-severity findings"
+  sarif-file:
+    description: "Path to SARIF output file (if generated)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install CodeTrust
+      shell: bash
+      run: |
+        pip install --quiet httpx pydantic structlog
+
+    - name: Run CodeTrust Scan
+      id: scan
+      shell: bash
+      env:
+        CODETRUST_API_KEY: ${{ inputs.api-key }}
+        CODETRUST_API_URL: ${{ inputs.api-url }}
+        CODETRUST_SCAN_TYPE: ${{ inputs.scan-type }}
+        CODETRUST_FAIL_ON: ${{ inputs.fail-on }}
+        CODETRUST_LANGUAGE: ${{ inputs.language }}
+        CODETRUST_SCAN_PATH: ${{ inputs.path }}
+        CODETRUST_SARIF_FILE: ${{ inputs.sarif-file }}
+        CODETRUST_MAX_FILE_SIZE: ${{ inputs.max-file-size }}
+        CODETRUST_INCLUDE_PATTERN: ${{ inputs.include-pattern }}
+      run: bash ${{ github.action_path }}/action/entrypoint.sh
+
+    - name: Upload SARIF to GitHub Security
+      if: inputs.sarif-file != '' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+      continue-on-error: true

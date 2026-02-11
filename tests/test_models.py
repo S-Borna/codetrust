@@ -210,9 +210,9 @@ class TestStaticScanRequest:
         assert req.code == "print('hello')"
         assert req.filename == "untitled"
 
-    def test_empty_code_rejected(self) -> None:
-        with pytest.raises(ValidationError):
-            StaticScanRequest(code="")
+    def test_empty_code_accepted(self) -> None:
+        req = StaticScanRequest(code="")
+        assert req.code == ""
 
     def test_code_with_language(self) -> None:
         req = StaticScanRequest(
@@ -302,9 +302,9 @@ class TestMidActionInput:
         inp = MidActionInput(code="def hello(): pass")
         assert inp.verify_imports is False
 
-    def test_empty_code_rejected(self) -> None:
-        with pytest.raises(ValidationError):
-            MidActionInput(code="")
+    def test_empty_code_accepted(self) -> None:
+        inp = MidActionInput(code="")
+        assert inp.code == ""
 
 
 # ---------------------------------------------------------------------------
@@ -367,9 +367,9 @@ class TestDeepScanRequest:
         assert req.verify_docker is False
         assert req.filename == "untitled"
 
-    def test_empty_code_rejected(self) -> None:
-        with pytest.raises(ValidationError):
-            DeepScanRequest(code="")
+    def test_empty_code_accepted(self) -> None:
+        req = DeepScanRequest(code="")
+        assert req.code == ""
 
 
 # ---------------------------------------------------------------------------

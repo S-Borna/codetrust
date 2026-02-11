@@ -87,12 +87,26 @@ class StaticScanResponse(BaseModel):
     verdict: str  # "PASS", "WARN", "BLOCK"
 
 
+class AstScanResponse(BaseModel):
+    """Response for AST analysis scan."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_findings: int
+    blocks: int
+    warnings: int
+    infos: int
+    findings: list[Finding]
+    verdict: str  # "PASS", "WARN", "BLOCK"
+
+
 class DeepScanResponse(BaseModel):
     """Response for /v1/scan/deep — combines all layers."""
 
     model_config = ConfigDict(strict=True)
 
     static_scan: StaticScanResponse
+    ast_scan: AstScanResponse | None = None
     import_verification: VerifyImportsResponse | None = None
     docker_verification: VerifyDockerResponse | None = None
     overall_verdict: str  # "PASS", "WARN", "BLOCK"

@@ -1,4 +1,4 @@
-"""MCP server entry point — CodeTrust Layer 1 + Layer 2 + Deep Scan tools."""
+"""MCP server entry point — CodeTrust Layer 1 + Layer 2 + Layer 3 + Deep Scan tools."""
 
 import os
 import time
@@ -12,6 +12,8 @@ from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import DockerImageInput
 from src.models.responses import DockerImageResult, Finding, PackageResult
 from src.rules.anti_patterns import ANTI_PATTERNS
+from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
+from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
@@ -28,6 +30,7 @@ logger = structlog.get_logger()
 
 mcp = FastMCP("codetrust")
 analyzer = StaticAnalyzer()
+ast_analyzer = AstAnalyzer()
 
 # Lazy-initialized shared resources for Layer 2
 _cache: CacheService | None = None
@@ -415,6 +418,45 @@ def _format_docker_report(
     return "\n".join(lines)
 
 
+@mcp.tool(name="codetrust_ast_scan")
+async def codetrust_ast_scan(
+    code: str,
+    filename: str = "untitled",
+    language: str = "python",
+    max_nesting: int = 4,
+    complexity_threshold: int = 10,
+) -> str:
+    """Run AST-based code analysis using tree-sitter.
+
+    Analyzes source code structure for cyclomatic complexity,
+    unused variables, unreachable code, and deep nesting.
+
+    Args:
+        code: Source code to analyze.
+        filename: Name of the file being scanned.
+        language: Programming language (python, javascript, typescript, go, rust).
+        max_nesting: Maximum allowed nesting depth (default: 4).
+        complexity_threshold: Maximum allowed cyclomatic complexity (default: 10).
+
+    Returns:
+        Markdown-formatted AST analysis report.
+    """
+    logger.info("mcp_ast_scan", filename=filename, language=language)
+
+    try:
+        lang = Language(language)
+    except ValueError:
+        return f"Unsupported language for AST analysis: {language}"
+
+    if lang not in AST_LANGUAGES:
+        return f"AST analysis not available for: {language}"
+
+    findings = ast_analyzer.analyze(
+        code, lang, filename, max_nesting, complexity_threshold,
+    )
+    return ast_analyzer.build_report(findings)
+
+
 @mcp.tool(name="codetrust_deep_scan")
 async def codetrust_deep_scan(
     code: str,
@@ -453,6 +495,13 @@ async def codetrust_deep_scan(
     sections.append(static_report)
     sections.append("")
 
+    # Layer 3: AST analysis (if language is supported)
+    ast_findings = _deep_scan_ast_findings(code, language, filename)
+    if ast_findings is not None:
+        ast_report = ast_analyzer.build_report(ast_findings)
+        sections.append(ast_report)
+        sections.append("")
+
     # Layer 2a: Import verification
     import_report = await _deep_scan_imports(
         code, language, requirements_content, verify_imports
@@ -469,10 +518,28 @@ async def codetrust_deep_scan(
 
     # Overall verdict
     elapsed_ms = int((time.monotonic() - start) * 1000)
-    verdict = _compute_deep_verdict(findings, import_report, docker_report)
+    all_findings = findings + (ast_findings or [])
+    verdict = _compute_deep_verdict(all_findings, import_report, docker_report)
     sections.append(f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)")
 
     return "\n".join(sections)
+
+
+def _deep_scan_ast_findings(
+    code: str,
+    language: str,
+    filename: str,
+) -> list[Finding] | None:
+    """Run AST analysis as part of deep scan, returns None if unsupported."""
+    try:
+        lang = Language(language)
+    except ValueError:
+        return None
+
+    if lang not in AST_LANGUAGES:
+        return None
+
+    return ast_analyzer.analyze(code, lang, filename)
 
 
 async def _deep_scan_imports(

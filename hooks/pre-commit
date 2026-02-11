@@ -36,6 +36,10 @@ WARN_PATTERNS: list[tuple[str, str]] = [
     (r"from\s+\S+\s+import\s+\*", "Wildcard import — import explicitly"),
     (r":\s*[Aa]ny\b", "Avoid Any type — use explicit types"),
     (r"except\s*:", "Bare except — catch specific exceptions"),
+    # DevOps rules
+    (r"(?:max_retries|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)", "High retry count without timeout guard"),
+    (r"sleep\s*\(.*\*\*", "Exponential backoff without total timeout cap"),
+    (r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)", "Migration blocks server start — wrap in timeout"),
 ]
 
 

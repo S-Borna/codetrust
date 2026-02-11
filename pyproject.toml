@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [
-    { name = "Said", email = "" },
+    { name = "Said Borna", email = "codetrust@users.noreply.github.com" },
 ]
 keywords = ["mcp", "code-quality", "verification", "hallucination", "claude-code", "devops"]
 classifiers = [
@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Quality Assurance",
 ]
-
 dependencies = [
     # MCP server
     "mcp[cli]>=1.0.0",
@@ -55,6 +54,12 @@ dependencies = [
     # Sync DB driver for Alembic migrations
     "psycopg2-binary>=2.9.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/S-Borna/codetrust"
+Repository = "https://github.com/S-Borna/codetrust"
+Documentation = "https://github.com/S-Borna/codetrust#readme"
+"Bug Tracker" = "https://github.com/S-Borna/codetrust/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -101,6 +106,3 @@ pythonpath = ["."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/templates" = "src/templates"

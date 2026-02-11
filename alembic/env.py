@@ -15,10 +15,20 @@ from src.models.database import Base  # noqa: E402
 config = context.config
 
 # Override sqlalchemy.url from environment if set
+# Check CODETRUST_DATABASE_URL first, fall back to platform vars
 database_url = os.environ.get("CODETRUST_DATABASE_URL", "")
+if not database_url:
+    database_url = os.environ.get("DATABASE_PRIVATE_URL", "")
+if not database_url:
+    database_url = os.environ.get("DATABASE_URL", "")
 if database_url:
     # Convert async driver to sync for Alembic
-    sync_url = database_url.replace("+asyncpg", "").replace("+aiosqlite", "")
+    sync_url = (
+        database_url
+        .replace("+asyncpg", "")
+        .replace("+aiosqlite", "")
+        .replace("postgresql://", "postgresql://", 1)  # already sync
+    )
     config.set_main_option("sqlalchemy.url", sync_url)
 
 # Interpret the config file for Python logging.

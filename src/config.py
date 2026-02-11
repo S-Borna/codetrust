@@ -1,6 +1,8 @@
 """Application settings via pydantic-settings, loaded from environment variables."""
 
-from pydantic import ConfigDict
+import os
+
+from pydantic import ConfigDict, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -13,7 +15,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "1.6.0"
+    version: str = "1.7.0"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
@@ -21,6 +23,34 @@ class Settings(BaseSettings):
     # --- Redis ---
     redis_url: str = "redis://localhost:6379"
     redis_enabled: bool = True
+
+    @model_validator(mode="after")
+    def _resolve_platform_env_vars(self) -> "Settings":
+        """Fallback to platform env vars (Railway, Render, Heroku, etc.).
+
+        These platforms set REDIS_URL / DATABASE_URL automatically.
+        We prefer CODETRUST_-prefixed vars but fall back gracefully.
+        """
+        # Redis: CODETRUST_REDIS_URL > REDIS_PRIVATE_URL > REDIS_URL
+        if self.redis_url == "redis://localhost:6379":
+            for var in ("REDIS_PRIVATE_URL", "REDIS_URL"):
+                val = os.environ.get(var)
+                if val:
+                    self.redis_url = val
+                    break
+
+        # Database: CODETRUST_DATABASE_URL > DATABASE_PRIVATE_URL > DATABASE_URL
+        if self.database_url == "sqlite+aiosqlite:///codetrust.db":
+            for var in ("DATABASE_PRIVATE_URL", "DATABASE_URL"):
+                val = os.environ.get(var)
+                if val:
+                    # Ensure async driver for SQLAlchemy
+                    if val.startswith("postgresql://"):
+                        val = val.replace("postgresql://", "postgresql+asyncpg://", 1)
+                    self.database_url = val
+                    break
+
+        return self
 
     # --- Cache TTLs (seconds) ---
     cache_ttl_package_exists: int = 86400  # 24h — package existence rarely changes

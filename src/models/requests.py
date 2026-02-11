@@ -8,7 +8,7 @@ from src.models.enums import Language
 class DockerImageInput(BaseModel):
     """Input for a single Docker image to verify."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     image: str = Field(..., description="Image name, e.g. 'python' or 'nginx'")
     tag: str = Field(default="latest", description="Tag, e.g. '3.12-slim'")
@@ -17,9 +17,9 @@ class DockerImageInput(BaseModel):
 class VerifyImportsRequest(BaseModel):
     """Request to verify package imports exist in registries."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
-    language: Language
+    language: Language = Field(..., strict=False)
     imports: list[str] = Field(..., min_length=1, max_length=200)
     requirements: str = Field(
         default="",
@@ -30,7 +30,7 @@ class VerifyImportsRequest(BaseModel):
 class VerifyDockerRequest(BaseModel):
     """Request to verify Docker images and tags."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     images: list[DockerImageInput] = Field(..., min_length=1, max_length=50)
 
@@ -38,7 +38,7 @@ class VerifyDockerRequest(BaseModel):
 class VerifyApiCallsRequest(BaseModel):
     """Request to verify API endpoints are reachable."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     urls: list[str] = Field(..., min_length=1, max_length=50)
     method: str = Field(default="HEAD", pattern="^(GET|HEAD|OPTIONS)$")
@@ -47,21 +47,21 @@ class VerifyApiCallsRequest(BaseModel):
 class StaticScanRequest(BaseModel):
     """Request for static anti-pattern scan."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     code: str = Field(..., min_length=1, max_length=500_000)
     filename: str = Field(default="untitled")
-    language: Language | None = None
+    language: Language | None = Field(default=None, strict=False)
 
 
 class AstScanRequest(BaseModel):
     """Request for AST-based code analysis."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     code: str = Field(..., min_length=1, max_length=500_000)
     filename: str = Field(default="untitled")
-    language: Language = Field(..., description="Language is required for AST parsing")
+    language: Language = Field(..., strict=False, description="Language is required for AST parsing")
     max_nesting: int = Field(default=4, ge=1, le=20)
     complexity_threshold: int = Field(default=10, ge=1, le=100)
 
@@ -69,10 +69,10 @@ class AstScanRequest(BaseModel):
 class SandboxRequest(BaseModel):
     """Request to execute code in an isolated sandbox container."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     code: str = Field(..., min_length=1, max_length=500_000)
-    language: Language = Field(..., description="Language determines sandbox image")
+    language: Language = Field(..., strict=False, description="Language determines sandbox image")
     timeout: int = Field(default=10, ge=1, le=30, description="Max seconds")
     filename: str = Field(default="untitled")
 
@@ -80,11 +80,11 @@ class SandboxRequest(BaseModel):
 class DeepScanRequest(BaseModel):
     """Request for full deep scan (all layers)."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     code: str = Field(..., min_length=1, max_length=500_000)
     filename: str = Field(default="untitled")
-    language: Language | None = None
+    language: Language | None = Field(default=None, strict=False)
     verify_imports: bool = Field(default=True)
     verify_docker: bool = Field(default=False)
     sandbox_run: bool = Field(default=False)
@@ -98,7 +98,7 @@ class DeepScanRequest(BaseModel):
 class PreActionInput(BaseModel):
     """Validates the plan before any code is written."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
 
     task_description: str = Field(..., min_length=5, max_length=2000)
     proposed_stack: str | None = None
@@ -110,11 +110,11 @@ class PreActionInput(BaseModel):
 class MidActionInput(BaseModel):
     """Checks code quality during implementation."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
 
     code: str = Field(..., min_length=1)
     filename: str = Field(default="untitled")
-    language: Language | None = None
+    language: Language | None = Field(default=None, strict=False)
     verify_imports: bool = Field(
         default=False,
         description="If True, also verify imports against registries (requires API key)",
@@ -124,7 +124,7 @@ class MidActionInput(BaseModel):
 class PostActionInput(BaseModel):
     """Validates the completed work against enterprise standards."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
 
     repo_root: str = Field(..., min_length=1)
     task_description: str = Field(..., min_length=5)
@@ -135,7 +135,7 @@ class PostActionInput(BaseModel):
 class FullScanInput(BaseModel):
     """Runs all layers in one call."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
 
     repo_root: str = Field(..., min_length=1)
     task_description: str = Field(..., min_length=5)
@@ -151,7 +151,7 @@ class FullScanInput(BaseModel):
 class CreateApiKeyRequest(BaseModel):
     """Request to create a new API key."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     name: str = Field(default="Default", max_length=100)
 
@@ -159,7 +159,7 @@ class CreateApiKeyRequest(BaseModel):
 class ScanHistoryQuery(BaseModel):
     """Query parameters for scan history pagination."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     page: int = Field(default=1, ge=1)
     per_page: int = Field(default=20, ge=1, le=100)
@@ -169,7 +169,7 @@ class ScanHistoryQuery(BaseModel):
 class UsageQuery(BaseModel):
     """Query parameters for usage statistics."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     days: int = Field(default=30, ge=1, le=365)
 
@@ -177,6 +177,6 @@ class UsageQuery(BaseModel):
 class CheckoutRequest(BaseModel):
     """Request to create a Stripe checkout session."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     plan: str = Field(..., pattern="^(pro|enterprise)$")

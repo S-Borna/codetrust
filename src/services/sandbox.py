@@ -105,31 +105,33 @@ class SandboxService:
             settings.sandbox_max_timeout,
         )
 
-        if not settings.sandbox_enabled:
-            return self._error_response(
-                "Sandbox is disabled (set CODETRUST_SANDBOX_ENABLED=true)",
-                start,
-            )
+        error = await self._validate_sandbox(language)
+        if error:
+            return self._error_response(error, start)
 
-        if language not in SUPPORTED_SANDBOX_LANGUAGES:
-            return self._error_response(
-                f"Unsupported language for sandbox: {language}",
-                start,
-            )
-
-        if not await self.is_docker_available():
-            return self._error_response(
-                "Docker is not available", start,
-            )
-
-        strategy = _get_execution_strategy(language)
-        if strategy == "inline":
-            return await self._run_inline(
-                code, language, effective_timeout, start,
-            )
-        return await self._run_with_file(
+        return await self._dispatch_execution(
             code, language, effective_timeout, start,
         )
+
+    async def _validate_sandbox(self, language: Language) -> str:
+        """Validate sandbox preconditions, returns error message or empty."""
+        if not settings.sandbox_enabled:
+            return "Sandbox is disabled (set CODETRUST_SANDBOX_ENABLED=true)"
+        if language not in SUPPORTED_SANDBOX_LANGUAGES:
+            return f"Unsupported language for sandbox: {language}"
+        if not await self.is_docker_available():
+            return "Docker is not available"
+        return ""
+
+    async def _dispatch_execution(
+        self, code: str, language: Language,
+        timeout: int, start: float,
+    ) -> SandboxResponse:
+        """Dispatch to the appropriate execution strategy."""
+        strategy = _get_execution_strategy(language)
+        if strategy == "inline":
+            return await self._run_inline(code, language, timeout, start)
+        return await self._run_with_file(code, language, timeout, start)
 
     async def _run_inline(
         self,

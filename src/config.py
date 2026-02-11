@@ -7,13 +7,13 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """All configuration via environment variables prefixed with CODETRUST_."""
 
-    model_config = ConfigDict(env_prefix="CODETRUST_")
+    model_config = ConfigDict(env_prefix="CODETRUST_", strict=True)
 
     # --- Server ---
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "1.0.0"
+    version: str = "1.5.0"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     pro_tier_daily_limit: int = 10_000
 
     # --- Database ---
-    database_url: str = "postgresql+asyncpg://localhost:5432/codetrust"
+    database_url: str = "sqlite+aiosqlite:///codetrust.db"
     database_echo: bool = False
     database_pool_size: int = 10
     database_max_overflow: int = 20
@@ -82,6 +82,10 @@ class Settings(BaseSettings):
 
     # --- Dashboard ---
     dashboard_url: str = "http://localhost:3000"
+
+    # --- SARIF ---
+    sarif_schema_url: str = "https://json.schemastore.org/sarif-2.1.0.json"
+    tool_info_uri: str = "https://github.com/codetrust-ai/codetrust"
 
 
 settings = Settings()

@@ -225,3 +225,27 @@ class UserProfileResponse(BaseModel):
     created_at: str
     daily_limit: int
     daily_usage: int
+
+
+class RevokeResponse(BaseModel):
+    """Response when an API key is revoked."""
+
+    model_config = ConfigDict(strict=True)
+
+    revoked: bool
+
+
+class UrlResponse(BaseModel):
+    """Response containing a single URL (billing checkout/portal)."""
+
+    model_config = ConfigDict(strict=True)
+
+    url: str
+
+
+class StatusResponse(BaseModel):
+    """Generic status response."""
+
+    model_config = ConfigDict(strict=True)
+
+    status: str

@@ -36,4 +36,5 @@ EXPOSE 8000
 
 # Default: run the FastAPI server
 # Override with: docker run codetrust python -m src.server  (for MCP mode)
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api:app --host 0.0.0.0 --port 8000"]
+# Migrations handled by railway.toml preDeployCommand or Procfile
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]

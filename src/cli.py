@@ -246,7 +246,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
             files_scanned += 1
         elif Path(target).is_dir():
             skip_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__"}
-            for root, dirs, files in os.walk(target):
+            for _root, dirs, files in os.walk(target):
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
                 files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
 

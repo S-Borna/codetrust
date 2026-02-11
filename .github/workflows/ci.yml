@@ -48,7 +48,15 @@ jobs:
                   python -m pip install --upgrade pip
                   pip install -e ".[dev]"
 
-            - name: Run CodeTrust Scan
+            - name: Check API health
+              id: api_health
+              continue-on-error: true
+              run: |
+                  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://codetrust-api-production.up.railway.app/v1/status" || echo "000")
+                  echo "status=$HTTP_CODE" >> $GITHUB_OUTPUT
+
+            - name: Run CodeTrust Scan (API)
+              if: steps.api_health.outputs.status == '200'
               uses: ./
               with:
                   scan-type: "static"
@@ -56,6 +64,12 @@ jobs:
                   path: "src/"
                   fail-on: "block"
                   sarif-file: "codetrust-results.sarif"
+
+            - name: Run CodeTrust Scan (Local Fallback)
+              if: steps.api_health.outputs.status != '200'
+              run: |
+                  echo "::warning::CodeTrust API unreachable — running local scan"
+                  python -m src.cli scan src/ --json
 
             - name: Upload SARIF
               if: always()

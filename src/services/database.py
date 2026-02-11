@@ -38,10 +38,7 @@ class DatabaseService:
     def __init__(self, database_url: str, echo: bool = False) -> None:
         """Initialize with database URL."""
         self._engine: AsyncEngine = create_async_engine(
-            database_url,
-            echo=echo,
-            pool_pre_ping=True,
-            connect_args={"timeout": 10},
+            database_url, echo=echo, pool_pre_ping=True,
         )
         self._session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
             self._engine, expire_on_commit=False,

@@ -22,8 +22,6 @@ class CacheService:
             self._client = redis.from_url(
                 self._redis_url,
                 decode_responses=True,
-                socket_timeout=5,
-                socket_connect_timeout=5,
             )
             await self._client.ping()
             logger.info("redis_connected", url=self._redis_url)

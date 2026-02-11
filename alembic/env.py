@@ -1,5 +1,4 @@
 import os
-import time
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -15,20 +14,10 @@ from src.models.database import Base  # noqa: E402
 config = context.config
 
 # Override sqlalchemy.url from environment if set
-# Check CODETRUST_DATABASE_URL first, fall back to platform vars
 database_url = os.environ.get("CODETRUST_DATABASE_URL", "")
-if not database_url:
-    database_url = os.environ.get("DATABASE_PRIVATE_URL", "")
-if not database_url:
-    database_url = os.environ.get("DATABASE_URL", "")
 if database_url:
     # Convert async driver to sync for Alembic
-    sync_url = (
-        database_url
-        .replace("+asyncpg", "")
-        .replace("+aiosqlite", "")
-        .replace("postgresql://", "postgresql://", 1)  # already sync
-    )
+    sync_url = database_url.replace("+asyncpg", "").replace("+aiosqlite", "")
     config.set_main_option("sqlalchemy.url", sync_url)
 
 # Interpret the config file for Python logging.
@@ -74,39 +63,21 @@ def run_migrations_online() -> None:
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
-    Retries connection up to 5 times with exponential backoff
-    to handle cases where the database is still starting.
 
     """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args={"connect_timeout": 5},
     )
 
-    max_retries = 3
-    retry_delay = 2  # seconds, doubles each attempt
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection, target_metadata=target_metadata
+        )
 
-    for attempt in range(1, max_retries + 1):
-        try:
-            with connectable.connect() as connection:
-                context.configure(
-                    connection=connection, target_metadata=target_metadata
-                )
-
-                with context.begin_transaction():
-                    context.run_migrations()
-            break  # success
-        except Exception as exc:
-            if attempt == max_retries:
-                raise
-            wait = retry_delay * (2 ** (attempt - 1))
-            print(
-                f"[alembic] DB connection attempt {attempt}/{max_retries} failed: {exc}. "
-                f"Retrying in {wait}s..."
-            )
-            time.sleep(wait)
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():

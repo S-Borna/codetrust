@@ -1,6 +1,6 @@
 # CodeTrust — VS Code Extension
 
-AI code verification that catches hallucinated packages, broken configs, anti-patterns, and SQL issues — inline in your editor.
+AI code verification that catches hallucinated packages, broken configs, anti-patterns, container & CI/CD issues — inline in your editor.
 
 ## Features
 
@@ -12,6 +12,9 @@ AI code verification that catches hallucinated packages, broken configs, anti-pa
 - **Import Verification** — Checks that imported packages actually exist in PyPI, npm, crates.io, Go proxy
 - **Docker Verification** — Validates Docker images and tags exist on Docker Hub / GHCR
 - **SQL Scanning** — 13 rules for `.sql` files: SELECT *, DELETE/UPDATE without WHERE, FLOAT for money, GRANT ALL, and more
+- **Container Hardening** — Detects root user, latest tags, missing WORKDIR, secrets baked into ENV
+- **CI/CD Analysis** — Unpinned GitHub Actions, missing timeouts in workflows
+- **AI Drift Score** — Composite 0–100 trust metric with A–F grades across 6 categories
 
 ## Supported Languages
 
@@ -21,6 +24,7 @@ AI code verification that catches hallucinated packages, broken configs, anti-pa
 - Rust
 - **SQL** (migrations, schemas, seed files)
 - Dockerfile
+- **YAML** (GitHub Actions, CI/CD workflows)
 
 ## SQL Rules
 
@@ -39,6 +43,21 @@ AI code verification that catches hallucinated packages, broken configs, anti-pa
 | `sql_autocommit_off` | INFO | Manual transaction control — verify COMMIT exists |
 | `sql_hardcoded_id` | INFO | IDs as strings (`'1'`) instead of integers |
 | `sql_no_index_hint` | INFO | FK detected — verify index exists |
+
+## Container & CI/CD Rules
+
+| Rule | Severity | What it catches |
+| ---- | -------- | --------------- |
+| `docker_root_user` | BLOCK | Dockerfile without USER directive — runs as root |
+| `docker_env_secret` | BLOCK | Secret value baked into Dockerfile ENV |
+| `docker_latest_tag` | WARN | FROM image:latest — pin to specific version |
+| `docker_no_workdir` | INFO | No WORKDIR set — files land in root directory |
+| `ci_unpinned_action` | WARN | GitHub Action uses @master/@main — pin to SHA or version |
+| `ci_no_timeout` | WARN | CI job has no timeout-minutes |
+| `except_swallow` | WARN | Exception caught and silently ignored |
+| `suppress_lint` | WARN | Linter suppression without justification |
+| `debug_mode_enabled` | WARN | Debug mode left enabled in config |
+| `hardcoded_ip` | WARN | Hardcoded IP address — use DNS or config |
 
 ## Settings
 

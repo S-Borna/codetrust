@@ -70,6 +70,21 @@ class StaticAnalyzer:
             if handler == "check_compose_healthcheck":
                 findings.extend(self._check_compose_healthcheck(lines, filename))
                 continue
+            if handler == "check_except_swallow":
+                findings.extend(self._check_except_swallow(lines, filename))
+                continue
+            if handler == "check_sleep_no_context":
+                findings.extend(self._check_sleep_no_context(lines, filename))
+                continue
+            if handler == "check_docker_root_user":
+                findings.extend(self._check_docker_root_user(lines, filename))
+                continue
+            if handler == "check_docker_no_workdir":
+                findings.extend(self._check_docker_no_workdir(lines, filename))
+                continue
+            if handler == "check_ci_no_timeout":
+                findings.extend(self._check_ci_no_timeout(lines, filename))
+                continue
 
             findings.extend(
                 self._apply_rule(rule, lines, filename)
@@ -273,6 +288,142 @@ class StaticAnalyzer:
                     )
         return findings
 
+    def _check_except_swallow(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag except blocks that swallow errors (pass/... with no logging)."""
+        findings: list[Finding] = []
+        except_pattern = re.compile(r"^\s*except[\s:]")
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            if except_pattern.match(line):
+                # Check the next non-empty lines (up to 3) in the except block
+                except_indent = len(line) - len(line.lstrip())
+                body_lines: list[str] = []
+                for i in range(line_num, min(len(lines), line_num + 5)):
+                    next_line = lines[i].rstrip()
+                    if not next_line.strip():
+                        continue
+                    next_indent = len(next_line) - len(next_line.lstrip())
+                    if next_indent <= except_indent and i > line_num - 1:
+                        break
+                    if next_indent > except_indent:
+                        body_lines.append(next_line.strip())
+
+                body = " ".join(body_lines)
+                # Swallowed if body is only pass, ..., or continue
+                if body in ("pass", "...", "continue", "pass  # noqa"):
+                    findings.append(
+                        Finding(
+                            rule_id="except_swallow",
+                            severity=Severity.BLOCK,
+                            message="Exception caught and silently swallowed. Handle the error or re-raise.",
+                            file=filename,
+                            line=line_num,
+                            suggestion="Log the error, re-raise, or handle the root cause.",
+                        )
+                    )
+        return findings
+
+    def _check_sleep_no_context(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag sleep() calls without a preceding comment explaining why."""
+        findings: list[Finding] = []
+        sleep_pattern = re.compile(r"(?:time\.)?sleep\s*\(")
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if "noqa" in line:
+                continue
+            if stripped.startswith("#"):
+                continue
+            if sleep_pattern.search(line):
+                # Check if previous non-empty line is a comment
+                has_context = False
+                for i in range(line_num - 2, max(-1, line_num - 4), -1):
+                    if i < 0:
+                        break
+                    prev = lines[i].strip()
+                    if not prev:
+                        continue
+                    if prev.startswith("#"):
+                        has_context = True
+                    break
+
+                if not has_context:
+                    findings.append(
+                        Finding(
+                            rule_id="sleep_no_context",
+                            severity=Severity.INFO,
+                            message="sleep() without explanation. Why is a delay needed?",
+                            file=filename,
+                            line=line_num,
+                            suggestion="Add a comment explaining the reason for the delay.",
+                        )
+                    )
+        return findings
+
+    def _check_docker_root_user(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag Dockerfiles that run as root (no USER instruction)."""
+        findings: list[Finding] = []
+        full_text = "\n".join(lines)
+        has_cmd = bool(re.search(r"^CMD\s", full_text, re.MULTILINE))
+        has_user = bool(re.search(r"^USER\s", full_text, re.MULTILINE))
+        if has_cmd and not has_user:
+            cmd_line = next(
+                (i for i, ln in enumerate(lines, 1) if re.match(r"^CMD\s", ln)),
+                1,
+            )
+            findings.append(
+                Finding(
+                    rule_id="docker_root_user",
+                    severity=Severity.WARN,
+                    message="Dockerfile runs as root. Add USER instruction to drop privileges.",
+                    file=filename,
+                    line=cmd_line,
+                    suggestion="Add 'USER nonroot' or 'USER 1000' before CMD.",
+                )
+            )
+        return findings
+
+    def _check_docker_no_workdir(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag Dockerfiles without WORKDIR instruction."""
+        findings: list[Finding] = []
+        full_text = "\n".join(lines)
+        has_cmd = bool(re.search(r"^CMD\s", full_text, re.MULTILINE))
+        has_workdir = bool(re.search(r"^WORKDIR\s", full_text, re.MULTILINE))
+        if has_cmd and not has_workdir:
+            findings.append(
+                Finding(
+                    rule_id="docker_no_workdir",
+                    severity=Severity.INFO,
+                    message="Dockerfile has no WORKDIR. Set explicit working directory.",
+                    file=filename,
+                    line=1,
+                    suggestion="Add 'WORKDIR /app' to set a predictable working directory.",
+                )
+            )
+        return findings
+
+    def _check_ci_no_timeout(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag CI jobs (runs-on:) without timeout-minutes."""
+        findings: list[Finding] = []
+        for line_num, line in enumerate(lines, start=1):
+            if re.match(r"^\s+runs-on:\s", line):
+                # Check surrounding job block (30 lines) for timeout-minutes
+                start = max(0, line_num - 5)
+                end = min(len(lines), line_num + 30)
+                block = "\n".join(lines[start:end])
+                if "timeout-minutes:" not in block:
+                    findings.append(
+                        Finding(
+                            rule_id="ci_no_timeout",
+                            severity=Severity.INFO,
+                            message="CI job has no timeout-minutes. Add timeout to prevent hung pipelines.",
+                            file=filename,
+                            line=line_num,
+                            suggestion="Add 'timeout-minutes: 15' to the job definition.",
+                        )
+                    )
+        return findings
+
     def check_repo_structure(self, root: str) -> list[Finding]:
         """Check repository for required/recommended files and structure issues."""
         findings: list[Finding] = []
@@ -450,3 +601,109 @@ class StaticAnalyzer:
             findings=findings,
             verdict=verdict,
         )
+
+    # ═══════════════════════════════════════════════════════════════
+    #  AI DRIFT SCORE — composite trust metric
+    # ═══════════════════════════════════════════════════════════════
+
+    from typing import ClassVar
+
+    # Rule categories for drift score breakdown
+    CATEGORY_MAP: ClassVar[dict[str, str]] = {
+        # Anti-Hallucination (Law 1)
+        "hardcoded_secret": "anti_hallucination",
+        "eval_exec": "anti_hallucination",
+        "sql_injection": "anti_hallucination",
+        "pickle_load": "anti_hallucination",
+        "api_key_in_config": "anti_hallucination",
+        "docker_env_secret": "anti_hallucination",
+        # Anti-Assumption (Law 2)
+        "magic_number": "anti_assumption",
+        "hardcoded_port": "anti_assumption",
+        "debug_mode_enabled": "anti_assumption",
+        "any_type": "anti_assumption",
+        "mutable_default": "anti_assumption",
+        "hardcoded_ip": "anti_assumption",
+        # Root Cause (Law 3)
+        "except_swallow": "root_cause",
+        "bare_except": "root_cause",
+        "null_coalesce_smell": "root_cause",
+        "suppress_lint": "root_cause",
+        "sleep_no_context": "root_cause",
+        # Container Hygiene
+        "docker_root_user": "container_hygiene",
+        "docker_latest_tag": "container_hygiene",
+        "docker_no_workdir": "container_hygiene",
+        "dockerfile_no_healthcheck": "container_hygiene",
+        "compose_no_healthcheck": "container_hygiene",
+        # CI/CD
+        "ci_unpinned_action": "ci_cd",
+        "ci_no_timeout": "ci_cd",
+        "blocking_prestart": "ci_cd",
+        "healthcheck_timeout_low": "ci_cd",
+        # DevOps
+        "connection_no_timeout": "devops",
+        "unbounded_retry": "devops",
+        "retry_exponential_unbounded": "devops",
+    }
+
+    def calculate_drift_score(self, findings: list[Finding]) -> dict:
+        """Calculate AI Drift Score from scan findings.
+
+        Returns a trust metric: 100 = perfect, 0 = critical.
+        Breaks down by category matching CodeTrust's Three Laws.
+        """
+        weights = {Severity.BLOCK: 10, Severity.WARN: 3, Severity.INFO: 1}
+
+        # Category scores
+        categories: dict[str, dict[str, int | float]] = {
+            "anti_hallucination": {"findings": 0, "weight": 0},
+            "anti_assumption": {"findings": 0, "weight": 0},
+            "root_cause": {"findings": 0, "weight": 0},
+            "container_hygiene": {"findings": 0, "weight": 0},
+            "ci_cd": {"findings": 0, "weight": 0},
+            "devops": {"findings": 0, "weight": 0},
+        }
+
+        total_weight = 0
+        for f in findings:
+            w = weights.get(f.severity, 1)
+            total_weight += w
+            cat = self.CATEGORY_MAP.get(f.rule_id, "devops")
+            if cat in categories:
+                categories[cat]["findings"] += 1
+                categories[cat]["weight"] += w
+
+        # Score: 100 - penalty, floor at 0
+        score = max(0, 100 - total_weight)
+
+        # Grade
+        if score >= 90:
+            grade = "A"
+        elif score >= 70:
+            grade = "B"
+        elif score >= 50:
+            grade = "C"
+        elif score >= 30:
+            grade = "D"
+        else:
+            grade = "F"
+
+        # Category scores (100 minus category penalty, capped)
+        cat_scores: dict[str, dict[str, int | float | str]] = {}
+        for cat_name, data in categories.items():
+            cat_weight = data["weight"]
+            cat_score = max(0, 100 - cat_weight * 5)
+            cat_status = "PASS" if cat_score >= 70 else ("WARN" if cat_score >= 40 else "FAIL")
+            cat_scores[cat_name] = {
+                "score": cat_score,
+                "findings": data["findings"],
+                "status": cat_status,
+            }
+
+        return {
+            "score": score,
+            "grade": grade,
+            "total_findings": len(findings),
+            "categories": cat_scores,
+        }

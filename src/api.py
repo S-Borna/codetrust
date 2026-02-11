@@ -172,7 +172,11 @@ async def _startup(app: FastAPI) -> None:
         db = DatabaseService(settings.database_url, echo=settings.database_echo)
         await db.create_tables()
     except Exception as exc:
-        logger.warning("database_init_skipped", error=str(exc))
+        logger.warning(
+            "database_init_skipped",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
         db = None  # type: ignore[assignment]
 
     app.state.cache = cache

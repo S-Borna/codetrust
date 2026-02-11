@@ -333,30 +333,52 @@ def _format_import_report(
         "",
     ]
 
-    if failed:
-        lines.append("### Failed")
-        for r in results:
-            if r.status in (VerifyStatus.NOT_FOUND, VerifyStatus.VERSION_MISMATCH):
-                sug = f" -> {r.suggestion}" if r.suggestion else ""
-                lines.append(f"- **{r.package}**: {r.message}{sug}")
-        lines.append("")
-
-    if warnings:
-        lines.append("### Warnings")
-        for r in results:
-            if r.status in (VerifyStatus.DEPRECATED, VerifyStatus.TIMEOUT, VerifyStatus.ERROR):
-                lines.append(f"- **{r.package}**: {r.message}")
-        lines.append("")
-
-    if verified:
-        lines.append("### Verified")
-        for r in results:
-            if r.status == VerifyStatus.VERIFIED:
-                cached_tag = " (cached)" if r.cached else ""
-                lines.append(f"- {r.package} {r.latest_version}{cached_tag}")
-        lines.append("")
+    _append_failed_imports(lines, results)
+    _append_warning_imports(lines, results)
+    _append_verified_imports(lines, results)
 
     return "\n".join(lines)
+
+
+def _append_failed_imports(
+    lines: list[str], results: list[PackageResult],
+) -> None:
+    """Append failed import results to the report lines."""
+    failed = [r for r in results if r.status in (VerifyStatus.NOT_FOUND, VerifyStatus.VERSION_MISMATCH)]
+    if not failed:
+        return
+    lines.append("### Failed")
+    for r in failed:
+        sug = f" -> {r.suggestion}" if r.suggestion else ""
+        lines.append(f"- **{r.package}**: {r.message}{sug}")
+    lines.append("")
+
+
+def _append_warning_imports(
+    lines: list[str], results: list[PackageResult],
+) -> None:
+    """Append warning import results to the report lines."""
+    warned = [r for r in results if r.status in (VerifyStatus.DEPRECATED, VerifyStatus.TIMEOUT, VerifyStatus.ERROR)]
+    if not warned:
+        return
+    lines.append("### Warnings")
+    for r in warned:
+        lines.append(f"- **{r.package}**: {r.message}")
+    lines.append("")
+
+
+def _append_verified_imports(
+    lines: list[str], results: list[PackageResult],
+) -> None:
+    """Append verified import results to the report lines."""
+    verified = [r for r in results if r.status == VerifyStatus.VERIFIED]
+    if not verified:
+        return
+    lines.append("### Verified")
+    for r in verified:
+        cached_tag = " (cached)" if r.cached else ""
+        lines.append(f"- {r.package} {r.latest_version}{cached_tag}")
+    lines.append("")
 
 
 @mcp.tool(name="codetrust_verify_dockerfile")
@@ -582,54 +604,70 @@ async def codetrust_deep_scan(
     logger.info("mcp_deep_scan", filename=filename, language=language)
     start = time.monotonic()
 
+    findings = analyzer.scan_code(code, filename)
+    ast_findings = _deep_scan_ast_findings(code, language, filename)
+
+    sections = await _build_deep_scan_sections(
+        findings, ast_findings, code, language,
+        requirements_content, verify_imports,
+        dockerfile_content, verify_docker,
+        sandbox_run, start,
+    )
+    return "\n".join(sections)
+
+
+async def _build_deep_scan_sections(
+    findings: list[Finding],
+    ast_findings: list[Finding] | None,
+    code: str,
+    language: str,
+    requirements_content: str,
+    verify_imports: bool,
+    dockerfile_content: str,
+    verify_docker: bool,
+    sandbox_run: bool,
+    start: float,
+) -> list[str]:
+    """Build all report sections for the deep scan."""
     sections: list[str] = ["# CodeTrust Deep Scan Report", ""]
 
-    # Layer 1: Static analysis (always runs locally)
-    findings = analyzer.scan_code(code, filename)
     static_report = analyzer.build_report(findings, title="Static Analysis")
-    sections.append(static_report)
-    sections.append("")
+    sections.extend([static_report, ""])
 
-    # Layer 3: AST analysis (if language is supported)
-    ast_findings = _deep_scan_ast_findings(code, language, filename)
     if ast_findings is not None:
-        ast_report = ast_analyzer.build_report(ast_findings)
-        sections.append(ast_report)
-        sections.append("")
+        sections.extend([ast_analyzer.build_report(ast_findings), ""])
 
-    # Layer 2a: Import verification
     import_report = await _deep_scan_imports(
-        code, language, requirements_content, verify_imports
+        code, language, requirements_content, verify_imports,
     )
     if import_report:
-        sections.append(import_report)
-        sections.append("")
+        sections.extend([import_report, ""])
 
-    # Layer 2b: Docker verification
     docker_report = await _deep_scan_docker(dockerfile_content, verify_docker)
     if docker_report:
-        sections.append(docker_report)
-        sections.append("")
+        sections.extend([docker_report, ""])
 
-    # Layer 4: Sandbox execution (optional)
-    sandbox_report = ""
-    if sandbox_run:
-        sandbox_result = await sandbox.execute_code(
-            code, Language(language),
-        )
-        sandbox_report = _format_sandbox_report(sandbox_result)
-        sections.append(sandbox_report)
-        sections.append("")
+    sandbox_report = await _deep_scan_sandbox(code, language, sandbox_run)
+    if sandbox_report:
+        sections.extend([sandbox_report, ""])
 
-    # Overall verdict
     elapsed_ms = int((time.monotonic() - start) * 1000)
     all_findings = findings + (ast_findings or [])
     verdict = _compute_deep_verdict(
         all_findings, import_report, docker_report, sandbox_report,
     )
     sections.append(f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)")
+    return sections
 
-    return "\n".join(sections)
+
+async def _deep_scan_sandbox(
+    code: str, language: str, sandbox_run: bool,
+) -> str:
+    """Run sandbox execution as part of deep scan."""
+    if not sandbox_run:
+        return ""
+    result = await sandbox.execute_code(code, Language(language))
+    return _format_sandbox_report(result)
 
 
 def _deep_scan_ast_findings(

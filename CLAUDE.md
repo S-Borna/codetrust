@@ -31,15 +31,21 @@ codetrust/
 │   │   ├── __init__.py
 │   │   ├── requests.py        # All Pydantic request models
 │   │   ├── responses.py       # All Pydantic response models
-│   │   └── enums.py           # Severity, Language, Status enums
+│   │   ├── enums.py           # Severity, Language, Status enums
+│   │   └── database.py        # SQLAlchemy ORM models
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── static_analyzer.py # Layer 1: Regex anti-pattern engine
+│   │   ├── ast_analyzer.py    # Layer 3: tree-sitter AST analysis
 │   │   ├── registry.py        # Layer 2: Package registry verification
 │   │   ├── docker_verify.py   # Layer 2: Docker image/tag verification
-│   │   ├── api_verify.py      # Layer 2: API endpoint verification
-│   │   ├── dep_audit.py       # Layer 2: Dependency audit orchestrator
-│   │   └── cache.py           # Redis caching layer
+│   │   ├── sandbox.py         # Layer 4: Isolated Docker sandbox execution
+│   │   ├── cache.py           # Redis caching layer
+│   │   ├── database.py        # Async database service (SQLAlchemy)
+│   │   └── billing.py         # Stripe billing integration
+│   ├── formatters/
+│   │   ├── __init__.py
+│   │   └── sarif.py           # SARIF v2.1.0 output formatter
 │   ├── utils/
 │   │   ├── __init__.py
 │   │   ├── parsers.py         # Import extraction, requirements parsing
@@ -54,9 +60,21 @@ codetrust/
 │   ├── test_static.py         # Layer 1 tests
 │   ├── test_registry.py       # Layer 2 registry tests
 │   ├── test_docker.py         # Layer 2 docker tests
-│   ├── test_api_verify.py     # Layer 2 API tests
 │   ├── test_models.py         # Pydantic model tests
-│   └── test_api_endpoints.py  # FastAPI endpoint tests
+│   ├── test_api_endpoints.py  # FastAPI endpoint tests
+│   ├── test_deep_scan.py      # Deep scan integration tests
+│   ├── test_cache.py          # Cache service tests (fakeredis)
+│   ├── test_similarity.py     # Fuzzy matching tests
+│   ├── test_parsers.py        # Parser utility tests
+│   ├── test_sarif.py          # SARIF formatter tests
+│   ├── test_sandbox.py        # Sandbox service tests
+│   ├── test_billing.py        # Billing service tests
+│   └── test_database.py       # Database service tests
+├── extension/                   # VS Code extension (TypeScript)
+├── dashboard/                   # Next.js admin dashboard
+├── action/                      # GitHub Action for CI integration
+├── sandbox/                     # Sandbox Dockerfile definitions
+├── hooks/                       # Git hooks (pre-commit)
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
@@ -65,9 +83,11 @@ codetrust/
 ├── README.md
 ├── CHANGELOG.md
 ├── LICENSE
-└── PLAN.md
+├── PLAN.md
+├── SPEC.md
+├── Procfile
+└── railway.toml
 ```
-
 ## Absolute Prohibitions
 
 - ❌ No `print()` — use `structlog` for all logging

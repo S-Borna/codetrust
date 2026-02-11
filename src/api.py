@@ -30,10 +30,13 @@ from src.models.responses import (
     DeepScanResponse,
     Finding,
     HealthResponse,
+    RevokeResponse,
     SandboxResponse,
     ScanHistoryResponse,
     ScanLogResponse,
     StaticScanResponse,
+    StatusResponse,
+    UrlResponse,
     UsageDayResponse,
     UsageStatsResponse,
     VerifyDockerResponse,
@@ -73,13 +76,8 @@ async def verify_api_key(
     return key
 
 
-# --- Lifespan ---
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Initialize and teardown shared resources."""
-    logger.info("api_startup", version=settings.version)
-
-    # Startup: create shared resources
+async def _startup(app: FastAPI) -> None:
+    """Create and attach shared resources to app state."""
     cache = CacheService(settings.redis_url)
     await cache.connect()
 
@@ -91,8 +89,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ),
     )
 
-    db = DatabaseService(settings.database_url, echo=settings.database_echo)
     try:
+        db = DatabaseService(settings.database_url, echo=settings.database_echo)
         await db.create_tables()
     except Exception as exc:
         logger.warning("database_init_skipped", error=str(exc))
@@ -108,14 +106,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db = db
     app.state.billing = BillingService()
 
-    yield
 
-    # Shutdown: close all connections
+async def _shutdown(app: FastAPI) -> None:
+    """Close all connections and dispose of resources."""
     logger.info("api_shutdown")
-    await http_client.aclose()
-    await cache.disconnect()
-    if db is not None:
-        await db.close()
+    await app.state.http_client.aclose()
+    await app.state.cache.disconnect()
+    if app.state.db is not None:
+        await app.state.db.close()
+
+
+# --- Lifespan ---
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Initialize and teardown shared resources."""
+    logger.info("api_startup", version=settings.version)
+    await _startup(app)
+    yield
+    await _shutdown(app)
 
 
 # --- Application ---
@@ -128,7 +136,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.dashboard_url, "http://localhost:3000"],
+    allow_origins=[settings.dashboard_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -292,7 +300,7 @@ async def sandbox_run(
     )
 
 
-@app.post("/v1/scan/static/sarif")
+@app.post("/v1/scan/static/sarif", response_model=dict[str, object])
 async def static_scan_sarif(
     req: StaticScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
@@ -305,7 +313,7 @@ async def static_scan_sarif(
     return static_scan_to_sarif(response)
 
 
-@app.post("/v1/scan/deep/sarif")
+@app.post("/v1/scan/deep/sarif", response_model=dict[str, object])
 async def deep_scan_sarif(
     req: DeepScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
@@ -337,37 +345,68 @@ async def deep_scan(
     logger.info("api_deep_scan", filename=req.filename)
     start = time.monotonic()
 
-    # Layer 1: Static analysis
-    findings = analyzer.scan_code(req.code, req.filename)
-    static_result = analyzer.build_scan_response(findings)
+    static_result = analyzer.build_scan_response(
+        analyzer.scan_code(req.code, req.filename),
+    )
+    ast_result = _run_ast_layer(req, ast_anal)
+    import_result = await _run_import_layer(req, registry)
+    docker_result = await _run_docker_layer(req, docker)
+    sandbox_result = await _run_sandbox_layer(req, sandbox_svc)
 
-    # Layer 3: AST analysis (if language supports it)
-    ast_result = None
+    return _assemble_deep_response(
+        static_result, ast_result, import_result,
+        docker_result, sandbox_result, start,
+    )
+
+
+def _run_ast_layer(
+    req: DeepScanRequest, ast_anal: AstAnalyzer,
+) -> AstScanResponse | None:
+    """Run AST analysis layer if language supports it."""
     if req.language and req.language in AST_LANGUAGES:
-        ast_findings = ast_anal.analyze(req.code, req.language, req.filename)
-        ast_result = _build_ast_response(ast_findings)
+        findings = ast_anal.analyze(req.code, req.language, req.filename)
+        return _build_ast_response(findings)
+    return None
 
-    # Layer 2a: Import verification (optional)
-    import_result = None
+
+async def _run_import_layer(
+    req: DeepScanRequest, registry: RegistryService,
+) -> VerifyImportsResponse | None:
+    """Run import verification layer if requested."""
     if req.verify_imports and req.language:
-        import_result = await _verify_imports_from_code(
-            req.code, req.language, req.requirements_content, registry
+        return await _verify_imports_from_code(
+            req.code, req.language, req.requirements_content, registry,
         )
+    return None
 
-    # Layer 2b: Docker verification (optional)
-    docker_result = None
+
+async def _run_docker_layer(
+    req: DeepScanRequest, docker: DockerVerifyService,
+) -> VerifyDockerResponse | None:
+    """Run Docker verification layer if requested."""
     if req.verify_docker and req.dockerfile_content:
-        docker_result = await _verify_docker_from_content(
-            req.dockerfile_content, docker
-        )
+        return await _verify_docker_from_content(req.dockerfile_content, docker)
+    return None
 
-    # Layer 4: Sandbox execution (optional)
-    sandbox_result: SandboxResponse | None = None
+
+async def _run_sandbox_layer(
+    req: DeepScanRequest, sandbox_svc: SandboxService,
+) -> SandboxResponse | None:
+    """Run sandbox execution layer if requested."""
     if req.sandbox_run and req.language in SUPPORTED_SANDBOX_LANGUAGES:
-        sandbox_result = await sandbox_svc.execute_code(
-            req.code, req.language,
-        )
+        return await sandbox_svc.execute_code(req.code, req.language)
+    return None
 
+
+def _assemble_deep_response(
+    static_result: StaticScanResponse,
+    ast_result: AstScanResponse | None,
+    import_result: VerifyImportsResponse | None,
+    docker_result: VerifyDockerResponse | None,
+    sandbox_result: SandboxResponse | None,
+    start: float,
+) -> DeepScanResponse:
+    """Assemble the final DeepScanResponse from layer results."""
     elapsed_ms = int((time.monotonic() - start) * 1000)
     overall = _compute_overall_verdict(
         static_result, ast_result, import_result, docker_result, sandbox_result,
@@ -375,7 +414,6 @@ async def deep_scan(
     total = _compute_total_findings(
         static_result, ast_result, import_result, docker_result,
     )
-
     return DeepScanResponse(
         static_scan=static_result,
         ast_scan=ast_result,
@@ -624,18 +662,18 @@ async def list_api_keys(
     ]
 
 
-@app.delete("/v1/api-keys/{key_id}")
+@app.delete("/v1/api-keys/{key_id}", response_model=RevokeResponse)
 async def revoke_api_key(
     key_id: str,
     db: DatabaseService = Depends(_get_db),
     _api_key: str = Depends(verify_api_key),
-) -> dict[str, bool]:
+) -> RevokeResponse:
     """Revoke an API key."""
     user_id = _api_key or "local"
     success = await db.revoke_api_key(key_id, user_id)
     if not success:
         raise HTTPException(status_code=404, detail="API key not found")
-    return {"revoked": True}
+    return RevokeResponse(revoked=True)
 
 
 # --- Dashboard: Scan history ---
@@ -704,12 +742,12 @@ async def usage_stats(
 # --- Dashboard: Billing ---
 
 
-@app.post("/v1/billing/checkout")
+@app.post("/v1/billing/checkout", response_model=UrlResponse)
 async def billing_checkout(
     req: CheckoutRequest,
     billing: BillingService = Depends(_get_billing),
     _api_key: str = Depends(verify_api_key),
-) -> dict[str, str]:
+) -> UrlResponse:
     """Create a Stripe checkout session for upgrading plans."""
     if not billing.is_configured():
         raise HTTPException(status_code=503, detail="Billing not configured")
@@ -720,14 +758,14 @@ async def billing_checkout(
     )
     if not url:
         raise HTTPException(status_code=500, detail="Failed to create checkout")
-    return {"url": url}
+    return UrlResponse(url=url)
 
 
-@app.post("/v1/billing/portal")
+@app.post("/v1/billing/portal", response_model=UrlResponse)
 async def billing_portal(
     billing: BillingService = Depends(_get_billing),
     _api_key: str = Depends(verify_api_key),
-) -> dict[str, str]:
+) -> UrlResponse:
     """Create a Stripe customer portal session."""
     if not billing.is_configured():
         raise HTTPException(status_code=503, detail="Billing not configured")
@@ -735,15 +773,15 @@ async def billing_portal(
     url = await billing.create_portal_session(customer_id="")
     if not url:
         raise HTTPException(status_code=500, detail="Failed to create portal session")
-    return {"url": url}
+    return UrlResponse(url=url)
 
 
-@app.post("/v1/webhooks/stripe")
+@app.post("/v1/webhooks/stripe", response_model=StatusResponse)
 async def stripe_webhook(
     request: Request,
     billing: BillingService = Depends(_get_billing),
     db: DatabaseService = Depends(_get_db),
-) -> dict[str, str]:
+) -> StatusResponse:
     """Handle Stripe webhook events for subscription changes."""
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
@@ -752,7 +790,7 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     await _handle_stripe_event(event, db)
-    return {"status": "ok"}
+    return StatusResponse(status="ok")
 
 
 async def _handle_stripe_event(

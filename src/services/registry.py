@@ -23,6 +23,53 @@ logger = structlog.get_logger()
 _SEMAPHORE_LIMIT: int = 20
 
 
+def _timeout_result(package: str, registry: Registry) -> PackageResult:
+    """Build a PackageResult for a registry timeout."""
+    return PackageResult(
+        package=package,
+        registry=registry,
+        status=VerifyStatus.TIMEOUT,
+        severity=Severity.WARN,
+        message=f"Timeout verifying '{package}'.",
+    )
+
+
+def _http_error_result(
+    package: str, registry: Registry, exc: httpx.HTTPError,
+) -> PackageResult:
+    """Build a PackageResult for an HTTP error."""
+    return PackageResult(
+        package=package,
+        registry=registry,
+        status=VerifyStatus.ERROR,
+        severity=Severity.WARN,
+        message=f"HTTP error verifying '{package}': {exc}",
+    )
+
+
+async def _not_found_result(
+    package: str,
+    registry: Registry,
+    suggestion: str,
+    cache: CacheService,
+    cache_key: str,
+) -> PackageResult:
+    """Build a PackageResult for a not-found package and cache it."""
+    await cache.set_json(
+        cache_key,
+        {"exists": False, "latest": "", "deprecated": False},
+        settings.cache_ttl_not_found,
+    )
+    return PackageResult(
+        package=package,
+        registry=registry,
+        status=VerifyStatus.NOT_FOUND,
+        severity=Severity.BLOCK,
+        message=f"Package '{package}' not found on {registry.value}.",
+        suggestion=suggestion,
+    )
+
+
 class RegistryService:
     """Verifies packages exist in language registries (PyPI, npm)."""
 
@@ -64,40 +111,18 @@ class RegistryService:
         try:
             data = await self._check_pypi(package)
         except httpx.TimeoutException:
-            return PackageResult(
-                package=package,
-                registry=Registry.PYPI,
-                status=VerifyStatus.TIMEOUT,
-                severity=Severity.WARN,
-                message=f"Timeout verifying '{package}'.",
-            )
+            return _timeout_result(package, Registry.PYPI)
         except httpx.HTTPError as exc:
-            return PackageResult(
-                package=package,
-                registry=Registry.PYPI,
-                status=VerifyStatus.ERROR,
-                severity=Severity.WARN,
-                message=f"HTTP error verifying '{package}': {exc}",
-            )
+            return _http_error_result(package, Registry.PYPI, exc)
 
         if data is None:
-            suggestion = suggest_pypi_package(package)
-            await self._cache.set_json(
-                cache_key,
-                {"exists": False, "latest": "", "deprecated": False},
-                settings.cache_ttl_not_found,
-            )
-            return PackageResult(
-                package=package,
-                registry=Registry.PYPI,
-                status=VerifyStatus.NOT_FOUND,
-                severity=Severity.BLOCK,
-                message=f"Package '{package}' not found on PyPI.",
-                suggestion=suggestion,
+            return await _not_found_result(
+                package, Registry.PYPI,
+                suggest_pypi_package(package), self._cache, cache_key,
             )
 
         return await self._process_pypi_response(
-            package, version, data, cache_key
+            package, version, data, cache_key,
         )
 
     async def _process_pypi_response(
@@ -112,41 +137,65 @@ class RegistryService:
         if not isinstance(info, dict):
             info = {}
         latest = str(info.get("version", ""))
+        deprecated = self._is_pypi_deprecated(info)
 
-        # Check deprecation (yanked or classifiers)
+        await self._cache_package("pypi", package, latest, deprecated)
+
+        if deprecated:
+            return self._deprecated_result(package, Registry.PYPI, latest)
+
+        if version:
+            return self._check_pypi_version(
+                package, version, data, latest, cache_key,
+            )
+
+        return self._verified_result(package, Registry.PYPI, latest)
+
+    @staticmethod
+    def _is_pypi_deprecated(info: dict[str, object]) -> bool:
+        """Check if a PyPI package is deprecated via classifiers."""
         classifiers = info.get("classifiers", [])
-        deprecated = False
         if isinstance(classifiers, list):
-            deprecated = any("Inactive" in str(c) for c in classifiers)
+            return any("Inactive" in str(c) for c in classifiers)
+        return False
 
+    async def _cache_package(
+        self, registry_prefix: str, package: str,
+        latest: str, deprecated: bool,
+    ) -> None:
+        """Cache package existence data."""
         await self._cache.set_json(
-            self._cache._make_key("pypi", package),
+            self._cache._make_key(registry_prefix, package),
             {"exists": True, "latest": latest, "deprecated": deprecated},
             settings.cache_ttl_package_exists,
         )
 
-        if deprecated:
-            return PackageResult(
-                package=package,
-                registry=Registry.PYPI,
-                status=VerifyStatus.DEPRECATED,
-                severity=Severity.WARN,
-                latest_version=latest,
-                message=f"Package '{package}' is deprecated.",
-            )
-
-        if version:
-            return self._check_pypi_version(
-                package, version, data, latest, cache_key
-            )
-
+    @staticmethod
+    def _deprecated_result(
+        package: str, registry: Registry, latest: str,
+    ) -> PackageResult:
+        """Build a PackageResult for a deprecated package."""
         return PackageResult(
             package=package,
-            registry=Registry.PYPI,
+            registry=registry,
+            status=VerifyStatus.DEPRECATED,
+            severity=Severity.WARN,
+            latest_version=latest,
+            message=f"Package '{package}' is deprecated.",
+        )
+
+    @staticmethod
+    def _verified_result(
+        package: str, registry: Registry, latest: str,
+    ) -> PackageResult:
+        """Build a PackageResult for a verified package."""
+        return PackageResult(
+            package=package,
+            registry=registry,
             status=VerifyStatus.VERIFIED,
             severity=Severity.INFO,
             latest_version=latest,
-            message=f"Package '{package}' exists on PyPI.",
+            message=f"Package '{package}' exists on {registry.value}.",
         )
 
     def _check_pypi_version(
@@ -210,40 +259,18 @@ class RegistryService:
         try:
             data = await self._check_npm(package)
         except httpx.TimeoutException:
-            return PackageResult(
-                package=package,
-                registry=Registry.NPM,
-                status=VerifyStatus.TIMEOUT,
-                severity=Severity.WARN,
-                message=f"Timeout verifying '{package}'.",
-            )
+            return _timeout_result(package, Registry.NPM)
         except httpx.HTTPError as exc:
-            return PackageResult(
-                package=package,
-                registry=Registry.NPM,
-                status=VerifyStatus.ERROR,
-                severity=Severity.WARN,
-                message=f"HTTP error verifying '{package}': {exc}",
-            )
+            return _http_error_result(package, Registry.NPM, exc)
 
         if data is None:
-            suggestion = suggest_npm_package(package)
-            await self._cache.set_json(
-                cache_key,
-                {"exists": False, "latest": "", "deprecated": False},
-                settings.cache_ttl_not_found,
-            )
-            return PackageResult(
-                package=package,
-                registry=Registry.NPM,
-                status=VerifyStatus.NOT_FOUND,
-                severity=Severity.BLOCK,
-                message=f"Package '{package}' not found on npm.",
-                suggestion=suggestion,
+            return await _not_found_result(
+                package, Registry.NPM,
+                suggest_npm_package(package), self._cache, cache_key,
             )
 
         return await self._process_npm_response(
-            package, version, data, cache_key
+            package, version, data, cache_key,
         )
 
     async def _process_npm_response(
@@ -330,6 +357,7 @@ class RegistryService:
         semaphore = asyncio.Semaphore(_SEMAPHORE_LIMIT)
 
         async def verify_one(pkg: str) -> PackageResult:
+            """Verify a single package within the semaphore."""
             async with semaphore:
                 version = version_map.get(pkg.lower(), "")
                 return await self._verify_single(language, pkg, version)
@@ -445,40 +473,18 @@ class RegistryService:
         try:
             data = await self._check_go_proxy(module)
         except httpx.TimeoutException:
-            return PackageResult(
-                package=module,
-                registry=Registry.GO_PROXY,
-                status=VerifyStatus.TIMEOUT,
-                severity=Severity.WARN,
-                message=f"Timeout verifying '{module}'.",
-            )
+            return _timeout_result(module, Registry.GO_PROXY)
         except httpx.HTTPError as exc:
-            return PackageResult(
-                package=module,
-                registry=Registry.GO_PROXY,
-                status=VerifyStatus.ERROR,
-                severity=Severity.WARN,
-                message=f"HTTP error verifying '{module}': {exc}",
-            )
+            return _http_error_result(module, Registry.GO_PROXY, exc)
 
         if data is None:
-            suggestion = suggest_go_module(module)
-            await self._cache.set_json(
-                cache_key,
-                {"exists": False, "latest": "", "deprecated": False},
-                settings.cache_ttl_not_found,
-            )
-            return PackageResult(
-                package=module,
-                registry=Registry.GO_PROXY,
-                status=VerifyStatus.NOT_FOUND,
-                severity=Severity.BLOCK,
-                message=f"Module '{module}' not found on Go proxy.",
-                suggestion=suggestion,
+            return await _not_found_result(
+                module, Registry.GO_PROXY,
+                suggest_go_module(module), self._cache, cache_key,
             )
 
         return await self._process_go_response(
-            module, version, data, cache_key
+            module, version, data, cache_key,
         )
 
     async def _process_go_response(
@@ -566,7 +572,10 @@ class RegistryService:
 
     # --- crates.io verification ---
 
-    _CRATES_USER_AGENT: str = "CodeTrust/1.0.0 (https://github.com/codetrust)"
+    @property
+    def _crates_user_agent(self) -> str:
+        """Build crates.io User-Agent from config."""
+        return f"CodeTrust/{settings.version} ({settings.tool_info_uri})"
 
     async def verify_crates_package(
         self, crate: str, version: str = ""
@@ -599,40 +608,18 @@ class RegistryService:
         try:
             data = await self._check_crates(crate)
         except httpx.TimeoutException:
-            return PackageResult(
-                package=crate,
-                registry=Registry.CRATES,
-                status=VerifyStatus.TIMEOUT,
-                severity=Severity.WARN,
-                message=f"Timeout verifying '{crate}'.",
-            )
+            return _timeout_result(crate, Registry.CRATES)
         except httpx.HTTPError as exc:
-            return PackageResult(
-                package=crate,
-                registry=Registry.CRATES,
-                status=VerifyStatus.ERROR,
-                severity=Severity.WARN,
-                message=f"HTTP error verifying '{crate}': {exc}",
-            )
+            return _http_error_result(crate, Registry.CRATES, exc)
 
         if data is None:
-            suggestion = suggest_crates_package(crate)
-            await self._cache.set_json(
-                cache_key,
-                {"exists": False, "latest": "", "deprecated": False},
-                settings.cache_ttl_not_found,
-            )
-            return PackageResult(
-                package=crate,
-                registry=Registry.CRATES,
-                status=VerifyStatus.NOT_FOUND,
-                severity=Severity.BLOCK,
-                message=f"Crate '{crate}' not found on crates.io.",
-                suggestion=suggestion,
+            return await _not_found_result(
+                crate, Registry.CRATES,
+                suggest_crates_package(crate), self._cache, cache_key,
             )
 
         return await self._process_crates_response(
-            crate, version, data, cache_key
+            crate, version, data, cache_key,
         )
 
     async def _process_crates_response(
@@ -717,7 +704,7 @@ class RegistryService:
             response = await self._http.get(
                 url,
                 timeout=settings.http_timeout,
-                headers={"User-Agent": self._CRATES_USER_AGENT},
+                headers={"User-Agent": self._crates_user_agent},
             )
             if response.status_code == 200:
                 result: dict[str, object] = response.json()
@@ -743,32 +730,42 @@ class RegistryService:
         deprecated = bool(cached.get("deprecated", False))
 
         if not exists:
-            return PackageResult(
-                package=package,
-                registry=registry,
-                status=VerifyStatus.NOT_FOUND,
-                severity=Severity.BLOCK,
-                message=f"Package '{package}' not found (cached).",
-                cached=True,
-            )
+            return self._cached_not_found(package, registry)
 
         if deprecated:
-            return PackageResult(
-                package=package,
-                registry=registry,
-                status=VerifyStatus.DEPRECATED,
-                severity=Severity.WARN,
-                latest_version=latest,
-                message=f"Package '{package}' is deprecated (cached).",
-                cached=True,
-            )
+            return self._cached_deprecated(package, registry, latest)
 
+        return self._cached_verified(package, registry, latest)
+
+    @staticmethod
+    def _cached_not_found(package: str, registry: Registry) -> PackageResult:
+        """Build a cached not-found result."""
         return PackageResult(
-            package=package,
-            registry=registry,
-            status=VerifyStatus.VERIFIED,
-            severity=Severity.INFO,
+            package=package, registry=registry,
+            status=VerifyStatus.NOT_FOUND, severity=Severity.BLOCK,
+            message=f"Package '{package}' not found (cached).", cached=True,
+        )
+
+    @staticmethod
+    def _cached_deprecated(
+        package: str, registry: Registry, latest: str,
+    ) -> PackageResult:
+        """Build a cached deprecated result."""
+        return PackageResult(
+            package=package, registry=registry,
+            status=VerifyStatus.DEPRECATED, severity=Severity.WARN,
             latest_version=latest,
-            message=f"Package '{package}' verified (cached).",
-            cached=True,
+            message=f"Package '{package}' is deprecated (cached).", cached=True,
+        )
+
+    @staticmethod
+    def _cached_verified(
+        package: str, registry: Registry, latest: str,
+    ) -> PackageResult:
+        """Build a cached verified result."""
+        return PackageResult(
+            package=package, registry=registry,
+            status=VerifyStatus.VERIFIED, severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Package '{package}' verified (cached).", cached=True,
         )

@@ -123,6 +123,7 @@ class DockerVerifyService:
         semaphore = asyncio.Semaphore(_SEMAPHORE_LIMIT)
 
         async def verify_one(item: DockerImageInput) -> DockerImageResult:
+            """Verify a single image within the semaphore."""
             async with semaphore:
                 return await self.verify_image_tag(item.image, item.tag)
 

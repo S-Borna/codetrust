@@ -7,6 +7,8 @@ SARIF-consuming tools.
 Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
 """
 
+import structlog
+
 from src.config import settings
 from src.models.enums import Severity
 from src.models.responses import (
@@ -14,6 +16,8 @@ from src.models.responses import (
     Finding,
     StaticScanResponse,
 )
+
+logger = structlog.get_logger()
 
 # SARIF severity mapping
 _SEVERITY_MAP: dict[Severity, str] = {
@@ -29,10 +33,10 @@ _SECURITY_SEVERITY_MAP: dict[Severity, str] = {
     Severity.INFO: "low",
 }
 
-SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
+SARIF_SCHEMA = settings.sarif_schema_url
 SARIF_VERSION = "2.1.0"
 TOOL_NAME = "CodeTrust"
-TOOL_INFO_URI = "https://github.com/codetrust-ai/codetrust"
+TOOL_INFO_URI = settings.tool_info_uri
 
 
 def findings_to_sarif(

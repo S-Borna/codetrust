@@ -36,6 +36,13 @@ dependencies = [
     "redis[hiredis]>=5.0.0",
     # Logging
     "structlog>=24.0.0",
+    # AST parsing
+    "tree-sitter>=0.23.0",
+    "tree-sitter-python>=0.23.0",
+    "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-go>=0.23.0",
+    "tree-sitter-rust>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
 ]
 
 [project.optional-dependencies]

@@ -10,20 +10,25 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 
 from src.config import settings
-from src.models.enums import Language, VerifyStatus
+from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
+    AstScanRequest,
     DeepScanRequest,
     StaticScanRequest,
     VerifyDockerRequest,
     VerifyImportsRequest,
 )
 from src.models.responses import (
+    AstScanResponse,
     DeepScanResponse,
+    Finding,
     HealthResponse,
     StaticScanResponse,
     VerifyDockerResponse,
     VerifyImportsResponse,
 )
+from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
+from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
@@ -76,6 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.registry = RegistryService(cache, http_client)
     app.state.docker = DockerVerifyService(cache, http_client)
     app.state.analyzer = StaticAnalyzer()
+    app.state.ast_analyzer = AstAnalyzer()
 
     yield
 
@@ -107,6 +113,11 @@ def _get_docker(request: Request) -> DockerVerifyService:
 def _get_analyzer(request: Request) -> StaticAnalyzer:
     """Dependency: get StaticAnalyzer from app state."""
     return request.app.state.analyzer
+
+
+def _get_ast_analyzer(request: Request) -> AstAnalyzer:
+    """Dependency: get AstAnalyzer from app state."""
+    return request.app.state.ast_analyzer
 
 
 def _get_cache(request: Request) -> CacheService:
@@ -182,10 +193,33 @@ async def static_scan(
     return analyzer.build_scan_response(findings)
 
 
+@app.post("/v1/scan/ast", response_model=AstScanResponse)
+async def ast_scan(
+    req: AstScanRequest,
+    ast_anal: AstAnalyzer = Depends(_get_ast_analyzer),
+    _api_key: str = Depends(verify_api_key),
+) -> AstScanResponse:
+    """Run AST-based code analysis using tree-sitter."""
+    logger.info("api_ast_scan", filename=req.filename, language=req.language)
+
+    if req.language not in AST_LANGUAGES:
+        return AstScanResponse(
+            total_findings=0, blocks=0, warnings=0,
+            infos=0, findings=[], verdict="PASS",
+        )
+
+    findings = ast_anal.analyze(
+        req.code, req.language, req.filename,
+        req.max_nesting, req.complexity_threshold,
+    )
+    return _build_ast_response(findings)
+
+
 @app.post("/v1/scan/deep", response_model=DeepScanResponse)
 async def deep_scan(
     req: DeepScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
+    ast_anal: AstAnalyzer = Depends(_get_ast_analyzer),
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
     _api_key: str = Depends(verify_api_key),
@@ -197,6 +231,12 @@ async def deep_scan(
     # Layer 1: Static analysis
     findings = analyzer.scan_code(req.code, req.filename)
     static_result = analyzer.build_scan_response(findings)
+
+    # Layer 3: AST analysis (if language supports it)
+    ast_result = None
+    if req.language and req.language in AST_LANGUAGES:
+        ast_findings = ast_anal.analyze(req.code, req.language, req.filename)
+        ast_result = _build_ast_response(ast_findings)
 
     # Layer 2a: Import verification (optional)
     import_result = None
@@ -213,11 +253,16 @@ async def deep_scan(
         )
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
-    overall = _compute_overall_verdict(static_result, import_result, docker_result)
-    total = _compute_total_findings(static_result, import_result, docker_result)
+    overall = _compute_overall_verdict(
+        static_result, ast_result, import_result, docker_result,
+    )
+    total = _compute_total_findings(
+        static_result, ast_result, import_result, docker_result,
+    )
 
     return DeepScanResponse(
         static_scan=static_result,
+        ast_scan=ast_result,
         import_verification=import_result,
         docker_verification=docker_result,
         overall_verdict=overall,
@@ -324,13 +369,39 @@ def _build_imports_response(
     )
 
 
+def _build_ast_response(findings: list[Finding]) -> AstScanResponse:
+    """Build an AstScanResponse from a list of findings."""
+    blocks = sum(1 for f in findings if f.severity == Severity.BLOCK)
+    warns = sum(1 for f in findings if f.severity == Severity.WARN)
+    infos = sum(1 for f in findings if f.severity == Severity.INFO)
+
+    verdict = "PASS"
+    if blocks > 0:
+        verdict = "BLOCK"
+    elif warns > 0:
+        verdict = "WARN"
+
+    return AstScanResponse(
+        total_findings=len(findings),
+        blocks=blocks,
+        warnings=warns,
+        infos=infos,
+        findings=findings,
+        verdict=verdict,
+    )
+
+
 def _compute_overall_verdict(
     static: StaticScanResponse,
+    ast: AstScanResponse | None,
     imports: VerifyImportsResponse | None,
     docker: VerifyDockerResponse | None,
 ) -> str:
     """Compute overall verdict from sub-results."""
     if static.verdict == "BLOCK":
+        return "BLOCK"
+
+    if ast is not None and ast.verdict == "BLOCK":
         return "BLOCK"
 
     if imports is not None and imports.failed > 0:
@@ -342,6 +413,9 @@ def _compute_overall_verdict(
     if static.verdict == "WARN":
         return "WARN"
 
+    if ast is not None and ast.verdict == "WARN":
+        return "WARN"
+
     if imports is not None and imports.warnings > 0:
         return "WARN"
 
@@ -350,11 +424,15 @@ def _compute_overall_verdict(
 
 def _compute_total_findings(
     static: StaticScanResponse,
+    ast: AstScanResponse | None,
     imports: VerifyImportsResponse | None,
     docker: VerifyDockerResponse | None,
 ) -> int:
     """Count total findings across all layers."""
     total = static.total_findings
+
+    if ast is not None:
+        total += ast.total_findings
 
     if imports is not None:
         total += len(imports.results)

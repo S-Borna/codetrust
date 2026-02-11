@@ -13,6 +13,7 @@ from src.models.responses import (
     DockerImageResult,
     PackageResult,
 )
+from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
@@ -33,6 +34,7 @@ def _setup_app_state() -> None:
     app.state.registry = RegistryService(cache, http_client)
     app.state.docker = DockerVerifyService(cache, http_client)
     app.state.analyzer = StaticAnalyzer()
+    app.state.ast_analyzer = AstAnalyzer()
 
 
 @pytest.fixture()

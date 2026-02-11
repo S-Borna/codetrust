@@ -54,6 +54,18 @@ class StaticScanRequest(BaseModel):
     language: Language | None = None
 
 
+class AstScanRequest(BaseModel):
+    """Request for AST-based code analysis."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=1, max_length=500_000)
+    filename: str = Field(default="untitled")
+    language: Language = Field(..., description="Language is required for AST parsing")
+    max_nesting: int = Field(default=4, ge=1, le=20)
+    complexity_threshold: int = Field(default=10, ge=1, le=100)
+
+
 class DeepScanRequest(BaseModel):
     """Request for full deep scan (all layers)."""
 

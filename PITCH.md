@@ -12,7 +12,7 @@
 
 ## Problemet ($47 miljarder marknadsanledning)
 
-### AI skriver din kod nu. Men ingen verifierar att den fungerar.
+### AI skriver din kod nu. Men ingen verifierar att den fungerar
 
 2025–2026 har AI-kodningsverktyg (GitHub Copilot, Claude Code, Cursor, GPT) blivit standard. **78% av utvecklare** använder AI-assistenter dagligen. Men AI-genererad kod har nya felklasser som befintliga verktyg inte fångar:
 
@@ -313,6 +313,7 @@ jobs:
       - run: pip install codetrust
       - run: codetrust scan .
 ```
+
 **Resultat:** Ingen PR mergas med BLOCK-findings. Hallucinerade paket, hemligheter och osäkra mönster stoppas automatiskt.
 
 ### 3. Enterprise
@@ -350,8 +351,9 @@ Nej. CodeTrust är proprietärt. Verktygen (CLI, extension, MCP-server) är grat
 ## Kontakt
 
 **Said Borna** — Creator & Developer
+
 - GitHub: [github.com/S-Borna](https://github.com/S-Borna)
-- Email: said@saidborna.com
+- Email: <said@saidborna.com>
 - PyPI: [pypi.org/project/codetrust](https://pypi.org/project/codetrust/)
 - VS Code: [marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
 

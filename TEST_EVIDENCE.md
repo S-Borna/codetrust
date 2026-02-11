@@ -83,7 +83,7 @@ async def test_unknown_package_returns_not_found(self):
 ### 2. Typosquatting upptäcks
 
 ```python
-# test_similarity.py  
+# test_similarity.py
 def test_typo_suggestion(self):
     """AI skrev 'requets' istf 'requests' → CodeTrust föreslår rätt."""
     suggestion = suggest_similar("requets", TOP_PYPI_PACKAGES)

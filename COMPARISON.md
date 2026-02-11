@@ -90,17 +90,17 @@ CodeTrust **ersätter inte** SonarQube, Snyk eller Semgrep. Det **kompletterar**
 ```
 Traditional SAST/SCA workflow:
   Code → Lint → SAST → SCA → Deploy
-  
+
   "Is the code well-written?"     ✅ SonarQube, Semgrep
   "Does it have known CVEs?"      ✅ Snyk, Semgrep SCA
   "Does it actually WORK?"        ❌ Nobody checks this
     - Do the imports exist?       ❌
     - Is the Docker image real?   ❌
     - Will it crash at runtime?   ❌
-    
+
 With CodeTrust added:
   Code → Lint → SAST → SCA → CodeTrust → Deploy
-  
+
   "Does it actually WORK?"        ✅ CodeTrust
     - Do the imports exist?       ✅ Registry verification
     - Is the Docker image real?   ✅ Docker Hub verification

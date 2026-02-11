@@ -1,5 +1,6 @@
 """Layer 1: Regex-based anti-pattern detection engine. Runs locally, no network calls."""
 
+import os
 import re
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import structlog
 
 from src.models.enums import Severity
 from src.models.responses import Finding, StaticScanResponse
-from src.rules.anti_patterns import ANTI_PATTERNS, MAX_FUNCTION_LENGTH
+from src.rules.anti_patterns import ANTI_PATTERNS, MAX_FUNCTION_LENGTH, SQL_EXTENSIONS
 from src.rules.enterprise import (
     FORBIDDEN_PATTERNS,
     RECOMMENDED_DIRS,
@@ -25,8 +26,20 @@ class StaticAnalyzer:
         """Run all anti-pattern rules against a code string."""
         findings: list[Finding] = []
         lines = code.splitlines()
+        ext = os.path.splitext(filename)[1].lower() if filename else ""
 
         for rule in ANTI_PATTERNS:
+            # --- file-type routing ---
+            rule_file_types = rule.get("file_types")
+            if rule_file_types:
+                # Rule is language-specific — only run on matching extensions
+                if ext not in rule_file_types:
+                    continue
+            else:
+                # Generic rule — skip files that belong to a dedicated language
+                if ext in SQL_EXTENSIONS:
+                    continue
+
             if rule.get("special_handler") == "check_function_length":
                 findings.extend(self._check_function_lengths(lines, filename))
                 continue

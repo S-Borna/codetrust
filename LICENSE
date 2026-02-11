@@ -7,11 +7,13 @@ proprietary property of Said Borna ("Owner"). The Software is protected by
 copyright laws and international treaties.
 
 PERMISSIONS:
+
 - You may use the Software via the official distribution channels (PyPI,
   VS Code Marketplace, Cloud API) for your own projects.
 - You may install and run the Software locally for development purposes.
 
 RESTRICTIONS:
+
 - You may NOT copy, modify, merge, publish, distribute, sublicense, or sell
   copies of the Software or any portion thereof.
 - You may NOT reverse engineer, decompile, or disassemble the Software.

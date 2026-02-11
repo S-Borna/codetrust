@@ -5,6 +5,84 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-11
+
+### Added
+
+- **Dashboard (Next.js 14+)** (Phase 9) — web dashboard for API key management and usage analytics
+  - Landing page with hero section and feature cards
+  - Pricing page with Free / Pro / Enterprise tier comparison
+  - GitHub OAuth login via NextAuth.js with Prisma adapter
+  - Dashboard overview with stats cards, usage chart, and scan history table
+  - API key management — create, list, revoke keys (`ct_live_` format, SHA-256 hashed)
+  - Account settings page with profile, subscription, and danger zone
+  - Tailwind CSS styling with dark-mode-ready custom palette
+- **Stripe Billing** — subscription management with checkout, portal, and webhooks
+  - `src/services/billing.py` — `BillingService` wrapping Stripe SDK
+  - Checkout sessions, customer portal, subscription status, plan limits
+  - Webhook handler for `checkout.session.completed` and `customer.subscription.deleted`
+  - Plan limits: FREE=100, PRO=10,000, ENTERPRISE=100,000 scans/day
+- **Database layer (SQLAlchemy 2.0 async)** — persistent storage for users, keys, scans
+  - `src/models/database.py` — `User`, `ApiKeyRecord`, `ScanLog`, `UsageDay` ORM models
+  - `src/services/database.py` — async CRUD service (~280 lines)
+  - PostgreSQL (asyncpg) for production, SQLite (aiosqlite) for tests
+- **8 new API endpoints** — dashboard backend
+  - `POST /v1/api-keys`, `GET /v1/api-keys`, `DELETE /v1/api-keys/{key_id}`
+  - `GET /v1/scans/history`, `GET /v1/usage`
+  - `POST /v1/billing/checkout`, `POST /v1/billing/portal`, `POST /v1/webhooks/stripe`
+- CORS middleware for dashboard cross-origin requests
+- Docker Compose: added PostgreSQL 16 service with health checks
+- 66 new tests (30 database + 22 billing + 15 dashboard API) — **476 tests total**
+
+### Changed
+
+- `PlanTier` and `ScanType` enums added to `src/models/enums.py`
+- Config expanded: database, Stripe, OAuth, JWT, dashboard settings
+- `pyproject.toml`: added sqlalchemy, asyncpg, stripe, aiosqlite dependencies
+
+## [1.3.0] - 2026-02-11
+
+### Added
+
+- **GitHub Action for CI/CD** (Phase 8) — reusable composite action for PR scanning
+  - `action.yml` with configurable inputs: scan-type, fail-on threshold, language, SARIF output
+  - `action/entrypoint.sh` entry script and `action/scan_runner.py` Python runner
+  - Language-aware file discovery with exclusion patterns (.git, .venv, node_modules, etc.)
+  - GitHub workflow annotations (`::error::`, `::warning::`) for inline PR feedback
+- **SARIF v2.1.0 output** — standard format for GitHub Security tab integration
+  - `src/formatters/sarif.py` — converts Finding objects to SARIF JSON
+  - `POST /v1/scan/static/sarif` and `POST /v1/scan/deep/sarif` API endpoints
+  - `codetrust_sarif_export` MCP tool
+  - Security-severity mapping (BLOCK→high, WARN→medium, INFO→low)
+- **CI pipeline** — `.github/workflows/ci.yml` with lint, test, and self-scan jobs
+- 77 new tests (45 GitHub Action + 32 SARIF) — **410 tests total**
+
+## [1.2.0] - 2026-02-10
+
+### Added
+
+- **Sandbox Execution** (Phase 7) — isolated Docker container code execution (Layer 4)
+  - `src/services/sandbox.py` — `SandboxService` with inline and file execution strategies
+  - Security: `--network=none`, `--read-only`, `--memory=256m`, `--pids-limit=64`
+  - Supported languages: Python, JavaScript, TypeScript, Go, Rust
+  - `sandbox/` directory with 4 Dockerfiles (python, node, go, rust)
+  - `POST /v1/sandbox/run` API endpoint
+  - `codetrust_sandbox_run` MCP tool
+  - Sandbox layer integrated into deep scan (optional `sandbox_run` field)
+- 63 new sandbox tests — **333 tests total**
+
+## [1.1.0] - 2026-02-10
+
+### Added
+
+- **AST Parsing with tree-sitter** (Phase 6) — deep code analysis via Abstract Syntax Trees (Layer 3)
+  - `src/services/ast_analyzer.py` — cyclomatic complexity, unused variables, unreachable code, deep nesting
+  - Supports Python, JavaScript, TypeScript, Go, Rust via tree-sitter grammars
+  - `POST /v1/scan/ast` API endpoint
+  - `codetrust_ast_scan` MCP tool
+  - AST layer integrated into deep scan
+- 270 tests total after Phase 6
+
 ## [1.0.0] - 2026-02-10
 
 ### Added

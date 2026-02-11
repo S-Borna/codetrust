@@ -136,3 +136,92 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     version: str
     cache_connected: bool
+
+
+# --- Dashboard response models ---
+
+
+class ApiKeyResponse(BaseModel):
+    """API key info returned to the user (never includes the hash)."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    name: str
+    prefix: str
+    is_revoked: bool
+    created_at: str
+    last_used_at: str = ""
+
+
+class ApiKeyCreatedResponse(BaseModel):
+    """Response when a new API key is created (includes raw key once)."""
+
+    model_config = ConfigDict(strict=True)
+
+    key: str
+    id: str
+    name: str
+    prefix: str
+
+
+class ScanLogResponse(BaseModel):
+    """Single scan log entry for history view."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    scan_type: str
+    verdict: str
+    findings_count: int
+    language: str = ""
+    filename: str = ""
+    latency_ms: int = 0
+    created_at: str
+
+
+class ScanHistoryResponse(BaseModel):
+    """Paginated scan history."""
+
+    model_config = ConfigDict(strict=True)
+
+    scans: list[ScanLogResponse]
+    page: int
+    per_page: int
+    total: int
+
+
+class UsageDayResponse(BaseModel):
+    """Single day of usage data."""
+
+    model_config = ConfigDict(strict=True)
+
+    date: str
+    scan_count: int
+    findings_total: int
+    avg_latency_ms: float
+
+
+class UsageStatsResponse(BaseModel):
+    """Usage statistics for the requested period."""
+
+    model_config = ConfigDict(strict=True)
+
+    days: list[UsageDayResponse]
+    total_scans: int
+    period_days: int
+
+
+class UserProfileResponse(BaseModel):
+    """User profile info for the dashboard."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    email: str
+    name: str
+    avatar_url: str
+    plan: str
+    created_at: str
+    daily_limit: int
+    daily_usage: int

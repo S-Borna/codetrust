@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "1.0.0"
+version = "1.4.0"
 description = "AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns"
 readme = "README.md"
 license = "MIT"
@@ -43,6 +43,11 @@ dependencies = [
     "tree-sitter-go>=0.23.0",
     "tree-sitter-rust>=0.23.0",
     "tree-sitter-typescript>=0.23.0",
+    # Database
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",
+    # Billing
+    "stripe>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -53,6 +58,7 @@ dev = [
     "fakeredis[json]>=2.20.0",
     "ruff>=0.5.0",
     "httpx[cli]>=0.27.0",
+    "aiosqlite>=0.20.0",
 ]
 
 [project.scripts]

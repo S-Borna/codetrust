@@ -61,5 +61,27 @@ class Settings(BaseSettings):
     free_tier_daily_limit: int = 100
     pro_tier_daily_limit: int = 10_000
 
+    # --- Database ---
+    database_url: str = "postgresql+asyncpg://localhost:5432/codetrust"
+    database_echo: bool = False
+    database_pool_size: int = 10
+    database_max_overflow: int = 20
+
+    # --- Stripe ---
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro: str = ""
+    stripe_price_enterprise: str = ""
+
+    # --- OAuth (GitHub) ---
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    jwt_secret: str = ""
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24  # 24 hours
+
+    # --- Dashboard ---
+    dashboard_url: str = "http://localhost:3000"
+
 
 settings = Settings()

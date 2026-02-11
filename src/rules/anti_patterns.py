@@ -30,7 +30,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sql_injection",
-        "pattern": r'(execute|cursor\.execute)\s*\(\s*f["\']|\.format\s*\(',
+        "pattern": r'(?:execute|executemany|cursor\.execute)\s*\(\s*(?:f["\']|[^)]*\.format\s*\()',
         "message": "Possible SQL injection via string formatting. Use parameterized queries.",
         "severity": Severity.BLOCK,
     },
@@ -49,8 +49,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "console_log",
-        "pattern": r"\bconsole\.(log|debug|info)\b",
-        "message": "Use structured logger instead of console.log.",
+        "pattern": r"\bconsole\.(log|debug|info)\s*\(",
+        "message": "Replace console logging with a structured logger.",
         "severity": Severity.WARN,
     },
     {
@@ -73,7 +73,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "nested_ternary",
-        "pattern": r"\?[^:]+\?",
+        "pattern": r"\w\s*\?[^;]*\w\s*\?",
         "message": "Nested ternary reduces readability. Use if/else.",
         "severity": Severity.WARN,
     },
@@ -95,6 +95,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?<!=)\s(?<!\w)[2-9]\d{2,}\b",
         "message": "Magic number detected. Extract to a named constant.",
         "severity": Severity.INFO,
+        "skip_comments": True,
     },
     {
         "id": "long_function",

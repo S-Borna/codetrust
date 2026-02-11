@@ -282,34 +282,37 @@ def parse_dockerfile_from(content: str) -> list[tuple[str, str]]:
     return results
 
 
+def _substitute_args(text: str, args: dict[str, str]) -> str:
+    """Replace $VAR and ${VAR} placeholders with ARG values."""
+    result = text
+    for var_name, var_value in args.items():
+        result = result.replace(f"${{{var_name}}}", var_value)
+        result = result.replace(f"${var_name}", var_value)
+    return result
+
+
+def _split_image_tag(text: str) -> tuple[str, str]:
+    """Split an image reference into (image, tag)."""
+    if ":" in text:
+        image, tag = text.split(":", 1)
+    else:
+        image, tag = text, "latest"
+    return image.strip(), tag.strip()
+
+
 def _parse_from_line(
     line: str, args: dict[str, str]
 ) -> tuple[str, str] | None:
     """Parse a single FROM line into (image, tag)."""
-    # Remove FROM keyword
     rest = re.sub(r"^FROM\s+", "", line, flags=re.IGNORECASE).strip()
-
-    # Remove --platform=... flag
     rest = re.sub(r"--platform=\S+\s*", "", rest).strip()
-
-    # Remove AS alias
     rest = re.split(r"\s+AS\s+", rest, flags=re.IGNORECASE)[0].strip()
 
     if not rest or rest.lower() == "scratch":
         return None
 
-    # Substitute ARG variables: $VAR or ${VAR}
-    for var_name, var_value in args.items():
-        rest = rest.replace(f"${{{var_name}}}", var_value)
-        rest = rest.replace(f"${var_name}", var_value)
-
-    # Split image:tag
-    if ":" in rest:
-        image, tag = rest.split(":", 1)
-    else:
-        image, tag = rest, "latest"
-
-    return image.strip(), tag.strip()
+    rest = _substitute_args(rest, args)
+    return _split_image_tag(rest)
 
 
 # --- Go import extraction ---

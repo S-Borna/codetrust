@@ -146,21 +146,18 @@ def _build_results(findings: list[Finding]) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
 
     for finding in findings:
+        message_text = finding.message
+        if finding.suggestion:
+            message_text = f"{finding.message} → {finding.suggestion}"
+
         result: dict[str, object] = {
             "ruleId": finding.rule_id,
             "level": _SEVERITY_MAP.get(finding.severity, "note"),
-            "message": {"text": finding.message},
+            "message": {"text": message_text},
             "locations": [
                 _build_location(finding),
             ],
         }
-
-        if finding.suggestion:
-            result["fixes"] = [
-                {
-                    "description": {"text": finding.suggestion},
-                },
-            ]
 
         results.append(result)
 

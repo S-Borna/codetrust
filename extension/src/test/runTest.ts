@@ -1,0 +1,23 @@
+/**
+ * Test runner configuration for the CodeTrust VS Code extension.
+ * Uses @vscode/test-electron to run tests inside VS Code.
+ */
+
+import * as path from "path";
+import { runTests } from "@vscode/test-electron";
+
+async function main(): Promise<void> {
+  try {
+    const extensionDevelopmentPath = path.resolve(__dirname, "../../");
+    const extensionTestsPath = path.resolve(__dirname, "./suite/index");
+
+    await runTests({
+      extensionDevelopmentPath,
+      extensionTestsPath,
+    });
+  } catch {
+    process.exit(1);
+  }
+}
+
+main();

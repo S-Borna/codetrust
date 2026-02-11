@@ -5,6 +5,25 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-11
+
+### Added
+
+- **VS Code / Cursor Extension** (Phase 10) — editor extension for inline code verification
+  - `extension/` TypeScript project with full VS Code extension scaffolding
+  - Scan on save — automatic static analysis when saving supported files
+  - Command palette: Scan File, Deep Scan, Verify Imports, Verify Dockerfile, Clear Diagnostics
+  - Inline diagnostics — findings shown as squiggly lines (error/warning/info severity)
+  - Quick-fix code actions — suppress rules, apply suggestions, remove problematic lines
+  - Status bar — shows last scan verdict (PASS/WARN/BLOCK) with click-to-scan
+  - Import verification — extracts imports from Python, JS/TS, Go, Rust and verifies against registries
+  - Docker verification — parses FROM directives and validates images/tags
+  - Configurable settings: API URL, API key, scan type, severity threshold, language filter, timeout
+  - API client using Node.js native http/https (zero runtime dependencies)
+  - Parser utilities for Python, JavaScript/TypeScript, Go, Rust imports and Dockerfile images
+  - 3 test suites (parser tests, API client tests, type tests)
+  - ESLint, TypeScript strict mode, source maps
+
 ## [1.4.0] - 2026-02-11
 
 ### Added

@@ -351,7 +351,7 @@ cd dashboard && npm run build
 
 ---
 
-## Phase 10 — VS Code / Cursor Extension
+## Phase 10 — VS Code / Cursor Extension ✅
 
 **Goal:** Editor extension that runs CodeTrust scans inline, showing findings as diagnostics (squiggly lines), with quick-fix suggestions.
 

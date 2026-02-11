@@ -72,9 +72,10 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": 5},
     )
 
-    max_retries = 5
+    max_retries = 3
     retry_delay = 2  # seconds, doubles each attempt
 
     for attempt in range(1, max_retries + 1):

@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "/bin/sh -c 'for i in 1 2 3 4 5; do alembic upgrade head && break || sleep $((i*5)); done; exec uvicorn src.api:app --host 0.0.0.0 --port $PORT'"
+startCommand = "/bin/sh -c 'timeout 30 alembic upgrade head 2>&1 || echo ALEMBIC_SKIPPED; exec uvicorn src.api:app --host 0.0.0.0 --port $PORT'"
 healthcheckPath = "/v1/status"
 healthcheckTimeout = 180
 restartPolicyType = "ON_FAILURE"

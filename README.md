@@ -1,5 +1,9 @@
 # CodeTrust
 
+[![PyPI](https://img.shields.io/pypi/v/codetrust)](https://pypi.org/project/codetrust/)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust)](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns before they hit production.
 
 ## What It Does
@@ -17,13 +21,17 @@ AI code verification platform — MCP server + cloud API that catches hallucinat
 ### Install
 
 ```bash
-# Clone and install
-git clone https://github.com/yourorg/codetrust.git
+# From PyPI (recommended)
+pip install codetrust
+
+# VS Code Extension
+# Search "CodeTrust" in Extensions, or:
+code --install-extension SaidBorna.codetrust
+
+# From source
+git clone https://github.com/S-Borna/codetrust.git
 cd codetrust
 pip install -e ".[dev]"
-
-# Or use the setup script
-chmod +x setup.sh && ./setup.sh --all
 ```
 
 ### Run MCP Server (for Claude Code)
@@ -211,6 +219,15 @@ ruff check src/ tests/
 │    Redis Cache (graceful degrade)   │
 └─────────────────────────────────────┘
 ```
+
+## Distribution
+
+| Channel | Status | Install |
+|---------|--------|--------|
+| **PyPI** | Live | `pip install codetrust` |
+| **VS Code Marketplace** | Live | Search "CodeTrust" or `code --install-extension SaidBorna.codetrust` |
+| **Cloud API** | Live | `https://codetrust-api-production.up.railway.app` |
+| **GitHub** | Live | `github.com/S-Borna/codetrust` |
 
 ## License
 

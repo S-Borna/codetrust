@@ -3,7 +3,7 @@
     "displayName": "CodeTrust",
     "description": "AI code verification — catches hallucinated packages, broken configs, and code anti-patterns inline",
     "version": "1.4.0",
-    "publisher": "codetrust",
+    "publisher": "SaidBorna",
     "license": "MIT",
     "icon": "images/icon.png",
     "repository": {

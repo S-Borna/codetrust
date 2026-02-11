@@ -143,3 +143,40 @@ class FullScanInput(BaseModel):
     has_user_specified_stack: bool = False
     files_to_scan: list[str] | None = None
     verify_imports: bool = Field(default=False)
+
+
+# --- Dashboard request models ---
+
+
+class CreateApiKeyRequest(BaseModel):
+    """Request to create a new API key."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(default="Default", max_length=100)
+
+
+class ScanHistoryQuery(BaseModel):
+    """Query parameters for scan history pagination."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=20, ge=1, le=100)
+    scan_type: str | None = Field(default=None)
+
+
+class UsageQuery(BaseModel):
+    """Query parameters for usage statistics."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    days: int = Field(default=30, ge=1, le=365)
+
+
+class CheckoutRequest(BaseModel):
+    """Request to create a Stripe checkout session."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    plan: str = Field(..., pattern="^(pro|enterprise)$")

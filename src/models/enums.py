@@ -42,3 +42,22 @@ class Registry(StrEnum):
     GO_PROXY = "go_proxy"
     DOCKER_HUB = "docker_hub"
     GHCR = "ghcr"
+
+
+class PlanTier(StrEnum):
+    """Subscription plan tiers."""
+
+    FREE = "free"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+
+
+class ScanType(StrEnum):
+    """Types of scans logged for history and usage."""
+
+    STATIC = "static"
+    AST = "ast"
+    DEEP = "deep"
+    SANDBOX = "sandbox"
+    IMPORTS = "imports"
+    DOCKERFILE = "dockerfile"

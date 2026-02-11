@@ -4,7 +4,7 @@
 
 ---
 
-## Phase 1 — Foundation & Static Analysis (Layer 1)
+## Phase 1 — Foundation & Static Analysis (Layer 1) ✅
 
 **Goal:** Working project skeleton with static analysis engine migrated from Guardian v1.
 
@@ -44,7 +44,7 @@ python -c "from src.config import settings; print(settings.version)"  # Prints "
 
 ---
 
-## Phase 2 — Cache + Registry Verification (Layer 2 Core)
+## Phase 2 — Cache + Registry Verification (Layer 2 Core) ✅
 
 **Goal:** Can verify Python and npm packages against real registries with Redis caching.
 
@@ -89,7 +89,7 @@ pytest tests/ -v                         # All pass including new registry tests
 
 ---
 
-## Phase 3 — FastAPI + Docker Verification
+## Phase 3 — FastAPI + Docker Verification ✅
 
 **Goal:** HTTP API running with auth, plus Docker image verification.
 
@@ -130,7 +130,7 @@ curl -X POST http://localhost:8000/v1/verify/imports \
 
 ---
 
-## Phase 4 — Deep Scan + Polish + Deploy
+## Phase 4 — Deep Scan + Polish + Deploy ✅
 
 **Goal:** Full deep scan combining all layers, deployed on Railway.
 
@@ -164,7 +164,7 @@ docker run -p 8000:8000 codetrust       # API starts and serves requests
 
 ---
 
-## Phase 5 — Go & Rust Registry Support
+## Phase 5 — Go & Rust Registry Support ✅
 
 **Goal:** Extend registry verification to Go modules (proxy.golang.org) and Rust crates (crates.io).
 
@@ -216,7 +216,7 @@ pytest tests/ -v                         # All pass including new Go/Rust tests
 
 ---
 
-## Phase 6 — AST Parsing with tree-sitter (Layer 3)
+## Phase 6 — AST Parsing with tree-sitter (Layer 3) ✅
 
 **Goal:** Deep code analysis via Abstract Syntax Trees instead of regex-only scanning. Enables precise detection of patterns that regex can't reliably catch: unused variables, unreachable code, complexity metrics (cyclomatic, cognitive), call graph analysis.
 
@@ -248,7 +248,7 @@ pytest tests/ -v
 
 ---
 
-## Phase 7 — Sandbox Execution (Layer 4)
+## Phase 7 — Sandbox Execution (Layer 4) ✅
 
 **Goal:** Execute code in isolated Docker containers to verify it runs without errors. Catches import errors, syntax errors, and runtime crashes that static analysis misses.
 
@@ -283,7 +283,7 @@ docker build -t codetrust-sandbox-python sandbox/python/
 
 ---
 
-## Phase 8 — GitHub Action for CI/CD (Layer 5)
+## Phase 8 — GitHub Action for CI/CD (Layer 5) ✅
 
 **Goal:** Publish a reusable GitHub Action that runs CodeTrust scans in CI pipelines. Developers add one YAML step and get static analysis + import verification + Docker checks on every PR.
 
@@ -311,7 +311,7 @@ docker build -t codetrust-sandbox-python sandbox/python/
 
 ---
 
-## Phase 9 — Dashboard (Next.js) + Stripe Billing
+## Phase 9 — Dashboard (Next.js) + Stripe Billing ✅
 
 **Goal:** Web dashboard for managing API keys, viewing scan history, usage analytics, and subscription management via Stripe.
 

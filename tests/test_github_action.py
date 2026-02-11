@@ -379,6 +379,8 @@ class TestSarifAPIEndpoints:
         app.state.analyzer = StaticAnalyzer()
         app.state.ast_analyzer = AstAnalyzer()
         app.state.sandbox = SandboxService()
+        app.state.db = None
+        app.state.billing = None
 
         return TestClient(app, raise_server_exceptions=False)
 

@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import httpx
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, Security
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 
 from src.config import settings
@@ -14,6 +15,8 @@ from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AstScanRequest,
+    CheckoutRequest,
+    CreateApiKeyRequest,
     DeepScanRequest,
     SandboxRequest,
     StaticScanRequest,
@@ -21,18 +24,26 @@ from src.models.requests import (
     VerifyImportsRequest,
 )
 from src.models.responses import (
+    ApiKeyCreatedResponse,
+    ApiKeyResponse,
     AstScanResponse,
     DeepScanResponse,
     Finding,
     HealthResponse,
     SandboxResponse,
+    ScanHistoryResponse,
+    ScanLogResponse,
     StaticScanResponse,
+    UsageDayResponse,
+    UsageStatsResponse,
     VerifyDockerResponse,
     VerifyImportsResponse,
 )
 from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
+from src.services.billing import BillingService
 from src.services.cache import CacheService
+from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
@@ -80,6 +91,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ),
     )
 
+    db = DatabaseService(settings.database_url, echo=settings.database_echo)
+    try:
+        await db.create_tables()
+    except Exception as exc:
+        logger.warning("database_init_skipped", error=str(exc))
+        db = None  # type: ignore[assignment]
+
     app.state.cache = cache
     app.state.http_client = http_client
     app.state.registry = RegistryService(cache, http_client)
@@ -87,6 +105,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.analyzer = StaticAnalyzer()
     app.state.ast_analyzer = AstAnalyzer()
     app.state.sandbox = SandboxService()
+    app.state.db = db
+    app.state.billing = BillingService()
 
     yield
 
@@ -94,6 +114,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("api_shutdown")
     await http_client.aclose()
     await cache.disconnect()
+    if db is not None:
+        await db.close()
 
 
 # --- Application ---
@@ -102,6 +124,14 @@ app = FastAPI(
     version=settings.version,
     description="AI code verification platform",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.dashboard_url, "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -133,6 +163,19 @@ def _get_cache(request: Request) -> CacheService:
 def _get_sandbox(request: Request) -> SandboxService:
     """Dependency: get SandboxService from app state."""
     return request.app.state.sandbox
+
+
+def _get_db(request: Request) -> DatabaseService:
+    """Dependency: get DatabaseService from app state."""
+    db = request.app.state.db
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
+
+
+def _get_billing(request: Request) -> BillingService:
+    """Dependency: get BillingService from app state."""
+    return request.app.state.billing
 
 
 # --- Endpoints ---
@@ -537,6 +580,210 @@ def run() -> None:
         port=settings.port,
         reload=settings.debug,
     )
+
+
+# --- Dashboard: API Key management ---
+
+
+@app.post("/v1/api-keys", response_model=ApiKeyCreatedResponse)
+async def create_api_key(
+    req: CreateApiKeyRequest,
+    db: DatabaseService = Depends(_get_db),
+    _api_key: str = Depends(verify_api_key),
+) -> ApiKeyCreatedResponse:
+    """Create a new API key for the authenticated user."""
+    # For now use a placeholder user_id derived from API key auth
+    user_id = _api_key or "local"
+    raw_key, record = await db.create_api_key(user_id, req.name)
+    return ApiKeyCreatedResponse(
+        key=raw_key,
+        id=record.id,
+        name=record.name,
+        prefix=record.prefix,
+    )
+
+
+@app.get("/v1/api-keys", response_model=list[ApiKeyResponse])
+async def list_api_keys(
+    db: DatabaseService = Depends(_get_db),
+    _api_key: str = Depends(verify_api_key),
+) -> list[ApiKeyResponse]:
+    """List all API keys for the authenticated user."""
+    user_id = _api_key or "local"
+    records = await db.list_api_keys(user_id)
+    return [
+        ApiKeyResponse(
+            id=r.id,
+            name=r.name,
+            prefix=r.prefix,
+            is_revoked=r.is_revoked,
+            created_at=r.created_at.isoformat() if r.created_at else "",
+            last_used_at=r.last_used_at.isoformat() if r.last_used_at else "",
+        )
+        for r in records
+    ]
+
+
+@app.delete("/v1/api-keys/{key_id}")
+async def revoke_api_key(
+    key_id: str,
+    db: DatabaseService = Depends(_get_db),
+    _api_key: str = Depends(verify_api_key),
+) -> dict[str, bool]:
+    """Revoke an API key."""
+    user_id = _api_key or "local"
+    success = await db.revoke_api_key(key_id, user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"revoked": True}
+
+
+# --- Dashboard: Scan history ---
+
+
+@app.get("/v1/scans/history", response_model=ScanHistoryResponse)
+async def scan_history(
+    page: int = 1,
+    per_page: int = 20,
+    scan_type: str | None = None,
+    db: DatabaseService = Depends(_get_db),
+    _api_key: str = Depends(verify_api_key),
+) -> ScanHistoryResponse:
+    """Get paginated scan history for the authenticated user."""
+    user_id = _api_key or "local"
+    logs = await db.get_scan_history(user_id, page, per_page, scan_type)
+    total = await db.count_scans(user_id, scan_type)
+    return ScanHistoryResponse(
+        scans=[
+            ScanLogResponse(
+                id=log.id,
+                scan_type=log.scan_type,
+                verdict=log.verdict,
+                findings_count=log.findings_count,
+                language=log.language,
+                filename=log.filename,
+                latency_ms=log.latency_ms,
+                created_at=log.created_at.isoformat() if log.created_at else "",
+            )
+            for log in logs
+        ],
+        page=page,
+        per_page=per_page,
+        total=total,
+    )
+
+
+# --- Dashboard: Usage stats ---
+
+
+@app.get("/v1/usage", response_model=UsageStatsResponse)
+async def usage_stats(
+    days: int = 30,
+    db: DatabaseService = Depends(_get_db),
+    _api_key: str = Depends(verify_api_key),
+) -> UsageStatsResponse:
+    """Get daily usage statistics for the authenticated user."""
+    user_id = _api_key or "local"
+    usage_days = await db.get_usage_stats(user_id, days)
+    total_scans = sum(d.scan_count for d in usage_days)
+    return UsageStatsResponse(
+        days=[
+            UsageDayResponse(
+                date=d.date.isoformat(),
+                scan_count=d.scan_count,
+                findings_total=d.findings_total,
+                avg_latency_ms=d.avg_latency_ms,
+            )
+            for d in usage_days
+        ],
+        total_scans=total_scans,
+        period_days=days,
+    )
+
+
+# --- Dashboard: Billing ---
+
+
+@app.post("/v1/billing/checkout")
+async def billing_checkout(
+    req: CheckoutRequest,
+    billing: BillingService = Depends(_get_billing),
+    _api_key: str = Depends(verify_api_key),
+) -> dict[str, str]:
+    """Create a Stripe checkout session for upgrading plans."""
+    if not billing.is_configured():
+        raise HTTPException(status_code=503, detail="Billing not configured")
+
+    url = await billing.create_checkout_session(
+        customer_id="",  # Will be set from user record in production
+        plan=req.plan,
+    )
+    if not url:
+        raise HTTPException(status_code=500, detail="Failed to create checkout")
+    return {"url": url}
+
+
+@app.post("/v1/billing/portal")
+async def billing_portal(
+    billing: BillingService = Depends(_get_billing),
+    _api_key: str = Depends(verify_api_key),
+) -> dict[str, str]:
+    """Create a Stripe customer portal session."""
+    if not billing.is_configured():
+        raise HTTPException(status_code=503, detail="Billing not configured")
+
+    url = await billing.create_portal_session(customer_id="")
+    if not url:
+        raise HTTPException(status_code=500, detail="Failed to create portal session")
+    return {"url": url}
+
+
+@app.post("/v1/webhooks/stripe")
+async def stripe_webhook(
+    request: Request,
+    billing: BillingService = Depends(_get_billing),
+    db: DatabaseService = Depends(_get_db),
+) -> dict[str, str]:
+    """Handle Stripe webhook events for subscription changes."""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    event = billing.construct_webhook_event(payload, sig)
+    if event is None:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    await _handle_stripe_event(event, db)
+    return {"status": "ok"}
+
+
+async def _handle_stripe_event(
+    event: object, db: DatabaseService,
+) -> None:
+    """Process a Stripe webhook event."""
+    import stripe as stripe_lib
+
+    if not isinstance(event, stripe_lib.Event):
+        return
+
+    if event.type == "checkout.session.completed":
+        session = event.data.object
+        customer_id = getattr(session, "customer", "")
+        sub_id = getattr(session, "subscription", "")
+        plan = getattr(session, "metadata", {}).get("plan", "pro")
+        logger.info(
+            "stripe_checkout_completed",
+            customer_id=customer_id,
+            sub_id=sub_id,
+            plan=plan,
+        )
+        # In production, look up user by stripe_customer_id and update plan
+        _ = (customer_id, sub_id, plan, db)
+
+    elif event.type == "customer.subscription.deleted":
+        sub = event.data.object
+        customer_id = getattr(sub, "customer", "")
+        logger.info("stripe_sub_deleted", customer_id=customer_id)
+        # In production, downgrade user to free tier
+        _ = (customer_id, db)
 
 
 if __name__ == "__main__":

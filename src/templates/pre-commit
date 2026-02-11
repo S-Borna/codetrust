@@ -56,7 +56,7 @@ WARN_PATTERNS: list[tuple[str, str]] = [
     # DevOps rules
     (r"(?:max_retries|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)", "High retry count without timeout guard"),
     (r"sleep\s*\(.*\*\*", "Exponential backoff without total timeout cap"),
-    (r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)", "Migration blocks server start — wrap in timeout"),
+    (r"(?:alembic|migrate|flask\s+db).*&" + r"&.*(?:uvicorn|gunicorn|node|npm\s+start)", "Migration blocks server start — wrap in timeout"),
     # Container
     (r"^FROM\s+\S+:latest\b", "FROM :latest — pin specific image version"),
     # CI/CD

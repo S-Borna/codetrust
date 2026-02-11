@@ -536,8 +536,8 @@ class RegistryService:
                     latest_version=latest,
                     message=f"Module '{module}@{version}' verified.",
                 )
-        except (httpx.TimeoutException, httpx.HTTPError):
-            pass
+        except (httpx.TimeoutException, httpx.HTTPError) as exc:
+            logger.debug("go_proxy_lookup_failed", module=module, error=str(exc))
 
         return PackageResult(
             package=module,

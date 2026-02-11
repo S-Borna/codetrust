@@ -1,6 +1,20 @@
 # CodeTrust — VS Code Extension
 
-AI code verification that catches hallucinated packages, broken configs, anti-patterns, container & CI/CD issues — inline in your editor.
+AI code verification with **49 rules across 9 verification layers** — catches hallucinated packages, SQL anti-patterns, container issues, broken configs, and code smells inline in your editor.
+
+## 9 Verification Layers
+
+| # | Layer | What it does |
+|---|-------|-------------|
+| 01 | Static Analysis | 15 core rules — secrets, eval, bare except, mutable defaults |
+| 02 | Root Cause Analysis | 4 rules — except-swallow, suppress-lint, sleep, debug-mode |
+| 03 | SQL Analysis | 13 rules — SELECT *, missing WHERE, FLOAT for money, GRANT ALL |
+| 04 | AST Analysis | Cyclomatic complexity, unused vars, unreachable code, deep nesting |
+| 05 | Container Hardening | 10 rules — root user, :latest tag, env secrets, unpinned actions |
+| 06 | IaC & Config | 7 rules — hardcoded IPs, API keys in config, insecure defaults |
+| 07 | Package Verification | Verify imports against PyPI, npm, crates.io, Go proxy |
+| 08 | Docker Verification | Verify base images and tags against Docker Hub / GHCR |
+| 09 | Enterprise Gate | Repo structure, SARIF output, pre/post action validation |
 
 ## Features
 

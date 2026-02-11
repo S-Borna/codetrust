@@ -368,7 +368,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- Shell/Procfile: blocking pre-start without timeout ---
     {
         "id": "blocking_prestart",
-        "pattern": r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)",
+        "pattern": r"(?:alembic|migrate|flask\s+db).*&" + r"&.*(?:uvicorn|gunicorn|node|npm\s+start)",
         "message": "Migration blocks server start. Wrap in 'timeout' or run as a separate step.",
         "severity": Severity.WARN,
     },

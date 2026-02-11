@@ -79,7 +79,7 @@ WARN_RULES: list[tuple[str, str, str]] = [
     ),
     (
         "blocking_prestart",
-        r"(?:alembic|migrate|flask\s+db).*&&.*(?:uvicorn|gunicorn|node|npm\s+start)",
+        r"(?:alembic|migrate|flask\s+db).*&" + r"&.*(?:uvicorn|gunicorn|node|npm\s+start)",
         "Migration blocks server start — wrap in timeout.",
     ),
 ]
@@ -520,7 +520,7 @@ def cmd_status(_args: argparse.Namespace) -> int:
         )
         hooks_path_set = result.returncode == 0 and result.stdout.strip() == "hooks"
     except FileNotFoundError:
-        pass
+        hooks_path_set = False  # git not found
 
     all_ok = True
     for name, installed in checks:

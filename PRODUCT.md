@@ -51,29 +51,30 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 
 ---
 
-## 3. Vad CodeTrust gör — teknisk kapabilitet
+## 3. Vad CodeTrust gör — 9 verifieringslager
 
-### Layer 1: Statisk analys (regex + regler)
+### Layer 01: Statisk analys (15 kärnregler)
 
 - 49 regler i tre svårighetsgrader: **BLOCK** (måste fixas), **WARN** (bör fixas), **INFO** (förslag)
-- Upptäcker: heredocs, hårdkodade hemligheter, `eval`/`exec`, SQL-injection via strängformattering, `pickle.load`, console.log, wildcard-imports, bare except, mutable defaults, magiska tal
-- **Symptom-Fix Detection**: except-swallow, suppress-lint, sleep_no_context, debug_mode_enabled
-- **Container Hardening**: docker_root_user, docker_latest_tag, docker_no_workdir, docker_env_secret
-- **CI/CD-regler**: ci_unpinned_action, ci_no_timeout
-- **IaC-regler**: hardcoded_ip, api_key_in_config
+- Upptäcker: heredocs, hårdkodade hemligheter, `eval`/`exec`, `pickle.load`, console.log, wildcard-imports, bare except, mutable defaults, magiska tal
 - **AI Drift Score**: Komposit 0–100 trustpoäng med betyg A–F
 - Språkstöd: Python, JavaScript, TypeScript, Go, Rust, Java, Shell, Dockerfile, YAML
 
-### Layer 2: Paketverifiering mot verkliga registries
+### Layer 02: Root Cause Analysis (4 symptom-fix-regler)
 
-- **PyPI** — verifierar Python-paket mot pypi.org (live API)
-- **npm** — verifierar JavaScript/TypeScript-paket mot registry.npmjs.org
-- **crates.io** — verifierar Rust-crates mot crates.io API
-- **Go Proxy** — verifierar Go-moduler mot proxy.golang.org
-- **Versionscheck** — flaggar om angiven version inte existerar (VERSION_MISMATCH)
-- **Typosquatting-skydd** — fuzzy matching mot 500+ populära paket per ekosystem. Om `import reqeusts` inte hittas, föreslås `requests`
+- **except_swallow** — fångar tystad felhantering (`except: pass`)
+- **suppress_lint** — upptäcker `# noqa`, `// eslint-disable` utan motivering
+- **sleep_no_context** — flaggar `time.sleep()` utan kommentar
+- **debug_mode_enabled** — hittar `DEBUG=True` i produktionskod
 
-### Layer 3: AST-analys (tree-sitter)
+### Layer 03: SQL-analys (13 regler)
+
+- SQL-injection via strängformattering (f-string, `.format()`, `%`)
+- Batch-insert, SELECT *, LIKE utan index, implicit join
+- Saknad `WHERE` i UPDATE/DELETE, saknad `LIMIT`
+- Transaction-hantering och indexkontroll
+
+### Layer 04: AST-analys (tree-sitter)
 
 - Parsning till abstrakt syntaxträd för Python, JavaScript, TypeScript, Go, Rust
 - Cyklomatisk komplexitet per funktion (flaggar >10)
@@ -81,32 +82,45 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 - Oåtkomlig kod (efter return/raise/break)
 - Djup nesting (>4 nivåer)
 
-### Layer 4: Docker-verifiering
+### Layer 05: Container Hardening (10 regler)
+
+- **Docker**: root-user, `:latest`-tagg, saknad WORKDIR, hemligheter i ENV
+- **CI/CD**: opinnade GitHub Actions, saknad timeout
+- **IaC**: hårdkodade IP-adresser, API-nycklar i config-filer
+- Gäller Dockerfile, YAML, `.env`, `docker-compose.yml`
+
+### Layer 06: IaC & Config (7 regler)
+
+- Hårdkodade IP-adresser och portar
+- API-nycklar i konfigurationsfiler
+- Osäkra default-värden
+- Saknad TLS/SSL-konfiguration
+
+### Layer 07: Paketverifiering (5 registries)
+
+- **PyPI** — verifierar Python-paket mot pypi.org (live API)
+- **npm** — verifierar JavaScript/TypeScript-paket mot registry.npmjs.org
+- **crates.io** — verifierar Rust-crates mot crates.io API
+- **Go Proxy** — verifierar Go-moduler mot proxy.golang.org
+- **Versionscheck** — flaggar om angiven version inte existerar (VERSION_MISMATCH)
+- **Typosquatting-skydd** — fuzzy matching mot 500+ populära paket per ekosystem
+
+### Layer 08: Docker-verifiering (Hub + GHCR)
 
 - Verifierar att base images existerar på Docker Hub (live API)
 - Verifierar att angivna taggar existerar
 - Föreslår tillgängliga taggar om den angivna saknas
 - Parsning av multi-stage builds (alla FROM-direktiv)
 
-### Layer 5: Sandbox-exekvering
-
-- Kör kod i isolerade Docker-containrar
-- Säkerhetslimiter: 256MB minne, 10s timeout, ingen nätåtkomst, read-only filesystem
-- Fångar import-errors, syntax-errors, runtime-crashes
-- Stöd för Python, JavaScript, Go, Rust
-
-### Layer 6: Enterprise-strukturvalidering
+### Layer 09: Enterprise Gate (orkestrerare)
 
 - Verifierar att repot har: README, LICENSE, tester, .gitignore, pyproject.toml/package.json
 - Pre-action-kontroll (innan kod skrivs): validerar planen
 - Post-action-kontroll (efter kod skrivits): validerar slutresultatet
 - Genererar SARIF v2.1.0-output för GitHub Security-tabben
-
-### Layer 7: Enforcement (blockering)
-
-- **CLAUDE.md / .cursorrules** — advisory rules direkt i projektets rot som AI läser
-- **VS Code-extension** — diagnostik i editorn (squiggly lines), scan-on-save, offline-fallback
-- **Pre-commit hook** — blockerar commits med BLOCK-findings. Versionskontrollerad via `core.hooksPath`
+- **CLAUDE.md / .cursorrules** — advisory rules direkt i projektets rot
+- **VS Code-extension** — diagnostik i editorn, scan-on-save, offline-fallback
+- **Pre-commit hook** — blockerar commits med BLOCK-findings
 - **GitHub Action** — blockerar pull requests. Enbart PASS-resultat tillåter merge
 
 ---

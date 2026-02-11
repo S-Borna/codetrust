@@ -6,18 +6,19 @@
 
 AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns before they hit production.
 
-## What It Does
+## What It Does — 9 Verification Layers
 
 | Layer | Capability | How |
 |-------|-----------|-----|
-| **Static Analysis** | Detect anti-patterns, secrets, eval/exec, SQL injection, container & CI/CD issues | Regex engine, 49 rules |
-| **Package Verification** | Verify imports exist in real registries | PyPI, npm, crates.io, Go proxy |
-| **Docker Verification** | Verify base images and tags exist | Docker Hub API |
-| **Container Hardening** | Detect root user, latest tags, missing WORKDIR, exposed secrets | Dockerfile rules |
-| **CI/CD Analysis** | Unpinned actions, missing timeouts, hardcoded IPs | YAML/workflow rules |
-| **AI Drift Score** | Composite 0–100 trust metric across 6 categories | Grades A–F |
-| **Enterprise Checks** | Validate repo structure | README, LICENSE, tests, etc. |
-| **Deep Scan** | All layers combined in one pass | Orchestrated scan |
+| **01 — Static Analysis** | Detect secrets, eval/exec, SQL injection, debug statements | Regex engine, 15 core rules |
+| **02 — Root Cause Analysis** | Swallowed exceptions, lint suppression, defensive null-coalescing | 4 symptom-fix rules |
+| **03 — SQL Analysis** | SELECT *, DELETE without WHERE, FLOAT for money, GRANT ALL | 13 dedicated SQL rules |
+| **04 — AST Analysis** | Complexity, nesting depth, unused variables, unreachable code | Tree-sitter parsing |
+| **05 — Container Hardening** | Root user, :latest tags, missing WORKDIR, ENV secrets, no healthcheck | 10 Dockerfile rules |
+| **06 — IaC & Config** | Hardcoded IPs, debug mode, API keys in config, unbounded retries | 7 infra/YAML rules |
+| **07 — Package Verification** | Verify imports exist in real registries | PyPI, npm, crates.io, Go proxy |
+| **08 — Docker Verification** | Verify base images and tags exist | Docker Hub & GHCR API |
+| **09 — Enterprise Gate** | Repo structure + all layers orchestrated | Deep scan verdict |
 
 ## Quick Start
 

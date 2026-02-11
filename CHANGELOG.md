@@ -5,6 +5,41 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-02-11
+
+### Added
+
+- **DevOps anti-pattern rules** — 7 new rules, 18 tests (35 total rules)
+  - `connection_no_timeout` — flags Redis/httpx/SQLAlchemy connections without timeout
+  - `unbounded_retry` — flags retry counts ≥ 5 without total deadline
+  - `retry_exponential_unbounded` — flags exponential backoff without timeout cap
+  - `blocking_prestart` — flags migrations blocking server startup (alembic && uvicorn)
+  - `dockerfile_no_healthcheck` — flags Dockerfile CMD without HEALTHCHECK
+  - `compose_no_healthcheck` — flags Docker Compose services without healthcheck
+  - `healthcheck_timeout_low` — flags healthcheck timeouts under 30s
+- **Platform env var auto-detection** — falls back to `REDIS_URL`, `DATABASE_URL`,
+  `REDIS_PRIVATE_URL`, `DATABASE_PRIVATE_URL` when `CODETRUST_`-prefixed vars aren't set
+  (Railway, Render, Heroku, Fly.io compatibility)
+
+### Fixed
+
+- **Railway healthcheck failure** — alembic migration retries blocked uvicorn from starting;
+  replaced nested retry loop with `timeout 30` guard
+- **Redis connection hang** — added `socket_timeout` and `socket_connect_timeout` (5s)
+  to prevent indefinite blocking during startup
+- **Alembic DB connection** — added `connect_timeout=5`, reduced retries from 5 to 3
+- **Database URL detection** — alembic env.py now checks `DATABASE_URL` / `DATABASE_PRIVATE_URL`
+  in addition to `CODETRUST_DATABASE_URL`
+- **PostgreSQL async driver** — auto-converts `postgresql://` → `postgresql+asyncpg://`
+
+## [1.6.0] - 2026-02-11
+
+### Added
+
+- **SQL anti-pattern rules** — 13 rules for `.sql` file scanning
+- File-type routing in static analyzer (SQL rules only fire on `.sql` files)
+- Pre-commit hook updated with DevOps patterns
+
 ## [1.5.0] - 2026-02-11
 
 ### Added

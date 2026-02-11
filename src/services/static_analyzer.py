@@ -234,7 +234,7 @@ class StaticAnalyzer:
         has_healthcheck = bool(re.search(r"^HEALTHCHECK\s", full_text, re.MULTILINE))
         if has_cmd and not has_healthcheck:
             cmd_line = next(
-                (i for i, l in enumerate(lines, 1) if re.match(r"^CMD\s", l)),
+                (i for i, line in enumerate(lines, 1) if re.match(r"^CMD\s", line)),
                 1,
             )
             findings.append(

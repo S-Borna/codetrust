@@ -1,5 +1,6 @@
-"""MCP server entry point — CodeTrust Layers 1-4 + Deep Scan tools."""
+"""MCP server entry point — CodeTrust Layers 1-4 + SARIF + Deep Scan tools."""
 
+import json
 import os
 import time
 
@@ -8,6 +9,7 @@ import structlog
 from mcp.server.fastmcp import FastMCP
 
 from src.config import settings
+from src.formatters.sarif import findings_to_sarif
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import DockerImageInput
 from src.models.responses import DockerImageResult, Finding, PackageResult, SandboxResponse
@@ -511,6 +513,41 @@ def _format_sandbox_report(result: SandboxResponse) -> str:
         lines.extend(["### stderr", "```", result.stderr.rstrip(), "```", ""])
 
     return "\n".join(lines)
+
+
+@mcp.tool(name="codetrust_sarif_export")
+async def codetrust_sarif_export(
+    code: str,
+    filename: str = "untitled",
+    language: str = "python",
+) -> str:
+    """Run static analysis and export results as SARIF JSON.
+
+    SARIF (Static Analysis Results Interchange Format) output is
+    compatible with GitHub Security tab and other SARIF tools.
+
+    Args:
+        code: Source code to analyze.
+        filename: Name of the file being scanned.
+        language: Programming language.
+
+    Returns:
+        SARIF JSON string.
+    """
+    logger.info("mcp_sarif_export", filename=filename)
+    findings = analyzer.scan_code(code, filename)
+
+    try:
+        lang = Language(language)
+    except ValueError:
+        lang = None
+
+    if lang is not None and lang in AST_LANGUAGES:
+        ast_findings = ast_analyzer.analyze(code, lang, filename)
+        findings.extend(ast_findings)
+
+    sarif = findings_to_sarif(findings)
+    return json.dumps(sarif, indent=2)
 
 
 @mcp.tool(name="codetrust_deep_scan")

@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 
 from src.config import settings
+from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AstScanRequest,
@@ -246,6 +247,37 @@ async def sandbox_run(
     return await sandbox_svc.execute_code(
         req.code, req.language, req.timeout,
     )
+
+
+@app.post("/v1/scan/static/sarif")
+async def static_scan_sarif(
+    req: StaticScanRequest,
+    analyzer: StaticAnalyzer = Depends(_get_analyzer),
+    _api_key: str = Depends(verify_api_key),
+) -> dict[str, object]:
+    """Run static analysis and return results in SARIF format."""
+    logger.info("api_static_sarif", filename=req.filename)
+    findings = analyzer.scan_code(req.code, req.filename)
+    response = analyzer.build_scan_response(findings)
+    return static_scan_to_sarif(response)
+
+
+@app.post("/v1/scan/deep/sarif")
+async def deep_scan_sarif(
+    req: DeepScanRequest,
+    analyzer: StaticAnalyzer = Depends(_get_analyzer),
+    ast_anal: AstAnalyzer = Depends(_get_ast_analyzer),
+    registry: RegistryService = Depends(_get_registry),
+    docker: DockerVerifyService = Depends(_get_docker),
+    sandbox_svc: SandboxService = Depends(_get_sandbox),
+    _api_key: str = Depends(verify_api_key),
+) -> dict[str, object]:
+    """Run deep scan and return results in SARIF format."""
+    logger.info("api_deep_sarif", filename=req.filename)
+    deep_result = await deep_scan(
+        req, analyzer, ast_anal, registry, docker, sandbox_svc, _api_key,
+    )
+    return deep_scan_to_sarif(deep_result)
 
 
 @app.post("/v1/scan/deep", response_model=DeepScanResponse)

@@ -180,3 +180,19 @@ class CheckoutRequest(BaseModel):
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     plan: str = Field(..., pattern="^(pro|enterprise)$")
+
+
+class GithubAuthRequest(BaseModel):
+    """Request to exchange a GitHub OAuth code for a JWT."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=1, max_length=200)
+
+
+class RefreshRequest(BaseModel):
+    """Request to refresh an expiring JWT token."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    token: str = Field(..., min_length=1)

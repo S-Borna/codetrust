@@ -90,6 +90,17 @@ class DatabaseService:
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
+    async def get_user_by_stripe_customer_id(
+        self, stripe_customer_id: str,
+    ) -> User | None:
+        """Get a user by their Stripe customer ID."""
+        async with self._session_factory() as session:
+            stmt = select(User).where(
+                User.stripe_customer_id == stripe_customer_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
     async def get_or_create_user(
         self,
         github_id: str,

@@ -1,0 +1,35 @@
+name: CodeTrust Scan
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  codetrust:
+    name: CodeTrust Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CodeTrust
+        run: pip install codetrust
+
+      - name: Scan changed files
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\.(py|js|ts|go|rs)$' || true)
+          if [ -n "$FILES" ]; then
+            echo "$FILES" | xargs codetrust scan
+          else
+            echo "No source files changed."
+          fi

@@ -1,0 +1,7 @@
+# .cursorrules — CodeTrust Enforcement for Cursor AI
+
+## MANDATORY: Before writing ANY code, call codetrust_pre_action.
+## After modifying ANY file, call codetrust_static_scan.
+## Before committing, call codetrust_post_action.
+## All BLOCK findings must be fixed. Zero tolerance.
+## Never skip scans. Never assume code is safe.

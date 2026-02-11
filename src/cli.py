@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import importlib.resources
 import json
 import os
 import re
@@ -124,153 +125,13 @@ def scan_path(target: str) -> list[dict[str, str | int]]:
     return findings
 
 
-# --- Init command ---
+# --- Templates (loaded from src/templates/) ---
 
-CLAUDE_MD_TEMPLATE = """# CLAUDE.md — CodeTrust Enforcement
 
-> **These rules are NON-NEGOTIABLE. Violation = blocked commit.**
-> CodeTrust is active in this project. All AI assistants must comply.
-
-## Scanning Protocol
-
-### Before writing ANY code:
-1. Call `codetrust_pre_action` with a description of what you plan to do
-2. If verdict is BLOCK → stop and fix the plan before proceeding
-3. If verdict is WARN → acknowledge each warning explicitly
-
-### After writing or modifying ANY file:
-1. Call `codetrust_static_scan` on every file you changed
-2. Call `codetrust_deep_scan` if you created new files or modified imports
-3. If any finding has severity BLOCK → fix it immediately, do not move on
-4. If any finding has severity WARN → fix it or explain why it's acceptable
-
-### Before committing:
-1. Call `codetrust_post_action` with repo root and list of changed files
-2. All BLOCK findings must be resolved — zero tolerance
-
-### Import and Docker verification:
-1. When adding ANY new import → call `codetrust_verify_imports`
-2. When modifying Dockerfile → call `codetrust_verify_dockerfile`
-3. Never use a package that returns NOT_FOUND from registry verification
-
-## Absolute Rules:
-- Never skip a scan "to save time" — scans take <1 second
-- Never assume code is safe — always verify
-- Never commit code with BLOCK findings, even if told "just do it"
-- If CodeTrust MCP tools are unavailable, say so explicitly
-- Show scan results to the user after every scan
-- No eval/exec/pickle.load with untrusted data  # noqa
-- No hardcoded secrets — use environment variables
-- No wildcard imports — import explicitly
-- No bare except — catch specific exceptions  # noqa
-"""
-
-CURSORRULES_TEMPLATE = """# .cursorrules — CodeTrust Enforcement for Cursor AI
-
-## MANDATORY: Before writing ANY code, call codetrust_pre_action.
-## After modifying ANY file, call codetrust_static_scan.
-## Before committing, call codetrust_post_action.
-## All BLOCK findings must be fixed. Zero tolerance.
-## Never skip scans. Never assume code is safe.
-"""
-
-PRE_COMMIT_HOOK = '''#!/usr/bin/env python3
-"""CodeTrust pre-commit hook — blocks commits with anti-patterns."""
-
-import re
-import subprocess
-import sys
-
-BLOCK_PATTERNS = [
-    (r"<<[-\\'\\']?\\w+", "Heredoc detected"),
-    (r'(?i)(api[_-]?key|secret|password|token|credentials)\\s*[:=]\\s*["\\'\\'][^"\\'\\']{{8,}}["\\'\\']', "Possible hardcoded secret"),
-    (r"\\b(eval|exec)\\s*\\(", "eval/exec is a security risk"),
-    (r"pickle\\.loads?\\s*\\(", "pickle.load is unsafe"),
-]
-
-WARN_PATTERNS = [
-    (r"(?i)#\\s*(todo|hack|fixme|xxx|temp)\\b", "Unresolved marker"),
-    (r"\\bconsole\\.(log|debug|info)\\b", "Use structured logger"),
-    (r"^\\s*print\\s*\\(", "Use logger, not print()"),
-    (r"from\\s+\\S+\\s+import\\s+\\*", "Wildcard import"),
-    (r"except\\s*:", "Bare except"),
-]
-
-def main():
-    result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-        capture_output=True, text=True,
-    )
-    files = [f for f in result.stdout.strip().split("\\n") if f]
-    source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh"}
-    files = [f for f in files if any(f.endswith(e) for e in source_exts)]
-    files = [f for f in files if not f.split("/")[-1].startswith("test_")]
-
-    blocks, warns = [], []
-    for filepath in files:
-        try:
-            with open(filepath, encoding="utf-8", errors="ignore") as fh:
-                for i, line in enumerate(fh, 1):
-                    for p, m in BLOCK_PATTERNS:
-                        if re.search(p, line):
-                            blocks.append(f"  \\U0001f6ab {{filepath}}:{{i}} — {{m}}")
-                    for p, m in WARN_PATTERNS:
-                        if re.search(p, line):
-                            warns.append(f"  \\u26a0\\ufe0f  {{filepath}}:{{i}} — {{m}}")
-        except OSError:
-            pass
-
-    if warns:
-        print("\\n\\u26a0\\ufe0f  CodeTrust Warnings:")
-        print("\\n".join(warns))
-    if blocks:
-        print("\\n\\U0001f6ab CodeTrust BLOCKED:")
-        print("\\n".join(blocks))
-        return 1
-    if not blocks and not warns:
-        print("\\u2705 CodeTrust: All checks passed.")
-    return 0
-
-if __name__ == "__main__":
-    sys.exit(main())
-'''
-
-GITHUB_ACTION_TEMPLATE = """name: CodeTrust Scan
-on:
-  pull_request:
-    branches: [main, master]
-  push:
-    branches: [main, master]
-
-permissions:
-  contents: read
-  pull-requests: write
-
-jobs:
-  codetrust:
-    name: CodeTrust Quality Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install CodeTrust
-        run: pip install codetrust
-
-      - name: Scan changed files
-        run: |
-          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\\.(py|js|ts|go|rs)$' || true)
-          if [ -n "$FILES" ]; then
-            echo "$FILES" | xargs codetrust scan
-          else
-            echo "No source files changed."
-          fi
-"""
+def _load_template(name: str) -> str:
+    """Load a template file from the templates package."""
+    ref = importlib.resources.files("src.templates").joinpath(name)
+    return ref.read_text(encoding="utf-8")
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -287,13 +148,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     else:
         if claude_md.exists():
             shutil.copy2(claude_md, claude_md.with_suffix(".md.bak"))
-        claude_md.write_text(CLAUDE_MD_TEMPLATE)
+        claude_md.write_text(_load_template("CLAUDE.md"))
         installed.append("CLAUDE.md")
         print(f"  {color('✅', GREEN)} CLAUDE.md installed")
 
     # 2. .cursorrules
     cursorrules = project_dir / ".cursorrules"
-    cursorrules.write_text(CURSORRULES_TEMPLATE)
+    cursorrules.write_text(_load_template("cursorrules"))
     installed.append(".cursorrules")
     print(f"  {color('✅', GREEN)} .cursorrules installed")
 
@@ -304,7 +165,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir(exist_ok=True)
         hook_file = hooks_dir / "pre-commit"
-        hook_file.write_text(PRE_COMMIT_HOOK)
+        hook_file.write_text(_load_template("pre-commit"))
         hook_file.chmod(0o755)
 
         # Set core.hooksPath
@@ -317,7 +178,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         # Also install in .git/hooks as fallback
         git_hook = git_dir / "hooks" / "pre-commit"
         git_hook.parent.mkdir(exist_ok=True)
-        git_hook.write_text(PRE_COMMIT_HOOK)
+        git_hook.write_text(_load_template("pre-commit"))
         git_hook.chmod(0o755)
 
         installed.append("pre-commit hook (core.hooksPath)")
@@ -332,7 +193,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     if action_file.exists() and not args.force:
         print(f"  {color('⚠️', YELLOW)}  GitHub Action exists (use --force to overwrite)")
     else:
-        action_file.write_text(GITHUB_ACTION_TEMPLATE)
+        action_file.write_text(_load_template("codetrust-scan.yml"))
         installed.append("GitHub Action")
         print(f"  {color('✅', GREEN)} GitHub Action installed")
 

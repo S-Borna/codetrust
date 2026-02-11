@@ -214,15 +214,19 @@ class TestSarifResults:
         results = _build_results([block_finding])
         assert len(results[0]["locations"]) == 1
 
-    def test_suggestion_creates_fix(self, block_finding: Finding) -> None:
-        """Finding with suggestion creates a SARIF fix."""
+    def test_suggestion_appended_to_message(self, block_finding: Finding) -> None:
+        """Finding with suggestion includes it in the message text."""
         results = _build_results([block_finding])
-        assert "fixes" in results[0]
-        assert len(results[0]["fixes"]) == 1
+        msg = results[0]["message"]["text"]
+        assert "Use safe alternatives" in msg
+        assert "→" in msg
+        assert "fixes" not in results[0]
 
-    def test_no_suggestion_no_fix(self, warn_finding: Finding) -> None:
-        """Finding without suggestion has no fix."""
+    def test_no_suggestion_plain_message(self, warn_finding: Finding) -> None:
+        """Finding without suggestion has plain message text."""
         results = _build_results([warn_finding])
+        msg = results[0]["message"]["text"]
+        assert "→" not in msg
         assert "fixes" not in results[0]
 
 

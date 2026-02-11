@@ -583,24 +583,7 @@ async def codetrust_deep_scan(
     dockerfile_content: str = "",
     requirements_content: str = "",
 ) -> str:
-    """Run all validation layers in a single pass.
-
-    Combines static analysis, AST analysis, import/Docker verification,
-    and optional sandbox execution for a comprehensive report.
-
-    Args:
-        code: Source code to analyze.
-        filename: Name of the file being scanned.
-        language: Programming language (python, javascript, typescript, go, rust).
-        verify_imports: Whether to verify imports against registries.
-        verify_docker: Whether to verify Docker images.
-        sandbox_run: Whether to execute code in an isolated sandbox.
-        dockerfile_content: Raw Dockerfile content (required if verify_docker).
-        requirements_content: Raw requirements.txt for version pinning.
-
-    Returns:
-        Markdown-formatted combined report with overall verdict.
-    """
+    """Run all validation layers and return a Markdown report with verdict."""
     logger.info("mcp_deep_scan", filename=filename, language=language)
     start = time.monotonic()
 
@@ -651,13 +634,28 @@ async def _build_deep_scan_sections(
     if sandbox_report:
         sections.extend([sandbox_report, ""])
 
+    sections.append(_deep_scan_verdict_line(
+        findings, ast_findings, import_report,
+        docker_report, sandbox_report, start,
+    ))
+    return sections
+
+
+def _deep_scan_verdict_line(
+    findings: list[Finding],
+    ast_findings: list[Finding] | None,
+    import_report: str,
+    docker_report: str,
+    sandbox_report: str,
+    start: float,
+) -> str:
+    """Compute final verdict and format the summary line."""
     elapsed_ms = int((time.monotonic() - start) * 1000)
     all_findings = findings + (ast_findings or [])
     verdict = _compute_deep_verdict(
         all_findings, import_report, docker_report, sandbox_report,
     )
-    sections.append(f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)")
-    return sections
+    return f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)"
 
 
 async def _deep_scan_sandbox(

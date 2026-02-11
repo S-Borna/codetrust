@@ -14,6 +14,7 @@ from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AstScanRequest,
     DeepScanRequest,
+    SandboxRequest,
     StaticScanRequest,
     VerifyDockerRequest,
     VerifyImportsRequest,
@@ -23,6 +24,7 @@ from src.models.responses import (
     DeepScanResponse,
     Finding,
     HealthResponse,
+    SandboxResponse,
     StaticScanResponse,
     VerifyDockerResponse,
     VerifyImportsResponse,
@@ -32,6 +34,7 @@ from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
+from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.static_analyzer import StaticAnalyzer
 from src.utils.parsers import (
     extract_go_imports,
@@ -82,6 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.docker = DockerVerifyService(cache, http_client)
     app.state.analyzer = StaticAnalyzer()
     app.state.ast_analyzer = AstAnalyzer()
+    app.state.sandbox = SandboxService()
 
     yield
 
@@ -123,6 +127,11 @@ def _get_ast_analyzer(request: Request) -> AstAnalyzer:
 def _get_cache(request: Request) -> CacheService:
     """Dependency: get CacheService from app state."""
     return request.app.state.cache
+
+
+def _get_sandbox(request: Request) -> SandboxService:
+    """Dependency: get SandboxService from app state."""
+    return request.app.state.sandbox
 
 
 # --- Endpoints ---
@@ -215,6 +224,30 @@ async def ast_scan(
     return _build_ast_response(findings)
 
 
+@app.post("/v1/sandbox/run", response_model=SandboxResponse)
+async def sandbox_run(
+    req: SandboxRequest,
+    sandbox_svc: SandboxService = Depends(_get_sandbox),
+    _api_key: str = Depends(verify_api_key),
+) -> SandboxResponse:
+    """Execute code in an isolated Docker sandbox."""
+    logger.info("api_sandbox_run", language=req.language, timeout=req.timeout)
+
+    if req.language not in SUPPORTED_SANDBOX_LANGUAGES:
+        return SandboxResponse(
+            exit_code=-1,
+            stdout="",
+            stderr="",
+            timed_out=False,
+            error=f"Unsupported sandbox language: {req.language}",
+            latency_ms=0,
+        )
+
+    return await sandbox_svc.execute_code(
+        req.code, req.language, req.timeout,
+    )
+
+
 @app.post("/v1/scan/deep", response_model=DeepScanResponse)
 async def deep_scan(
     req: DeepScanRequest,
@@ -222,6 +255,7 @@ async def deep_scan(
     ast_anal: AstAnalyzer = Depends(_get_ast_analyzer),
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
+    sandbox_svc: SandboxService = Depends(_get_sandbox),
     _api_key: str = Depends(verify_api_key),
 ) -> DeepScanResponse:
     """Run full deep scan combining all layers."""
@@ -252,9 +286,16 @@ async def deep_scan(
             req.dockerfile_content, docker
         )
 
+    # Layer 4: Sandbox execution (optional)
+    sandbox_result: SandboxResponse | None = None
+    if req.sandbox_run and req.language in SUPPORTED_SANDBOX_LANGUAGES:
+        sandbox_result = await sandbox_svc.execute_code(
+            req.code, req.language,
+        )
+
     elapsed_ms = int((time.monotonic() - start) * 1000)
     overall = _compute_overall_verdict(
-        static_result, ast_result, import_result, docker_result,
+        static_result, ast_result, import_result, docker_result, sandbox_result,
     )
     total = _compute_total_findings(
         static_result, ast_result, import_result, docker_result,
@@ -265,6 +306,7 @@ async def deep_scan(
         ast_scan=ast_result,
         import_verification=import_result,
         docker_verification=docker_result,
+        sandbox_result=sandbox_result,
         overall_verdict=overall,
         total_findings=total,
         latency_ms=elapsed_ms,
@@ -396,6 +438,7 @@ def _compute_overall_verdict(
     ast: AstScanResponse | None,
     imports: VerifyImportsResponse | None,
     docker: VerifyDockerResponse | None,
+    sandbox: SandboxResponse | None = None,
 ) -> str:
     """Compute overall verdict from sub-results."""
     if static.verdict == "BLOCK":
@@ -410,6 +453,12 @@ def _compute_overall_verdict(
     if docker is not None and docker.failed > 0:
         return "BLOCK"
 
+    if sandbox is not None and sandbox.exit_code != 0:
+        return "BLOCK"
+
+    if sandbox is not None and sandbox.timed_out:
+        return "BLOCK"
+
     if static.verdict == "WARN":
         return "WARN"
 
@@ -417,6 +466,9 @@ def _compute_overall_verdict(
         return "WARN"
 
     if imports is not None and imports.warnings > 0:
+        return "WARN"
+
+    if sandbox is not None and sandbox.error:
         return "WARN"
 
     return "PASS"

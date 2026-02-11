@@ -66,6 +66,17 @@ class AstScanRequest(BaseModel):
     complexity_threshold: int = Field(default=10, ge=1, le=100)
 
 
+class SandboxRequest(BaseModel):
+    """Request to execute code in an isolated sandbox container."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=1, max_length=500_000)
+    language: Language = Field(..., description="Language determines sandbox image")
+    timeout: int = Field(default=10, ge=1, le=30, description="Max seconds")
+    filename: str = Field(default="untitled")
+
+
 class DeepScanRequest(BaseModel):
     """Request for full deep scan (all layers)."""
 
@@ -76,6 +87,7 @@ class DeepScanRequest(BaseModel):
     language: Language | None = None
     verify_imports: bool = Field(default=True)
     verify_docker: bool = Field(default=False)
+    sandbox_run: bool = Field(default=False)
     dockerfile_content: str = Field(default="")
     requirements_content: str = Field(default="")
 

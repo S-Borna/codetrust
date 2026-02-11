@@ -100,6 +100,19 @@ class AstScanResponse(BaseModel):
     verdict: str  # "PASS", "WARN", "BLOCK"
 
 
+class SandboxResponse(BaseModel):
+    """Response for sandbox code execution."""
+
+    model_config = ConfigDict(strict=True)
+
+    exit_code: int
+    stdout: str = Field(default="")
+    stderr: str = Field(default="")
+    timed_out: bool = Field(default=False)
+    error: str = Field(default="", description="Service-level error if Docker unavailable")
+    latency_ms: int = Field(default=0)
+
+
 class DeepScanResponse(BaseModel):
     """Response for /v1/scan/deep — combines all layers."""
 
@@ -107,6 +120,7 @@ class DeepScanResponse(BaseModel):
 
     static_scan: StaticScanResponse
     ast_scan: AstScanResponse | None = None
+    sandbox_result: SandboxResponse | None = None
     import_verification: VerifyImportsResponse | None = None
     docker_verification: VerifyDockerResponse | None = None
     overall_verdict: str  # "PASS", "WARN", "BLOCK"

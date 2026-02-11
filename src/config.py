@@ -47,6 +47,16 @@ class Settings(BaseSettings):
         "https://hub.docker.com/v2/repositories/library/{image}/tags?page_size=100"
     )
 
+    # --- Sandbox ---
+    sandbox_enabled: bool = False  # Must be explicitly enabled
+    sandbox_memory_limit: str = "256m"
+    sandbox_default_timeout: int = 10  # seconds
+    sandbox_max_timeout: int = 30
+    sandbox_image_python: str = "codetrust-sandbox-python:latest"
+    sandbox_image_node: str = "codetrust-sandbox-node:latest"
+    sandbox_image_go: str = "codetrust-sandbox-go:latest"
+    sandbox_image_rust: str = "codetrust-sandbox-rust:latest"
+
     # --- Rate Limits ---
     free_tier_daily_limit: int = 100
     pro_tier_daily_limit: int = 10_000

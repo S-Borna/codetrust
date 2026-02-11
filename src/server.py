@@ -1,4 +1,4 @@
-"""MCP server entry point — CodeTrust Layer 1 + Layer 2 + Layer 3 + Deep Scan tools."""
+"""MCP server entry point — CodeTrust Layers 1-4 + Deep Scan tools."""
 
 import os
 import time
@@ -10,13 +10,14 @@ from mcp.server.fastmcp import FastMCP
 from src.config import settings
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import DockerImageInput
-from src.models.responses import DockerImageResult, Finding, PackageResult
+from src.models.responses import DockerImageResult, Finding, PackageResult, SandboxResponse
 from src.rules.anti_patterns import ANTI_PATTERNS
 from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
+from src.services.sandbox import SandboxService
 from src.services.static_analyzer import StaticAnalyzer
 from src.utils.parsers import (
     extract_go_imports,
@@ -31,6 +32,7 @@ logger = structlog.get_logger()
 mcp = FastMCP("codetrust")
 analyzer = StaticAnalyzer()
 ast_analyzer = AstAnalyzer()
+sandbox = SandboxService()
 
 # Lazy-initialized shared resources for Layer 2
 _cache: CacheService | None = None
@@ -457,6 +459,60 @@ async def codetrust_ast_scan(
     return ast_analyzer.build_report(findings)
 
 
+@mcp.tool(name="codetrust_sandbox_run")
+async def codetrust_sandbox_run(
+    code: str,
+    language: str = "python",
+    timeout: int = 10,
+) -> str:
+    """Execute code in an isolated Docker sandbox.
+
+    Runs code in a short-lived container with no network access,
+    read-only filesystem, and strict memory/CPU limits.
+
+    Args:
+        code: Source code to execute.
+        language: Programming language (python, javascript, typescript, go, rust).
+        timeout: Maximum execution time in seconds (1-30).
+
+    Returns:
+        Markdown-formatted sandbox execution result.
+    """
+    logger.info("mcp_sandbox_run", language=language, timeout=timeout)
+
+    try:
+        lang = Language(language)
+    except ValueError:
+        return f"Unsupported language for sandbox: {language}"
+
+    result = await sandbox.execute_code(code, lang, timeout)
+    return _format_sandbox_report(result)
+
+
+def _format_sandbox_report(result: SandboxResponse) -> str:
+    """Format a SandboxResponse as markdown."""
+    lines: list[str] = ["## Sandbox Execution Report", ""]
+
+    if result.error:
+        lines.append(f"**Error:** {result.error}")
+        return "\n".join(lines)
+
+    status = "TIMEOUT" if result.timed_out else (
+        "PASS" if result.exit_code == 0 else "FAIL"
+    )
+    lines.append(f"**Status: {status}** | Exit code: {result.exit_code}")
+    lines.append(f"Latency: {result.latency_ms}ms")
+    lines.append("")
+
+    if result.stdout:
+        lines.extend(["### stdout", "```", result.stdout.rstrip(), "```", ""])
+
+    if result.stderr:
+        lines.extend(["### stderr", "```", result.stderr.rstrip(), "```", ""])
+
+    return "\n".join(lines)
+
+
 @mcp.tool(name="codetrust_deep_scan")
 async def codetrust_deep_scan(
     code: str,
@@ -464,20 +520,22 @@ async def codetrust_deep_scan(
     language: str = "python",
     verify_imports: bool = True,
     verify_docker: bool = False,
+    sandbox_run: bool = False,
     dockerfile_content: str = "",
     requirements_content: str = "",
 ) -> str:
     """Run all validation layers in a single pass.
 
-    Combines static analysis with import and Docker verification
-    for a comprehensive code quality report.
+    Combines static analysis, AST analysis, import/Docker verification,
+    and optional sandbox execution for a comprehensive report.
 
     Args:
         code: Source code to analyze.
         filename: Name of the file being scanned.
-        language: Programming language (python, javascript, typescript).
+        language: Programming language (python, javascript, typescript, go, rust).
         verify_imports: Whether to verify imports against registries.
         verify_docker: Whether to verify Docker images.
+        sandbox_run: Whether to execute code in an isolated sandbox.
         dockerfile_content: Raw Dockerfile content (required if verify_docker).
         requirements_content: Raw requirements.txt for version pinning.
 
@@ -516,10 +574,22 @@ async def codetrust_deep_scan(
         sections.append(docker_report)
         sections.append("")
 
+    # Layer 4: Sandbox execution (optional)
+    sandbox_report = ""
+    if sandbox_run:
+        sandbox_result = await sandbox.execute_code(
+            code, Language(language),
+        )
+        sandbox_report = _format_sandbox_report(sandbox_result)
+        sections.append(sandbox_report)
+        sections.append("")
+
     # Overall verdict
     elapsed_ms = int((time.monotonic() - start) * 1000)
     all_findings = findings + (ast_findings or [])
-    verdict = _compute_deep_verdict(all_findings, import_report, docker_report)
+    verdict = _compute_deep_verdict(
+        all_findings, import_report, docker_report, sandbox_report,
+    )
     sections.append(f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)")
 
     return "\n".join(sections)
@@ -586,6 +656,7 @@ def _compute_deep_verdict(
     findings: list[Finding],
     import_report: str,
     docker_report: str,
+    sandbox_report: str = "",
 ) -> str:
     """Compute the overall deep scan verdict."""
     has_block = any(f.severity == Severity.BLOCK for f in findings)
@@ -601,6 +672,14 @@ def _compute_deep_verdict(
     # Check docker failures
     if docker_report and "### Failed" in docker_report:
         return "BLOCK"
+
+    # Check sandbox failures
+    if sandbox_report and "**Status: FAIL**" in sandbox_report:
+        return "BLOCK"
+    if sandbox_report and "**Status: TIMEOUT**" in sandbox_report:
+        return "BLOCK"
+    if sandbox_report and "**Error:**" in sandbox_report:
+        return "WARN"
 
     if has_warn:
         return "WARN"

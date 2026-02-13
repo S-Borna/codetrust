@@ -20,6 +20,77 @@ from src.models.responses import Finding
 from src.services.static_analyzer import StaticAnalyzer
 
 
+def verify_imports(
+    files: list[Path],
+    language: str,
+) -> list[Finding]:
+    """Verify imports from scanned files against live registries.
+
+    Extracts imports from source files and checks that every imported
+    package actually exists on PyPI/npm. Returns BLOCK findings for
+    packages that don't exist (possible AI hallucinations).
+
+    Args:
+        files: List of file paths to check.
+        language: Programming language.
+
+    Returns:
+        List of Finding objects for unverified imports.
+    """
+    py_exts = {".py"}
+    js_exts = {".js", ".ts", ".jsx", ".tsx"}
+
+    py_files: list[tuple[str, str]] = []
+    js_files: list[tuple[str, str]] = []
+
+    for file_path in files:
+        ext = file_path.suffix.lower()
+        basename = file_path.name.lower()
+
+        # Skip test files
+        if (
+            basename.startswith("test_")
+            or basename.startswith("conftest")
+            or ".test." in basename
+            or ".spec." in basename
+        ):
+            continue
+
+        try:
+            code = file_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        if ext in py_exts:
+            py_files.append((str(file_path), code))
+        elif ext in js_exts:
+            js_files.append((str(file_path), code))
+
+    if not py_files and not js_files:
+        return []
+
+    try:
+        from src.services.import_verifier import verify_file_imports_sync
+
+        raw_findings = verify_file_imports_sync(py_files, js_files)
+        return [
+            Finding(
+                rule_id=str(f["rule_id"]),
+                severity=(
+                    Severity.BLOCK if f.get("severity") == "BLOCK"
+                    else Severity.WARN if f.get("severity") == "WARN"
+                    else Severity.INFO
+                ),
+                message=str(f["message"]),
+                file=str(f.get("file", "")),
+                line=int(f.get("line", 1)),
+            )
+            for f in raw_findings
+        ]
+    except Exception:
+        return []  # Import verification is best-effort
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="CodeTrust scan runner")
@@ -338,6 +409,12 @@ def main() -> int:
     if gov_findings:
         _write_output(f"Governance: {len(gov_findings)} finding(s)")
     findings.extend(gov_findings)
+
+    # Run live import verification against registries
+    import_findings = verify_imports(files, args.language)
+    if import_findings:
+        _write_output(f"Import verification: {len(import_findings)} finding(s)")
+    findings.extend(import_findings)
 
     # Emit annotations
     emit_annotations(findings)

@@ -25,7 +25,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers, 17 MCP tools, 27 API endpoints. 1,314 tests.
+**AI Governance Enforcement Platform** — 133 rules across 10 enforcement layers, 17 MCP tools, 27 API endpoints. 1,314 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -111,7 +111,7 @@ Unlike traditional tools, CodeTrust uniquely combines pre-execution interception
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**75 scan rules + 57 gateway rules = 132 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**76 scan rules + 57 gateway rules = 133 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 

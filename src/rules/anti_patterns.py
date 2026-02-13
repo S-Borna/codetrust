@@ -35,8 +35,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     {
         "id": "hardcoded_secret",
         "pattern": (
-            r'(?i)(api[_-]?key|secret|password|token|credentials)'
-            r'\s*[:=]\s*["\'][^"\']{8,}["\']'
+            r'(?i)(api[_-]?key|secret[_-]?\w*|password|token|credentials)'
+            r'(?:\s*:\s*\w+)?\s*[:=]\s*["\'][^"\']{8,}["\']'
         ),
         "message": "Possible hardcoded secret. Use environment variables.",
         "severity": Severity.BLOCK,
@@ -282,6 +282,14 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     #  DEVOPS / INFRASTRUCTURE RULES
     # ═══════════════════════════════════════════════════════════════
 
+    # --- Database URL with embedded credentials ---
+    {
+        "id": "database_url_credentials",
+        "pattern": r"(?i)(?:database|db|sql|postgres|mysql|mongo|redis)[_-]?(?:url|uri|dsn)(?:\s*:\s*\w+)?\s*[:=]\s*[\"']?[\w+]+://\w+:\S+@",
+        "message": "Database URL contains embedded credentials. Use environment variables for username and password.",
+        "severity": Severity.BLOCK,
+    },
+
     # --- Python: network connections without timeout ---
     {
         "id": "connection_no_timeout",
@@ -412,10 +420,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- API key in YAML/config ---
     {
         "id": "api_key_in_config",
-        "pattern": r"(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*[\"']?[^\s\"']{8,}",
+        "pattern": r"(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)(?:\s*:\s*\w+)?\s*[:=]\s*[\"']?[^\s\"']{8,}",
         "message": "API key or secret in config file. Use environment variables or secret manager.",
         "severity": Severity.BLOCK,
-        "file_types": [".yml", ".yaml", ".toml", ".json"],
         "skip_comments": True,
     },
 

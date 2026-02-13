@@ -42,13 +42,21 @@ docker-compose.override.yml
 # Local-only files (plans, notes, secrets)
 .local/
 
-# Session log (private, never committed)
+# Internal docs — blueprints, specs, build plans (private, never committed)
 SESSION_LOG.md
+SPEC.md
+PLAN.md
+PRODUCT.md
+PITCH.md
+COMPARISON.md
+CLAUDE.md
+TEST_EVIDENCE.md
 
 # Node (in case of front-end components)
 node_modules/
 codetrust.db
 codetrust-report.md
+codetrust-results.sarif
 
 # VS Code Extension builds
 *.vsix

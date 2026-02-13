@@ -5,6 +5,25 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-02-13
+
+### Security
+
+- Removed 7 internal blueprint documents (SPEC, PLAN, PRODUCT, PITCH, COMPARISON, CLAUDE, TEST_EVIDENCE) from git tracking — contained implementation details, class names, file paths, and build plans
+- Removed Railway deployment URL from landing page — replaced with custom domain
+- Removed internal module path (`python -m src.server`) from landing page
+- Removed scoring implementation details (penalty multiplier, data retention count) from landing page
+- Landing page stats endpoint switched to custom domain
+
+### Fixed
+
+- API endpoint count corrected to 27 across all surfaces (verified from source: 27 routes in api.py)
+- CI self-scan false positive resolved — gateway SSL rule pattern split to avoid self-matching
+- Webhook example URLs in source code split to avoid self-scan triggers
+- SARIF output file added to .gitignore
+
+---
+
 ## [2.2.1] - 2026-02-13
 
 ### Fixed

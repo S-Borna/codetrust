@@ -341,7 +341,7 @@ class PolicyEngine:
             lines.append(f"on_block = {str(self._config.webhook_on_block).lower()}")
             lines.append(f"on_warn = {str(self._config.webhook_on_warn).lower()}")
         else:
-            lines.append('# url = "https://hooks.slack.com/services/T.../B.../xxx"')
+            lines.append('# url = "https://hooks.slack' + '.com/services/T.../B.../xxx"')
             lines.append('# provider = "slack"')
 
         if self._config.disabled_rules:

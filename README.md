@@ -182,7 +182,7 @@ codetrust scan .
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
-| **REST API** | 27 endpoints, authenticated | Integrate into any pipeline or platform |
+| **REST API** | 27 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 

@@ -33,12 +33,12 @@ export function registerCommands(
     deps: CommandDeps,
 ): void {
     const commands: Array<[string, () => Promise<void>]> = [
-        ["codetrust.scanFile", () => scanCurrentFile(deps)],
-        ["codetrust.verifyImports", () => verifyImportsCommand(deps)],
-        ["codetrust.verifyDockerfile", () => verifyDockerfileCommand(deps)],
-        ["codetrust.deepScan", () => deepScanCommand(deps)],
-        ["codetrust.clearDiagnostics", () => clearDiagnosticsCommand(deps)],
-        ["codetrust.scanWorkspace", () => scanWorkspaceCommand(deps)],
+        ["codetrust.scanFile", (): Promise<void> => scanCurrentFile(deps)],
+        ["codetrust.verifyImports", (): Promise<void> => verifyImportsCommand(deps)],
+        ["codetrust.verifyDockerfile", (): Promise<void> => verifyDockerfileCommand(deps)],
+        ["codetrust.deepScan", (): Promise<void> => deepScanCommand(deps)],
+        ["codetrust.clearDiagnostics", (): Promise<void> => clearDiagnosticsCommand(deps)],
+        ["codetrust.scanWorkspace", (): Promise<void> => scanWorkspaceCommand(deps)],
     ];
 
     for (const [id, handler] of commands) {

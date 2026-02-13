@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI code safety platform — 133 rules, 10 enforcement layers, 3 capabilities no other tool has: AI Governance Gateway (57 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io), Trust Score with drift tracking. Blocks destructive AI agent actions before execution. Works with Claude Code, Cursor, and GitHub Copilot.",
-    "version": "2.2.2",
+    "version": "2.2.3",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

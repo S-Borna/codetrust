@@ -85,7 +85,6 @@ export class StatusBarManager {
         const display = VERDICT_DISPLAY[key] ?? VERDICT_DISPLAY.IDLE;
 
         const modeLabel = offline ? " (offline · 49 rules)" : " (online · full scan)";
-        const modeIcon = offline ? "$(cloud-offline)" : "$(cloud)";
         const countSuffix =
             findingsCount > 0
                 ? ` — ${findingsCount} finding${findingsCount !== 1 ? "s" : ""}`

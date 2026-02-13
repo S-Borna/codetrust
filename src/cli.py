@@ -752,6 +752,34 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
                 files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
 
+    # --- Live import verification against registries ---
+    if not getattr(args, "no_verify_imports", False):
+        try:
+            from src.services.import_verifier import (
+                collect_source_files,
+                verify_file_imports_sync,
+            )
+
+            py_files, js_files = collect_source_files(targets)
+            if py_files or js_files:
+                import_count = len(py_files) + len(js_files)
+                print(
+                    f"  {color('🔍 Verifying imports against registries...', BLUE)}"
+                    f" ({import_count} file(s))"
+                )
+                import_findings = verify_file_imports_sync(py_files, js_files)
+                if import_findings:
+                    all_findings.extend(import_findings)
+                    print(
+                        f"  {color(f'   Found {len(import_findings)} unverified import(s)', RED)}\n"
+                    )
+                else:
+                    print(
+                        f"  {color('   All imports verified ✓', GREEN)}\n"
+                    )
+        except Exception:
+            pass  # Import verification is best-effort; don't break scan
+
     blocks = [f for f in all_findings if f.get("severity") == "BLOCK"]
     warns = [f for f in all_findings if f.get("severity") == "WARN"]
     infos = [f for f in all_findings if f.get("severity") == "INFO"]
@@ -1130,6 +1158,11 @@ def main() -> int:
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
     scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
     scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")
+    scan_parser.add_argument(
+        "--no-verify-imports",
+        action="store_true",
+        help="Skip live registry verification of imports",
+    )
 
     # status
     subparsers.add_parser("status", help="Check installed enforcement layers")

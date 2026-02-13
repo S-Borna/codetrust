@@ -5,95 +5,70 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-02-13
 
-### Added — Production Polish (10/10 Sprint)
+> **The Three Moats Release** — CodeTrust is now an AI code safety platform with three
+> capabilities no linter, formatter, or SAST tool provides.
 
-- **E2E integration tests** — `tests/test_e2e_integration.py` with real in-memory SQLite DB,
-  18 tests covering full HTTP→service→DB→response lifecycle: health, static scan, deep scan,
-  SARIF, API key lifecycle, scan history, usage stats, GDPR export/delete, auth errors
-- **Dashboard E2E (Playwright)** — `dashboard/playwright.config.ts` + `dashboard/e2e/dashboard.spec.ts`
-  with 7 tests: page load, navigation, API error handling, accessibility checks (lang, duplicate IDs).
-  `@playwright/test` added to dashboard devDependencies; `test:e2e` npm script
-- **OIDC integration test** — `tests/test_oidc_integration.py` with mock OIDC provider
-  (MockOIDCTransport), tests full Authorization Code Flow: discovery → auth URL → token
-  exchange → ID token parsing → userinfo fallback → domain validation. 26 tests
-- **Helm chart CI validation** — new `helm-lint` job in `.github/workflows/ci.yml` using
-  `azure/setup-helm@v4`; runs `helm lint`, `helm template` (basic + production values)
-- **Load test baseline docs** — `tests/load/README.md` with per-endpoint p50/p95/p99
-  targets, scalability matrix (10–1000 users), alerting thresholds, CI integration guide
-- **Code coverage > 80%** — from 76.59% → **81.03%** (+4.44%). New test files:
-  `test_metrics.py` (24 tests), `test_cache_service.py` (16 tests), `test_gateway_server.py` (18 tests),
-  `test_cli_coverage.py` (33 tests), `test_api_coverage.py` (14 tests).
-  CI `--cov-fail-under` bumped from 70 to **80** in both `ci.yml` and `release.yml`
-- **Multi-tenant data isolation** — `src/services/tenant.py` with `TenantService`,
-  `TenantContext`, `Organization` model. Org-scoped queries, member management with
-  admin-only guards, cross-tenant access validation, org limit enforcement. 17 tests
-- **Signed releases (Sigstore)** — `sigstore/gh-action-sigstore-python@v3` added to
-  `release.yml`; signs all distributions (`dist/*`) after PyPI publish; signed artifacts
-  uploaded to GitHub Release alongside SBOM
+### Moat 1: AI Governance Gateway (57 rules)
 
-### Added — Tier 1 (Foundation Hardening)
+The gateway intercepts AI agent actions **before execution** — terminal commands,
+file writes, and package installs are validated in real-time.
 
-- **SECURITY.md** — vulnerability disclosure policy, responsible disclosure process
-- **CONTRIBUTING.md** — contributor guide with code standards, PR process
-- **.github/dependabot.yml** — automated dependency updates for pip + npm + GitHub Actions
-- **pytest-cov** — `--cov=src --cov-fail-under=80` enforced in CI
-- **Dockerfile hardening** — non-root user, `HEALTHCHECK`, read-only root, `dumb-init`
-- **OpenAPI spec** — `docs/openapi.json` with all 21 endpoints
-- **Release pipeline** — `.github/workflows/release.yml` with tag-triggered PyPI + VSIX + GitHub Release
-- **Architecture diagram** — Mermaid flowchart in README showing all components
+- **46 terminal interception rules** across 9 categories:
+  file destruction, code execution, privilege escalation, git operations,
+  container escape, network exfiltration, secrets exposure, supply chain attacks,
+  resource abuse
+- **11 content rules**: secrets, private keys, AWS keys, SSL bypass, CORS wildcards,
+  obfuscated exec, pickle deserialization, subprocess shell, debug mode,
+  webhook exfiltration, eval/exec in files
+- `check_file_write()` now returns highest severity match (was first match)
+- Git push false positive fixed (force push vs regular push ordering)
 
-### Added — Tier 2 (Observability & Compliance)
+### Moat 2: Live Import Verification (Hallucination Detection)
 
-- **Prometheus /metrics endpoint** — `src/middleware/metrics.py` with `MetricsMiddleware`
-  (ASGI), 4 metrics: requests_total, request_duration, active_requests, uptime_seconds
-- **SIEM audit export** — `src/gateway/siem.py` with CEF, LEEF, Syslog RFC 5424, and
-  ECS JSON output formats; CLI `--format` flag; 41 tests
-- **Gateway webhooks** — `src/gateway/webhooks.py` with Slack, Teams, PagerDuty, and
-  Generic webhook providers; configurable in `.codetrust.toml`; 29 tests
-- **Custom rule YAML/TOML** — `src/gateway/custom_rules.py` loads user-authored rules
-  from `.codetrust/custom_rules.yaml` or TOML; auto-prefixes `custom_`; 26 tests
-- **SBOM generation** — CycloneDX SBOM generated in CI (`ci.yml`) and attached to
-  GitHub Releases (`release.yml`)
-- **Dashboard tests** — Vitest + React Testing Library, 18 tests across 3 component
-  test files (scan-history, governance-audit, dashboard-nav)
-- **Data retention policy** — `AuditLogger.purge(older_than_days=)`, CLI `--purge` flag,
-  `retention_days` config in `.codetrust.toml`
+Every `codetrust scan` now extracts imports from Python/JS files and verifies them
+against **live PyPI/npm registries**. Hallucinated packages produce BLOCK findings
+with exact file and line number.
 
-### Added — Tier 3 (Enterprise Requirements)
+- **`src/services/import_verifier.py`** — bridge between static analysis and
+  registry verification. Extracts imports, verifies against live APIs, produces
+  findings with line-level precision
+- **CLI integration** — `cmd_scan()` runs import verification by default.
+  `--no-verify-imports` to skip. Shows progress and results inline
+- **GitHub Action integration** — `scan_runner.py` runs `verify_imports()` step
+  after static scan; hallucinated packages appear as PR annotations
+- **13 AI-specific static rules** (was 5): `hallucinated_import_nonexistent`,
+  `hallucinated_import_misspelled`, `hallucinated_method_chain`,
+  `hallucinated_config_option`, `hallucinated_cli_flag`, `hallucinated_version`,
+  `phantom_file_reference`, `hallucinated_http_status`, plus original 5
 
-- **SSO/OIDC authentication** — `src/services/sso.py` with full Authorization Code Flow:
-  OIDC discovery, auth URL building, code exchange, ID token parsing, userinfo fetch.
-  Supports Azure AD, Okta, Auth0, Google, Keycloak. Domain restriction, role mapping.
-  8 new `CODETRUST_OIDC_*` settings. API endpoints: `GET /v1/auth/oidc/login`,
-  `POST /v1/auth/oidc/callback`. 34 tests
-- **SOC2 controls mapping** — `docs/compliance/soc2-controls.md` with full mapping to
-  AICPA Trust Service Criteria CC1–CC9, Availability (A1), Processing Integrity (PI1),
-  Confidentiality (C1), Privacy (P1); implementation references and audit evidence list
-- **GDPR data export/delete** — `src/services/gdpr.py` with `export_user_data()` (Art. 15),
-  `delete_user_data()` (Art. 17), `anonymize_audit_entries()`. API endpoints:
-  `GET /v1/user/export`, `DELETE /v1/user/delete`. 24 tests
-- **Kubernetes Helm charts** — `deploy/helm/codetrust/` with Chart.yaml, values.yaml,
-  templates (Deployment, Service, Ingress, Secret, ConfigMap, HPA, ServiceAccount).
-  Pod security: non-root, readOnlyRootFilesystem, drop ALL capabilities.
-  Prometheus scrape annotations. Redis sub-chart. HPA (2–10 replicas, CPU/memory targets)
-- **Locust load testing** — `tests/load/locustfile.py` with 2 user classes (normal + heavy),
-  9 task scenarios covering health, static scans, deep scans, SARIF, governance audit, metrics
+### Moat 3: AI Trust Score with Baseline Trending
 
-### Added — Config Hallucination Detectors (5 new rules)
+Not just a snapshot — a real metric that tracks how your codebase is evolving.
 
-- `hallucinated_localhost_port` (WARN) — flags `localhost:XXXX` with unverified port
-- `hallucinated_api_endpoint` (WARN) — flags AI-generated API paths
-- `hallucinated_env_var` (INFO) — flags env vars that may not exist
-- `placeholder_url` (WARN) — flags `example.com`, `your-app.com` placeholder URLs
-- `fake_api_key_format` (BLOCK) — flags `sk-...`, `pk_test_...` mock API keys
+- **AI Trust sub-score** — hallucination findings penalized 15x in scoring
+- **A+ grade curve** — A+/A/B+/B/C+/C/D/F
+- **Baseline storage** — `.codetrust/drift_baseline.json` persists between runs
+- **Delta tracking** — shows improvement/regression from baseline
+- **Trend analysis** — improving/degrading/stable based on history
+- **History cap** — 100 data points retained
+
+### Summary
+
+- **132 total rules** — 75 scan rules + 57 gateway rules (was 82)
+- **1312 tests** — 0 failures, 2 skipped (was 1168)
+- **29 new import verification tests** — line detection, collection,
+  async/sync wrappers, 3 end-to-end scenarios
+- **115 moat tests** — gateway categories, hallucination detection,
+  drift score trending, real-world scenarios
 
 ### Changed
 
-- **Total tests** — 1168 passing, 2 skipped (from 845 at v2.0.0 release)
-- **Code coverage** — 81.03% (from ~60% at v2.0.0 release)
-- **Total rules** — 82 (67 scan rules + 15 gateway rules)
+- Version bumped to 2.1.0 across pyproject.toml, extension, CLI SARIF output
+- README repositioned around three moats
+- Architecture diagram updated with import verification flow
+- Rule count references updated: 82 → 132
 
 ## [2.0.0] - 2026-02-13
 

@@ -89,21 +89,21 @@ AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI co
 
 | Failure Mode | What Happens | Who Catches It |
 |---|---|---|
-| **Hallucinated packages** | `pip install` fails — or worse: typosquatted malware installs | **CodeTrust** |
-| **Destructive agent commands** | `rm -rf /`, `eval()`, `curl\|sh` — data loss, RCE, supply chain compromise | **CodeTrust** |
-| **Ghost Docker images** | AI references images that don't exist — build breaks at 2AM | **CodeTrust** |
-| **Invisible code drift** | AI code quality degrades gradually — no one measures it | **CodeTrust** |
+| **Hallucinated packages** | `pip install` fails — or worse: typosquatted malware installs | CodeTrust verifies imports against live registries |
+| **Destructive agent commands** | `rm -rf /`, `eval()`, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
+| **Ghost Docker images** | AI references images that don't exist — build breaks at 2AM | CodeTrust validates images against Docker Hub |
+| **Invisible code drift** | AI code quality degrades gradually — no one measures it | CodeTrust tracks trust score over time |
 
 ### What existing tools miss
 
 | Tool | What it does | What it doesn't do |
 |---|---|---|
-| **SonarQube** | 5,000+ quality rules | No AI agent blocking. No import verification. No trust score |
-| **Snyk** | CVEs in known packages | No AI agent blocking. No hallucination detection. No trust score |
-| **Semgrep** | Cross-file dataflow analysis | No AI agent blocking. No registry verification. No trust score |
-| **Ruff / ESLint** | Code style, formatting | No AI agent blocking. No import verification. No trust score |
+| **SonarQube** | 5,000+ quality rules | Does not intercept AI agents, verify imports, or track trust scores |
+| **Snyk** | CVEs in known packages | Does not intercept AI agents, detect hallucinated packages, or track trust scores |
+| **Semgrep** | Cross-file dataflow analysis | Does not intercept AI agents, verify imports against registries, or track trust scores |
+| **Ruff / ESLint** | Code style, formatting | Does not intercept AI agents, verify imports, or track trust scores |
 
-**None of them have any of our three moats.**
+Unlike traditional tools, CodeTrust uniquely combines pre-execution interception, live registry verification, and quantified safety tracking.
 
 ---
 
@@ -121,11 +121,36 @@ CodeTrust distinguishes between **enforcement** (blocks your pipeline) and **adv
 
 | Layer | Guarantee |
 |-------|-----------|
-| **Gateway** | **Absolute** — command never executes. Cannot bypass |
-| **Pre-commit hook** | **Hard block** — commit rejected until fixed |
-| **GitHub Action** | **Hard block** — PR fails required status check |
+| **Gateway** | **Infrastructure enforcement** — command never executes. Enforced via MCP-level controls; cannot be bypassed without explicitly disabling enforcement |
+| **Pre-commit hook** | **Hard block** — commit rejected until fixed. Enforced via git hooks infrastructure |
+| **GitHub Action** | **Hard block** — PR fails required status check. Enforced via CI pipeline |
 | **CLI scan** | **Soft block** — exit code 1 on BLOCK findings |
-| **VS Code Extension** | **Advisory** — inline diagnostics |
+| **VS Code Extension** | **Advisory** — inline diagnostics, does not block |
+
+---
+
+## When to Use CodeTrust
+
+- **AI-assisted development** — Claude Code, GitHub Copilot, Cursor, or any AI coding assistant
+- **CI/CD pipelines** requiring governance enforcement before merge
+- **Preventing hallucinated dependencies** from reaching production
+- **Blocking destructive agent actions** before they execute
+- **Enforcing DevOps and infrastructure safety policies** across teams
+- **Tracking code safety trends** to catch regression early
+
+---
+
+## Performance
+
+| Operation | Typical Time |
+|-----------|:------------:|
+| Static scan (per file) | < 200ms |
+| Gateway validation (per command) | < 5ms |
+| Deep scan (typical project) | < 2s |
+| Import verification (cached) | < 50ms |
+| Production runtime overhead | Zero |
+
+CodeTrust runs at development time only. Zero runtime overhead in production.
 
 ---
 
@@ -246,6 +271,7 @@ Add to your MCP configuration and AI agents get real-time code safety feedback, 
 CodeTrust is configured via `.codetrust.toml` or `[tool.codetrust]` in `pyproject.toml`.
 
 You can:
+
 - Exclude paths from scanning
 - Ignore specific rules
 - Override severity levels

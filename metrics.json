@@ -1,6 +1,6 @@
 {
   "version": "2.2.2",
-  "generated_at": "2026-02-13T10:18:11.619789+00:00",
+  "generated_at": "2026-02-13T10:25:51.628740+00:00",
   "scan_rules": 76,
   "enterprise_rule_ids": 4,
   "gateway_terminal_rules": 46,
@@ -11,6 +11,6 @@
   "mcp_tools_gateway": 7,
   "mcp_tools": 17,
   "api_endpoints": 27,
-  "tests_collected": 1314,
+  "tests_collected": 1315,
   "coverage_percent": null
 }

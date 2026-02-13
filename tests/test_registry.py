@@ -396,6 +396,23 @@ class TestJSImports:
         result = extract_js_imports(code)
         assert len(result) == 0
 
+    def test_path_alias_skipped(self) -> None:
+        """Next.js/Vite @/ ~/ #/ path aliases should not be treated as npm packages."""
+        code = (
+            "import { Button } from '@/components/ui/button'\n"
+            "import { api } from '@/lib/api'\n"
+            "import { config } from '~/config'\n"
+            "import { schema } from '#/db/schema'\n"
+            "import { Input } from '@mui/material'\n"
+        )
+        result = extract_js_imports(code)
+        assert "@/components" not in result
+        assert "@/lib" not in result
+        assert "~/config" not in result
+        assert "#/db" not in result
+        assert "@mui/material" in result
+        assert len(result) == 1
+
 
 # ---------------------------------------------------------------------------
 # Parsers — requirements.txt

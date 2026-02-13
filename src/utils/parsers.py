@@ -169,6 +169,10 @@ def _normalize_js_package(specifier: str) -> str | None:
     if specifier in _NODE_BUILTINS:
         return None
 
+    # Path aliases: @/ ~/ #/ are project-local aliases (Next.js, Vite, etc.)
+    if specifier.startswith("@/") or specifier.startswith("~/") or specifier.startswith("#/"):
+        return None
+
     # Scoped packages: @scope/name -> @scope/name
     if specifier.startswith("@"):
         parts = specifier.split("/")

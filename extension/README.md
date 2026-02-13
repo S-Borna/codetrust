@@ -1,6 +1,16 @@
 # CodeTrust — AI Code Safety for VS Code
 
-**The only extension that stops AI-generated code from reaching production unchecked.**
+**Stop AI-generated code from reaching production unchecked.**
+
+## Features
+
+- Blocks hallucinated packages before install
+- Intercepts destructive AI agent commands before execution
+- Enforces governance in CI/CD pipelines
+- Trust score tracking and drift analysis
+- Works with Claude Code, Cursor, GitHub Copilot, and any AI assistant
+
+---
 
 132 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
@@ -33,7 +43,7 @@ AI coding assistants produce failure modes no existing tool detects:
 - **Ghost Docker images** — AI references images that don't exist
 - **Invisible drift** — AI code quality degrades without measurement
 
-SonarQube, Snyk, Semgrep, Ruff — **none of them** block AI agents, verify imports against live registries, or track trust scores.
+SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify imports against live registries, or track trust scores. CodeTrust uniquely combines all three.
 
 ---
 
@@ -49,6 +59,28 @@ SonarQube, Snyk, Semgrep, Ruff — **none of them** block AI agents, verify impo
 - **Import Verification** — every package checked against live registries
 - **Docker Verification** — base images validated against Docker Hub / GHCR
 - **SARIF Export** — standard format for GitHub Security tab and CI/CD
+
+---
+
+## When to Use CodeTrust
+
+- **AI-assisted development** — Claude Code, GitHub Copilot, Cursor
+- **CI/CD pipelines** requiring governance enforcement
+- **Preventing hallucinated dependencies** from reaching production
+- **Blocking destructive agent actions** before they execute
+- **Tracking code safety trends** to catch regression early
+
+---
+
+## Performance
+
+| Operation | Typical Time |
+|-----------|:------------:|
+| Static scan (per file) | < 200ms |
+| Gateway validation (per command) | < 5ms |
+| Deep scan (typical project) | < 2s |
+| Import verification (cached) | < 50ms |
+| Production runtime overhead | Zero |
 
 ---
 

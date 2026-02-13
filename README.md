@@ -236,8 +236,6 @@ code --install-extension SaidBorna.codetrust
     fail-on: block
     scan-type: static
     sarif: true
-  env:
-    CODETRUST_API_KEY: ${{ secrets.CODETRUST_API_KEY }}
 
 - uses: github/codeql-action/upload-sarif@v3
   if: always()

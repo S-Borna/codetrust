@@ -28,7 +28,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 - **AI Governance Gateway** — intercepts destructive AI agent actions in real-time
 - **Live import verification** — every package checked against live registries
 - **Trust Score** — quantified code safety with baseline trending and drift detection
-- **Full REST API** — authenticated endpoints with SSO, billing, and SARIF export
+- **Full REST API** — 27 endpoints with SSO, billing, and SARIF export
 - **17 MCP tools** — Model Context Protocol server for AI agent integration
 - **Live telemetry** — real-time usage stats from production Cloud API
 
@@ -136,7 +136,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | **CLI** | `pip install codetrust` |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
-| **REST API** | 27 authenticated endpoints |
+| **REST API** | 27 endpoints |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
 
 ---

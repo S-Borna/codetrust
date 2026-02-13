@@ -62,3 +62,4 @@ codetrust-results.sarif
 *.vsix
 CTfavicon.png
 .gitignore
+scan_all_projects.py

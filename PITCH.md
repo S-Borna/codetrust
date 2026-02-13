@@ -1,12 +1,58 @@
 # CodeTrust — Pitch & Säljdokumentation
 
-> **Version 1.5.0 | Februari 2026 | Live på PyPI, VS Code Marketplace & Railway**
+> **Version 2.1.0 | Februari 2026 | Live på PyPI, VS Code Marketplace, Railway & GitHub**
 
 ---
 
 ## Elevator Pitch (10 sekunder)
 
-> **"CodeTrust verifierar att det AI:n skriver faktiskt fungerar — innan det når produktion. Inga hallucinerade paket, inga läckta hemligheter, inga trasiga Docker-builds."**
+> **"CodeTrust är en AI code safety platform med tre moats ingen konkurrent har: en gateway som blockerar destruktiva AI-agentkommandon i realtid, live-verifiering av imports mot PyPI/npm som fångar hallucinerade paket, och ett AI Trust Score som spårar kodsäkerhet över tid. 132 regler. 1312 tester. Fungerar offline."**
+
+---
+
+## De Tre Moats — Varför CodeTrust inte kan kopieras
+
+### Moat 1: AI Governance Gateway (57 regler)
+
+**Vad det gör:** Interceptar AI-agentkommandon *innan de exekveras*. Inte scanning efteråt — blockering i realtid.
+
+**46 terminalregler** i 9 kategorier:
+
+- Filförstöring (`rm -rf /`, `shred`, `dd of=/dev/`)
+- Kodexekvering (`eval`, `curl|sh`, heredoc, `python -c`)
+- Privilegieeskalering (`chmod 777`, `sudo su`, `chown root`)
+- Git-operationer (`git push`, `git push --force`, `git reset --hard`)
+- Container-escape (`--privileged`, `--pid=host`, `--net=host`)
+- Nätverksexfiltrering (`curl POST`, `nc`, `scp`, DNS-tunneling)
+- Hemligexponering (`export API_KEY`, `.env` cat, AWS-credentials)
+- Supply chain (`pip install --index-url`, `npm set registry`)
+- Resursabus (fork bomb, `stress`, `crypto-miner`)
+
+**11 content-regler:** hemligheter, private keys, SSL bypass, CORS wildcards, eval i filer, pickle, debug mode
+
+**Bevis:** Under byggandet av v2.1.0 försökte vår egen AI-agent skapa en fil med heredoc — gatewayen blockerade kommandot i realtid. Produkten skyddar sig själv.
+
+### Moat 2: Live Import Verification
+
+**Vad det gör:** `codetrust scan .` extraherar alla imports och verifierar dem mot **live PyPI/npm-registries**. Hallucinerade paket ger BLOCK med exakt fil + radnummer.
+
+**Bevis:** Vi skapade en testfil med `from flask_magic_utils import magic_route`. Resultat:
+
+```
+BLOCK: app.py:4 [import_not_found] Package 'flask_magic_utils' not found on pypi — possible AI hallucination.
+```
+
+Ingen annan tool gör detta. SonarQube, Snyk, Semgrep, Ruff — ingen av dem verifierar att imports existerar.
+
+### Moat 3: AI Trust Score med Trending
+
+**Vad det gör:** Inte bara en snapshot — ett riktigt mätvärde som spårar kodens säkerhet över tid.
+
+- AI Trust sub-score — hallucination findings straffas 15x
+- A+ betygskurva: A+/A/B+/B/C+/C/D/F
+- Baseline sparas i `.codetrust/drift_baseline.json`
+- Delta-tracking: visar förbättring/försämring mellan körningar
+- Trendanalys: improving/degrading/stable
 
 ---
 
@@ -18,81 +64,81 @@
 
 | Ny felklass | Konsekvens | Frekvens |
 |---|---|---|
-| **Hallucinerade paket** — AI föreslår `import fast-utils` som inte finns | `pip install` kraschar, projektet körs ej | 5–15% av AI-paketförslag (Stanford/Cornell forskning 2024) |
-| **Typosquatting** — AI skriver `requets` istf `requests` | Skadligt paket installeras (supply chain attack) | 10,000+ maliciösa paket borttagna från PyPI/npm 2024 |
-| **Trasiga Docker-images** — AI anger `FROM python:3.12-alpine-slim` som ej existerar | CI-bygget kraschar, deployment fördröjs timmar | Varje Docker-användande team drabbas |
-| **Inbäddade hemligheter** — AI klistrar in `api_key = "sk-live-abc..."` | Pushas till GitHub, exponeras inom sekunder av bots | #1 orsak till credential leaks |
-| **Osäkra mönster** — AI skriver `eval(user_input)` | Remote Code Execution-sårbarhet | Standard i AI-genererad glue code |
+| **Hallucinerade paket** — AI föreslår `import fast-utils` som inte finns | `pip install` kraschar, supply chain attack | 5–15% av AI-paketförslag |
+| **Destruktiva AI-agentkommandon** — AI kör `rm -rf /` eller `eval()` | Dataförlust, RCE-sårbarhet | Dagliga incidenter i team utan guardrails |
+| **Trasiga Docker-images** — AI anger `FROM python:3.12-alpine-slim` som ej existerar | CI-bygget kraschar, deployment fördröjs | Varje Docker-användande team drabbas |
+| **Inbäddade hemligheter** — AI klistrar in `api_key = "sk-live-abc..."` | Exponeras på GitHub inom sekunder | #1 orsak till credential leaks |
+| **Okontrollerad koddrift** — AI-genererad kod försämras gradvis utan mätvärden | Teknisk skuld ackumuleras osynligt | Ingen mäter det idag |
 
-### Befintliga verktyg missar det helt
+### Befintliga verktyg missar allt nytt
 
-| Verktyg | Vad det gör | Vad det INTE gör |
+| Verktyg | Vad det gör | Tre saker det INTE gör |
 |---|---|---|
-| **SonarQube** | 5,000+ kodkvalitetsregler | Verifierar ej att paket existerar |
-| **Snyk** | Hittar CVE:er i kända paket | Verifierar ej att okända paket existerar |
-| **Semgrep** | Cross-file dataflödesanalys | Ingen MCP-integration, ingen Docker-verifiering |
-| **Ruff/ESLint** | Kodstil, formatering | Verifierar ej imports mot registries |
+| **SonarQube** | 5,000+ kodkvalitetsregler | ❌ Blockerar inte AI-agenter ❌ Verifierar inte imports ❌ Inget trust score |
+| **Snyk** | CVE i kända paket | ❌ Blockerar inte AI-agenter ❌ Verifierar inte hallucinations ❌ Inget trust score |
+| **Semgrep** | Cross-file dataflödes | ❌ Blockerar inte AI-agenter ❌ Ingen import-verifiering ❌ Inget trust score |
+| **Ruff/ESLint** | Kodstil, formatering | ❌ Blockerar inte AI-agenter ❌ Ingen registry-check ❌ Inget trust score |
 
-**Ingen av dem verifierar att det AI:n genererar överhuvudtaget fungerar i verkligheten.**
+**Ingen av dem har någon av våra tre moats.**
 
 ---
 
-## Lösningen: CodeTrust
-
-### 7 verifieringslager — från advisory till absolut blockering
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  LAYER 7 — ENFORCEMENT                                          │
-│  GitHub Action blockerar PR. Pre-commit blockerar commit.        │
-│  Ingen kan kringgå. Infrastrukturnivå.                           │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 6 — ENTERPRISE STRUCTURE                                  │
-│  Verifierar README, LICENSE, tester, .gitignore, config.         │
-│  SARIF v2.1.0 output för GitHub Security-tabben.                 │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 5 — SANDBOX EXEKVERING                                    │
-│  Kör koden i isolerad Docker-container. Fångar runtime-krascher. │
-│  --network=none, --read-only, 256MB, 10s timeout.                │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 4 — DOCKER VERIFIERING                                    │
-│  Verifierar base images+taggar mot Docker Hub live API.           │
-│  Föreslår tillgängliga taggar om den angivna saknas.              │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 3 — AST-ANALYS (tree-sitter)                              │
-│  Cyklomatisk komplexitet, oanvända variabler, oåtkomlig kod,     │
-│  djup nesting. Python, JS, TS, Go, Rust.                         │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 2 — PAKETVERIFIERING                                      │
-│  Verifierar varje import mot PyPI, npm, crates.io, Go proxy.     │
-│  Typosquatting-skydd via fuzzy matching mot 2,000+ paket.         │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 1 — STATISK ANALYS                                        │
-│  35+ regex-regler. Hemligheter, eval/exec, SQL injection,        │
-│  pickle, bare except, mutable defaults. 7 språk.                 │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-### Det som gör CodeTrust unikt
+## Det som gör CodeTrust unikt
 
 | Kapabilitet | CodeTrust | Alla andra |
 |---|---|---|
-| Verifierar att paket existerar i registries | **Ja** — PyPI, npm, crates.io, Go proxy | **Nej** — ingen |
-| Typosquatting-skydd | **Ja** — fuzzy matching, "Did you mean requests?" | **Nej** |
+| Realtids-blockering av AI-agentkommandon | **Ja** — 57 gateway-regler, pre-execution | **Nej** — ingen |
+| Live-verifiering av imports mot registries | **Ja** — PyPI, npm, exakt fil+rad | **Nej** — ingen |
+| AI Trust Score med trending | **Ja** — baseline, delta, A+ grading | **Nej** — ingen |
+| Verifierar att paket existerar | **Ja** — PyPI, npm, crates.io, Go proxy | **Nej** |
+| Typosquatting-skydd | **Ja** — fuzzy matching | **Nej** |
 | Docker image/tag-verifiering | **Ja** — live Docker Hub API | **Nej** |
-| MCP-native (realtid till AI-assistenter) | **Ja** — 10 MCP-verktyg | SonarQube (nytt 2025), resten nej |
-| Offline-scanning i editor | **Ja** — VS Code extension med embedded scanner | Semgrep CLI (delvis) |
-| Sandbox-exekvering | **Ja** — isolerad Docker | **Nej** — ingen |
-| 4-stegs enforcement (advisory → blockering) | **Ja** — CLAUDE.md → Extension → Hook → Action | Befintliga verktyg: manuell setup |
-| Noll konfiguration | **Ja** — `codetrust init` (2 sekunder) | SonarQube: timmar. Snyk: konto + config |
+| MCP-native (14 tools) | **Ja** | SonarQube (nytt 2025), resten nej |
+| Offline-scanning i editor | **Ja** — 75 embedded rules | Semgrep CLI (delvis) |
+| Sandbox-exekvering | **Ja** — isolerad Docker | **Nej** |
+| Noll konfiguration | **Ja** — `codetrust init` | SonarQube: timmar |
 
 ---
 
-## Leveransbevis
+## 10 Enforcement Layers
 
-### 558 automatiserade tester — 100% gröna
-
-CodeTrust testas med 558 tester fördelade över 19 testsviter:
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  LAYER 10 — AI GOVERNANCE GATEWAY (57 regler)                    │
+│  Interceptar AI-agentkommandon i realtid. Blockerar före         │
+│  exekvering. 46 terminal + 11 content-regler.                    │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 09 — DOCKER VERIFIERING                                   │
+│  Verifierar base images + taggar mot Docker Hub/GHCR live API.   │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 08 — IMPORT VERIFICATION                                  │
+│  Live-verifiering av imports mot PyPI/npm. Fångar hallucinerade  │
+│  paket med exakt fil och radnummer.                              │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 07 — REACT & KUBERNETES (13 regler)                       │
+│  dangerouslySetInnerHTML, privileged: true, resource limits.     │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 06 — IAC & CONFIG (7 regler)                              │
+│  Hardcoded IPs, debug mode, API keys i config.                   │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 05 — CONTAINER HARDENING (10 regler)                      │
+│  Root user, :latest tags, WORKDIR, ENV secrets, healthcheck.     │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 04 — AST-ANALYS (tree-sitter)                             │
+│  Cyklomatisk komplexitet, oanvända variabler, djup nesting.     │
+│  Python, JS, TS, Go, Rust.                                      │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 03 — SQL ANALYSIS (13 regler)                             │
+│  SELECT *, DELETE utan WHERE, FLOAT for money, GRANT ALL.        │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 02 — ROOT CAUSE ANALYSIS (4 regler)                       │
+│  Swallowed exceptions, lint suppression, sleep utan context.     │
+├──────────────────────────────────────────────────────────────────┤
+│  LAYER 01 — STATISK ANALYS (15 regler)                           │
+│  Hemligheter, eval/exec, SQL injection, pickle, bare except.    │
+│  8 språk.                                                        │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 | Testfil | Antal | Vad den testar |
 |---|---|---|
@@ -284,8 +330,6 @@ CodeTrust **ersätter inte** SonarQube/Snyk/Semgrep. Det **kompletterar** dem. D
 | 11 feb 2026 | Phase 11 (Production Hardening) |
 | 11 feb 2026 | **Published to PyPI + VS Code Marketplace** |
 | 11 feb 2026 | **Live Cloud API on Railway** |
-
-**Hela produkten byggdes och publicerades på 2 dagar.**
 
 ---
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "2.1.0"
+version = "2.2.0"
 description = "AI code safety platform — 132 rules across 10 enforcement layers. Three moats no linter has: (1) AI Governance Gateway with 57 real-time interception rules, (2) Live registry verification catches hallucinated imports against PyPI/npm, (3) AI Trust Score with baseline trending. Pre-execution gateway blocks destructive AI agent actions. CLI, GitHub Action, MCP server, and VS Code extension."
 readme = "README.md"
 license = "LicenseRef-Proprietary"

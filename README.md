@@ -26,20 +26,24 @@
 ## Table of Contents
 
 **Intro**
+
 - [What CodeTrust Is](#what-codetrust-is)
 - [Why CodeTrust Exists](#why-codetrust-exists)
 - [How CodeTrust Works](#how-codetrust-works)
 
 **The Three Moats**
+
 - [Moat 1: AI Governance Gateway](#moat-1-ai-governance-gateway)
 - [Moat 2: Hallucination Detection Engine](#moat-2-hallucination-detection-engine)
 - [Moat 3: Trust Score & Drift Tracking](#moat-3-trust-score--drift-tracking)
 
 **Enforcement**
-- [The Enforcement Model (10 Layers)](#the-enforcement-model-10-layers)
+
+- [Enforcement Model: What CodeTrust Can and Cannot Enforce](#enforcement-model-what-codetrust-can-and-cannot-enforce)
 - [Enforcement Guarantees vs Advisory Layers](#enforcement-guarantees-vs-advisory-layers)
 
 **Usage**
+
 - [Quick Start (2 minutes)](#quick-start-2-minutes)
 - [CLI Usage](#cli-usage)
 - [VS Code Extension](#vs-code-extension)
@@ -48,6 +52,7 @@
 - [HTTP API](#http-api)
 
 **Reference**
+
 - [Supported Languages](#supported-languages)
 - [Configuration](#configuration)
 - [Architecture Details](#architecture-details)
@@ -59,7 +64,19 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers.
+**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers, 17 MCP tools, 26 API endpoints.
+
+CodeTrust is an AI governance and enforcement platform that prevents unsafe, hallucinated, and destructive code from reaching production.
+
+Unlike traditional static analysis tools that detect issues after code is written, CodeTrust enforces safety across the entire development lifecycle:
+
+- **Before execution** — Gateway intercepts destructive commands in real-time
+- **During development** — VS Code Extension shows inline diagnostics on save
+- **Before commit** — Pre-commit hook rejects unsafe code
+- **During CI/CD** — GitHub Action fails the PR status check
+- **Before deployment** — CLI and API scan with exit code enforcement
+
+This creates an enforcement layer between AI-generated code and production systems.
 
 CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code. It has three capabilities no existing tool provides:
 
@@ -117,7 +134,7 @@ flowchart TB
     end
 
     subgraph API["FastAPI Backend"]
-        REST["REST API<br/>21 endpoints"]
+        REST["REST API<br/>26 endpoints"]
         SCAN["StaticAnalyzer<br/>75 scan rules"]
         IMPORT["ImportVerifier<br/>live PyPI/npm check"]
         AST["AstAnalyzer<br/>tree-sitter"]
@@ -257,7 +274,7 @@ Run `codetrust scan .` repeatedly → delta appears. The score answers: **"Is ou
 
 ---
 
-## The Enforcement Model (10 Layers)
+## Enforcement Model: What CodeTrust Can and Cannot Enforce
 
 | # | Layer | Rules | What It Catches | Type |
 |:-:|-------|:-----:|-----------------|:----:|
@@ -291,6 +308,7 @@ CodeTrust distinguishes between **enforcement** (will block your pipeline) and *
 | **AST Analysis** | **Advisory** | Complexity warnings. No pipeline blocking |
 
 The stack is designed so that:
+
 - **Layers 1–3, 5–9** produce BLOCK/WARN/INFO findings
 - **Layer 10 (Gateway)** prevents execution entirely — strongest guarantee
 - **Pre-commit + GitHub Action** enforce at infrastructure level — cannot be skipped
@@ -363,6 +381,7 @@ code --install-extension SaidBorna.codetrust
 ```
 
 **Features:**
+
 - Scans on save (configurable)
 - Inline diagnostics with severity levels
 - 75 embedded rules — works fully offline
@@ -427,7 +446,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-### 14 MCP Tools
+### 17 MCP Tools
 
 | Tool | Server | Description |
 |------|--------|-------------|
@@ -437,6 +456,9 @@ Add to `~/.claude/claude_desktop_config.json`:
 | `codetrust_list_rules` | Scanner | List all rules and their severities |
 | `codetrust_verify_imports` | Scanner | Verify package imports exist in real registries |
 | `codetrust_verify_dockerfile` | Scanner | Verify Docker base images and tags |
+| `codetrust_ast_scan` | Scanner | AST structural analysis via tree-sitter |
+| `codetrust_sandbox_run` | Scanner | Execute code in isolated sandbox |
+| `codetrust_sarif_export` | Scanner | Export scan results as SARIF |
 | `codetrust_deep_scan` | Scanner | Run all validation layers in a single pass |
 | `codetrust_validate_command` | Gateway | Validate terminal command before execution |
 | `codetrust_validate_file_write` | Gateway | Validate file content before writing |
@@ -457,8 +479,29 @@ All endpoints require `X-API-Key` header when `CODETRUST_API_KEY` is set.
 | `GET` | `/v1/status` | Health check — version, cache status |
 | `POST` | `/v1/scan/static` | Static anti-pattern scan |
 | `POST` | `/v1/scan/deep` | Full deep scan (all layers) |
+| `POST` | `/v1/scan/static/sarif` | Static scan with SARIF output |
+| `POST` | `/v1/scan/deep/sarif` | Deep scan with SARIF output |
+| `POST` | `/v1/scan/ast` | AST structural analysis |
 | `POST` | `/v1/verify/imports` | Verify package imports |
 | `POST` | `/v1/verify/dockerfile` | Verify Docker images and tags |
+| `POST` | `/v1/sandbox/run` | Execute code in isolated sandbox |
+| `POST` | `/v1/api-keys` | Create API key |
+| `GET` | `/v1/api-keys` | List API keys |
+| `DELETE` | `/v1/api-keys/{key_id}` | Revoke API key |
+| `GET` | `/v1/scans/history` | Scan history |
+| `GET` | `/v1/usage` | Usage statistics |
+| `POST` | `/v1/billing/checkout` | Create billing checkout session |
+| `POST` | `/v1/billing/portal` | Billing portal redirect |
+| `POST` | `/v1/webhooks/stripe` | Stripe webhook handler |
+| `POST` | `/v1/auth/github` | GitHub OAuth authentication |
+| `POST` | `/v1/auth/refresh` | Refresh JWT token |
+| `GET` | `/v1/profile` | User profile |
+| `GET` | `/v1/auth/oidc/login` | SSO/OIDC login redirect |
+| `POST` | `/v1/auth/oidc/callback` | SSO/OIDC callback |
+| `GET` | `/v1/user/export` | GDPR data export (Art. 15) |
+| `DELETE` | `/v1/user/delete` | GDPR right to erasure (Art. 17) |
+| `GET` | `/v1/governance/audit` | Governance audit log |
+| `GET` | `/metrics` | Prometheus metrics |
 
 ```bash
 curl https://codetrust-api-production.up.railway.app/v1/status
@@ -547,7 +590,7 @@ ignore_rules = ["sql_todo_hack"]
                     |
 +-------------------v--------------------------+
 |           MCP Server  .  HTTP API            |
-|     14 tools  .  21 endpoints  .  auth       |
+|     17 tools  .  26 endpoints  .  auth       |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+
@@ -612,10 +655,20 @@ ignore_rules = ["sql_todo_hack"]
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v           # 1312 tests
+pytest tests/ -v           # 1314 tests
 ruff check src/ tests/     # zero warnings
 cd extension && npx tsc --noEmit   # TypeScript
 ```
+
+### Metrics
+
+All counts in this README (rules, tools, endpoints, tests) are generated from source via:
+
+```bash
+python scripts/generate_metrics.py   # → metrics.json
+```
+
+Counts are generated from source and validated in CI. See [metrics.json](metrics.json) for current values.
 
 ---
 

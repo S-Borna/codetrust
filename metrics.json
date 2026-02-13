@@ -1,0 +1,16 @@
+{
+  "version": "2.1.0",
+  "generated_at": "2026-02-13T06:28:30.372304+00:00",
+  "scan_rules": 75,
+  "enterprise_rule_ids": 4,
+  "gateway_terminal_rules": 46,
+  "gateway_content_rules": 11,
+  "gateway_rules": 57,
+  "total_rules": 132,
+  "mcp_tools_scanner": 10,
+  "mcp_tools_gateway": 7,
+  "mcp_tools": 17,
+  "api_endpoints": 26,
+  "tests_collected": 1314,
+  "coverage_percent": null
+}

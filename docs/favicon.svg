@@ -1,11 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#1a1a2e"/>
-  <!-- Shield -->
-  <path d="M32 56s20-10 20-25V12.5L32 5 12 12.5V31c0 15 20 25 20 25z" stroke="#38d8fd" stroke-width="3" fill="none"/>
-  <!-- Code brackets </> -->
-  <path d="M24 22l-6 8 6 8" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M40 22l6 8-6 8" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M35 19l-6 20" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
-  <!-- Checkmark -->
-  <path d="M24 42l6 6 12-12" stroke="#5bca78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+  <defs>
+    <linearGradient id="g" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="s" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#g)" stroke="url(#s)" stroke-width="4"/>
+  <text x="60" y="76" text-anchor="middle" font-family="monospace" font-size="40" font-weight="700" fill="#22c55e">&lt;/&gt;</text>
+  <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

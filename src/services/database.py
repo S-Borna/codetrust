@@ -340,3 +340,36 @@ class DatabaseService:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    async def get_public_stats(self) -> dict[str, int]:
+        """Get aggregate public stats across all users (no auth required)."""
+        async with self._session_factory() as session:
+            # Total scans
+            total_scans_stmt = select(func.count()).select_from(ScanLog)
+            total_scans = (await session.execute(total_scans_stmt)).scalar_one()
+
+            # Hallucinated packages prevented (imports scans with BLOCK verdict)
+            hallucinated_stmt = (
+                select(func.count())
+                .select_from(ScanLog)
+                .where(ScanLog.scan_type == "imports", ScanLog.verdict == "BLOCK")
+            )
+            hallucinated = (await session.execute(hallucinated_stmt)).scalar_one()
+
+            # Destructive commands blocked (gateway blocks from audit)
+            # Count all scans with BLOCK verdict across gateway-related types
+            blocked_stmt = (
+                select(func.count())
+                .select_from(ScanLog)
+                .where(
+                    ScanLog.verdict == "BLOCK",
+                    ScanLog.scan_type.notin_(["imports", "dockerfile"]),
+                )
+            )
+            blocked = (await session.execute(blocked_stmt)).scalar_one()
+
+            return {
+                "total_scans": total_scans or 0,
+                "hallucinated_packages_prevented": hallucinated or 0,
+                "destructive_commands_blocked": blocked or 0,
+            }

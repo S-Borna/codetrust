@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI code safety — 132 rules across 10 enforcement layers. Three moats: AI Governance Gateway (57 real-time rules), live import verification against PyPI/npm, and AI Trust Score with trending. Catches hallucinated packages, blocks destructive AI actions, and tracks code safety over time.",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

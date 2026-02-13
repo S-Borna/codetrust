@@ -5,6 +5,41 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-13
+
+> **Platform Launch Release** — Production-ready landing page, live telemetry,
+> ecosystem integration signals, and shield icon system.
+
+### Added
+
+- **Live usage telemetry** — `/v1/stats/public` API endpoint returns real-time scan counts,
+  hallucinated packages prevented, and destructive commands blocked from production database
+- **Landing page live stats** — usage metrics now fetch from Cloud API with scroll-triggered
+  count-up animation; includes telemetry transparency note
+- **"Works with" ecosystem section** — VS Code, GitHub, Claude Code, Cursor, and MCP logos
+  with hover effects on the landing page
+- **Visual architecture diagram** — upgraded from plain text flow to icon-based nodes with
+  labeled arrows ("intercepts" / "verified"), color-coded for threat vs safe state
+- **Shield icon system** — unified `</>` + checkmark shield SVG across hero, topbar, favicon,
+  extension icon (256×256), Apple touch icon, and PyPI logo
+- **Icon generation script** — `scripts/generate_icons.py` produces all PNG sizes from SVG
+  via cairosvg
+
+### Changed
+
+- Landing page fully redesigned — Space Grotesk + IBM Plex Mono, dark theme (#050507),
+  consistent blue (#3b82f6) / green (#22c55e) palette
+- Hero logo enlarged 50% for better visual impact
+- Topbar shield now matches hero design exactly (gradient, glow, inner ring)
+- "Trust" text color unified to #3b82f6 across all surfaces
+
+### Fixed
+
+- Topbar/hero SVG inconsistency (missing glow filter, inner highlight ring)
+- Code/Trust text gap eliminated (was 0.4rem, now 0)
+
+---
+
 ## [2.1.0] - 2026-02-13
 
 > **The Three Moats Release** — CodeTrust is now an AI code safety platform with three

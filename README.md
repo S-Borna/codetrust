@@ -64,7 +64,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers, 17 MCP tools, 26 API endpoints.
+**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers, 17 MCP tools, 27 API endpoints.
 
 CodeTrust is an AI governance and enforcement platform that prevents unsafe, hallucinated, and destructive code from reaching production.
 
@@ -134,7 +134,7 @@ flowchart TB
     end
 
     subgraph API["FastAPI Backend"]
-        REST["REST API<br/>26 endpoints"]
+        REST["REST API<br/>27 endpoints"]
         SCAN["StaticAnalyzer<br/>75 scan rules"]
         IMPORT["ImportVerifier<br/>live PyPI/npm check"]
         AST["AstAnalyzer<br/>tree-sitter"]
@@ -590,7 +590,7 @@ ignore_rules = ["sql_todo_hack"]
                     |
 +-------------------v--------------------------+
 |           MCP Server  .  HTTP API            |
-|     17 tools  .  26 endpoints  .  auth       |
+|     17 tools  .  27 endpoints  .  auth       |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+

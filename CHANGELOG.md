@@ -5,7 +5,7 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — on main, not yet published to PyPI/Marketplace
+## [Unreleased] — on main (Marketplace published at 2.2.3, PyPI pending)
 
 ### Added
 
@@ -23,6 +23,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
 - Rule count updated: 76 scan + 57 gateway = 133 total
 - Test count: 1315
+
+---
+
+## [2.2.3] - 2026-02-13
+
+### Fixed
+
+- VS Code extension lint blockers resolved:
+  - removed unnecessary regex escape in embedded scanner rules
+  - added explicit return types for registered command handlers
+  - removed unused status bar variable
+- Dashboard build blockers resolved:
+  - added missing dependency `@next-auth/prisma-adapter`
+  - updated Stripe API version typing in webhook route
+  - deferred Stripe client initialization to request-time with env validation to avoid build-time failure
+
+### Released
+
+- Published to VS Code Marketplace: `SaidBorna.codetrust` **v2.2.3**
+- PyPI release remains pending (Python package version unchanged)
 
 ---
 

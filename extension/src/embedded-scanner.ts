@@ -470,7 +470,7 @@ const HALLUCINATION_WARN_RULES: Rule[] = [
 const HALLUCINATION_INFO_RULES: Rule[] = [
     {
         id: "hallucinated_env_var",
-        pattern: /(?:process\.env\.|os\.(?:environ|getenv)\s*[\[(]\s*["'])(?:(?!PATH|HOME|USER|SHELL|TERM|LANG|LC_|TZ|PWD|LOGNAME|HOSTNAME|DISPLAY|XDG_|EDITOR|VISUAL|PAGER|BROWSER|TMPDIR|TEMP|TMP)[A-Z][A-Z0-9_]{15,})/,
+        pattern: /(?:process\.env\.|os\.(?:environ|getenv)\s*(?:\[|\()\s*["'])(?:(?!PATH|HOME|USER|SHELL|TERM|LANG|LC_|TZ|PWD|LOGNAME|HOSTNAME|DISPLAY|XDG_|EDITOR|VISUAL|PAGER|BROWSER|TMPDIR|TEMP|TMP)[A-Z][A-Z0-9_]{15,})/,
         message: "Long environment variable name (16+ chars). Verify this env var is documented and exists.",
         severity: "INFO",
     },

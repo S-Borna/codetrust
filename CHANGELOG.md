@@ -5,6 +5,21 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-02-13
+
+### Fixed
+
+- Extension README completely rewritten — was still showing v2.0 content (82 rules, 15 gateway rules)
+  while Marketplace listed v2.2.0. Now accurately reflects 132 rules, 57 gateway rules, 27 API endpoints,
+  17 MCP tools, three moats, 10 enforcement layers, and all five surfaces
+- PyPI description updated with complete feature set and correct metrics
+- Development Status upgraded from Beta to Production/Stable
+- Keywords expanded for better discoverability (ai-safety, governance, claude-code, cursor)
+- API endpoints count corrected from 26 → 27 across all surfaces
+- PyPI logo fixed — now uses absolute GitHub raw URL so it renders correctly
+
+---
+
 ## [2.2.0] - 2026-02-13
 
 > **Platform Launch Release** — Production-ready landing page, live telemetry,

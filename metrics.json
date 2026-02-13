@@ -1,6 +1,6 @@
 {
-  "version": "2.2.0",
-  "generated_at": "2026-02-13T08:25:54.997881+00:00",
+  "version": "2.2.1",
+  "generated_at": "2026-02-13T08:36:14.942976+00:00",
   "scan_rules": 75,
   "enterprise_rule_ids": 4,
   "gateway_terminal_rules": 46,

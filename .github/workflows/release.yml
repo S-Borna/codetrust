@@ -7,7 +7,6 @@ on:
 
 permissions:
     contents: write
-    id-token: write # PyPI trusted publishing
 
 jobs:
     verify:
@@ -43,13 +42,10 @@ jobs:
                   name: sbom
                   path: sbom.json
 
-    publish-pypi:
+    build-pypi:
         needs: verify
         runs-on: ubuntu-latest
         timeout-minutes: 10
-        environment:
-            name: pypi
-            url: https://pypi.org/project/codetrust/
         steps:
             - uses: actions/checkout@v4
 
@@ -64,24 +60,13 @@ jobs:
             - name: Build package
               run: python -m build
 
-            - name: Publish to PyPI
-              uses: pypa/gh-action-pypi-publish@release/v1
-
-            - name: Sign distribution with Sigstore
-              uses: sigstore/gh-action-sigstore-python@v3
-              with:
-                  inputs: dist/*
-
-            - name: Upload signed artifacts
+            - name: Upload PyPI artifacts
               uses: actions/upload-artifact@v4
               with:
-                  name: signed-distributions
-                  path: |
-                      dist/*.sigstore.json
-                      dist/*.tar.gz
-                      dist/*.whl
+                  name: pypi-distributions
+                  path: dist/
 
-    publish-vsix:
+    build-vsix:
         needs: verify
         runs-on: ubuntu-latest
         timeout-minutes: 10
@@ -107,19 +92,14 @@ jobs:
               working-directory: extension
               run: npx @vscode/vsce package
 
-            - name: Publish to VS Code Marketplace
-              working-directory: extension
-              env:
-                  VSCE_PAT: ${{ secrets.VSCE_PAT }}
-              run: npx @vscode/vsce publish --pat "$VSCE_PAT"
-
-            - name: Upload VSIX as release artifact
-              uses: softprops/action-gh-release@v2
+            - name: Upload VSIX artifact
+              uses: actions/upload-artifact@v4
               with:
-                  files: extension/*.vsix
+                  name: vsix
+                  path: extension/*.vsix
 
     create-release:
-        needs: [verify, publish-pypi, publish-vsix]
+        needs: [verify, build-pypi, build-vsix]
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
@@ -130,11 +110,17 @@ jobs:
               with:
                   name: sbom
 
-            - name: Download signed distributions
+            - name: Download PyPI distributions
               uses: actions/download-artifact@v4
               with:
-                  name: signed-distributions
-                  path: signed/
+                  name: pypi-distributions
+                  path: dist/
+
+            - name: Download VSIX
+              uses: actions/download-artifact@v4
+              with:
+                  name: vsix
+                  path: vsix/
 
             - name: Extract version from tag
               id: version
@@ -146,7 +132,9 @@ jobs:
                   generate_release_notes: true
                   files: |
                       sbom.json
-                      signed/*.sigstore.json
+                      dist/*.tar.gz
+                      dist/*.whl
+                      vsix/*.vsix
                   body: |
                       ## Install
 
@@ -165,3 +153,6 @@ jobs:
                       ```yaml
                       - uses: S-Borna/codetrust@v${{ steps.version.outputs.version }}
                       ```
+
+                      ---
+                      *PyPI and Marketplace publishing is done manually after verifying the release artifacts.*

@@ -13,13 +13,25 @@ permissions:
 jobs:
     lint-and-test:
         runs-on: ubuntu-latest
+        timeout-minutes: 15
+        strategy:
+            matrix:
+                python-version: ["3.12", "3.13"]
         steps:
             - uses: actions/checkout@v4
 
-            - name: Set up Python
+            - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v5
               with:
-                  python-version: "3.12"
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Cache pip
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/pip
+                  key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
             - name: Install dependencies
               run: |
@@ -29,11 +41,81 @@ jobs:
             - name: Lint with ruff
               run: ruff check src/ tests/
 
-            - name: Run tests
-              run: pytest tests/ -v --tb=short
+            - name: Run tests with coverage
+              run: pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=80
+
+            - name: Generate SBOM (CycloneDX)
+              if: matrix.python-version == '3.12'
+              run: |
+                  pip install cyclonedx-bom
+                  cyclonedx-py environment -o sbom.json --output-format json
+
+            - name: Upload SBOM artifact
+              if: matrix.python-version == '3.12'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: sbom
+                  path: sbom.json
+
+    helm-lint:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Helm
+              uses: azure/setup-helm@v4
+              with:
+                  version: "v3.14.0"
+
+            - name: Lint Helm chart
+              run: helm lint deploy/helm/codetrust
+
+            - name: Template Helm chart (validate rendering)
+              run: |
+                  helm template codetrust deploy/helm/codetrust \
+                    --set image.tag=ci-test \
+                    --set config.databaseUrl=sqlite:///test.db \
+                    > /dev/null
+
+            - name: Template with production values
+              run: |
+                  helm template codetrust deploy/helm/codetrust \
+                    --set replicaCount=3 \
+                    --set image.tag=v2.0.0 \
+                    --set autoscaling.enabled=true \
+                    --set autoscaling.minReplicas=2 \
+                    --set autoscaling.maxReplicas=10 \
+                    > /dev/null
+
+    extension-build:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  cache: "npm"
+                  cache-dependency-path: extension/package-lock.json
+
+            - name: Install dependencies
+              working-directory: extension
+              run: npm ci
+
+            - name: Type-check
+              working-directory: extension
+              run: npx tsc --noEmit
+
+            - name: Build
+              working-directory: extension
+              run: npm run compile
 
     codetrust-scan:
         runs-on: ubuntu-latest
+        timeout-minutes: 10
         needs: lint-and-test
         steps:
             - uses: actions/checkout@v4

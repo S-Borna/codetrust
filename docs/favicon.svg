@@ -1,5 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#0a0a0f"/>
-  <path d="M32 56s20-10 20-25V12.5L32 5 12 12.5V31c0 15 20 25 20 25z" stroke="#6366f1" stroke-width="3" fill="none"/>
-  <path d="M23 32l6 6 12-12" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="14" fill="#1a1a2e"/>
+  <!-- Shield -->
+  <path d="M32 56s20-10 20-25V12.5L32 5 12 12.5V31c0 15 20 25 20 25z" stroke="#38d8fd" stroke-width="3" fill="none"/>
+  <!-- Code brackets </> -->
+  <path d="M24 22l-6 8 6 8" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M40 22l6 8-6 8" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M35 19l-6 20" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <!-- Checkmark -->
+  <path d="M24 42l6 6 12-12" stroke="#5bca78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

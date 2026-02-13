@@ -1,0 +1,18 @@
+apiVersion: v2
+name: codetrust
+description: CodeTrust — AI Code Verification Platform
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+  - codetrust
+  - ai
+  - code-verification
+  - security
+  - governance
+home: https://github.com/codetrust-ai/codetrust
+sources:
+  - https://github.com/codetrust-ai/codetrust
+maintainers:
+  - name: CodeTrust
+    email: support@codetrust.dev

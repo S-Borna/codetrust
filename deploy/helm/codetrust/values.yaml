@@ -1,0 +1,151 @@
+# CodeTrust Helm Chart — Default Values
+# Override these in your values-production.yaml or via --set flags.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/codetrust-ai/codetrust
+  tag: "2.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# --- Application configuration ---
+config:
+  # Server
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+  # Auth
+  apiKey: "" # Set via secret
+
+  # Database
+  databaseUrl: "sqlite+aiosqlite:///codetrust.db"
+
+  # Redis
+  redisUrl: "redis://codetrust-redis:6379"
+  redisEnabled: true
+
+  # Rate limits
+  freeTierDailyLimit: 100
+  proTierDailyLimit: 10000
+
+  # Sandbox
+  sandboxEnabled: false
+
+# --- Secrets (create separately or reference existing) ---
+existingSecret: ""
+secrets:
+  apiKey: ""
+  jwtSecret: ""
+  githubClientId: ""
+  githubClientSecret: ""
+  stripeSecretKey: ""
+  stripeWebhookSecret: ""
+  # SSO/OIDC
+  oidcClientId: ""
+  oidcClientSecret: ""
+
+# --- Service ---
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+# --- Ingress ---
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.codetrust.dev
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: codetrust-tls
+      hosts:
+        - api.codetrust.dev
+
+# --- Resources ---
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# --- Autoscaling ---
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# --- Probes ---
+livenessProbe:
+  httpGet:
+    path: /v1/status
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /v1/status
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+# --- Pod configuration ---
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# --- Redis sub-chart ---
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi

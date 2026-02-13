@@ -130,6 +130,19 @@ export interface HealthResponse {
     version: string;
 }
 
+/** Governance operating mode */
+export type GovernanceMode = "enforce" | "audit" | "off";
+
+/** Governance configuration */
+export interface GovernanceConfig {
+    enabled: boolean;
+    mode: GovernanceMode;
+    blockHeredoc: boolean;
+    blockEval: boolean;
+    blockGitPush: boolean;
+    protectedPaths: string[];
+}
+
 /** Extension configuration (maps to contributes.configuration) */
 export interface ExtensionConfig {
     apiUrl: string;
@@ -140,6 +153,7 @@ export interface ExtensionConfig {
     scanType: ScanType;
     verifyImportsOnSave: boolean;
     timeout: number;
+    governance: GovernanceConfig;
 }
 
 /** VS Code language ID to CodeTrust language mapping */

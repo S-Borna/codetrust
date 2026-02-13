@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "1.8.1"
-description = "AI code verification platform — MCP server + cloud API that catches hallucinated packages, broken configs, and code anti-patterns"
+version = "2.0.0"
+description = "AI code governance and verification platform — 77 rules across 10 enforcement layers. Pre-execution gateway intercepts destructive AI agent actions. Verifies dependencies, containers, and infrastructure against real registries. Prevents hallucinated packages, unsafe patterns, and CI/CD failures before production. Includes MCP server, CLI, and VS Code extension."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"
 authors = [
     { name = "Said Borna", email = "codetrust@users.noreply.github.com" },
 ]
-keywords = ["mcp", "code-quality", "verification", "hallucination", "claude-code", "devops"]
+keywords = ["mcp", "code-quality", "verification", "hallucination", "claude-code", "devops", "react", "kubernetes", "sarif", "security"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -66,6 +66,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-httpx>=0.30.0",
+    "pytest-cov>=5.0.0",
     "fakeredis[json]>=2.20.0",
     "ruff>=0.5.0",
     "httpx[cli]>=0.27.0",
@@ -103,6 +104,20 @@ known-first-party = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/__pycache__/*", "src/templates/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "pass",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

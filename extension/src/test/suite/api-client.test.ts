@@ -18,6 +18,14 @@ function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
         scanType: "static",
         verifyImportsOnSave: false,
         timeout: 5000,
+        governance: {
+            enabled: true,
+            mode: "enforce",
+            blockHeredoc: true,
+            blockEval: true,
+            blockGitPush: true,
+            protectedPaths: ["LICENSE", ".env"],
+        },
         ...overrides,
     };
 }

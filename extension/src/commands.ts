@@ -10,6 +10,7 @@ import { StatusBarManager } from "./status-bar";
 import { scanCodeOffline } from "./embedded-scanner";
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
+import type { VerificationCache } from "./verification-cache";
 import type {
     Language,
     SeverityThreshold,
@@ -23,6 +24,7 @@ export interface CommandDeps {
     diagnostics: DiagnosticProvider;
     statusBar: StatusBarManager;
     outputChannel: vscode.OutputChannel;
+    cache: VerificationCache;
 }
 
 /** Register all extension commands. */
@@ -36,6 +38,7 @@ export function registerCommands(
         ["codetrust.verifyDockerfile", () => verifyDockerfileCommand(deps)],
         ["codetrust.deepScan", () => deepScanCommand(deps)],
         ["codetrust.clearDiagnostics", () => clearDiagnosticsCommand(deps)],
+        ["codetrust.scanWorkspace", () => scanWorkspaceCommand(deps)],
     ];
 
     for (const [id, handler] of commands) {
@@ -108,12 +111,12 @@ async function runStaticScan(
             config.severityThreshold,
         );
 
-        deps.statusBar.setVerdict(response.verdict, response.total_findings);
+        deps.statusBar.setVerdict(response.verdict, response.total_findings, false);
         logScanResult(deps.outputChannel, "Static", response.verdict, response.findings);
     } catch (err) {
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
-            `  API unavailable — using embedded scanner`,
+            `  API unavailable — using embedded scanner (49 rules)`,
         );
         const response = scanCodeOffline(document.getText(), document.fileName);
         deps.diagnostics.setFindingsDiagnostics(
@@ -121,10 +124,7 @@ async function runStaticScan(
             response.findings,
             config.severityThreshold,
         );
-        deps.statusBar.setVerdict(
-            `${response.verdict} (offline)`,
-            response.total_findings,
-        );
+        deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
         logScanResult(deps.outputChannel, "Static (offline)", response.verdict, response.findings);
     }
 }
@@ -170,14 +170,25 @@ async function runDeepScan(
             );
         }
 
-        deps.statusBar.setVerdict(response.verdict, response.total_findings);
+        deps.statusBar.setVerdict(response.verdict, response.total_findings, false);
         deps.outputChannel.appendLine(
             `  Verdict: ${response.verdict} | ` +
             `${response.total_findings} findings | ` +
             `${response.latency_ms}ms`,
         );
     } catch (err) {
-        handleScanError(deps, err);
+        // Fallback to embedded offline scanner when API is unavailable
+        deps.outputChannel.appendLine(
+            `  API unavailable — falling back to embedded scanner (49 rules)`,
+        );
+        const response = scanCodeOffline(document.getText(), document.fileName);
+        deps.diagnostics.setFindingsDiagnostics(
+            document.uri,
+            response.findings,
+            config.severityThreshold,
+        );
+        deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
+        logScanResult(deps.outputChannel, "Deep (offline)", response.verdict, response.findings);
     }
 }
 
@@ -232,7 +243,29 @@ async function verifyImportsCommand(deps: CommandDeps): Promise<void> {
     );
 
     try {
-        const response = await deps.client.verifyImports(language, imports);
+        // Check cache first — serve cached results for known packages
+        const { cached, missing } = deps.cache.getImportResults(language, imports);
+        let response;
+
+        if (missing.length === 0) {
+            // All imports are cached
+            deps.outputChannel.appendLine(`  All ${imports.length} packages served from cache`);
+            const verified = cached.filter((r) => r.status === "VERIFIED").length;
+            const failed = cached.filter((r) => r.severity === "BLOCK").length;
+            const warnings = cached.filter((r) => r.severity === "WARN").length;
+            response = { verified, failed, warnings, results: cached, latency_ms: 0, cached_ratio: 1.0 };
+        } else {
+            // Fetch missing from API, merge with cached
+            response = await deps.client.verifyImports(language, missing);
+            // Cache the new results
+            deps.cache.setImportResults(language, response.results);
+            // Merge with cached results
+            response.results = [...cached, ...response.results];
+            response.verified += cached.filter((r) => r.status === "VERIFIED").length;
+            deps.outputChannel.appendLine(
+                `  ${cached.length} cached, ${missing.length} fetched from API`,
+            );
+        }
 
         deps.diagnostics.appendImportDiagnostics(
             document.uri,
@@ -258,7 +291,35 @@ async function verifyImportsCommand(deps: CommandDeps): Promise<void> {
             vscode.window.showInformationMessage(`CodeTrust: ${summary}`);
         }
     } catch (err) {
-        handleScanError(deps, err);
+        if (err instanceof ApiError && err.statusCode === 0) {
+            // Serve cached results if available when offline
+            const { cached } = deps.cache.getImportResults(language, imports);
+            if (cached.length > 0) {
+                deps.outputChannel.appendLine(
+                    `  API offline — serving ${cached.length} cached import results`,
+                );
+                deps.diagnostics.appendImportDiagnostics(
+                    document.uri,
+                    document,
+                    cached,
+                    config.severityThreshold,
+                );
+                deps.statusBar.setVerdict("PASS", 0, true);
+                vscode.window.showInformationMessage(
+                    `CodeTrust: ${cached.length} imports verified from cache (offline)`,
+                );
+            } else {
+                deps.statusBar.setError("API offline");
+                deps.outputChannel.appendLine(
+                    `  Import verification skipped — API offline, no cached results.`,
+                );
+                vscode.window.showWarningMessage(
+                    "CodeTrust: Import verification requires the API server. Run with: uvicorn src.server:app",
+                );
+            }
+        } else {
+            handleScanError(deps, err);
+        }
     }
 }
 
@@ -295,7 +356,33 @@ async function verifyDockerfileDocument(
     );
 
     try {
-        const response = await deps.client.verifyDockerfile(images);
+        // Check cache for known-good images
+        const cachedResults = [];
+        const missingImages = [];
+        for (const img of images) {
+            const cached = deps.cache.getDockerResult(img.image, img.tag);
+            if (cached) {
+                cachedResults.push(cached);
+            } else {
+                missingImages.push(img);
+            }
+        }
+
+        let response;
+        if (missingImages.length === 0) {
+            deps.outputChannel.appendLine(`  All ${images.length} images served from cache`);
+            const verified = cachedResults.filter((r) => r.status === "VERIFIED").length;
+            const failed = cachedResults.filter((r) => r.severity === "BLOCK").length;
+            response = { verified, failed, results: cachedResults, latency_ms: 0 };
+        } else {
+            response = await deps.client.verifyDockerfile(missingImages);
+            deps.cache.setDockerResults(response.results);
+            response.results = [...cachedResults, ...response.results];
+            response.verified += cachedResults.filter((r) => r.status === "VERIFIED").length;
+            deps.outputChannel.appendLine(
+                `  ${cachedResults.length} cached, ${missingImages.length} fetched from API`,
+            );
+        }
 
         deps.diagnostics.appendDockerDiagnostics(
             document.uri,
@@ -317,8 +404,110 @@ async function verifyDockerfileDocument(
             vscode.window.showInformationMessage(`CodeTrust: ${summary}`);
         }
     } catch (err) {
-        handleScanError(deps, err);
+        if (err instanceof ApiError && err.statusCode === 0) {
+            // Serve cached Docker results when offline
+            const cachedResults = images
+                .map((img) => deps.cache.getDockerResult(img.image, img.tag))
+                .filter((r): r is NonNullable<typeof r> => r !== undefined);
+            if (cachedResults.length > 0) {
+                deps.outputChannel.appendLine(
+                    `  API offline — serving ${cachedResults.length} cached Docker results`,
+                );
+                deps.diagnostics.appendDockerDiagnostics(
+                    document.uri,
+                    document,
+                    cachedResults,
+                    config.severityThreshold,
+                );
+                deps.statusBar.setVerdict("PASS", 0, true);
+            } else {
+                deps.statusBar.setError("API offline");
+                deps.outputChannel.appendLine(
+                    `  Docker verification skipped — API offline, no cached results.`,
+                );
+            }
+        } else {
+            handleScanError(deps, err);
+        }
     }
+}
+
+/** Scan all supported files in the workspace. */
+async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+        vscode.window.showWarningMessage("CodeTrust: No workspace folder open.");
+        return;
+    }
+
+    const config = getConfig();
+    const supportedExts = ["py", "js", "ts", "tsx", "jsx", "go", "rs", "sql", "yaml", "yml"];
+    const globPattern = `**/*.{${supportedExts.join(",")}}`;
+    const excludePattern = "{**/node_modules/**,**/.venv/**,**/dist/**,**/build/**,**/__pycache__/**,**/out/**,**/.next/**,**/coverage/**}";
+
+    deps.statusBar.setScanning();
+    deps.outputChannel.appendLine(`[${timestamp()}] Workspace scan started`);
+
+    const files = await vscode.workspace.findFiles(globPattern, excludePattern, 500);
+    deps.outputChannel.appendLine(`  Found ${files.length} files to scan`);
+
+    let totalFindings = 0;
+    let filesScanned = 0;
+    let blocks = 0;
+
+    await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: "CodeTrust: Scanning workspace",
+            cancellable: true,
+        },
+        async (progress, token) => {
+            for (let i = 0; i < files.length; i++) {
+                if (token.isCancellationRequested) {
+                    break;
+                }
+
+                const uri = files[i];
+                progress.report({
+                    increment: (100 / files.length),
+                    message: `${i + 1}/${files.length}`,
+                });
+
+                try {
+                    const doc = await vscode.workspace.openTextDocument(uri);
+                    const language = LANGUAGE_MAP[doc.languageId];
+                    if (!language) {
+                        continue;
+                    }
+
+                    const response = scanCodeOffline(doc.getText(), doc.fileName);
+                    if (response.findings.length > 0) {
+                        deps.diagnostics.setFindingsDiagnostics(
+                            doc.uri,
+                            response.findings,
+                            config.severityThreshold,
+                        );
+                        totalFindings += response.findings.length;
+                        blocks += response.findings.filter(
+                            (f) => f.severity === "BLOCK",
+                        ).length;
+                    }
+                    filesScanned++;
+                } catch {
+                    // Skip files that can't be opened
+                }
+            }
+        },
+    );
+
+    const verdict = blocks > 0 ? "BLOCK" : totalFindings > 0 ? "WARN" : "PASS";
+    deps.statusBar.setVerdict(verdict, totalFindings, true);
+    deps.outputChannel.appendLine(
+        `  Workspace scan complete: ${filesScanned} files, ${totalFindings} findings, ${blocks} blocks`,
+    );
+    vscode.window.showInformationMessage(
+        `CodeTrust: Scanned ${filesScanned} files — ${totalFindings} findings (${blocks} blocks)`,
+    );
 }
 
 /** Clear all CodeTrust diagnostics. */
@@ -330,15 +519,20 @@ async function clearDiagnosticsCommand(deps: CommandDeps): Promise<void> {
 
 /** Handle scan errors uniformly. */
 function handleScanError(deps: CommandDeps, err: unknown): void {
+    const isConnectionError = err instanceof ApiError && err.statusCode === 0;
     const message = err instanceof ApiError
         ? `API error (${err.statusCode}): ${err.message}`
         : err instanceof Error
             ? err.message
             : "Unknown error";
 
-    deps.statusBar.setError(message);
+    deps.statusBar.setError(isConnectionError ? "API offline" : message);
     deps.outputChannel.appendLine(`  ERROR: ${message}`);
-    vscode.window.showErrorMessage(`CodeTrust: ${message}`);
+
+    // Only show intrusive error popup for real API errors, not connection failures
+    if (!isConnectionError) {
+        vscode.window.showErrorMessage(`CodeTrust: ${message}`);
+    }
 }
 
 /** Log scan result to output channel. */

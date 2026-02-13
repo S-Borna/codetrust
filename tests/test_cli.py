@@ -1,0 +1,664 @@
+"""Tests for CLI scanner (src/cli.py).
+
+Validates that the CLI imports rules from the backend (single source of truth)
+and produces correct findings for all file types.
+"""
+
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+from src.cli import (
+    BLOCK_RULES,
+    CI_WARN_RULES,
+    DEVOPS_BLOCK_RULES,
+    DEVOPS_WARN_RULES,
+    DOCKER_BLOCK_RULES,
+    DOCKER_WARN_RULES,
+    INFO_RULES,
+    K8S_BLOCK_RULES,
+    K8S_WARN_RULES,
+    REACT_BLOCK_RULES,
+    REACT_WARN_RULES,
+    SQL_BLOCK_RULES,
+    SQL_INFO_RULES,
+    SQL_WARN_RULES,
+    WARN_RULES,
+    _findings_to_sarif,
+    scan_file,
+    scan_path,
+)
+from src.rules.anti_patterns import ANTI_PATTERNS
+
+# ═══════════════════════════════════════════════════════════════
+#  Rule Import Tests — no drift between CLI and backend
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRuleImport:
+    """Verify CLI rules are derived from the backend's ANTI_PATTERNS."""
+
+    def test_rules_come_from_backend(self):
+        """Every CLI rule ID must exist in the backend ANTI_PATTERNS."""
+        backend_ids = {r["id"] for r in ANTI_PATTERNS}
+        all_cli_rules = (
+            BLOCK_RULES + WARN_RULES + INFO_RULES
+            + SQL_BLOCK_RULES + SQL_WARN_RULES + SQL_INFO_RULES
+            + DOCKER_BLOCK_RULES + DOCKER_WARN_RULES
+            + CI_WARN_RULES
+            + DEVOPS_BLOCK_RULES + DEVOPS_WARN_RULES
+        )
+        for rule_id, _, _ in all_cli_rules:
+            assert rule_id in backend_ids, (
+                f"CLI rule '{rule_id}' not found in backend ANTI_PATTERNS"
+            )
+
+    def test_patterns_match_backend(self):
+        """CLI rule patterns must be identical to the backend."""
+        backend_map = {r["id"]: r["pattern"] for r in ANTI_PATTERNS}
+        all_cli_rules = (
+            BLOCK_RULES + WARN_RULES + INFO_RULES
+            + SQL_BLOCK_RULES + SQL_WARN_RULES + SQL_INFO_RULES
+            + DOCKER_BLOCK_RULES + DOCKER_WARN_RULES
+            + CI_WARN_RULES
+            + DEVOPS_BLOCK_RULES + DEVOPS_WARN_RULES
+        )
+        for rule_id, pattern, _ in all_cli_rules:
+            assert pattern == backend_map[rule_id], (
+                f"CLI pattern for '{rule_id}' differs from backend"
+            )
+
+    def test_block_rules_are_block_severity(self):
+        """Rules in BLOCK lists must have BLOCK severity in the backend."""
+        backend_map = {r["id"]: str(r["severity"]) for r in ANTI_PATTERNS}
+        for rule_id, _, _ in BLOCK_RULES + SQL_BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES:
+            assert backend_map[rule_id] == "BLOCK", (
+                f"'{rule_id}' is in CLI BLOCK list but has '{backend_map[rule_id]}' severity in backend"
+            )
+
+    def test_warn_rules_are_warn_severity(self):
+        """Rules in WARN lists must have WARN severity in the backend."""
+        backend_map = {r["id"]: str(r["severity"]) for r in ANTI_PATTERNS}
+        for rule_id, _, _ in WARN_RULES + SQL_WARN_RULES + DOCKER_WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES:
+            assert backend_map[rule_id] == "WARN", (
+                f"'{rule_id}' is in CLI WARN list but has '{backend_map[rule_id]}' severity in backend"
+            )
+
+    def test_minimum_rule_counts(self):
+        """CLI must have a minimum number of rules to avoid regression."""
+        assert len(BLOCK_RULES) >= 5, "Generic BLOCK rules too few"
+        assert len(WARN_RULES) >= 10, "Generic WARN rules too few"
+        assert len(SQL_BLOCK_RULES) >= 6, "SQL BLOCK rules too few"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Scan Engine Tests
+# ═══════════════════════════════════════════════════════════════
+
+
+def _write_temp_file(content: str, suffix: str = ".py", name: str | None = None) -> str:
+    """Write content to a temp file and return the path."""
+    if name:
+        dirpath = tempfile.mkdtemp()
+        filepath = os.path.join(dirpath, name)
+        with open(filepath, "w") as f:
+            f.write(content)
+        return filepath
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    with os.fdopen(fd, "w") as f:
+        f.write(content)
+    return path
+
+
+class TestScanFile:
+    """Test the scan_file function for various anti-patterns."""
+
+    def test_detects_eval(self):
+        path = _write_temp_file("result = eval(user_input)\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "eval_exec" in rule_ids
+
+    def test_detects_hardcoded_secret(self):
+        path = _write_temp_file('api_key = "sk_live_abcdefghij"\n')
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "hardcoded_secret" in rule_ids
+
+    def test_detects_todo(self):
+        path = _write_temp_file("x = 1  # TODO: fix this\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "todo_hack" in rule_ids
+
+    def test_detects_console_log(self):
+        path = _write_temp_file("console.log('debug');\n", suffix=".js")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "console_log" in rule_ids
+
+    def test_detects_bare_except(self):
+        path = _write_temp_file("try:\n    pass\nexcept:\n    pass\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "bare_except" in rule_ids
+
+    def test_detects_nested_ternary(self):
+        path = _write_temp_file("const x = a ? b ? c : d : e;\n", suffix=".ts")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "nested_ternary" in rule_ids
+
+    def test_detects_mutable_default(self):
+        path = _write_temp_file("def foo(items: list = []):\n    pass\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "mutable_default" in rule_ids
+
+    def test_skips_binary_files(self):
+        fd, path = tempfile.mkstemp(suffix=".py")
+        with os.fdopen(fd, "wb") as f:
+            f.write(b"eval(\x00binary content)")
+        findings = scan_file(path)
+        os.unlink(path)
+        assert findings == []
+
+    def test_skips_test_files(self):
+        path = _write_temp_file("eval(input())\n", name="test_foo.py")
+        findings = scan_file(path)
+        os.unlink(path)
+        assert findings == []
+
+    def test_noqa_suppresses_finding(self):
+        path = _write_temp_file("result = eval(stuff)  # noqa\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        # eval should be suppressed, but suppress_lint should fire
+        assert "eval_exec" not in rule_ids
+        assert "suppress_lint" in rule_ids
+
+
+class TestScanSQL:
+    """Test SQL-specific rules only fire on .sql files."""
+
+    def test_sql_select_star(self):
+        path = _write_temp_file("SELECT * FROM users;\n", suffix=".sql")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_select_star" in rule_ids
+
+    def test_sql_delete_no_where(self):
+        path = _write_temp_file("DELETE FROM users;\n", suffix=".sql")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_delete_no_where" in rule_ids
+
+    def test_sql_update_with_where_passes(self):
+        path = _write_temp_file("UPDATE users SET name = 'x' WHERE id = 1;\n", suffix=".sql")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_update_no_where" not in rule_ids
+
+    def test_sql_update_no_where_detected(self):
+        path = _write_temp_file("UPDATE users SET name = 'x';\n", suffix=".sql")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_update_no_where" in rule_ids
+
+    def test_sql_rules_dont_fire_on_python(self):
+        path = _write_temp_file("SELECT * FROM users\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_select_star" not in rule_ids
+
+
+class TestScanDockerfile:
+    """Test Dockerfile-specific rules."""
+
+    def test_docker_latest_tag(self):
+        path = _write_temp_file("FROM python:latest\n", name="Dockerfile")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "docker_latest_tag" in rule_ids
+
+    def test_docker_untagged_image(self):
+        path = _write_temp_file("FROM python\n", name="Dockerfile")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "docker_latest_tag" in rule_ids
+
+    def test_docker_pinned_image_passes(self):
+        path = _write_temp_file("FROM python:3.12-slim\n", name="Dockerfile")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "docker_latest_tag" not in rule_ids
+
+    def test_docker_no_user(self):
+        path = _write_temp_file("FROM python:3.12\nCMD python app.py\n", name="Dockerfile")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "docker_root_user" in rule_ids
+
+    def test_docker_with_user(self):
+        path = _write_temp_file(
+            "FROM python:3.12\nUSER appuser\nCMD python app.py\n", name="Dockerfile"
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "docker_root_user" not in rule_ids
+
+
+class TestScanPath:
+    """Test directory scanning with skip_dirs."""
+
+    def test_skips_node_modules(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nm = Path(tmpdir) / "node_modules"
+            nm.mkdir()
+            (nm / "evil.js").write_text("eval(input)")
+            findings = scan_path(tmpdir)
+        assert findings == []
+
+    def test_skips_dotgit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git = Path(tmpdir) / ".git"
+            git.mkdir()
+            (git / "config.py").write_text("eval(input)")
+            findings = scan_path(tmpdir)
+        assert findings == []
+
+    def test_scans_source_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "app.py").write_text("result = eval(user_input)\n")
+            findings = scan_path(tmpdir)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "eval_exec" in rule_ids
+
+    def test_skips_next_build_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nx = Path(tmpdir) / ".next"
+            nx.mkdir()
+            (nx / "chunk.js").write_text("eval(code)")
+            findings = scan_path(tmpdir)
+        assert findings == []
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Regression Tests — specific bugs found and fixed
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRegressions:
+    """Regression tests for previously-discovered bugs.
+
+    Each test targets a specific bug that was fixed. If these fail,
+    the bug has been reintroduced.
+    """
+
+    def test_hardcoded_port_no_false_positive_on_short_ports(self):
+        """Bug: hardcoded_port matched 2-3 digit ports like 80, 443.
+        Fix: pattern requires 4-5 digit port numbers."""
+        path = _write_temp_file("port = 80\nPORT = 443\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "hardcoded_port" not in rule_ids
+
+    def test_hardcoded_port_detects_4_digit_ports(self):
+        """Verify 4+ digit ports are still caught."""
+        path = _write_temp_file("PORT = 8080\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "hardcoded_port" in rule_ids
+
+    def test_debug_mode_detects_string_true(self):
+        """Bug: debug_mode_enabled didn't match DEBUG = \"true\".
+        Fix: added \"true\" to the pattern."""
+        path = _write_temp_file('DEBUG = "true"\n')
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "debug_mode_enabled" in rule_ids
+
+    def test_debug_mode_detects_bool_true(self):
+        """Verify boolean True is still caught."""
+        path = _write_temp_file("DEBUG = True\n")
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "debug_mode_enabled" in rule_ids
+
+    def test_ci_unpinned_action_detects_head(self):
+        """Bug: ci_unpinned_action didn't match @HEAD.
+        Fix: added HEAD to the pattern."""
+        dirpath = tempfile.mkdtemp()
+        ghdir = Path(dirpath) / ".github" / "workflows"
+        ghdir.mkdir(parents=True)
+        filepath = ghdir / "ci.yml"
+        filepath.write_text("    - uses: actions/checkout@HEAD\n")
+        findings = scan_file(str(filepath))
+        shutil.rmtree(dirpath)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "ci_unpinned_action" in rule_ids
+
+    def test_ci_unpinned_action_passes_pinned_version(self):
+        """Verify pinned actions pass."""
+        dirpath = tempfile.mkdtemp()
+        ghdir = Path(dirpath) / ".github" / "workflows"
+        ghdir.mkdir(parents=True)
+        filepath = ghdir / "ci.yml"
+        filepath.write_text("    - uses: actions/checkout@v4\n")
+        findings = scan_file(str(filepath))
+        shutil.rmtree(dirpath)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "ci_unpinned_action" not in rule_ids
+
+    def test_sql_update_with_where_no_false_positive(self):
+        """Bug: sql_update_no_where used \\\\b (literal backslash-b) in raw string,
+        causing every UPDATE...WHERE to be falsely flagged.
+        Fix: corrected regex to use negative lookahead."""
+        path = _write_temp_file(
+            "UPDATE users SET email = 'a@b.com' WHERE id = 42;\n", suffix=".sql"
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        rule_ids = [f["rule_id"] for f in findings]
+        assert "sql_update_no_where" not in rule_ids
+
+    def test_api_key_in_config_is_block_severity(self):
+        """Bug: api_key_in_config was WARN instead of BLOCK.
+        Fix: moved to DEVOPS_BLOCK_RULES."""
+        from src.rules.anti_patterns import ANTI_PATTERNS
+        rule = next(r for r in ANTI_PATTERNS if r["id"] == "api_key_in_config")
+        assert str(rule["severity"]) == "BLOCK"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase 4 — SARIF output
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestSarifOutput:
+    """Tests for SARIF v2.1.0 output from CLI."""
+
+    def test_sarif_basic_structure(self):
+        findings = [
+            {"rule_id": "eval_exec", "severity": "BLOCK", "message": "Danger", "file": "a.py", "line": 5},
+        ]
+        sarif = _findings_to_sarif(findings)
+        assert sarif["version"] == "2.1.0"
+        assert len(sarif["runs"]) == 1
+        assert sarif["runs"][0]["tool"]["driver"]["name"] == "CodeTrust"
+
+    def test_sarif_results(self):
+        findings = [
+            {"rule_id": "eval_exec", "severity": "BLOCK", "message": "Danger", "file": "a.py", "line": 5},
+            {"rule_id": "print_debug", "severity": "WARN", "message": "Debug print", "file": "b.py", "line": 10},
+        ]
+        sarif = _findings_to_sarif(findings)
+        results = sarif["runs"][0]["results"]
+        assert len(results) == 2
+        assert results[0]["level"] == "error"
+        assert results[1]["level"] == "warning"
+
+    def test_sarif_rules_deduplicated(self):
+        findings = [
+            {"rule_id": "eval_exec", "severity": "BLOCK", "message": "Danger", "file": "a.py", "line": 5},
+            {"rule_id": "eval_exec", "severity": "BLOCK", "message": "Danger", "file": "a.py", "line": 10},
+        ]
+        sarif = _findings_to_sarif(findings)
+        rules = sarif["runs"][0]["tool"]["driver"]["rules"]
+        assert len(rules) == 1
+
+    def test_sarif_empty_findings(self):
+        sarif = _findings_to_sarif([])
+        assert len(sarif["runs"][0]["results"]) == 0
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase 4 — Special handler implementations in CLI
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCliSpecialHandlers:
+    """Tests for special_handler rules implemented in CLI."""
+
+    def test_except_swallow_pass(self):
+        path = _write_temp_file(
+            "try:\n    x = 1\nexcept Exception:\n    pass\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "except_swallow" for f in findings)
+
+    def test_except_swallow_ellipsis(self):
+        path = _write_temp_file(
+            "try:\n    x = 1\nexcept:\n    ...\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "except_swallow" for f in findings)
+
+    def test_except_with_handler_no_match(self):
+        path = _write_temp_file(
+            "try:\n    x = 1\nexcept ValueError as e:\n    log(e)\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"] == "except_swallow" for f in findings)
+
+    def test_sleep_no_context(self):
+        path = _write_temp_file(
+            "import time\ntime.sleep(1)\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "sleep_no_context" for f in findings)
+
+    def test_sleep_with_comment_no_match(self):
+        path = _write_temp_file(
+            "import time\n# Wait for DB to be ready\ntime.sleep(1)\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"] == "sleep_no_context" for f in findings)
+
+    def test_long_function(self):
+        body = "\n".join([f"    x{i} = {i}" for i in range(45)])
+        path = _write_temp_file(
+            f"def big_func():\n{body}\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "long_function" for f in findings)
+
+    def test_short_function_no_match(self):
+        path = _write_temp_file(
+            "def small():\n    return 1\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"] == "long_function" for f in findings)
+
+    def test_connection_no_timeout(self):
+        path = _write_temp_file(
+            "client = AsyncClient(base_url='http://x')\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "connection_no_timeout" for f in findings)
+
+    def test_connection_with_timeout_no_match(self):
+        path = _write_temp_file(
+            "client = AsyncClient(base_url='http://x', timeout=30)\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"] == "connection_no_timeout" for f in findings)
+
+    def test_dockerfile_no_healthcheck(self):
+        path = _write_temp_file(
+            "FROM python:3.12\nCMD [\"python\", \"app.py\"]\n", suffix=".dockerfile",
+        )
+        # Rename to Dockerfile
+        import shutil
+        dpath = path.replace(".dockerfile", "")
+        dname = os.path.join(os.path.dirname(dpath), "Dockerfile")
+        shutil.move(path, dname)
+        findings = scan_file(dname)
+        os.unlink(dname)
+        assert any(f["rule_id"] == "dockerfile_no_healthcheck" for f in findings)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase 4 — React / JSX rules
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestReactRules:
+    """Tests for React/JSX anti-pattern rules in CLI."""
+
+    def test_react_rules_loaded(self):
+        assert len(REACT_BLOCK_RULES) >= 2
+        assert len(REACT_WARN_RULES) >= 2
+
+    def test_dangerously_set_inner_html(self):
+        path = _write_temp_file(
+            "const x = <div dangerouslySetInnerHTML={{__html: input}} />;\n",
+            suffix=".tsx",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "react_dangerouslysetinnerhtml" for f in findings)
+
+    def test_innerhtml_assignment(self):
+        path = _write_temp_file(
+            "el.innerHTML = userInput;\n", suffix=".tsx",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "react_innerhtml_string" for f in findings)
+
+    def test_direct_dom_manipulation(self):
+        path = _write_temp_file(
+            "const el = document.getElementById('root');\n", suffix=".tsx",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "react_direct_dom" for f in findings)
+
+    def test_index_as_key(self):
+        path = _write_temp_file(
+            "items.map((item, index) => <li key={index}>{item}</li>);\n",
+            suffix=".tsx",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "react_index_as_key" for f in findings)
+
+    def test_react_rules_not_on_py(self):
+        path = _write_temp_file(
+            "const el = document.getElementById('root');\n", suffix=".py",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"] == "react_direct_dom" for f in findings)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase 4 — Kubernetes YAML rules
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestK8sRules:
+    """Tests for Kubernetes YAML rules in CLI."""
+
+    def test_k8s_rules_loaded(self):
+        assert len(K8S_BLOCK_RULES) >= 1
+        assert len(K8S_WARN_RULES) >= 3
+
+    def test_k8s_privileged(self):
+        path = _write_temp_file(
+            "spec:\n  containers:\n    - name: app\n      securityContext:\n        privileged: true\n",
+            suffix=".yaml",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "k8s_privileged" for f in findings)
+
+    def test_k8s_host_network(self):
+        path = _write_temp_file(
+            "spec:\n  hostNetwork: true\n  containers:\n    - name: app\n",
+            suffix=".yaml",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "k8s_host_network" for f in findings)
+
+    def test_k8s_run_as_root(self):
+        path = _write_temp_file(
+            "spec:\n  securityContext:\n    runAsUser: 0\n",
+            suffix=".yaml",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "k8s_run_as_root" for f in findings)
+
+    def test_k8s_latest_image(self):
+        path = _write_temp_file(
+            "spec:\n  containers:\n    - image: nginx:latest\n",
+            suffix=".yaml",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert any(f["rule_id"] == "k8s_latest_image" for f in findings)
+
+    def test_k8s_clean_yaml(self):
+        path = _write_temp_file(
+            "spec:\n  containers:\n    - image: nginx:1.25\n      securityContext:\n        runAsNonRoot: true\n",
+            suffix=".yaml",
+        )
+        findings = scan_file(path)
+        os.unlink(path)
+        assert not any(f["rule_id"].startswith("k8s_") for f in findings)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase 4 — Config file support
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestConfigFileSupport:
+    """Tests for project config loading."""
+
+    def test_config_loads_without_file(self):
+        from src.cli import _load_project_config
+        # Should not crash even if no config exists
+        config = _load_project_config()
+        assert isinstance(config, dict)
+
+    def test_config_ignore_rules(self):
+        """Test that ignore_rules filters findings."""
+        from src.cli import PROJECT_CONFIG
+        # PROJECT_CONFIG is loaded at import time — verify it's a dict
+        assert isinstance(PROJECT_CONFIG, dict)

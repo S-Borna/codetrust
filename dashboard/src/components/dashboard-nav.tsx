@@ -13,6 +13,7 @@ interface NavUser {
 const NAV_ITEMS = [
     { label: "Overview", href: "/dashboard" },
     { label: "API Keys", href: "/dashboard/api-keys" },
+    { label: "Governance", href: "/dashboard/governance" },
     { label: "Settings", href: "/dashboard/settings" },
 ];
 
@@ -35,8 +36,8 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                                 key={item.href}
                                 href={item.href}
                                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${pathname === item.href
-                                        ? "bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300"
-                                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    ? "bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300"
+                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                                     }`}
                             >
                                 {item.label}

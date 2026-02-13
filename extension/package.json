@@ -1,8 +1,8 @@
 {
     "name": "codetrust",
     "displayName": "CodeTrust",
-    "description": "AI code verification — catches hallucinated packages, broken configs, anti-patterns, container & CI/CD issues inline",
-    "version": "1.8.1",
+    "description": "AI code governance — 77 rules across 10 enforcement layers. Pre-execution gateway blocks destructive AI actions. Verifies dependencies, containers, and infrastructure against real registries. Prevents hallucinated packages, unsafe patterns, and CI/CD failures inline.",
+    "version": "2.0.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",
@@ -26,15 +26,19 @@
         "code-quality",
         "ai-safety",
         "sql",
-        "sql-linter",
         "dockerfile",
         "yaml",
-        "ci-cd"
+        "ci-cd",
+        "react",
+        "kubernetes",
+        "sarif"
     ],
     "activationEvents": [
         "onLanguage:python",
         "onLanguage:javascript",
         "onLanguage:typescript",
+        "onLanguage:javascriptreact",
+        "onLanguage:typescriptreact",
         "onLanguage:go",
         "onLanguage:rust",
         "onLanguage:dockerfile",
@@ -63,6 +67,14 @@
             {
                 "command": "codetrust.clearDiagnostics",
                 "title": "CodeTrust: Clear Diagnostics"
+            },
+            {
+                "command": "codetrust.scanWorkspace",
+                "title": "CodeTrust: Scan Workspace"
+            },
+            {
+                "command": "codetrust.governanceStatus",
+                "title": "CodeTrust: Governance Status"
             }
         ],
         "configuration": {
@@ -70,8 +82,8 @@
             "properties": {
                 "codetrust.apiUrl": {
                     "type": "string",
-                    "default": "http://localhost:8000",
-                    "description": "CodeTrust API server URL"
+                    "default": "https://codetrust-api-production.up.railway.app",
+                    "description": "CodeTrust API server URL (cloud default, or set to http://localhost:8000 for self-hosted)"
                 },
                 "codetrust.apiKey": {
                     "type": "string",
@@ -134,6 +146,48 @@
                     "type": "number",
                     "default": 15000,
                     "description": "Request timeout in milliseconds"
+                },
+                "codetrust.governance.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable AI governance — intercept and validate AI agent actions before execution"
+                },
+                "codetrust.governance.mode": {
+                    "type": "string",
+                    "enum": [
+                        "enforce",
+                        "audit",
+                        "off"
+                    ],
+                    "default": "enforce",
+                    "description": "Governance mode: enforce (block violations), audit (log only), off (disabled)"
+                },
+                "codetrust.governance.blockHeredoc": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Block heredoc patterns in terminal commands (prevents file corruption)"
+                },
+                "codetrust.governance.blockEval": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Block eval/exec in terminal commands"
+                },
+                "codetrust.governance.blockGitPush": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Block AI agents from pushing to remote repositories"
+                },
+                "codetrust.governance.protectedPaths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "LICENSE",
+                        ".env",
+                        ".env.production"
+                    ],
+                    "description": "Files that require confirmation before AI agent writes or deletes"
                 }
             }
         }

@@ -1,0 +1,2052 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CodeTrust API",
+    "description": "AI code verification platform",
+    "version": "1.8.1"
+  },
+  "paths": {
+    "/v1/status": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint.",
+        "operationId": "health_check_v1_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/audit": {
+      "get": {
+        "summary": "Governance Audit",
+        "description": "Query the governance audit log.\n\nReturns recent audit entries and aggregate statistics.\nReads from .codetrust/audit.jsonl in the workspace.\n\nArgs:\n    hours: How many hours back to search (default: 24).\n    verdict: Filter by verdict: ALLOW, WARN, BLOCK.\n    limit: Maximum entries to return (default: 100).\n\nReturns:\n    Dict with entries list and stats summary.",
+        "operationId": "governance_audit_v1_governance_audit_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 24,
+              "title": "Hours"
+            }
+          },
+          {
+            "name": "verdict",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verdict"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Governance Audit V1 Governance Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verify/imports": {
+      "post": {
+        "summary": "Verify Imports",
+        "description": "Verify package imports exist in registries.",
+        "operationId": "verify_imports_v1_verify_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyImportsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyImportsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/verify/dockerfile": {
+      "post": {
+        "summary": "Verify Dockerfile",
+        "description": "Verify Docker images and tags exist on Docker Hub.",
+        "operationId": "verify_dockerfile_v1_verify_dockerfile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDockerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyDockerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/static": {
+      "post": {
+        "summary": "Static Scan",
+        "description": "Run static anti-pattern analysis on code.",
+        "operationId": "static_scan_v1_scan_static_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/ast": {
+      "post": {
+        "summary": "Ast Scan",
+        "description": "Run AST-based code analysis using tree-sitter.",
+        "operationId": "ast_scan_v1_scan_ast_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AstScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/sandbox/run": {
+      "post": {
+        "summary": "Sandbox Run",
+        "description": "Execute code in an isolated Docker sandbox.",
+        "operationId": "sandbox_run_v1_sandbox_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/static/sarif": {
+      "post": {
+        "summary": "Static Scan Sarif",
+        "description": "Run static analysis and return results in SARIF format.",
+        "operationId": "static_scan_sarif_v1_scan_static_sarif_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Static Scan Sarif V1 Scan Static Sarif Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/deep/sarif": {
+      "post": {
+        "summary": "Deep Scan Sarif",
+        "description": "Run deep scan and return results in SARIF format.",
+        "operationId": "deep_scan_sarif_v1_scan_deep_sarif_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Deep Scan Sarif V1 Scan Deep Sarif Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/deep": {
+      "post": {
+        "summary": "Deep Scan",
+        "description": "Run full deep scan combining all layers.",
+        "operationId": "deep_scan_v1_scan_deep_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/api-keys": {
+      "get": {
+        "summary": "List Api Keys",
+        "description": "List all API keys for the authenticated user.",
+        "operationId": "list_api_keys_v1_api_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Api Keys V1 Api Keys Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Api Key",
+        "description": "Create a new API key for the authenticated user.",
+        "operationId": "create_api_key_v1_api_keys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/api-keys/{key_id}": {
+      "delete": {
+        "summary": "Revoke Api Key",
+        "description": "Revoke an API key.",
+        "operationId": "revoke_api_key_v1_api_keys__key_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scans/history": {
+      "get": {
+        "summary": "Scan History",
+        "description": "Get paginated scan history for the authenticated user.",
+        "operationId": "scan_history_v1_scans_history_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
+          },
+          {
+            "name": "scan_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "summary": "Usage Stats",
+        "description": "Get daily usage statistics for the authenticated user.",
+        "operationId": "usage_stats_v1_usage_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageStatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/checkout": {
+      "post": {
+        "summary": "Billing Checkout",
+        "description": "Create a Stripe checkout session for upgrading plans.",
+        "operationId": "billing_checkout_v1_billing_checkout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UrlResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/billing/portal": {
+      "post": {
+        "summary": "Billing Portal",
+        "description": "Create a Stripe customer portal session.",
+        "operationId": "billing_portal_v1_billing_portal_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UrlResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/webhooks/stripe": {
+      "post": {
+        "summary": "Stripe Webhook",
+        "description": "Handle Stripe webhook events for subscription changes.",
+        "operationId": "stripe_webhook_v1_webhooks_stripe_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/github": {
+      "post": {
+        "summary": "Github Auth",
+        "description": "Exchange a GitHub OAuth code for a JWT token.",
+        "operationId": "github_auth_v1_auth_github_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Refresh Token",
+        "description": "Refresh an expiring JWT token.",
+        "operationId": "refresh_token_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profile": {
+      "get": {
+        "summary": "User Profile",
+        "description": "Get the authenticated user's profile and usage stats.",
+        "operationId": "user_profile_v1_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiKeyCreatedResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "id",
+          "name",
+          "prefix"
+        ],
+        "title": "ApiKeyCreatedResponse",
+        "description": "Response when a new API key is created (includes raw key once)."
+      },
+      "ApiKeyResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix"
+          },
+          "is_revoked": {
+            "type": "boolean",
+            "title": "Is Revoked"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "type": "string",
+            "title": "Last Used At",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "is_revoked",
+          "created_at"
+        ],
+        "title": "ApiKeyResponse",
+        "description": "API key info returned to the user (never includes the hash)."
+      },
+      "AstScanRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "untitled"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Language is required for AST parsing"
+          },
+          "max_nesting": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Nesting",
+            "default": 4
+          },
+          "complexity_threshold": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Complexity Threshold",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "language"
+        ],
+        "title": "AstScanRequest",
+        "description": "Request for AST-based code analysis."
+      },
+      "AstScanResponse": {
+        "properties": {
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "blocks": {
+            "type": "integer",
+            "title": "Blocks"
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings"
+          },
+          "infos": {
+            "type": "integer",
+            "title": "Infos"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_findings",
+          "blocks",
+          "warnings",
+          "infos",
+          "findings",
+          "verdict"
+        ],
+        "title": "AstScanResponse",
+        "description": "Response for AST analysis scan."
+      },
+      "CheckoutRequest": {
+        "properties": {
+          "plan": {
+            "type": "string",
+            "pattern": "^(pro|enterprise)$",
+            "title": "Plan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "CheckoutRequest",
+        "description": "Request to create a Stripe checkout session."
+      },
+      "CreateApiKeyRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name",
+            "default": "Default"
+          }
+        },
+        "type": "object",
+        "title": "CreateApiKeyRequest",
+        "description": "Request to create a new API key."
+      },
+      "DeepScanRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "untitled"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Language"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verify_imports": {
+            "type": "boolean",
+            "title": "Verify Imports",
+            "default": true
+          },
+          "verify_docker": {
+            "type": "boolean",
+            "title": "Verify Docker",
+            "default": false
+          },
+          "sandbox_run": {
+            "type": "boolean",
+            "title": "Sandbox Run",
+            "default": false
+          },
+          "dockerfile_content": {
+            "type": "string",
+            "title": "Dockerfile Content",
+            "default": ""
+          },
+          "requirements_content": {
+            "type": "string",
+            "title": "Requirements Content",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "DeepScanRequest",
+        "description": "Request for full deep scan (all layers)."
+      },
+      "DeepScanResponse": {
+        "properties": {
+          "static_scan": {
+            "$ref": "#/components/schemas/StaticScanResponse"
+          },
+          "ast_scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AstScanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sandbox_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SandboxResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "import_verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifyImportsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "docker_verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifyDockerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overall_verdict": {
+            "type": "string",
+            "title": "Overall Verdict"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "static_scan",
+          "overall_verdict",
+          "total_findings",
+          "latency_ms"
+        ],
+        "title": "DeepScanResponse",
+        "description": "Response for /v1/scan/deep — combines all layers."
+      },
+      "DockerImageInput": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "title": "Image",
+            "description": "Image name, e.g. 'python' or 'nginx'"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag",
+            "description": "Tag, e.g. '3.12-slim'",
+            "default": "latest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "DockerImageInput",
+        "description": "Input for a single Docker image to verify."
+      },
+      "DockerImageResult": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "title": "Image"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VerifyStatus"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          },
+          "suggestion": {
+            "type": "string",
+            "title": "Suggestion",
+            "default": ""
+          },
+          "available_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Available Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image",
+          "tag",
+          "status",
+          "severity"
+        ],
+        "title": "DockerImageResult",
+        "description": "Result for a Docker image/tag verification."
+      },
+      "Finding": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id",
+            "description": "Machine-readable rule identifier"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable description"
+          },
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "File path if applicable",
+            "default": ""
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line",
+            "description": "Line number if applicable",
+            "default": 0
+          },
+          "suggestion": {
+            "type": "string",
+            "title": "Suggestion",
+            "description": "Suggested fix",
+            "default": ""
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_id",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "description": "Single verification finding."
+      },
+      "GithubAuthRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "GithubAuthRequest",
+        "description": "Request to exchange a GitHub OAuth code for a JWT."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "cache_connected": {
+            "type": "boolean",
+            "title": "Cache Connected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "cache_connected"
+        ],
+        "title": "HealthResponse",
+        "description": "Response for health check endpoint."
+      },
+      "Language": {
+        "type": "string",
+        "enum": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "rust"
+        ],
+        "title": "Language",
+        "description": "Supported programming languages."
+      },
+      "PackageResult": {
+        "properties": {
+          "package": {
+            "type": "string",
+            "title": "Package"
+          },
+          "registry": {
+            "$ref": "#/components/schemas/Registry"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VerifyStatus"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "requested_version": {
+            "type": "string",
+            "title": "Requested Version",
+            "default": ""
+          },
+          "latest_version": {
+            "type": "string",
+            "title": "Latest Version",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          },
+          "suggestion": {
+            "type": "string",
+            "title": "Suggestion",
+            "default": ""
+          },
+          "deprecated_since": {
+            "type": "string",
+            "title": "Deprecated Since",
+            "default": ""
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "package",
+          "registry",
+          "status",
+          "severity"
+        ],
+        "title": "PackageResult",
+        "description": "Result for a single package verification."
+      },
+      "RefreshRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "RefreshRequest",
+        "description": "Request to refresh an expiring JWT token."
+      },
+      "Registry": {
+        "type": "string",
+        "enum": [
+          "pypi",
+          "npm",
+          "crates",
+          "go_proxy",
+          "docker_hub",
+          "ghcr"
+        ],
+        "title": "Registry",
+        "description": "Supported package registries."
+      },
+      "RevokeResponse": {
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revoked"
+        ],
+        "title": "RevokeResponse",
+        "description": "Response when an API key is revoked."
+      },
+      "SandboxRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Language determines sandbox image"
+          },
+          "timeout": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Timeout",
+            "description": "Max seconds",
+            "default": 10
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "untitled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "language"
+        ],
+        "title": "SandboxRequest",
+        "description": "Request to execute code in an isolated sandbox container."
+      },
+      "SandboxResponse": {
+        "properties": {
+          "exit_code": {
+            "type": "integer",
+            "title": "Exit Code"
+          },
+          "stdout": {
+            "type": "string",
+            "title": "Stdout",
+            "default": ""
+          },
+          "stderr": {
+            "type": "string",
+            "title": "Stderr",
+            "default": ""
+          },
+          "timed_out": {
+            "type": "boolean",
+            "title": "Timed Out",
+            "default": false
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Service-level error if Docker unavailable",
+            "default": ""
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "exit_code"
+        ],
+        "title": "SandboxResponse",
+        "description": "Response for sandbox code execution."
+      },
+      "ScanHistoryResponse": {
+        "properties": {
+          "scans": {
+            "items": {
+              "$ref": "#/components/schemas/ScanLogResponse"
+            },
+            "type": "array",
+            "title": "Scans"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scans",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "title": "ScanHistoryResponse",
+        "description": "Paginated scan history."
+      },
+      "ScanLogResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "scan_type": {
+            "type": "string",
+            "title": "Scan Type"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "findings_count": {
+            "type": "integer",
+            "title": "Findings Count"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": ""
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": ""
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scan_type",
+          "verdict",
+          "findings_count",
+          "created_at"
+        ],
+        "title": "ScanLogResponse",
+        "description": "Single scan log entry for history view."
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "BLOCK",
+          "WARN",
+          "INFO"
+        ],
+        "title": "Severity",
+        "description": "Finding severity level."
+      },
+      "StaticScanRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "untitled"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Language"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "StaticScanRequest",
+        "description": "Request for static anti-pattern scan."
+      },
+      "StaticScanResponse": {
+        "properties": {
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "blocks": {
+            "type": "integer",
+            "title": "Blocks"
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings"
+          },
+          "infos": {
+            "type": "integer",
+            "title": "Infos"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_findings",
+          "blocks",
+          "warnings",
+          "infos",
+          "findings",
+          "verdict"
+        ],
+        "title": "StaticScanResponse",
+        "description": "Response for static analysis scan."
+      },
+      "StatusResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "description": "Generic status response."
+      },
+      "TokenResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "plan": {
+            "type": "string",
+            "title": "Plan"
+          },
+          "expires_in_minutes": {
+            "type": "integer",
+            "title": "Expires In Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "user_id",
+          "plan",
+          "expires_in_minutes"
+        ],
+        "title": "TokenResponse",
+        "description": "Response containing JWT token and user info."
+      },
+      "UrlResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "UrlResponse",
+        "description": "Response containing a single URL (billing checkout/portal)."
+      },
+      "UsageDayResponse": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "scan_count": {
+            "type": "integer",
+            "title": "Scan Count"
+          },
+          "findings_total": {
+            "type": "integer",
+            "title": "Findings Total"
+          },
+          "avg_latency_ms": {
+            "type": "number",
+            "title": "Avg Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "scan_count",
+          "findings_total",
+          "avg_latency_ms"
+        ],
+        "title": "UsageDayResponse",
+        "description": "Single day of usage data."
+      },
+      "UsageStatsResponse": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/UsageDayResponse"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "total_scans": {
+            "type": "integer",
+            "title": "Total Scans"
+          },
+          "period_days": {
+            "type": "integer",
+            "title": "Period Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "total_scans",
+          "period_days"
+        ],
+        "title": "UsageStatsResponse",
+        "description": "Usage statistics for the requested period."
+      },
+      "UserProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "title": "Avatar Url"
+          },
+          "plan": {
+            "type": "string",
+            "title": "Plan"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "daily_limit": {
+            "type": "integer",
+            "title": "Daily Limit"
+          },
+          "daily_usage": {
+            "type": "integer",
+            "title": "Daily Usage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "name",
+          "avatar_url",
+          "plan",
+          "created_at",
+          "daily_limit",
+          "daily_usage"
+        ],
+        "title": "UserProfileResponse",
+        "description": "User profile info for the dashboard."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyDockerRequest": {
+        "properties": {
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/DockerImageInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "title": "VerifyDockerRequest",
+        "description": "Request to verify Docker images and tags."
+      },
+      "VerifyDockerResponse": {
+        "properties": {
+          "verified": {
+            "type": "integer",
+            "title": "Verified"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/DockerImageResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verified",
+          "failed",
+          "results",
+          "latency_ms"
+        ],
+        "title": "VerifyDockerResponse",
+        "description": "Response for /v1/verify/dockerfile."
+      },
+      "VerifyImportsRequest": {
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "imports": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Imports"
+          },
+          "requirements": {
+            "type": "string",
+            "title": "Requirements",
+            "description": "Raw requirements.txt / package.json content for version pinning",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "imports"
+        ],
+        "title": "VerifyImportsRequest",
+        "description": "Request to verify package imports exist in registries."
+      },
+      "VerifyImportsResponse": {
+        "properties": {
+          "verified": {
+            "type": "integer",
+            "title": "Verified"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PackageResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "cached_ratio": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cached Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verified",
+          "failed",
+          "warnings",
+          "results",
+          "latency_ms",
+          "cached_ratio"
+        ],
+        "title": "VerifyImportsResponse",
+        "description": "Response for /v1/verify/imports."
+      },
+      "VerifyStatus": {
+        "type": "string",
+        "enum": [
+          "VERIFIED",
+          "NOT_FOUND",
+          "DEPRECATED",
+          "VERSION_MISMATCH",
+          "TIMEOUT",
+          "ERROR",
+          "SKIPPED"
+        ],
+        "title": "VerifyStatus",
+        "description": "Status of a package or image verification."
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}

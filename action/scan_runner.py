@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.formatters.sarif import findings_to_sarif
+from src.gateway.interceptor import CommandInterceptor, Verdict
 from src.models.enums import Severity
 from src.models.responses import Finding
 from src.services.static_analyzer import StaticAnalyzer
@@ -30,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-file-size", type=int, default=500_000)
     parser.add_argument("--include-pattern", default="")
     parser.add_argument("--api-key", default="")
-    parser.add_argument("--api-url", default="https://api.codetrust.dev")
+    parser.add_argument("--api-url", default="https://codetrust-api-production.up.railway.app")
     return parser.parse_args()
 
 
@@ -89,6 +90,8 @@ def _is_excluded(path: Path) -> bool:
         ".git", ".venv", "venv", "node_modules", "__pycache__",
         ".mypy_cache", ".ruff_cache", ".pytest_cache", "dist",
         "build", ".tox", ".eggs", "*.egg-info",
+        ".next", ".open-next", ".turbo", ".nuxt", ".output",
+        ".svelte-kit", ".vercel", ".wrangler", "coverage", "out", ".cache",
     }
     return any(
         part in excluded_dirs or part.endswith(".egg-info")
@@ -123,6 +126,45 @@ def scan_files(
         all_findings.extend(findings)
 
     return all_findings
+
+
+def scan_governance(files: list[Path]) -> list[Finding]:
+    """Run gateway content rules on files for CI governance enforcement.
+
+    Checks for eval/exec, hardcoded secrets, and other governance
+    violations that the gateway would block in real-time.
+
+    Args:
+        files: List of file paths to check.
+
+    Returns:
+        List of governance findings as Finding objects.
+    """
+    interceptor = CommandInterceptor()
+    governance_findings: list[Finding] = []
+
+    for file_path in files:
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        result = interceptor.check_file_write(str(file_path), content)
+        if result.verdict != Verdict.ALLOW:
+            severity = (
+                Severity.BLOCK if result.verdict == Verdict.BLOCK
+                else Severity.WARN
+            )
+            governance_findings.append(Finding(
+                rule_id=result.rule_id,
+                severity=severity,
+                message=f"[Governance] {result.message}",
+                file=str(file_path),
+                line=1,
+                suggestion=result.suggestion,
+            ))
+
+    return governance_findings
 
 
 def emit_annotations(findings: list[Finding]) -> None:
@@ -288,8 +330,14 @@ def main() -> int:
 
     _write_output(f"Found {len(files)} file(s) to scan")
 
-    # Run scan
+    # Run static scan
     findings = scan_files(files, args.language)
+
+    # Run governance scan (gateway content rules in CI)
+    gov_findings = scan_governance(files)
+    if gov_findings:
+        _write_output(f"Governance: {len(gov_findings)} finding(s)")
+    findings.extend(gov_findings)
 
     # Emit annotations
     emit_annotations(findings)

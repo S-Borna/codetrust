@@ -150,7 +150,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
 
     {
         "id": "debug_mode_enabled",
-        "pattern": r"(?i)(?:^|\s)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1|\"true\")\b",
+        "pattern": r'(?i)(?:^|\s)(?:DEBUG|debug)\s*[:=]\s*(?:(?:True|true|1)\b|["\']true["\'])',
         "message": "Debug mode enabled. Ensure this is not shipped to production.",
         "severity": Severity.WARN,
         "skip_comments": True,
@@ -418,7 +418,150 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".yml", ".yaml", ".toml", ".json"],
         "skip_comments": True,
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  REACT / JSX RULES  (fire on .jsx, .tsx, .js, .ts files)
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "react_dangerouslysetinnerhtml",
+        "pattern": r"dangerouslySetInnerHTML",
+        "message": "dangerouslySetInnerHTML bypasses React's XSS protection. Sanitize input or use a safe renderer.",
+        "severity": Severity.BLOCK,
+        "file_types": [".jsx", ".tsx", ".js", ".ts"],
+    },
+    {
+        "id": "react_no_key_in_list",
+        "pattern": r"\.map\s*\([^)]*\)\s*=>\s*(?:<\w+(?:\s+(?!key\b)\w+=[^>]*)*>)",
+        "message": "List rendering without key prop. Add a unique key to each element in .map().",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx"],
+    },
+    {
+        "id": "react_direct_dom",
+        "pattern": r"document\.(?:getElementById|querySelector|getElementsBy|createElement)\s*\(",
+        "message": "Direct DOM manipulation in React. Use refs or React state instead.",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx", ".js", ".ts"],
+    },
+    {
+        "id": "react_use_effect_no_deps",
+        "pattern": r"useEffect\s*\(\s*(?:\(\)|[^,)]+)\s*\)\s*;",
+        "message": "useEffect without dependency array runs on every render. Add [] or specific dependencies.",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx", ".js", ".ts"],
+    },
+    {
+        "id": "react_set_state_in_render",
+        "pattern": r"(?:^|\s)(?:set[A-Z]\w+|setState)\s*\(",
+        "message": "Possible state update during render. Move setState calls into event handlers or useEffect.",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx"],
+        "special_handler": "check_render_set_state",
+    },
+    {
+        "id": "react_index_as_key",
+        "pattern": r"key\s*=\s*\{?\s*(?:index|idx|i)\s*\}?",
+        "message": "Array index used as React key. Use a stable unique ID to avoid re-render bugs.",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx"],
+    },
+    {
+        "id": "react_innerhtml_string",
+        "pattern": r"\.innerHTML\s*=",
+        "message": "Direct innerHTML assignment bypasses sanitization. Use React's rendering or a sanitizer.",
+        "severity": Severity.BLOCK,
+        "file_types": [".jsx", ".tsx", ".js", ".ts"],
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  KUBERNETES / K8S YAML RULES
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "k8s_privileged",
+        "pattern": r"(?i)privileged:\s*true",
+        "message": "Privileged container. Remove privileged: true unless absolutely necessary.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "k8s_host_network",
+        "pattern": r"(?i)hostNetwork:\s*true",
+        "message": "hostNetwork: true exposes the host network to the pod. Remove unless required.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "k8s_host_pid",
+        "pattern": r"(?i)hostPID:\s*true",
+        "message": "hostPID: true shares the host PID namespace. Remove unless required for debugging.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "k8s_run_as_root",
+        "pattern": r"(?i)runAsUser:\s*0\b",
+        "message": "Container runs as root (UID 0). Set runAsNonRoot: true or use a non-zero UID.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "k8s_no_resource_limits",
+        "pattern": r"(?i)^\s+containers:\s*$",
+        "message": "Container spec detected — verify resources.limits and resources.requests are set.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+        "special_handler": "check_k8s_resources",
+    },
+    {
+        "id": "k8s_latest_image",
+        "pattern": r"(?i)image:\s*\S+:latest\b",
+        "message": "Container image uses :latest tag. Pin to a specific version for reproducibility.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONFIG HALLUCINATION RULES
+    # ═══════════════════════════════════════════════════════════════
+    #  These catch AI agents fabricating URLs, environment variables,
+    #  API endpoints, and config values that likely don't exist.
+
+    {
+        "id": "hallucinated_localhost_port",
+        "pattern": r"(?i)localhost:\d{5,}",
+        "message": "Suspicious localhost port (5+ digits). Verify this port is correct — AI often invents port numbers.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "hallucinated_api_endpoint",
+        "pattern": r"(?i)[\"']/api/v\d+/[a-z]+/[a-z]+/[a-z]+/[a-z]+[\"']",
+        "message": "Deeply nested API endpoint path. Verify this endpoint actually exists — AI may hallucinate API routes.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "hallucinated_env_var",
+        "pattern": r"os\.(?:environ|getenv)\s*[\[(]\s*[\"'](?:(?!PATH|HOME|USER|SHELL|TERM|LANG|LC_|TZ|PWD|LOGNAME|HOSTNAME|DISPLAY|XDG_|EDITOR|VISUAL|PAGER|BROWSER|TMPDIR|TEMP|TMP)[A-Z][A-Z0-9_]{15,})[\"']",
+        "message": "Long environment variable name (16+ chars). Verify this env var is documented and exists.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "placeholder_url",
+        "pattern": r"(?i)https?://(?:example|your-domain|my-app|your-app|placeholder|changeme|todo)\.",
+        "message": "Placeholder URL detected. Replace with actual URL before deploying.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "fake_api_key_format",
+        "pattern": r"[\"'](?:sk-[a-zA-Z0-9]{48}|pk_test_[a-zA-Z0-9]{24}|xoxb-[0-9]{10,})[\"']",
+        "message": "String resembles a real API key format (OpenAI/Stripe/Slack). Verify it's not fabricated by AI.",
+        "severity": Severity.BLOCK,
+    },
 ]
+
+# File-type sets for routing
+REACT_EXTENSIONS: frozenset[str] = frozenset({".jsx", ".tsx"})
 
 # Maximum function length in lines before triggering a finding
 MAX_FUNCTION_LENGTH: int = 40

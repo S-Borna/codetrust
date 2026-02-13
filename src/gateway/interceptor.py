@@ -62,6 +62,9 @@ class InterceptResult:
 # ═══════════════════════════════════════════════════════════════
 
 _TERMINAL_RULES: list[dict] = [
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 1: FILE SYSTEM DESTRUCTION
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_heredoc",
         "pattern": r"<<[-']?\s*[\w\"']+",
@@ -69,6 +72,45 @@ _TERMINAL_RULES: list[dict] = [
         "suggestion": "Use the create_file or replace_string_in_file tool instead.",
         "severity": Verdict.BLOCK,
     },
+    {
+        "id": "gateway_rm_rf_root",
+        "pattern": r"rm\s+-[rR]f?\s+/(?:\s|$)",
+        "message": "Recursive delete at root path. Catastrophic data loss risk.",
+        "suggestion": "Specify an explicit subdirectory path.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_rm_rf_home",
+        "pattern": r"rm\s+-[rR]f?\s+~/",
+        "message": "Recursive delete in home directory. High data loss risk.",
+        "suggestion": "Use a specific subdirectory path, never delete from ~/ recursively.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_dd_of",
+        "pattern": r"\bdd\s+.*of=/dev/",
+        "message": "Writing directly to block device. Data destruction risk.",
+        "suggestion": "Verify the target device carefully before proceeding.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_mkfs",
+        "pattern": r"\bmkfs\b",
+        "message": "Formatting a filesystem destroys all data on the device.",
+        "suggestion": "AI agents must never format filesystems.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_truncate_system",
+        "pattern": r">\s*/(?:etc|var|usr|boot|sys|proc)/",
+        "message": "Truncating system file. This can break the operating system.",
+        "suggestion": "Never write directly to system directories.",
+        "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 2: ARBITRARY CODE EXECUTION
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_eval",
         "pattern": r"\beval\s+",
@@ -84,17 +126,49 @@ _TERMINAL_RULES: list[dict] = [
         "severity": Verdict.BLOCK,
     },
     {
-        "id": "gateway_rm_rf_root",
-        "pattern": r"rm\s+-[rR]f?\s+/(?:\s|$)",
-        "message": "Recursive delete at root path. Catastrophic data loss risk.",
-        "suggestion": "Specify an explicit subdirectory path.",
+        "id": "gateway_wget_pipe_sh",
+        "pattern": r"wget\s+.*\|\s*(ba)?sh",
+        "message": "Piping wget to shell is a remote code execution vector.",
+        "suggestion": "Download the script first, inspect it, then execute.",
         "severity": Verdict.BLOCK,
     },
+    {
+        "id": "gateway_curl_pipe_python",
+        "pattern": r"curl\s+.*\|\s*python",
+        "message": "Piping curl to Python is a remote code execution vector.",
+        "suggestion": "Download the script first, review it, then execute.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_base64_decode_exec",
+        "pattern": r"base64\s+(-d|--decode)\s*.*\|\s*(ba)?sh",
+        "message": "Decoding and executing base64 content hides malicious payloads.",
+        "suggestion": "Decode and inspect the content before executing.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_python_exec_encoded",
+        "pattern": r"python[23]?\s+-c\s+.*(?:__import__|exec|eval)\s*\(",
+        "message": "Python one-liner with dynamic code execution.",
+        "suggestion": "Write Python code to a file and execute it directly.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 3: PRIVILEGE ESCALATION
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_chmod_777",
         "pattern": r"chmod\s+777\b",
         "message": "chmod 777 grants all permissions to all users.",
         "suggestion": "Use specific permissions like chmod 755 or chmod 644.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_chmod_suid",
+        "pattern": r"chmod\s+[u+]*s\b|chmod\s+[24]7\d\d\b",
+        "message": "Setting SUID/SGID bit allows privilege escalation.",
+        "suggestion": "Avoid SUID/SGID. Use capabilities or sudoers instead.",
         "severity": Verdict.BLOCK,
     },
     {
@@ -105,26 +179,189 @@ _TERMINAL_RULES: list[dict] = [
         "severity": Verdict.WARN,
     },
     {
-        "id": "gateway_dd_of",
-        "pattern": r"\bdd\s+.*of=/dev/",
-        "message": "Writing directly to block device. Data destruction risk.",
-        "suggestion": "Verify the target device carefully before proceeding.",
+        "id": "gateway_chown_root",
+        "pattern": r"chown\s+root\b",
+        "message": "Changing file ownership to root. This can create privilege escalation paths.",
+        "suggestion": "Use the current user or a dedicated service account.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_sudoers_edit",
+        "pattern": r"(?:visudo|/etc/sudoers)",
+        "message": "Editing sudoers file. Misconfiguration can lock out the system.",
+        "suggestion": "AI agents must never modify sudoers. Do this manually.",
+        "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 4: GIT & VERSION CONTROL
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_git_force_push",
+        "pattern": r"\bgit\s+push\s+.*(?:--force|-f)\b",
+        "message": "Force push rewrites remote history. Forbidden for AI agents.",
+        "suggestion": "Never force push. Let the user handle remote operations.",
         "severity": Verdict.BLOCK,
     },
     {
         "id": "gateway_git_push",
-        "pattern": r"\bgit\s+push\b",
+        "pattern": r"\bgit\s+push\b(?!.*(?:--force|-f))",
         "message": "AI agents must not push to remote repositories.",
         "suggestion": "Stage and commit changes. The user will push manually.",
         "severity": Verdict.BLOCK,
     },
     {
-        "id": "gateway_git_force_push",
-        "pattern": r"\bgit\s+push\s+.*--force",
-        "message": "Force push rewrites remote history. Forbidden for AI agents.",
-        "suggestion": "Never force push. Let the user handle remote operations.",
+        "id": "gateway_git_reset_hard",
+        "pattern": r"\bgit\s+reset\s+--hard\b",
+        "message": "git reset --hard discards all uncommitted changes permanently.",
+        "suggestion": "Use git stash to save changes, or git reset --soft to preserve them.",
         "severity": Verdict.BLOCK,
     },
+    {
+        "id": "gateway_git_clean_fd",
+        "pattern": r"\bgit\s+clean\s+-[fd]{2,}",
+        "message": "git clean -fd permanently deletes untracked files and directories.",
+        "suggestion": "Use git clean -n first to preview what would be deleted.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 5: CONTAINER ESCAPE & DOCKER ABUSE
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_docker_privileged",
+        "pattern": r"docker\s+run\s+.*--privileged",
+        "message": "Privileged container has full host access. Container escape risk.",
+        "suggestion": "Use specific --cap-add flags instead of --privileged.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_docker_pid_host",
+        "pattern": r"docker\s+run\s+.*--pid[= ]host",
+        "message": "Sharing host PID namespace allows container escape.",
+        "suggestion": "Remove --pid=host unless absolutely required for debugging.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_docker_net_host",
+        "pattern": r"docker\s+run\s+.*--net(?:work)?[= ]host",
+        "message": "Host networking exposes all host ports to the container.",
+        "suggestion": "Use bridge networking with explicit port mapping (-p).",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_docker_mount_sensitive",
+        "pattern": r"docker\s+run\s+.*-v\s+/(?:etc|var/run/docker|root|proc|sys)[:/]",
+        "message": "Mounting sensitive host paths into container. Escape or data leak risk.",
+        "suggestion": "Mount only the specific directory needed, never /etc or /proc.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_docker_socket_mount",
+        "pattern": r"-v\s+/var/run/docker\.sock",
+        "message": "Mounting Docker socket gives the container full control of the host Docker daemon.",
+        "suggestion": "Use Docker-in-Docker (dind) or rootless Docker instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_nsenter",
+        "pattern": r"\bnsenter\b",
+        "message": "nsenter enters another namespace — can be used for container escape.",
+        "suggestion": "Use docker exec to interact with containers instead.",
+        "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 6: NETWORK & DATA EXFILTRATION
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_reverse_shell",
+        "pattern": (
+            r"(?:bash\s+-i\s+>&\s*/dev/tcp|nc\s+.*-e\s*/bin|"
+            r"ncat\s+.*-e\s*/bin|socat\s+.*exec)"
+        ),
+        "message": "Reverse shell pattern detected. This opens a backdoor to external attackers.",
+        "suggestion": "AI agents must never create reverse shells.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_nc_listen",
+        "pattern": r"\b(?:nc|ncat|netcat)\s+.*-l\s*-p?\s*\d+",
+        "message": "Opening a listening port with netcat. Potential backdoor.",
+        "suggestion": "Use proper server software instead of netcat listeners.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_curl_post_file",
+        "pattern": r"curl\s+.*(?:-d\s*@|-F\s+file=@|--data-binary\s+@)",
+        "message": "Uploading local file content via curl. Potential data exfiltration.",
+        "suggestion": "Verify the destination URL and file contents before uploading.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_ssrf_metadata",
+        "pattern": r"(?:curl|wget|http)\s+.*169\.254\.169\.254",
+        "message": "Accessing cloud metadata endpoint (169.254.169.254). SSRF / credential theft risk.",
+        "suggestion": "Cloud metadata should only be accessed through instance IAM roles.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_ssrf_internal",
+        "pattern": r"(?:curl|wget)\s+.*(?:http://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.))",
+        "message": "HTTP request to internal/private IP. Potential SSRF attack.",
+        "suggestion": "Only access external, verified endpoints.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_wget_exec",
+        "pattern": r"wget\s+.*-O\s*-\s*\|",
+        "message": "Downloading and piping content directly. Remote code execution risk.",
+        "suggestion": "Download to a file first, inspect it, then execute.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_env_dump",
+        "pattern": r"\b(?:printenv|env\b|set\b)\s*(?:\||>)",
+        "message": "Dumping environment to pipe/file exposes secrets and credentials.",
+        "suggestion": "Access specific variables instead of dumping the entire environment.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 7: SECRETS & CREDENTIALS
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_env_secret_export",
+        "pattern": (
+            r"export\s+(?:API_KEY|SECRET|PASSWORD|TOKEN|CREDENTIALS|"
+            r"AWS_SECRET|GITHUB_TOKEN|DATABASE_URL)\s*="
+            r'["\'][^"\']{8,}["\']'
+        ),
+        "message": "Exporting secret value in terminal. Will appear in shell history.",
+        "suggestion": "Use .env files or a secrets manager.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_echo_secret",
+        "pattern": (
+            r"echo\s+.*\$\{?(?:API_KEY|SECRET|PASSWORD|TOKEN|"
+            r"AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|DATABASE_URL)"
+        ),
+        "message": "Echoing secret variable to terminal output.",
+        "suggestion": "Never echo secrets. Use them directly in commands.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_cat_private_key",
+        "pattern": r"cat\s+.*(?:\.pem|\.key|id_rsa|id_ed25519|\.p12|\.pfx)\b",
+        "message": "Displaying private key content in terminal.",
+        "suggestion": "Reference key files by path instead of printing their contents.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 8: PACKAGE SUPPLY CHAIN
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_pip_install_unverified",
         "pattern": r"pip\s+install\s+--no-verify",
@@ -133,13 +370,63 @@ _TERMINAL_RULES: list[dict] = [
         "severity": Verdict.BLOCK,
     },
     {
-        "id": "gateway_env_secret_export",
-        "pattern": (
-            r"export\s+(?:API_KEY|SECRET|PASSWORD|TOKEN|CREDENTIALS)\s*="
-            r'["\'][^"\']{8,}["\']'
-        ),
-        "message": "Exporting secret value in terminal. Will appear in shell history.",
-        "suggestion": "Use .env files or a secrets manager.",
+        "id": "gateway_pip_install_url",
+        "pattern": r"pip\s+install\s+(?:git\+)?https?://(?!pypi\.org|github\.com|gitlab\.com)",
+        "message": "Installing package from unverified URL. Supply chain attack risk.",
+        "suggestion": "Install from PyPI or verified Git repos only.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_npm_install_url",
+        "pattern": r"npm\s+install\s+https?://",
+        "message": "Installing npm package from URL. Supply chain attack risk.",
+        "suggestion": "Install from npm registry or verified Git repos only.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_pip_trusted_host",
+        "pattern": r"pip\s+install\s+.*--trusted-host",
+        "message": "Bypassing SSL certificate verification for package installation.",
+        "suggestion": "Fix the certificate issue instead of bypassing verification.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_npm_ignore_scripts",
+        "pattern": r"npm\s+.*--ignore-scripts\s*=?\s*false",
+        "message": "Enabling npm install scripts can execute arbitrary code.",
+        "suggestion": "Leave --ignore-scripts at default or set to true.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 9: RESOURCE ABUSE & SABOTAGE
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_fork_bomb",
+        "pattern": r":\(\)\s*\{\s*:\|\s*:\s*&\s*\}\s*;?\s*:",
+        "message": "Fork bomb detected. This will crash the system.",
+        "suggestion": "AI agents must never create fork bombs.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_crontab_edit",
+        "pattern": r"\bcrontab\s+-[er]",
+        "message": "Editing crontab creates persistent scheduled tasks.",
+        "suggestion": "AI agents should not create cron jobs. Document the schedule for the user.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_systemctl_disable",
+        "pattern": r"\bsystemctl\s+(?:disable|mask|stop)\s+(?!codetrust)",
+        "message": "Disabling/stopping a system service can break the environment.",
+        "suggestion": "Only manage application-level services, not system services.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_kill_dash_9",
+        "pattern": r"\bkill\s+-9\s+(?:1|init|systemd)\b",
+        "message": "Killing PID 1 / init will crash the entire system.",
+        "suggestion": "Only kill specific application processes by name or PID.",
         "severity": Verdict.BLOCK,
     },
 ]
@@ -149,6 +436,9 @@ _TERMINAL_RULES: list[dict] = [
 # ═══════════════════════════════════════════════════════════════
 
 _CONTENT_RULES: list[dict] = [
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: Code execution & injection
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_content_eval",
         "pattern": r"\b(eval|exec)\s*\(",
@@ -156,6 +446,24 @@ _CONTENT_RULES: list[dict] = [
         "suggestion": "Use safe alternatives to eval/exec.",
         "severity": Verdict.WARN,
     },
+    {
+        "id": "gateway_content_pickle",
+        "pattern": r"pickle\.loads?\s*\(",
+        "message": "pickle.load deserializes arbitrary objects — remote code execution risk.",
+        "suggestion": "Use JSON, msgpack, or protobuf for deserialization.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_subprocess_shell",
+        "pattern": r"subprocess\.(?:call|run|Popen)\s*\(.*shell\s*=\s*True",
+        "message": "subprocess with shell=True is vulnerable to shell injection.",
+        "suggestion": "Use shell=False and pass arguments as a list.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: Secrets & credentials
+    # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_content_secret",
         "pattern": (
@@ -165,6 +473,66 @@ _CONTENT_RULES: list[dict] = [
         "message": "Hardcoded secret detected in file content.",
         "suggestion": "Use environment variables or a secrets manager.",
         "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_private_key",
+        "pattern": r"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----",
+        "message": "Private key embedded in file content.",
+        "suggestion": "Store private keys in secure key management, never in code.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_aws_key",
+        "pattern": r"(?:AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}",
+        "message": "AWS Access Key ID detected in file content.",
+        "suggestion": "Use IAM roles or environment variables instead of hardcoded AWS keys.",
+        "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: Security misconfigurations
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_content_ssl_verify_false",
+        "pattern": r"(?:verify\s*=\s*False|SSL_VERIFY.*(?:false|0)|REQUESTS_CA_BUNDLE\s*=\s*[\"'])",
+        "message": "SSL verification disabled. Man-in-the-middle attack risk.",
+        "suggestion": "Keep SSL verification enabled. Fix certificate issues properly.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_cors_wildcard",
+        "pattern": r"(?:Access-Control-Allow-Origin|cors_origins?|allow_origins)\s*[:=]\s*[\"']\*[\"']",
+        "message": "CORS wildcard allows any origin to access this API.",
+        "suggestion": "Restrict CORS to specific trusted domains.",
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_content_debug_true",
+        "pattern": r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1|[\"']true[\"'])",
+        "message": "Debug mode enabled in file. Must not ship to production.",
+        "suggestion": "Use environment-based configuration for debug settings.",
+        "severity": Verdict.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: Backdoors & obfuscation
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_content_obfuscated_exec",
+        "pattern": (
+            r"(?:exec|eval)\s*\(\s*(?:base64\.b64decode|"
+            r"codecs\.decode|bytes\.fromhex|bytearray\.fromhex)\s*\("
+        ),
+        "message": "Executing decoded/obfuscated content. Possible backdoor.",
+        "suggestion": "Never execute encoded payloads. Write readable code.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_webhook_exfil",
+        "pattern": r"https?://(?:hooks\.slack\.com|discord(?:app)?\.com/api/webhooks|webhook\.site)/",
+        "message": "Webhook URL in code. Potential data exfiltration channel.",
+        "suggestion": "Verify this webhook is authorized and necessary.",
+        "severity": Verdict.WARN,
     },
 ]
 
@@ -289,20 +657,32 @@ class CommandInterceptor:
                     suggestion="Verify this write is intentional.",
                 )
 
-        # Check content rules
+        # Check content rules — return highest severity match
+        _SEVERITY_ORDER = {Verdict.BLOCK: 2, Verdict.WARN: 1, Verdict.ALLOW: 0}
+        worst_result: InterceptResult | None = None
+        worst_severity = -1
+
         for rule in self._compiled_content:
             if rule["id"] in self._disabled_rules:
                 continue
             if rule["_re"].search(content):
-                return InterceptResult(
-                    verdict=rule["severity"],
-                    action_type=ActionType.FILE_WRITE,
-                    original_action=path,
-                    rule_id=rule["id"],
-                    message=rule["message"],
-                    suggestion=rule["suggestion"],
-                    metadata={"file": path},
-                )
+                sev = _SEVERITY_ORDER.get(rule["severity"], 0)
+                if sev > worst_severity:
+                    worst_severity = sev
+                    worst_result = InterceptResult(
+                        verdict=rule["severity"],
+                        action_type=ActionType.FILE_WRITE,
+                        original_action=path,
+                        rule_id=rule["id"],
+                        message=rule["message"],
+                        suggestion=rule["suggestion"],
+                        metadata={"file": path},
+                    )
+                    if rule["severity"] == Verdict.BLOCK:
+                        return worst_result  # Can't get worse
+
+        if worst_result is not None:
+            return worst_result
 
         return InterceptResult(
             verdict=Verdict.ALLOW,

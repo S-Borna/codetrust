@@ -523,11 +523,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
 
     # ═══════════════════════════════════════════════════════════════
-    #  CONFIG HALLUCINATION RULES
+    #  AI HALLUCINATION DETECTION RULES
     # ═══════════════════════════════════════════════════════════════
     #  These catch AI agents fabricating URLs, environment variables,
-    #  API endpoints, and config values that likely don't exist.
+    #  API endpoints, config values, imports, and CLI flags that
+    #  likely don't exist.  THIS IS CODETRUST'S PRIMARY MOAT.
 
+    # --- Hallucinated network targets ---
     {
         "id": "hallucinated_localhost_port",
         "pattern": r"(?i)localhost:\d{5,}",
@@ -557,6 +559,68 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"[\"'](?:sk-[a-zA-Z0-9]{48}|pk_test_[a-zA-Z0-9]{24}|xoxb-[0-9]{10,})[\"']",
         "message": "String resembles a real API key format (OpenAI/Stripe/Slack). Verify it's not fabricated by AI.",
         "severity": Severity.BLOCK,
+    },
+
+    # --- Hallucinated Python imports ---
+    {
+        "id": "hallucinated_import_nonexistent",
+        "pattern": r"^(?:from|import)\s+(?:ai_utils|ml_helpers|deep_learning_tools|auto_ml_pipeline|neural_utils|smart_ai|llm_toolkit|ai_framework|model_utils|auto_train|automl_kit)\b",
+        "message": "Import from a commonly hallucinated AI package. This package likely does not exist on PyPI.",
+        "severity": Severity.BLOCK,
+        "skip_comments": True,
+    },
+    {
+        "id": "hallucinated_import_misspelled",
+        "pattern": r"^(?:from|import)\s+(?:requets|requsts|beautifulsoup|sklear|tenserflow|pytorch|numpyy|pands|matplotib|sqlachemy|fasttapi|fask|djano)\b",
+        "message": "Misspelled import — AI hallucinated a typo. Check PyPI for the correct package name.",
+        "severity": Severity.BLOCK,
+        "skip_comments": True,
+    },
+
+    # --- Hallucinated function/method calls ---
+    {
+        "id": "hallucinated_method_chain",
+        "pattern": r"\.\w+\(\)\.\w+\(\)\.\w+\(\)\.\w+\(\)\.\w+\(\)",
+        "message": "Deeply chained method call (5+ levels). AI may have invented methods in this chain — verify each method exists.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "hallucinated_config_option",
+        "pattern": r"(?i)[\"'](?:enable_auto_scaling|use_gpu_acceleration|smart_cache_mode|auto_optimize|intelligent_routing|ai_mode|turbo_mode|fast_mode|advanced_mode)[\"']",
+        "message": "Suspicious configuration option. AI often fabricates config keys that don't exist in the target library.",
+        "severity": Severity.WARN,
+    },
+
+    # --- Hallucinated CLI flags ---
+    {
+        "id": "hallucinated_cli_flag",
+        "pattern": r"(?i)--(?:turbo|smart|auto-fix|auto-optimize|enable-ai|fast-mode|intelligent|deep-scan|ultra|hyper)\b",
+        "message": "Suspicious CLI flag that likely doesn't exist. AI agents often invent command-line options.",
+        "severity": Severity.WARN,
+    },
+
+    # --- Hallucinated version numbers ---
+    {
+        "id": "hallucinated_version",
+        "pattern": r"(?:==|>=|~=)\s*(?:9\d\.\d|[1-9]\d{2,}\.\d)",
+        "message": "Implausible version number (>=90.x or 100+.x). AI may have fabricated this version.",
+        "severity": Severity.WARN,
+    },
+
+    # --- Phantom file references ---
+    {
+        "id": "phantom_file_reference",
+        "pattern": r"(?i)open\s*\(\s*[\"'](?:data|config|settings|schema|models|utils)/[a-z_]+\.(?:json|yaml|yml|toml|csv)[\"']",
+        "message": "Opening a file by relative path. Verify this file exists — AI often references files that were never created.",
+        "severity": Severity.INFO,
+    },
+
+    # --- Fabricated error codes ---
+    {
+        "id": "hallucinated_http_status",
+        "pattern": r"(?:status_code|status|code)\s*(?:==|!=|is)\s*(?:6\d\d|7\d\d|8\d\d|9\d\d)\b",
+        "message": "Non-standard HTTP status code. Valid codes are 1xx-5xx — AI may have invented this status code.",
+        "severity": Severity.WARN,
     },
 ]
 

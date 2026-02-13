@@ -332,7 +332,7 @@ class TestDriftScore:
     def test_perfect_score(self, analyzer: StaticAnalyzer) -> None:
         drift = analyzer.calculate_drift_score([])
         assert drift["score"] == 100
-        assert drift["grade"] == "A"
+        assert drift["grade"] == "A+"
 
     def test_one_block_penalty(self, analyzer: StaticAnalyzer) -> None:
         from src.models.responses import Finding
@@ -369,7 +369,7 @@ class TestDriftScore:
         ]
         drift = analyzer.calculate_drift_score(findings)
         assert drift["score"] == 94  # 100 - 6
-        assert drift["grade"] == "A"
+        assert drift["grade"] == "A"  # 90-94 range
 
     def test_many_issues_grade_f(self, analyzer: StaticAnalyzer) -> None:
         from src.models.responses import Finding

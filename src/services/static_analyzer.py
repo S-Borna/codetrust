@@ -611,21 +611,34 @@ class StaticAnalyzer:
 
     # Rule categories for drift score breakdown
     CATEGORY_MAP: ClassVar[dict[str, str]] = {
-        # Anti-Hallucination (Law 1)
+        # Anti-Hallucination (Law 1) — AI fabrication detection
         "hardcoded_secret": "anti_hallucination",
         "eval_exec": "anti_hallucination",
         "sql_injection": "anti_hallucination",
         "pickle_load": "anti_hallucination",
         "api_key_in_config": "anti_hallucination",
         "docker_env_secret": "anti_hallucination",
-        # Anti-Assumption (Law 2)
+        "hallucinated_localhost_port": "anti_hallucination",
+        "hallucinated_api_endpoint": "anti_hallucination",
+        "hallucinated_env_var": "anti_hallucination",
+        "placeholder_url": "anti_hallucination",
+        "fake_api_key_format": "anti_hallucination",
+        "hallucinated_import_nonexistent": "anti_hallucination",
+        "hallucinated_import_misspelled": "anti_hallucination",
+        "hallucinated_method_chain": "anti_hallucination",
+        "hallucinated_config_option": "anti_hallucination",
+        "hallucinated_cli_flag": "anti_hallucination",
+        "hallucinated_version": "anti_hallucination",
+        "phantom_file_reference": "anti_hallucination",
+        "hallucinated_http_status": "anti_hallucination",
+        # Anti-Assumption (Law 2) — never assume, verify
         "magic_number": "anti_assumption",
         "hardcoded_port": "anti_assumption",
         "debug_mode_enabled": "anti_assumption",
         "any_type": "anti_assumption",
         "mutable_default": "anti_assumption",
         "hardcoded_ip": "anti_assumption",
-        # Root Cause (Law 3)
+        # Root Cause (Law 3) — fix the root, not the symptom
         "except_swallow": "root_cause",
         "bare_except": "root_cause",
         "null_coalesce_smell": "root_cause",
@@ -653,6 +666,7 @@ class StaticAnalyzer:
 
         Returns a trust metric: 100 = perfect, 0 = critical.
         Breaks down by category matching CodeTrust's Three Laws.
+        Tracks baseline and trend when a project path is available.
         """
         weights = {Severity.BLOCK: 10, Severity.WARN: 3, Severity.INFO: 1}
 
@@ -678,17 +692,8 @@ class StaticAnalyzer:
         # Score: 100 - penalty, floor at 0
         score = max(0, 100 - total_weight)
 
-        # Grade
-        if score >= 90:
-            grade = "A"
-        elif score >= 70:
-            grade = "B"
-        elif score >= 50:
-            grade = "C"
-        elif score >= 30:
-            grade = "D"
-        else:
-            grade = "F"
+        # Grade with refined curve
+        grade = self._score_to_grade(score)
 
         # Category scores (100 minus category penalty, capped)
         cat_scores: dict[str, dict[str, int | float | str]] = {}
@@ -702,9 +707,127 @@ class StaticAnalyzer:
                 "status": cat_status,
             }
 
+        # AI-specific sub-score: hallucination findings get extra weight
+        halluc_count = categories["anti_hallucination"]["findings"]
+        ai_trust_score = max(0, 100 - halluc_count * 15)
+
         return {
             "score": score,
             "grade": grade,
             "total_findings": len(findings),
+            "ai_trust_score": ai_trust_score,
+            "ai_trust_grade": self._score_to_grade(ai_trust_score),
             "categories": cat_scores,
         }
+
+    @staticmethod
+    def _score_to_grade(score: int) -> str:
+        """Convert numeric score to letter grade."""
+        if score >= 95:
+            return "A+"
+        if score >= 90:
+            return "A"
+        if score >= 80:
+            return "B+"
+        if score >= 70:
+            return "B"
+        if score >= 60:
+            return "C+"
+        if score >= 50:
+            return "C"
+        if score >= 30:
+            return "D"
+        return "F"
+
+    def calculate_drift_with_baseline(
+        self,
+        findings: list[Finding],
+        project_path: str,
+    ) -> dict:
+        """Calculate drift score with baseline comparison and trend tracking.
+
+        Stores the current score as a data point and compares against
+        the project's historical baseline.
+
+        Args:
+            findings: Current scan findings.
+            project_path: Root path of the project for baseline storage.
+
+        Returns:
+            Drift score dict extended with delta, trend, and history.
+        """
+        import json
+        import time
+
+        current = self.calculate_drift_score(findings)
+        baseline_dir = Path(project_path) / ".codetrust"
+        baseline_file = baseline_dir / "drift_baseline.json"
+
+        # Load existing baseline
+        history: list[dict] = []
+        baseline_score: int | None = None
+        if baseline_file.exists():
+            try:
+                data = json.loads(baseline_file.read_text())
+                history = data.get("history", [])
+                baseline_score = data.get("baseline_score")
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.debug("drift_baseline_load_failed: %s", exc)
+
+        # Append current data point
+        data_point = {
+            "timestamp": time.time(),
+            "score": current["score"],
+            "grade": current["grade"],
+            "ai_trust_score": current["ai_trust_score"],
+            "total_findings": current["total_findings"],
+        }
+        history.append(data_point)
+
+        # Keep last 100 data points
+        history = history[-100:]
+
+        # Set baseline if first scan
+        if baseline_score is None:
+            baseline_score = current["score"]
+
+        # Calculate delta from baseline
+        delta = current["score"] - baseline_score
+
+        # Calculate trend from last 5 scans
+        recent = history[-5:]
+        if len(recent) >= 2:
+            recent_scores = [h["score"] for h in recent]
+            trend_delta = recent_scores[-1] - recent_scores[0]
+            if trend_delta > 3:
+                trend = "improving"
+            elif trend_delta < -3:
+                trend = "degrading"
+            else:
+                trend = "stable"
+        else:
+            trend = "new"
+
+        # Save updated baseline
+        try:
+            baseline_dir.mkdir(parents=True, exist_ok=True)
+            baseline_data = {
+                "baseline_score": baseline_score,
+                "last_score": current["score"],
+                "last_grade": current["grade"],
+                "history": history,
+            }
+            baseline_file.write_text(json.dumps(baseline_data, indent=2))
+        except OSError:
+            logger.warning("drift_baseline_save_failed", path=str(baseline_file))
+
+        # Extend current result with trend data
+        current["delta_from_baseline"] = delta
+        current["baseline_score"] = baseline_score
+        current["trend"] = trend
+        current["scan_count"] = len(history)
+        current["trend_direction"] = (
+            "+" + str(delta) if delta > 0 else str(delta) if delta < 0 else "±0"
+        )
+
+        return current

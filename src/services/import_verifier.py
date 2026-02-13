@@ -7,11 +7,15 @@ where imports should be verified automatically during scan.
 import asyncio
 import os
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import httpx
 import structlog
 
-from src.models.enums import Language, Registry, Severity, VerifyStatus
+from src.models.enums import Language, VerifyStatus
 from src.models.responses import PackageResult
 from src.services.cache import CacheService
 from src.services.registry import RegistryService

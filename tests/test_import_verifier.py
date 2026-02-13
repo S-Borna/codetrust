@@ -1,10 +1,10 @@
 """Tests for import verification — the bridge between static analysis and live registry checks."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models.enums import Language, Registry, Severity, VerifyStatus
+from src.models.enums import Registry, Severity, VerifyStatus
 from src.models.responses import PackageResult
 from src.services.import_verifier import (
     _collect_js_imports,
@@ -15,7 +15,6 @@ from src.services.import_verifier import (
     collect_source_files,
     verify_file_imports_sync,
 )
-
 
 # --- _find_import_line ---
 
@@ -353,7 +352,7 @@ class TestCollectSourceFiles:
     def test_collect_from_file(self, tmp_path) -> None:
         py_file = tmp_path / "app.py"
         py_file.write_text("import requests\n")
-        py_files, js_files = collect_source_files([str(py_file)])
+        py_files, _js_files = collect_source_files([str(py_file)])
         assert len(py_files) == 1
         assert py_files[0][0] == str(py_file)
 

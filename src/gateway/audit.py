@@ -10,9 +10,12 @@ Location: Configurable via .codetrust.toml, defaults to .codetrust/audit.jsonl.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -152,7 +155,8 @@ class AuditLogger:
                     continue
                 try:
                     entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.debug("Skipping malformed audit entry: %s", exc)
                     continue
 
                 if since and entry.timestamp < since:
@@ -192,7 +196,8 @@ class AuditLogger:
                     continue
                 try:
                     entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.debug("Skipping malformed audit entry: %s", exc)
                     continue
 
                 if entry.verdict not in ("BLOCK", "WARN"):
@@ -231,7 +236,8 @@ class AuditLogger:
                     continue
                 try:
                     entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.debug("Skipping malformed audit entry: %s", exc)
                     continue
 
                 total += 1
@@ -282,7 +288,8 @@ class AuditLogger:
                     continue
                 try:
                     entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.debug("Skipping malformed audit entry: %s", exc)
                     continue
 
                 if entry.timestamp < cutoff:

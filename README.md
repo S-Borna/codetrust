@@ -186,14 +186,6 @@ codetrust scan .
 
 ---
 
-## Release Policy
-
-- Releases are **manual-only** (CLI/workflow-dispatch) — no automatic release is triggered by pushing to `main`.
-- VS Code Marketplace is currently published at extension **v2.2.3**.
-- PyPI remains on **v2.2.2** until the next manual Python package publish.
-
----
-
 ## CLI Usage
 
 ```bash

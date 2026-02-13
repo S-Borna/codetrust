@@ -23,17 +23,82 @@
 
 ---
 
-## What is CodeTrust?
+## Table of Contents
 
-**AI code safety platform** — 132 rules across 10 enforcement layers. Three capabilities no linter has:
+**Intro**
+- [What CodeTrust Is](#what-codetrust-is)
+- [Why CodeTrust Exists](#why-codetrust-exists)
+- [How CodeTrust Works](#how-codetrust-works)
+
+**The Three Moats**
+- [Moat 1: AI Governance Gateway](#moat-1-ai-governance-gateway)
+- [Moat 2: Hallucination Detection Engine](#moat-2-hallucination-detection-engine)
+- [Moat 3: Trust Score & Drift Tracking](#moat-3-trust-score--drift-tracking)
+
+**Enforcement**
+- [The Enforcement Model (10 Layers)](#the-enforcement-model-10-layers)
+- [Enforcement Guarantees vs Advisory Layers](#enforcement-guarantees-vs-advisory-layers)
+
+**Usage**
+- [Quick Start (2 minutes)](#quick-start-2-minutes)
+- [CLI Usage](#cli-usage)
+- [VS Code Extension](#vs-code-extension)
+- [GitHub Action](#github-action)
+- [MCP Gateway](#mcp-gateway)
+- [HTTP API](#http-api)
+
+**Reference**
+- [Supported Languages](#supported-languages)
+- [Configuration](#configuration)
+- [Architecture Details](#architecture-details)
+- [Security Model](#security-model)
+- [Distribution](#distribution)
+- [Development](#development)
+
+---
+
+## What CodeTrust Is
+
+**AI Governance Enforcement Platform** — 132 rules across 10 enforcement layers.
+
+CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code. It has three capabilities no existing tool provides:
 
 1. **AI Governance Gateway** — 57 real-time interception rules that block destructive AI agent actions *before execution*
-2. **Live Import Verification** — extracts imports and verifies every package against PyPI/npm. Catches hallucinated packages automatically
-3. **AI Trust Score** — tracks how safe your AI-generated code is over time, with baseline trending and delta tracking
+2. **Hallucination Detection Engine** — extracts imports from source files and verifies every package against live PyPI/npm registries. Catches hallucinated packages with exact file + line number
+3. **Trust Score & Drift Tracking** — measures how safe your AI-generated code is over time, with baseline trending, delta tracking, and grade curves
 
-CLI, GitHub Action, MCP server, and VS Code extension. Works offline. Works in CI.
+One command to install. Works offline. Works in CI. Works across CLI, GitHub Action, MCP server, and VS Code extension.
 
-### Architecture
+---
+
+## Why CodeTrust Exists
+
+AI writes code fast. But fast doesn't mean safe.
+
+**78% of developers** use AI coding assistants daily (2025). These tools produce new failure modes that no existing tool detects:
+
+| Failure Mode | What Happens | Who Catches It |
+|---|---|---|
+| **Hallucinated packages** — AI suggests `import fast-utils` that doesn't exist | `pip install` fails, or worse: typosquatted malware installs | **CodeTrust** (nobody else) |
+| **Destructive agent commands** — AI runs `rm -rf /`, `eval()`, `curl\|sh` | Data loss, remote code execution, supply chain compromise | **CodeTrust** (nobody else) |
+| **Ghost Docker images** — AI references `python:3.12-alpine-slim` that doesn't exist | Build fails at 2AM on deploy night | **CodeTrust** (nobody else) |
+| **Embedded secrets** — AI pastes `api_key = "sk-live-abc..."` | Pushed to GitHub, scraped by bots within seconds | Many tools |
+| **Invisible code drift** — AI code quality degrades gradually, no one measures it | Technical debt accumulates without signal | **CodeTrust** (nobody else) |
+
+### What existing tools miss
+
+| Tool | What it does | What it does NOT do |
+|---|---|---|
+| **SonarQube** | 5,000+ code quality rules | No AI agent blocking. No import verification. No trust score |
+| **Snyk** | CVEs in known packages | No AI agent blocking. No hallucination detection. No trust score |
+| **Semgrep** | Cross-file dataflow analysis | No AI agent blocking. No registry verification. No trust score |
+| **Ruff / ESLint** | Code style, formatting | No AI agent blocking. No import verification. No trust score |
+
+**None of them have any of our three moats.**
+
+---
+
+## How CodeTrust Works
 
 ```mermaid
 flowchart TB
@@ -92,74 +157,21 @@ flowchart TB
     REST --> REDIS
 ```
 
----
-
-## What's New in 2.1 — The Three Moats
-
-> Released 13 February 2026 — [Full Changelog](CHANGELOG.md)
-
-### Moat 1: AI Governance Gateway (57 rules)
-
-- **46 terminal rules** across 9 categories — file destruction, code execution,
-  privilege escalation, git ops, container escape, network exfiltration,
-  secrets, supply chain, resource abuse
-- **11 content rules** — secrets, private keys, SSL bypass, CORS, eval, pickle, debug mode
-- Blocks destructive AI actions *before* they execute
-
-### Moat 2: Live Import Verification
-
-- `codetrust scan .` now **verifies every import against PyPI/npm** automatically
-- Hallucinated packages → BLOCK finding with exact file + line number
-- `--no-verify-imports` to skip
-- Also runs in GitHub Action — annotations in PR diffs
-
-### Moat 3: AI Trust Score with Trending
-
-- AI Trust sub-score penalizes hallucination findings 15x
-- Baseline stored in `.codetrust/drift_baseline.json`
-- Delta tracking: shows improvement/regression between runs
-- A+ grade curve: A+/A/B+/B/C+/C/D/F
-- Trend analysis: improving/degrading/stable
-
-### Also new
-
-- **132 total rules** — 75 scan + 57 gateway (was 82)
-- **1312 tests** — 0 failures (was 1168)
-- **13 AI-specific hallucination rules** (was 5)
-- SARIF, project config, SSO/OIDC, GDPR, Helm, SBOM, Prometheus, SIEM, webhooks
+**Five entry points** (CLI, Extension, Action, MCP, Dashboard) feed into a shared services layer. The Gateway sits between AI agents and tools, intercepting commands before execution. The ImportVerifier bridges static analysis with live registry checks. Everything logs to an append-only audit trail.
 
 ---
 
-## 10 Enforcement Layers
+## Moat 1: AI Governance Gateway
 
-| # | Layer | Rules | What It Catches |
-|:-:|-------|:-----:|-----------------|
-| 01 | **Static Analysis** | 15 | Secrets, `eval`/`exec`, bare `except`, mutable defaults, magic numbers |
-| 02 | **Root Cause Analysis** | 4 | Swallowed exceptions, lint suppression, sleep without context, debug mode |
-| 03 | **SQL Analysis** | 13 | `SELECT *`, `DELETE` without `WHERE`, `FLOAT` for money, `GRANT ALL` |
-| 04 | **AST Analysis** | — | Cyclomatic complexity, unused variables, unreachable code (tree-sitter) |
-| 05 | **Container Hardening** | 10 | Root user, `:latest` tags, missing `WORKDIR`, `ENV` secrets, no healthcheck |
-| 06 | **IaC & Config** | 7 | Hardcoded IPs, debug mode in config, API keys, unbounded retries |
-| 07 | **React & Kubernetes** | 13 | `dangerouslySetInnerHTML`, `privileged: true`, missing resource limits |
-| 08 | **Import Verification** | — | **Live PyPI/npm check** — catches hallucinated packages automatically |
-| 09 | **Docker Verification** | — | Verify base images and tags against Docker Hub / GHCR |
-| 10 | **AI Governance Gateway** | 57 | **Real-time interception** — blocks destructive AI actions before execution |
-
----
-
-## AI Governance Gateway (Moat 1)
-
-The Gateway intercepts AI agent actions **before execution** — not just scanning files after the fact. It sits between the AI model and the tools, validating every terminal command, file write, and package install against configurable policies.
-
-**57 rules across 9 categories:**
+The Gateway intercepts AI agent actions **before execution** — not scanning files after the fact. It sits between the AI model and the tools, validating every terminal command, file write, and package install against configurable policies.
 
 ```
-AI Model → Gateway (validate) → Allow/Block → Execute
-                ↓
-           Audit Log (.codetrust/audit.jsonl)
+AI Agent → Gateway (validate) → Allow / BLOCK → Execute
+                 ↓
+            Audit Log (.codetrust/audit.jsonl)
 ```
 
-### What It Blocks
+### 57 rules across 9 categories
 
 | Category | Rules | Examples |
 |----------|:-----:|---------|
@@ -172,128 +184,201 @@ AI Model → Gateway (validate) → Allow/Block → Execute
 | Secrets Exposure | 6 | `export API_KEY`, `.env` cat, AWS credentials |
 | Supply Chain | 6 | `pip install --index-url`, `npm set registry` |
 | Resource Abuse | 5 | Fork bomb, `stress`, `crypto-miner` |
-| Content Rules | 11 | Hardcoded secrets, private keys, pickle, eval in files |
 
-All rules are **configurable** — users can disable any rule via `.codetrust.toml`.
+Plus **11 content rules** applied on file writes: hardcoded secrets, private keys, AWS keys, SSL bypass, CORS wildcards, obfuscated exec, pickle deserialization, subprocess shell, debug mode, webhook exfiltration, eval/exec.
 
-### Setup
+All rules are **configurable** — disable any rule via `.codetrust.toml`.
 
-```bash
-# Install governance config
-codetrust init
+### Real proof
 
-# Add gateway to Claude Desktop
-codetrust governance --setup
-
-# Check status
-codetrust governance --status
-
-# View audit log
-codetrust audit --hours 24
-```
-
-### Configuration
-
-```toml
-# .codetrust.toml
-[codetrust.governance]
-enabled = true
-mode = "enforce"    # enforce | audit | off
-
-[codetrust.governance.terminal]
-block_heredoc = true
-block_eval = true
-block_git_push = true
-# Set any to false to disable
-
-[codetrust.governance.files]
-protected_paths = ["LICENSE", ".env"]
-
-[codetrust.governance.audit]
-enabled = true
-path = ".codetrust/audit.jsonl"
-```
+During the development of v2.1.0, our own AI agent attempted to create a file using a heredoc (`<< 'PYEOF'`). The CodeTrust gateway **blocked it in real-time** — the product protected itself from its own builder.
 
 ---
 
-## Quick Start
+## Moat 2: Hallucination Detection Engine
 
-### Installation
+Every `codetrust scan` extracts imports from Python and JavaScript files, then verifies them against **live PyPI/npm registries**. Hallucinated packages produce BLOCK findings with exact file and line number.
 
-```bash
-# PyPI (CLI + MCP server + API)
-pip install codetrust
+### How it works
 
-# VS Code Extension (offline scanning, no server required)
-code --install-extension SaidBorna.codetrust
+1. `extract_python_imports()` / `extract_js_imports()` parse source files
+2. `RegistryService.verify_packages()` checks each package against live APIs
+3. Results mapped back to exact line numbers via `_find_import_line()`
+4. Hallucinated packages → BLOCK finding in the scan report
 
-# From source
-git clone https://github.com/S-Borna/codetrust.git && cd codetrust
-pip install -e ".[dev]"
+### Real proof
+
+```
+$ codetrust scan app.py
+
+🔍 Verifying imports against registries... (1 file(s))
+   Found 1 unverified import(s)
+
+🛡️  CodeTrust Scan
+   Files: 1 | Findings: 2
+   AI Drift Score: 87/100 (B)
+
+  🚫 BLOCK — must fix:
+     app.py:4 [import_not_found] Package 'flask_magic_utils' not found
+     on pypi — possible AI hallucination.
 ```
 
-### Scan a Project
+`flask_magic_utils` does not exist on PyPI. No other tool catches this.
+
+### 13 AI-specific static rules
+
+In addition to live registry checks, CodeTrust has 13 static hallucination rules:
+
+`hallucinated_import_nonexistent`, `hallucinated_import_misspelled`, `hallucinated_method_chain`, `hallucinated_config_option`, `hallucinated_cli_flag`, `hallucinated_version`, `phantom_file_reference`, `hallucinated_http_status`, `hallucinated_localhost_port`, `hallucinated_api_endpoint`, `hallucinated_env_var`, `placeholder_url`, `fake_api_key_format`
+
+---
+
+## Moat 3: Trust Score & Drift Tracking
+
+Not a snapshot — a real metric that tracks code safety over time.
+
+| Feature | Description |
+|---------|-------------|
+| **AI Trust sub-score** | Hallucination findings penalized 15x in scoring |
+| **Grade curve** | A+ / A / B+ / B / C+ / C / D / F |
+| **Baseline storage** | `.codetrust/drift_baseline.json` persists between runs |
+| **Delta tracking** | Shows improvement or regression from previous baseline |
+| **Trend analysis** | `improving` / `degrading` / `stable` based on history |
+| **History cap** | 100 data points retained |
+
+```
+🛡️  CodeTrust Scan
+   Files: 47 | Findings: 3
+   AI Drift Score: 94/100 (A)
+   Trend: improving (+6 from baseline)
+```
+
+Run `codetrust scan .` repeatedly → delta appears. The score answers: **"Is our AI-generated code getting safer or more dangerous?"**
+
+---
+
+## The Enforcement Model (10 Layers)
+
+| # | Layer | Rules | What It Catches | Type |
+|:-:|-------|:-----:|-----------------|:----:|
+| 01 | **Static Analysis** | 15 | Secrets, `eval`/`exec`, bare `except`, mutable defaults, magic numbers | Blocking |
+| 02 | **Root Cause Analysis** | 4 | Swallowed exceptions, lint suppression, sleep without context, debug mode | Blocking |
+| 03 | **SQL Analysis** | 13 | `SELECT *`, `DELETE` without `WHERE`, `FLOAT` for money, `GRANT ALL` | Blocking |
+| 04 | **AST Analysis** | — | Cyclomatic complexity, unused variables, unreachable code (tree-sitter) | Advisory |
+| 05 | **Container Hardening** | 10 | Root user, `:latest` tags, missing `WORKDIR`, `ENV` secrets, no healthcheck | Blocking |
+| 06 | **IaC & Config** | 7 | Hardcoded IPs, debug mode in config, API keys, unbounded retries | Blocking |
+| 07 | **React & Kubernetes** | 13 | `dangerouslySetInnerHTML`, `privileged: true`, missing resource limits | Blocking |
+| 08 | **Import Verification** | — | **Live PyPI/npm check** — catches hallucinated packages automatically | Blocking |
+| 09 | **Docker Verification** | — | Verify base images and tags against Docker Hub / GHCR | Blocking |
+| 10 | **AI Governance Gateway** | 57 | **Real-time interception** — blocks destructive AI actions before execution | Blocking |
+
+**75 scan rules + 57 gateway rules = 132 total.**
+
+---
+
+## Enforcement Guarantees vs Advisory Layers
+
+CodeTrust distinguishes between **enforcement** (will block your pipeline) and **advisory** (will inform, not block).
+
+| Layer | Guarantee | Mechanism |
+|-------|-----------|-----------|
+| **Gateway (Layer 10)** | **Absolute** | Pre-execution interception. Command never runs. Cannot bypass |
+| **Pre-commit hook** | **Hard block** | Commit rejected. Developer must fix before committing |
+| **GitHub Action** | **Hard block** | PR fails required status check. Cannot merge |
+| **CLI scan** | **Soft block** | Exit code 1 on BLOCK findings. Developer decides |
+| **VS Code Extension** | **Advisory** | Inline diagnostics. No blocking |
+| **CLAUDE.md / .cursorrules** | **Advisory** | AI reads and follows. No enforcement mechanism |
+| **AST Analysis** | **Advisory** | Complexity warnings. No pipeline blocking |
+
+The stack is designed so that:
+- **Layers 1–3, 5–9** produce BLOCK/WARN/INFO findings
+- **Layer 10 (Gateway)** prevents execution entirely — strongest guarantee
+- **Pre-commit + GitHub Action** enforce at infrastructure level — cannot be skipped
+- **Extension + CLAUDE.md** are advisory — useful but bypassable
+
+---
+
+## Quick Start (2 minutes)
 
 ```bash
-# Scan a file
+# Install
+pip install codetrust
+
+# Initialize enforcement layers in your project
+cd your-project
+codetrust init
+
+# Scan everything
+codetrust scan .
+
+# Verify installation
+codetrust doctor
+```
+
+`codetrust init` installs: CLAUDE.md, .cursorrules, pre-commit hook, GitHub Action, `.codetrust.toml`, audit directory.
+
+---
+
+## CLI Usage
+
+```bash
+# Scan a single file
 codetrust scan app.py
 
 # Scan a directory
 codetrust scan src/
 
-# Output SARIF for CI/CD
+# Scan with SARIF output for CI
 codetrust scan src/ --sarif --sarif-file results.sarif
-```
 
-### Project Configuration
+# Scan without live import verification (offline)
+codetrust scan . --no-verify-imports
 
-Create `.codetrust.toml` in your project root:
+# JSON output
+codetrust scan . --json
 
-```toml
-[codetrust]
-exclude_paths = ["migrations/", "vendor/", "*.generated.py"]
-ignore_rules = ["sql_todo_hack", "sql_no_index_hint"]
+# Check enforcement status
+codetrust status
 
-[codetrust.severity_overrides]
-magic_number = "INFO"
-hardcoded_ip = "BLOCK"
-```
+# Diagnose installation
+codetrust doctor
 
-Or add to your existing `pyproject.toml`:
+# Governance management
+codetrust governance --status
+codetrust governance --setup
+codetrust governance --mode audit
 
-```toml
-[tool.codetrust]
-exclude_paths = ["migrations/"]
-ignore_rules = ["sql_todo_hack"]
+# Audit log
+codetrust audit --hours 24
+codetrust audit --verdict BLOCK
+codetrust audit --stats
 ```
 
 ---
 
-## Supported Languages
+## VS Code Extension
 
-| Language | Static | AST | Extensions |
-|----------|:------:|:---:|------------|
-| Python | Yes | Yes | `.py` |
-| JavaScript | Yes | Yes | `.js`, `.jsx` |
-| TypeScript | Yes | Yes | `.ts`, `.tsx` |
-| Go | Yes | Yes | `.go` |
-| Rust | Yes | Yes | `.rs` |
-| SQL | Yes | — | `.sql` |
-| Dockerfile | Yes | — | `Dockerfile` |
-| YAML / CI | Yes | — | `.yml`, `.yaml` |
+```bash
+code --install-extension SaidBorna.codetrust
+```
 
----
+**Features:**
+- Scans on save (configurable)
+- Inline diagnostics with severity levels
+- 75 embedded rules — works fully offline
+- "Scan Workspace" command — up to 500 files with progress UI
+- Governance settings — 7 configurable options
+- Deep scan mode (requires API)
 
-## Distribution
+**Key settings:**
 
-| Channel | Install | Status |
-|---------|---------|:------:|
-| **PyPI** | `pip install codetrust` | Live |
-| **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` | Live |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2` | Live |
-| **Cloud API** | `https://codetrust-api-production.up.railway.app` | Live |
-| **MCP Server** | `python -m src.server` | Live |
-| **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) | Live |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `codetrust.scanOnSave` | `true` | Auto-scan on save |
+| `codetrust.severityThreshold` | `INFO` | Minimum severity to show |
+| `codetrust.scanType` | `static` | `static` or `deep` |
+| `codetrust.governance.enabled` | `true` | Enable AI governance |
+| `codetrust.governance.mode` | `enforce` | `enforce` / `audit` / `off` |
 
 ---
 
@@ -315,9 +400,13 @@ ignore_rules = ["sql_todo_hack"]
     sarif_file: codetrust-results.sarif
 ```
 
+The Action runs static scan + import verification. BLOCK findings fail the status check. Hallucinated packages appear as inline PR annotations.
+
 ---
 
-## MCP Server (Claude Code)
+## MCP Gateway
+
+Two MCP servers — one for scanning, one for governance.
 
 Add to `~/.claude/claude_desktop_config.json`:
 
@@ -338,7 +427,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-### MCP Tools
+### 14 MCP Tools
 
 | Tool | Server | Description |
 |------|--------|-------------|
@@ -372,65 +461,150 @@ All endpoints require `X-API-Key` header when `CODETRUST_API_KEY` is set.
 | `POST` | `/v1/verify/dockerfile` | Verify Docker images and tags |
 
 ```bash
-# Quick test
 curl https://codetrust-api-production.up.railway.app/v1/status
 ```
 
 ---
 
+## Supported Languages
+
+| Language | Static | AST | Registry | Extensions |
+|----------|:------:|:---:|:--------:|------------|
+| Python | Yes | Yes | PyPI | `.py` |
+| JavaScript | Yes | Yes | npm | `.js`, `.jsx` |
+| TypeScript | Yes | Yes | npm | `.ts`, `.tsx` |
+| Go | Yes | Yes | Go proxy | `.go` |
+| Rust | Yes | Yes | crates.io | `.rs` |
+| SQL | Yes | — | — | `.sql` |
+| Dockerfile | Yes | — | Docker Hub | `Dockerfile` |
+| YAML / CI | Yes | — | — | `.yml`, `.yaml` |
+
+---
+
 ## Configuration
+
+### Project config (`.codetrust.toml`)
+
+```toml
+[codetrust]
+exclude_paths = ["migrations/", "vendor/", "*.generated.py"]
+ignore_rules = ["sql_todo_hack", "sql_no_index_hint"]
+
+[codetrust.severity_overrides]
+magic_number = "INFO"
+hardcoded_ip = "BLOCK"
+
+[codetrust.governance]
+enabled = true
+mode = "enforce"    # enforce | audit | off
+
+[codetrust.governance.terminal]
+block_heredoc = true
+block_eval = true
+block_git_push = true
+
+[codetrust.governance.files]
+protected_paths = ["LICENSE", ".env"]
+
+[codetrust.governance.audit]
+enabled = true
+path = ".codetrust/audit.jsonl"
+```
+
+Or in `pyproject.toml`:
+
+```toml
+[tool.codetrust]
+exclude_paths = ["migrations/"]
+ignore_rules = ["sql_todo_hack"]
+```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `CODETRUST_API_KEY` | — | API authentication key |
 | `CODETRUST_HOST` | `0.0.0.0` | API bind host |
 | `CODETRUST_PORT` | `8000` | API bind port |
-| `CODETRUST_API_KEY` | — | API authentication key |
 | `CODETRUST_REDIS_URL` | `redis://localhost:6379` | Redis cache URL |
 | `CODETRUST_HTTP_TIMEOUT` | `10.0` | HTTP client timeout (seconds) |
 | `CODETRUST_DEBUG` | `false` | Debug mode |
 
-### VS Code Extension Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `codetrust.apiUrl` | Cloud URL | API server URL |
-| `codetrust.apiKey` | — | API key |
-| `codetrust.scanOnSave` | `true` | Auto-scan on save |
-| `codetrust.severityThreshold` | `INFO` | Minimum severity |
-| `codetrust.scanType` | `static` | `static` or `deep` |
-
 ---
 
-## Architecture
+## Architecture Details
 
 ```
 +----------------------------------------------+
 |      VS Code Extension  .  CLI  .  Action    |
-|          (67 rules, offline-capable)          |
+|         (75 rules, offline-capable)           |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+
 |        AI Governance Gateway (MCP)           |
-|   Intercept . Validate . Audit . Block       |
+|   57 rules . Intercept . Audit . Block       |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+
 |           MCP Server  .  HTTP API            |
-|      7 tools  .  5 endpoints  .  auth        |
+|     14 tools  .  21 endpoints  .  auth       |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+
 |              Services Layer                  |
-|  StaticAnalyzer . AST . Registry . Docker    |
-|  Billing . Auth . Rate Limiting . Sandbox    |
+|  StaticAnalyzer . ImportVerifier . AST       |
+|  Registry . Docker . Sandbox . Billing       |
 +-------------------+--------------------------+
                     |
 +-------------------v--------------------------+
 |    PostgreSQL  .  Redis Cache  .  Stripe     |
 +----------------------------------------------+
 ```
+
+**Key components:**
+
+| Component | Location | Responsibility |
+|-----------|----------|---------------|
+| StaticAnalyzer | `src/services/static_analyzer.py` | 75 regex + file-level rules |
+| ImportVerifier | `src/services/import_verifier.py` | Bridge between parsers and live registries |
+| AstAnalyzer | `src/services/ast_analyzer.py` | tree-sitter structural analysis |
+| RegistryService | `src/services/registry.py` | PyPI, npm, crates.io, Go proxy verification |
+| CommandInterceptor | `src/gateway/interceptor.py` | 46 terminal + 11 content interception rules |
+| PolicyEngine | `src/gateway/policies.py` | Configurable governance modes |
+| AuditLogger | `src/gateway/audit.py` | Append-only JSONL audit trail |
+| CacheService | `src/services/cache.py` | Redis with graceful degradation |
+
+---
+
+## Security Model
+
+| Property | Implementation |
+|----------|----------------|
+| **API authentication** | `X-API-Key` header, SHA-256 hashed storage |
+| **Audit trail** | Append-only JSONL, immutable once written |
+| **Agent identification** | Auto-detects Claude, Copilot, Cursor, Windsurf, GitHub Actions |
+| **Secret scanning** | 6 gateway rules + static `hardcoded_secret` rule |
+| **Protected paths** | Configurable list of files requiring confirmation before write/delete |
+| **Rate limiting** | Per-key and IP-based rate limiting with sliding windows |
+| **Governance modes** | `enforce` (block), `audit` (log only), `off` (disabled) |
+| **SIEM export** | CEF, LEEF, Syslog RFC 5424, ECS JSON |
+| **SSO/OIDC** | Azure AD, Okta, Auth0, Google, Keycloak |
+| **GDPR** | Data export (Art. 15) + right to erasure (Art. 17) |
+| **Signed releases** | Sigstore signing of PyPI distributions |
+| **SBOM** | CycloneDX generated in CI, attached to releases |
+
+---
+
+## Distribution
+
+| Channel | Install | Status |
+|---------|---------|:------:|
+| **PyPI** | `pip install codetrust` | Live |
+| **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` | Live |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2` | Live |
+| **Cloud API** | `https://codetrust-api-production.up.railway.app` | Live |
+| **MCP Server** | `python -m src.server` | Live |
+| **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) | Live |
 
 ---
 

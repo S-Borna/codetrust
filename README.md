@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="CodeTrust" width="420">
+  <img src="https://raw.githubusercontent.com/S-Borna/codetrust/main/docs/logo.png" alt="CodeTrust" width="420">
 </p>
 
 <p align="center">

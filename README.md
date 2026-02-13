@@ -61,7 +61,7 @@ $ codetrust scan app.py
      on pypi — possible AI hallucination.
 ```
 
-`flask_magic_utils` does not exist on PyPI. No other tool catches this.
+`flask_magic_utils` does not exist on PyPI. Most traditional tools do not verify imports against live registries at development time.
 
 CodeTrust also includes static hallucination rules that detect fabricated methods, config options, CLI flags, API endpoints, environment variables, and placeholder URLs — without network access.
 
@@ -115,17 +115,24 @@ CodeTrust scans code across 10 layers covering static analysis, root cause analy
 
 ---
 
-## Enforcement Guarantees
+## Enforcement Model
 
-CodeTrust distinguishes between **enforcement** (blocks your pipeline) and **advisory** (informs, doesn't block):
+CodeTrust enforces policies when integrated via MCP, pre-commit hooks, or CI/CD pipelines. Enforcement strength depends on integration point.
 
-| Layer | Guarantee |
-|-------|-----------|
-| **Gateway** | **Infrastructure enforcement** — command never executes. Enforced via MCP-level controls; cannot be bypassed without explicitly disabling enforcement |
-| **Pre-commit hook** | **Hard block** — commit rejected until fixed. Enforced via git hooks infrastructure |
-| **GitHub Action** | **Hard block** — PR fails required status check. Enforced via CI pipeline |
-| **CLI scan** | **Soft block** — exit code 1 on BLOCK findings |
-| **VS Code Extension** | **Advisory** — inline diagnostics, does not block |
+**Strong enforcement:**
+
+| Integration | Guarantee |
+|---|---|
+| **Pre-commit hook** | Prevents unsafe commits — commit rejected until fixed |
+| **CI/CD (GitHub Action)** | Prevents unsafe merges — PR fails required status check |
+| **Gateway via MCP** | Prevents unsafe agent actions — command intercepted before execution |
+
+**Advisory enforcement:**
+
+| Integration | Behavior |
+|---|---|
+| **VS Code Extension** | Inline diagnostics — informs, does not block |
+| **CLI scan** | Exit code 1 on BLOCK findings — enforcement depends on pipeline gating |
 
 ---
 

@@ -12,7 +12,7 @@
 
 ---
 
-132 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
+133 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 57 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, and Go proxy

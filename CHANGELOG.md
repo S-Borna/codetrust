@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `hardcoded_secret` rule now handles Python type annotations (`secret_key: str = "change-me"`)
   and compound names (`secret_key`, `secret_token`, etc.)
-- `api_key_in_config` rule no longer restricted to `.yml/.yaml/.toml/.json` — applies to all files
-- `api_key_in_config` rule now handles Python type annotations
+- `api_key_in_config` rule scoped to config file types (`.yml/.yaml/.toml/.ini/.cfg/.conf`) to avoid false BLOCK findings in Python runtime code
+- CI self-scan (`fail-on: block`) stabilized by removing false-positive BLOCK on `settings.stripe_secret_key` assignment in Python service code
 - JS/TS import verification no longer flags `@/components`, `@/lib`, `~/config`, `#/db`
   as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
 - Rule count updated: 76 scan + 57 gateway = 133 total
@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Prepared manual release candidate `2.2.4` locally (no deploy, no push)
+
+### Released
+
+- Published `codetrust==2.2.4` to PyPI
+- Published `SaidBorna.codetrust v2.2.4` to VS Code Marketplace
 
 ---
 

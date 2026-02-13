@@ -25,7 +25,13 @@
 
 ## What is CodeTrust?
 
-AI code governance and verification platform — 82 rules across 10 enforcement layers (67 scan + 15 gateway). Verifies dependencies, containers, and infrastructure against real registries. Prevents hallucinated packages, unsafe patterns, and CI/CD failures before production. Includes pre-execution AI governance gateway, MCP server, CLI, and VS Code extension.
+**AI code safety platform** — 132 rules across 10 enforcement layers. Three capabilities no linter has:
+
+1. **AI Governance Gateway** — 57 real-time interception rules that block destructive AI agent actions *before execution*
+2. **Live Import Verification** — extracts imports and verifies every package against PyPI/npm. Catches hallucinated packages automatically
+3. **AI Trust Score** — tracks how safe your AI-generated code is over time, with baseline trending and delta tracking
+
+CLI, GitHub Action, MCP server, and VS Code extension. Works offline. Works in CI.
 
 ### Architecture
 
@@ -33,21 +39,22 @@ AI code governance and verification platform — 82 rules across 10 enforcement 
 flowchart TB
     subgraph Clients
         CLI["CLI<br/>codetrust scan"]
-        EXT["VS Code Extension<br/>67 embedded rules"]
+        EXT["VS Code Extension<br/>75 embedded rules"]
         GHA["GitHub Action<br/>CI/CD pipeline"]
         DASH["Dashboard<br/>Next.js"]
     end
 
-    subgraph Gateway["AI Governance Gateway"]
+    subgraph Gateway["AI Governance Gateway — 57 rules"]
         MCP_GW["MCP Server<br/>7 gateway tools"]
-        INT["CommandInterceptor<br/>13 terminal + 2 content rules"]
+        INT["CommandInterceptor<br/>46 terminal + 11 content rules"]
         POL["PolicyEngine<br/>.codetrust.toml"]
         AUD["AuditLogger<br/>JSONL append-only"]
     end
 
     subgraph API["FastAPI Backend"]
         REST["REST API<br/>21 endpoints"]
-        SCAN["StaticAnalyzer<br/>67 scan rules"]
+        SCAN["StaticAnalyzer<br/>75 scan rules"]
+        IMPORT["ImportVerifier<br/>live PyPI/npm check"]
         AST["AstAnalyzer<br/>tree-sitter"]
         REG["RegistryService<br/>PyPI · npm · crates · Go"]
         DOCK["DockerVerify<br/>Docker Hub · GHCR"]
@@ -61,10 +68,12 @@ flowchart TB
         JSONL[("audit.jsonl")]
     end
 
-    CLI --> REST
+    CLI --> SCAN
+    CLI --> IMPORT
     EXT -->|offline| SCAN
     EXT -->|online| REST
-    GHA --> REST
+    GHA --> SCAN
+    GHA --> IMPORT
     DASH --> REST
 
     MCP_GW --> INT
@@ -72,6 +81,7 @@ flowchart TB
     INT --> AUD
     AUD --> JSONL
 
+    IMPORT --> REG
     REST --> SCAN
     REST --> AST
     REST --> REG
@@ -84,38 +94,43 @@ flowchart TB
 
 ---
 
-## What's New in 2.0
+## What's New in 2.1 — The Three Moats
 
 > Released 13 February 2026 — [Full Changelog](CHANGELOG.md)
 
-- **82 total rules** — 67 scan rules (56 regex + 11 file-level) + 15 gateway rules
-- **React / JSX scanning** — `dangerouslySetInnerHTML`, `innerHTML`, missing `key`, direct DOM access, `useEffect` without deps, `setState` in render, index-as-key
-- **Kubernetes scanning** — `privileged: true`, `hostNetwork`, `hostPID`, `runAsUser: 0`, missing resource limits, `:latest` tag
-- **SARIF output** — `codetrust scan --sarif` emits SARIF v2.1.0 for GitHub Code Scanning
-- **Project config** — `.codetrust.toml` or `pyproject.toml [tool.codetrust]` with `exclude_paths`, `ignore_rules`, `severity_overrides`
-- **Scan Workspace** — VS Code command scans up to 500 files with progress UI
-- **GitHub Action** — new `fail-on`, `scan-type`, `language`, `sarif` inputs
-- **Prometheus /metrics** — request counts, latency histograms, active connections, uptime
-- **SIEM integration** — audit export in CEF, LEEF, Syslog RFC 5424, ECS JSON
-- **Webhooks** — Slack, Teams, PagerDuty, Generic — alerts on BLOCK/WARN events
-- **Custom rules** — user-authored rules from `.codetrust/custom_rules.yaml`
-- **SBOM** — CycloneDX generated in CI, attached to GitHub Releases
-- **SSO/OIDC** — Azure AD, Okta, Auth0, Google, Keycloak; domain restriction + role mapping
-- **SOC 2 mapping** — full controls matrix (CC1–CC9, Availability, PI, Confidentiality, Privacy)
-- **GDPR** — `GET /v1/user/export` + `DELETE /v1/user/delete` — data portability & right to erasure
-- **Helm charts** — `deploy/helm/codetrust/` — HPA, pod security, Prometheus scrape, Redis
-- **Load testing** — Locust with 9 scenarios, 2 user classes, documented performance baselines
-- **E2E integration tests** — real DB, full request→service→DB→response lifecycle
-- **Dashboard E2E (Playwright)** — E2E browser tests for Next.js dashboard
-- **OIDC integration test** — mock OIDC provider, full Authorization Code Flow
-- **Multi-tenant isolation** — org-scoped data access, cross-org boundary enforcement
-- **Signed releases** — Sigstore signing of PyPI distributions on every release
-- **Helm CI validation** — `helm lint` + `helm template` in GitHub Actions
-- **1168 tests** — 81%+ code coverage, lint clean
+### Moat 1: AI Governance Gateway (57 rules)
+
+- **46 terminal rules** across 9 categories — file destruction, code execution,
+  privilege escalation, git ops, container escape, network exfiltration,
+  secrets, supply chain, resource abuse
+- **11 content rules** — secrets, private keys, SSL bypass, CORS, eval, pickle, debug mode
+- Blocks destructive AI actions *before* they execute
+
+### Moat 2: Live Import Verification
+
+- `codetrust scan .` now **verifies every import against PyPI/npm** automatically
+- Hallucinated packages → BLOCK finding with exact file + line number
+- `--no-verify-imports` to skip
+- Also runs in GitHub Action — annotations in PR diffs
+
+### Moat 3: AI Trust Score with Trending
+
+- AI Trust sub-score penalizes hallucination findings 15x
+- Baseline stored in `.codetrust/drift_baseline.json`
+- Delta tracking: shows improvement/regression between runs
+- A+ grade curve: A+/A/B+/B/C+/C/D/F
+- Trend analysis: improving/degrading/stable
+
+### Also new
+
+- **132 total rules** — 75 scan + 57 gateway (was 82)
+- **1312 tests** — 0 failures (was 1168)
+- **13 AI-specific hallucination rules** (was 5)
+- SARIF, project config, SSO/OIDC, GDPR, Helm, SBOM, Prometheus, SIEM, webhooks
 
 ---
 
-## 9 Enforcement Layers
+## 10 Enforcement Layers
 
 | # | Layer | Rules | What It Catches |
 |:-:|-------|:-----:|-----------------|
@@ -126,14 +141,17 @@ flowchart TB
 | 05 | **Container Hardening** | 10 | Root user, `:latest` tags, missing `WORKDIR`, `ENV` secrets, no healthcheck |
 | 06 | **IaC & Config** | 7 | Hardcoded IPs, debug mode in config, API keys, unbounded retries |
 | 07 | **React & Kubernetes** | 13 | `dangerouslySetInnerHTML`, `privileged: true`, missing resource limits |
-| 08 | **Package Verification** | — | Verify imports exist in PyPI, npm, crates.io, Go proxy |
+| 08 | **Import Verification** | — | **Live PyPI/npm check** — catches hallucinated packages automatically |
 | 09 | **Docker Verification** | — | Verify base images and tags against Docker Hub / GHCR |
+| 10 | **AI Governance Gateway** | 57 | **Real-time interception** — blocks destructive AI actions before execution |
 
 ---
 
-## AI Governance Gateway
+## AI Governance Gateway (Moat 1)
 
 The Gateway intercepts AI agent actions **before execution** — not just scanning files after the fact. It sits between the AI model and the tools, validating every terminal command, file write, and package install against configurable policies.
+
+**57 rules across 9 categories:**
 
 ```
 AI Model → Gateway (validate) → Allow/Block → Execute
@@ -143,16 +161,18 @@ AI Model → Gateway (validate) → Allow/Block → Execute
 
 ### What It Blocks
 
-| Pattern | Default | Risk |
-|---------|:-------:|------|
-| Heredoc (`<< EOF`) | BLOCK | File corruption via shell escaping |
-| `eval` in terminal | BLOCK | Arbitrary code execution |
-| `curl \| sh` | BLOCK | Remote code execution |
-| `rm -rf /` | BLOCK | Catastrophic data loss |
-| `chmod 777` | BLOCK | World-writable permissions |
-| `git push` | BLOCK | AI must not push to remote |
-| Secret export | BLOCK | Secrets in shell history |
-| `dd of=/dev/` | BLOCK | Device write destruction |
+| Category | Rules | Examples |
+|----------|:-----:|---------|
+| File Destruction | 5 | `rm -rf /`, `shred`, `dd of=/dev/` |
+| Code Execution | 7 | `eval`, `curl\|sh`, heredoc, `python -c` |
+| Privilege Escalation | 5 | `chmod 777`, `sudo su`, `chown root` |
+| Git Operations | 3 | `git push`, `git push --force`, `git reset --hard` |
+| Container Escape | 4 | `--privileged`, `--pid=host`, `--net=host` |
+| Network Exfiltration | 5 | `curl POST`, `nc`, `scp`, DNS tunneling |
+| Secrets Exposure | 6 | `export API_KEY`, `.env` cat, AWS credentials |
+| Supply Chain | 6 | `pip install --index-url`, `npm set registry` |
+| Resource Abuse | 5 | Fork bomb, `stress`, `crypto-miner` |
+| Content Rules | 11 | Hardcoded secrets, private keys, pickle, eval in files |
 
 All rules are **configurable** — users can disable any rule via `.codetrust.toml`.
 
@@ -418,7 +438,7 @@ curl https://codetrust-api-production.up.railway.app/v1/status
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v           # 845 tests
+pytest tests/ -v           # 1312 tests
 ruff check src/ tests/     # zero warnings
 cd extension && npx tsc --noEmit   # TypeScript
 ```

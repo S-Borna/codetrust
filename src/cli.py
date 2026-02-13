@@ -717,7 +717,7 @@ def _findings_to_sarif(findings: list[dict]) -> dict:
             "tool": {
                 "driver": {
                     "name": "CodeTrust",
-                    "version": "2.0.0",
+                    "version": "2.1.0",
                     "informationUri": "https://codetrust.dev",
                     "rules": rules,
                 },

@@ -121,7 +121,8 @@ class StaticAnalyzer:
             ):
                 continue
 
-            if "noqa" in line:
+            # Allow suppress_lint rule to fire on noqa lines before skipping
+            if "noqa" in line and rule["id"] != "suppress_lint":
                 continue
 
             if pattern.search(line):

@@ -196,3 +196,12 @@ class RefreshRequest(BaseModel):
     model_config = ConfigDict(strict=True, str_strip_whitespace=True)
 
     token: str = Field(..., min_length=1)
+
+
+class OIDCCallbackRequest(BaseModel):
+    """Request to exchange an OIDC authorization code for a JWT."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=1, max_length=2000)
+    state: str = Field(default="", max_length=500)

@@ -39,6 +39,9 @@ coverage.xml
 # Docker
 docker-compose.override.yml
 
+# Local-only files (plans, notes, secrets)
+.local/
+
 # Session log (private, never committed)
 SESSION_LOG.md
 

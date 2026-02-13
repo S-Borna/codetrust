@@ -19,156 +19,104 @@ import subprocess
 import sys
 from pathlib import Path
 
-# --- Embedded rules (mirrors src/rules/anti_patterns.py) ---
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore[no-redef]
 
-BLOCK_RULES: list[tuple[str, str, str]] = [
-    ("heredoc", r"<<[-']?\w+", "Heredoc detected. Use template files."),
-    (
-        "hardcoded_secret",
-        r'(?i)(api[_-]?key|secret|password|token|credentials)\s*[:=]\s*["\'][^"\']{8,}["\']',
-        "Possible hardcoded secret.",
-    ),
-    ("eval_exec", r"\b(eval|exec)\s*\(", "eval/exec is a security risk."),
-    (
-        "sql_injection",
-        r'(?:execute|executemany|cursor\.execute)\s*\(\s*(?:f["\']|[^)]*\.format\s*\()',
-        "Possible SQL injection.",
-    ),
-    ("pickle_load", r"pickle\.loads?\s*\(", "pickle.load is unsafe with untrusted data."),
-]
+# --- Rules imported from backend (single source of truth) ---
+# This eliminates rule drift between CLI, backend, and extension.
+# All rule definitions live in src/rules/anti_patterns.py.
+from src.rules.anti_patterns import (
+    ANTI_PATTERNS,
+    DEVOPS_EXTENSIONS,
+    DEVOPS_FILENAMES,
+    SQL_EXTENSIONS,
+)
 
-WARN_RULES: list[tuple[str, str, str]] = [
-    ("todo_hack", r"(?i)#\s*(todo|hack|fixme|xxx|temp)\b", "Temporary marker found."),
-    ("console_log", r"\bconsole\.(log|debug|info)\s*\(", "Use structured logger."),
-    ("print_debug", r"^\s*print\s*\(", "Use logging, not print()."),
-    ("wildcard_import", r"from\s+\S+\s+import\s+\*", "Wildcard import."),
-    ("bare_except", r"except\s*:", "Bare except — catch specific exceptions."),
-    ("any_type", r":\s*[Aa]ny\b", "Avoid Any type."),
-    # Symptom-Fix Detection (Law 3)
-    (
-        "null_coalesce_smell",
-        r'\w+\s*=\s*\w+\s+or\s+(?:""|\'\'|\[\]|\{\}|None|0|False)\s*$',
-        "Defensive 'value or default' hides why value might be None.",
-    ),
-    (
-        "suppress_lint",
-        r"(?:#\s*noqa|#\s*type:\s*ignore|@SuppressWarnings|eslint-disable|pragma:\s*no\s*cover)",
-        "Lint suppression — fix the underlying issue instead.",
-    ),
-    # Anti-Assumption (Law 2)
-    (
-        "debug_mode_enabled",
-        r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1)\b",
-        "Debug mode enabled — ensure this is not shipped to production.",
-    ),
-    (
-        "hardcoded_port",
-        r"(?i)(?:port|PORT)\s*[:=]\s*\d{2,5}\b",
-        "Hardcoded port — use environment variable.",
-    ),
-    # DevOps
-    (
-        "unbounded_retry",
-        r"(?:max_retries|retry|retries)\s*[:=]\s*(?:[5-9]|[1-9]\d+)",
-        "High retry count without timeout guard.",
-    ),
-    (
-        "retry_exponential_unbounded",
-        r"sleep\s*\(.*\*\*",
-        "Exponential backoff without total timeout cap.",
-    ),
-    (
-        "blocking_prestart",
-        r"(?:alembic|migrate|flask\s+db).*&" + r"&.*(?:uvicorn|gunicorn|node|npm\s+start)",
-        "Migration blocks server start — wrap in timeout.",
-    ),
-]
 
-# SQL-specific rules (only fire on .sql files)
-SQL_BLOCK_RULES: list[tuple[str, str, str]] = [
-    ("sql_select_star", r"(?i)\bSELECT\s+\*", "SELECT * — specify columns explicitly."),
-    ("sql_delete_no_where", r"(?i)^\s*DELETE\s+FROM\s+\w+\s*;", "DELETE without WHERE."),
-    (
-        "sql_update_no_where",
-        r"(?i)^\s*UPDATE\s+\w+\s+SET\s+(?!.*\\bWHERE\\b)[^;]*;\s*$",
-        "UPDATE without WHERE.",
-    ),
-    (
-        "sql_drop_no_if_exists",
-        r"(?i)\bDROP\s+(TABLE|DATABASE|INDEX|VIEW)\s+(?!IF\s+EXISTS\b)\w+",
-        "DROP without IF EXISTS.",
-    ),
-    ("sql_grant_all", r"(?i)\bGRANT\s+ALL\b", "GRANT ALL gives excessive privileges."),
-    (
-        "sql_foreign_key_checks_off",
-        r"(?i)SET\s+FOREIGN_KEY_CHECKS\s*=\s*0",
-        "Disabling foreign key checks.",
-    ),
-]
+def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
+    """Build CLI rule lists from the authoritative backend ANTI_PATTERNS.
 
-SQL_WARN_RULES: list[tuple[str, str, str]] = [
-    (
-        "sql_float_for_money",
-        r"(?i)\b(selling_price|cost|price|amount|balance|salary|total|wholesale_cost)\s+FLOAT\b",
-        "FLOAT for money — use DECIMAL(10,2).",
-    ),
-    ("sql_varchar_no_length", r"(?i)\bVARCHAR\s*\(\s*\)", "VARCHAR without length."),
-    ("sql_todo_hack", r"(?i)--\s*(todo|hack|fixme|xxx|temp)\b", "Temporary marker in SQL."),
-]
+    Returns categorized (id, pattern, message) tuples grouped by severity
+    and file_types for the CLI's file-type routing logic.
+    Rules with special_handler are skipped here — they are implemented
+    directly in scan_file() as multi-line / file-level checks.
+    """
+    cats: dict[str, list[tuple[str, str, str]]] = {
+        "generic_block": [], "generic_warn": [], "generic_info": [],
+        "sql_block": [], "sql_warn": [], "sql_info": [],
+        "docker_block": [], "docker_warn": [],
+        "ci_warn": [],
+        "devops_block": [], "devops_warn": [], "devops_info": [],
+        "react_block": [], "react_warn": [],
+        "k8s_block": [], "k8s_warn": [], "k8s_info": [],
+    }
 
-# Container Hardening rules (Dockerfiles)
-DOCKER_BLOCK_RULES: list[tuple[str, str, str]] = [
-    (
-        "docker_env_secret",
-        r"(?i)^(?:ENV|ARG)\s+\S*(?:SECRET|PASSWORD|TOKEN|API_KEY)\S*\s",
-        "Secret exposed via ENV/ARG — use build secrets or runtime env.",
-    ),
-]
+    for rule in ANTI_PATTERNS:
+        if rule.get("special_handler"):
+            continue  # CLI does regex-only; skip rules needing Python handlers
 
-DOCKER_WARN_RULES: list[tuple[str, str, str]] = [
-    (
-        "docker_latest_tag",
-        r"^FROM\s+\S+:latest\b",
-        "FROM :latest — pin specific image version.",
-    ),
-]
+        severity = str(rule["severity"])  # Severity enum -> str
+        file_types = rule.get("file_types")
+        entry = (rule["id"], rule["pattern"], rule["message"])
 
-# CI/CD rules (GitHub Actions, etc.)
-CI_WARN_RULES: list[tuple[str, str, str]] = [
-    (
-        "ci_unpinned_action",
-        r"uses:\s*\S+@(?:main|master|latest)\b",
-        "Unpinned action — pin to SHA or version tag.",
-    ),
-]
+        if file_types:
+            ft_set = set(file_types)
+            # SQL rules
+            if ft_set & SQL_EXTENSIONS:
+                cats[f"sql_{severity.lower()}"].append(entry)
+            # React/JSX rules
+            elif rule["id"].startswith("react_"):
+                cats.get(f"react_{severity.lower()}", cats["react_warn"]).append(entry)
+            # Kubernetes rules
+            elif rule["id"].startswith("k8s_"):
+                cats.get(f"k8s_{severity.lower()}", cats["k8s_warn"]).append(entry)
+            # Dockerfile rules
+            elif ft_set & {".dockerfile"}:
+                cats.get(f"docker_{severity.lower()}", cats["docker_warn"]).append(entry)
+            # CI rules (yml/yaml files prefixed ci_)
+            elif rule["id"].startswith("ci_"):
+                cats.get(f"ci_{severity.lower()}", cats["ci_warn"]).append(entry)
+            # DevOps/infra rules (yml, yaml, toml, json, tf, hcl)
+            else:
+                cats.get(f"devops_{severity.lower()}", cats["devops_warn"]).append(entry)
+        else:
+            # Generic rules (no file_types restriction)
+            cats.get(f"generic_{severity.lower()}", cats["generic_warn"]).append(entry)
 
-# DevOps-specific rules (Dockerfile, YAML, TOML)
-DEVOPS_WARN_RULES: list[tuple[str, str, str]] = [
-    (
-        "healthcheck_timeout_low",
-        r"(?i)healthcheck.*timeout.*[:=]\s*(?:[1-9]|[12]\d)\b",
-        "Healthcheck timeout under 30s may be too aggressive.",
-    ),
-    (
-        "hardcoded_ip",
-        r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b",
-        "Hardcoded IP address — use DNS or config variable.",
-    ),
-    (
-        "api_key_in_config",
-        r'(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*["\'][^"\']{8,}["\']',
-        "API key in config file — use environment variable.",
-    ),
-]
+    return cats
+
+
+_CLI_RULES = _build_cli_rules()
+
+# Named lists used by scan_file() for file-type routing
+BLOCK_RULES = _CLI_RULES["generic_block"]
+WARN_RULES = _CLI_RULES["generic_warn"]
+INFO_RULES = _CLI_RULES["generic_info"]
+SQL_BLOCK_RULES = _CLI_RULES["sql_block"]
+SQL_WARN_RULES = _CLI_RULES["sql_warn"]
+SQL_INFO_RULES = _CLI_RULES["sql_info"]
+DOCKER_BLOCK_RULES = _CLI_RULES["docker_block"]
+DOCKER_WARN_RULES = _CLI_RULES["docker_warn"]
+CI_WARN_RULES = _CLI_RULES["ci_warn"]
+DEVOPS_BLOCK_RULES = _CLI_RULES["devops_block"]
+DEVOPS_WARN_RULES = _CLI_RULES["devops_warn"]
+DEVOPS_INFO_RULES = _CLI_RULES["devops_info"]
+REACT_BLOCK_RULES = _CLI_RULES["react_block"]
+REACT_WARN_RULES = _CLI_RULES["react_warn"]
+K8S_BLOCK_RULES = _CLI_RULES["k8s_block"]
+K8S_WARN_RULES = _CLI_RULES["k8s_warn"]
+K8S_INFO_RULES = _CLI_RULES.get("k8s_info", [])
 
 SOURCE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
                ".sql", ".yml", ".yaml", ".toml"}
-DEVOPS_EXTS = {".yml", ".yaml", ".toml"}
-SQL_EXTS = {".sql"}
+DEVOPS_EXTS = DEVOPS_EXTENSIONS
+SQL_EXTS = SQL_EXTENSIONS
 DOCKER_EXTS = set()  # Dockerfiles matched by name, not extension
 DOCKER_NAMES = {"dockerfile"}
 CI_DIRS = {".github"}  # CI files live under .github/workflows/
-DEVOPS_NAMES = {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile"}
+DEVOPS_NAMES = DEVOPS_FILENAMES
 
 # --- Colors ---
 
@@ -187,13 +135,57 @@ def color(text: str, c: str) -> str:
     return text
 
 
+# --- Project config loader ---
+
+
+def _load_project_config() -> dict:
+    """Load CodeTrust config from pyproject.toml [tool.codetrust] or .codetrust.toml.
+
+    Search order:
+      1. .codetrust.toml in current directory
+      2. pyproject.toml [tool.codetrust] section
+    Returns empty dict if no config found.
+    """
+    cwd = Path.cwd()
+
+    # 1. .codetrust.toml
+    ct_toml = cwd / ".codetrust.toml"
+    if ct_toml.is_file():
+        with open(ct_toml, "rb") as f:
+            return tomllib.load(f)
+
+    # 2. pyproject.toml [tool.codetrust]
+    pyproject = cwd / "pyproject.toml"
+    if pyproject.is_file():
+        with open(pyproject, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("tool", {}).get("codetrust", {})
+
+    return {}
+
+
+# Loaded once at import time — available globally
+PROJECT_CONFIG = _load_project_config()
+
+
 # --- Scan engine ---
 
 
 def scan_file(filepath: str) -> list[dict[str, str | int]]:
     """Scan a single file for anti-patterns, routing rules by file type."""
     findings: list[dict[str, str | int]] = []
+
+    # Config-based path exclusions
+    exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
+    for pat in exclude_paths:
+        if pat in filepath:
+            return findings
+
     try:
+        with open(filepath, "rb") as bf:
+            chunk = bf.read(8192)
+            if b"\x00" in chunk:
+                return findings  # Binary file — skip
         with open(filepath, encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
     except OSError:
@@ -202,33 +194,62 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
     basename = os.path.basename(filepath).lower()
     ext = Path(filepath).suffix.lower()
 
-    if basename.startswith("test_") or basename.startswith("conftest"):
+    if basename.startswith("test_") or basename.startswith("conftest") or ".test." in basename or ".spec." in basename:
         return findings  # Skip test files
+
+    # CLI entry points use print() for user output — not debug prints
+    is_cli_entrypoint = basename in {"cli.py", "scan_runner.py", "scan.py"}
 
     is_dockerfile = basename.startswith("dockerfile")
     is_ci = ".github" in filepath and ext in {".yml", ".yaml"}
     is_devops = ext in DEVOPS_EXTS or basename in DEVOPS_NAMES
+    is_react = ext in {".jsx", ".tsx"}
+    is_k8s = ext in {".yml", ".yaml"} and not is_ci
 
     # Choose rule sets based on file type
     if ext in SQL_EXTS:
         block_rules = SQL_BLOCK_RULES
         warn_rules = SQL_WARN_RULES
+        info_rules = SQL_INFO_RULES
     elif is_dockerfile:
-        block_rules = BLOCK_RULES + DOCKER_BLOCK_RULES
+        block_rules = BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES
         warn_rules = WARN_RULES + DOCKER_WARN_RULES + DEVOPS_WARN_RULES
+        info_rules = INFO_RULES
+    elif is_react:
+        block_rules = BLOCK_RULES + REACT_BLOCK_RULES
+        warn_rules = WARN_RULES + REACT_WARN_RULES
+        info_rules = INFO_RULES
     elif is_ci:
-        block_rules = BLOCK_RULES
-        warn_rules = WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES
+        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES + K8S_BLOCK_RULES
+        warn_rules = WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES
+        info_rules = INFO_RULES + DEVOPS_INFO_RULES + K8S_INFO_RULES
+    elif is_k8s:
+        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES + K8S_BLOCK_RULES
+        warn_rules = WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES
+        info_rules = INFO_RULES + DEVOPS_INFO_RULES + K8S_INFO_RULES
     elif is_devops:
-        block_rules = BLOCK_RULES
+        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES
         warn_rules = WARN_RULES + DEVOPS_WARN_RULES
+        info_rules = INFO_RULES + DEVOPS_INFO_RULES
     else:
         block_rules = BLOCK_RULES
         warn_rules = WARN_RULES
+        info_rules = INFO_RULES
 
     for line_num, line in enumerate(lines, 1):
-        if "noqa" in line:
-            continue
+        # Check suppress_lint BEFORE noqa skip (noqa itself is a suppress_lint finding)
+        if "noqa" in line or "type: ignore" in line or "eslint-disable" in line:
+            for rule_id, pattern, message in warn_rules:
+                if rule_id == "suppress_lint" and re.search(pattern, line):
+                    findings.append({
+                        "rule_id": rule_id,
+                        "severity": "WARN",
+                        "message": message,
+                        "file": filepath,
+                        "line": line_num,
+                    })
+            if "noqa" in line:
+                continue
         for rule_id, pattern, message in block_rules:
             if re.search(pattern, line):
                 findings.append({
@@ -239,10 +260,21 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
                     "line": line_num,
                 })
         for rule_id, pattern, message in warn_rules:
+            if is_cli_entrypoint and rule_id == "print_debug":
+                continue  # print() is correct for CLI user output
             if re.search(pattern, line):
                 findings.append({
                     "rule_id": rule_id,
                     "severity": "WARN",
+                    "message": message,
+                    "file": filepath,
+                    "line": line_num,
+                })
+        for rule_id, pattern, message in info_rules:
+            if re.search(pattern, line):
+                findings.append({
+                    "rule_id": rule_id,
+                    "severity": "INFO",
                     "message": message,
                     "file": filepath,
                     "line": line_num,
@@ -267,8 +299,211 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
                 "file": filepath,
                 "line": 1,
             })
+        if re.search(r"^\s*CMD\s", content, re.MULTILINE) and not re.search(r"^\s*HEALTHCHECK\s", content, re.MULTILINE):
+            findings.append({
+                "rule_id": "dockerfile_no_healthcheck",
+                "severity": "INFO",
+                "message": "Dockerfile has CMD but no HEALTHCHECK. Add HEALTHCHECK for container orchestration.",
+                "file": filepath,
+                "line": 1,
+            })
+
+    # ── Special handler: except_swallow ──
+    # except followed by pass/... on next non-blank line = silently swallowed
+    _check_except_swallow(lines, filepath, findings)
+
+    # ── Special handler: sleep_no_context ──
+    # sleep() without a comment on the preceding line
+    _check_sleep_no_context(lines, filepath, findings)
+
+    # ── Special handler: function_length ──
+    # Python functions > 40 lines
+    if ext == ".py":
+        _check_function_length(lines, filepath, findings)
+
+    # ── Special handler: connection_no_timeout ──
+    _check_connection_timeout(lines, filepath, findings)
+
+    # ── Special handler: compose_no_healthcheck ──
+    if is_devops and ext in {".yml", ".yaml"} and "compose" in basename:
+        _check_compose_healthcheck(lines, filepath, findings)
+
+    # ── Special handler: ci_no_timeout ──
+    if is_ci:
+        _check_ci_no_timeout(lines, filepath, findings)
+
+    # ── Apply project config: ignore_rules / severity_overrides ──
+    ignore_rules: set[str] = set(PROJECT_CONFIG.get("ignore_rules", []))
+    severity_overrides: dict[str, str] = PROJECT_CONFIG.get("severity_overrides", {})
+    if ignore_rules or severity_overrides:
+        filtered: list[dict[str, str | int]] = []
+        for f in findings:
+            rid = str(f.get("rule_id", ""))
+            if rid in ignore_rules:
+                continue
+            if rid in severity_overrides:
+                f = {**f, "severity": severity_overrides[rid].upper()}
+            filtered.append(f)
+        findings = filtered
 
     return findings
+
+
+# ── Special handler implementations ──────────────────────────────
+
+
+def _check_except_swallow(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag except blocks that swallow errors with pass/..."""
+    for i, line in enumerate(lines):
+        if not re.match(r"^\s*except[\s:]", line):
+            continue
+        # Look at the next non-blank line(s) for pass or ...
+        for j in range(i + 1, min(i + 3, len(lines))):
+            nxt = lines[j].strip()
+            if not nxt:
+                continue
+            if nxt in ("pass", "..."):
+                findings.append({
+                    "rule_id": "except_swallow",
+                    "severity": "BLOCK",
+                    "message": "Exception caught and silently swallowed (pass/...). Handle the error or re-raise.",
+                    "file": filepath,
+                    "line": i + 1,
+                })
+            break  # only check the first non-blank line after except
+
+
+def _check_sleep_no_context(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag sleep() calls without a preceding comment explaining why."""
+    sleep_re = re.compile(r"(?:time\.)?sleep\s*\(")
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if sleep_re.search(line):
+            # Check if the preceding line is a comment
+            prev = lines[i - 1].strip() if i > 0 else ""
+            if not prev.startswith("#"):
+                findings.append({
+                    "rule_id": "sleep_no_context",
+                    "severity": "INFO",
+                    "message": "sleep() without explanation. Why is a delay needed? Document or fix root cause.",
+                    "file": filepath,
+                    "line": i + 1,
+                })
+
+
+def _check_function_length(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag Python functions longer than 40 lines."""
+    func_re = re.compile(r"^(\s*)(async\s+)?def\s+(\w+)")
+    func_starts: list[tuple[int, int, str]] = []  # (line_num, indent, name)
+
+    for i, line in enumerate(lines):
+        m = func_re.match(line)
+        if m:
+            indent = len(m.group(1))
+            name = m.group(3)
+            func_starts.append((i, indent, name))
+
+    for idx, (start, indent, name) in enumerate(func_starts):
+        # Function body ends at next def at same/lower indent or EOF
+        end = len(lines)
+        for nxt_start, nxt_indent, _ in func_starts[idx + 1:]:
+            if nxt_indent <= indent:
+                end = nxt_start
+                break
+        # Count non-blank, non-comment lines in body
+        body_lines = 0
+        for j in range(start + 1, end):
+            stripped = lines[j].strip()
+            if stripped and not stripped.startswith("#"):
+                body_lines += 1
+        if body_lines > 40:
+            findings.append({
+                "rule_id": "long_function",
+                "severity": "INFO",
+                "message": f"Function '{name}' is {body_lines} lines (max 40).",
+                "file": filepath,
+                "line": start + 1,
+            })
+
+
+def _check_connection_timeout(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag network/DB connections without explicit timeout."""
+    conn_re = re.compile(
+        r"(?:from_url|AsyncClient|Client|create_async_engine|create_engine)\s*\(",
+    )
+    for i, line in enumerate(lines):
+        if conn_re.search(line):
+            # Check current + next 2 lines for 'timeout'
+            context = "".join(lines[i:i + 3])
+            if "timeout" not in context.lower():
+                findings.append({
+                    "rule_id": "connection_no_timeout",
+                    "severity": "WARN",
+                    "message": "Network/DB connection without explicit timeout. Add connect_timeout or socket_timeout.",
+                    "file": filepath,
+                    "line": i + 1,
+                })
+
+
+def _check_compose_healthcheck(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag Docker Compose services without healthcheck."""
+    content = "".join(lines)
+    # Find services with 'image:' but no 'healthcheck:' at same indent
+    service_re = re.compile(r"^\s{2}(\w[\w-]*):\s*$", re.MULTILINE)
+    for m in service_re.finditer(content):
+        svc_name = m.group(1)
+        svc_start = m.end()
+        # Find next service or EOF
+        nxt = service_re.search(content, svc_start)
+        svc_block = content[svc_start:nxt.start() if nxt else len(content)]
+        if "image:" in svc_block and "healthcheck:" not in svc_block:
+            line_num = content[:m.start()].count("\n") + 1
+            findings.append({
+                "rule_id": "compose_no_healthcheck",
+                "severity": "INFO",
+                "message": f"Service '{svc_name}' has no healthcheck. Add healthcheck for reliable orchestration.",
+                "file": filepath,
+                "line": line_num,
+            })
+
+
+def _check_ci_no_timeout(
+    lines: list[str], filepath: str, findings: list[dict],
+) -> None:
+    """Flag CI jobs (runs-on:) without timeout-minutes."""
+    content = "".join(lines)
+    # Find jobs with runs-on but no timeout-minutes
+    runs_on_re = re.compile(r"^\s+runs-on:\s", re.MULTILINE)
+    for m in runs_on_re.finditer(content):
+        # Look backward for job name and forward for timeout-minutes
+        before = content[:m.start()]
+        # Find the job block — look for next runs-on or EOF
+        nxt = runs_on_re.search(content, m.end())
+        job_block = content[m.start():nxt.start() if nxt else len(content)]
+        if "timeout-minutes:" not in job_block:
+            # Also check a few lines above (job-level timeout)
+            prev_block = before[max(0, len(before) - 200):]
+            if "timeout-minutes:" not in prev_block:
+                line_num = before.count("\n") + 1
+                findings.append({
+                    "rule_id": "ci_no_timeout",
+                    "severity": "INFO",
+                    "message": "CI job has no timeout-minutes. Add timeout to prevent hung pipelines.",
+                    "file": filepath,
+                    "line": line_num,
+                })
 
 
 def scan_path(target: str) -> list[dict[str, str | int]]:
@@ -280,7 +515,12 @@ def scan_path(target: str) -> list[dict[str, str | int]]:
         return scan_file(str(target_path))
 
     if target_path.is_dir():
-        skip_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+        skip_dirs = {
+            ".git", ".venv", "venv", "node_modules", "__pycache__",
+            "dist", "build", ".next", ".open-next", ".turbo",
+            ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+            "coverage", "out", ".cache", "test", "__tests__",
+        }
         for root, dirs, files in os.walk(target_path):
             dirs[:] = [d for d in dirs if d not in skip_dirs]
             for filename in files:
@@ -365,7 +605,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
     # 5. .gitignore additions
     gitignore = project_dir / ".gitignore"
-    patterns_to_add = ["codetrust-report.md"]
+    patterns_to_add = ["codetrust-report.md", ".codetrust/"]
     if gitignore.exists():
         existing = gitignore.read_text()
         new_patterns = [p for p in patterns_to_add if p not in existing]
@@ -375,6 +615,23 @@ def cmd_init(args: argparse.Namespace) -> int:
                 for p in new_patterns:
                     f.write(f"{p}\n")
 
+    # 6. Governance config (.codetrust.toml)
+    governance_toml = project_dir / ".codetrust.toml"
+    if governance_toml.exists() and not args.force:
+        print(f"  {color('⚠️', YELLOW)}  .codetrust.toml exists (use --force to overwrite)")
+    else:
+        if governance_toml.exists():
+            shutil.copy2(governance_toml, governance_toml.with_suffix(".toml.bak"))
+        governance_toml.write_text(_load_template("codetrust.toml"))
+        installed.append(".codetrust.toml")
+        print(f"  {color('✅', GREEN)} Governance config (.codetrust.toml) installed")
+
+    # 7. Audit directory
+    audit_dir = project_dir / ".codetrust"
+    audit_dir.mkdir(exist_ok=True)
+    installed.append(".codetrust/ audit directory")
+    print(f"  {color('✅', GREEN)} Audit directory created")
+
     # Summary
     print(f"\n{'━' * 48}")
     print(f"\n  {color('✅ CodeTrust installed!', GREEN)}\n")
@@ -383,11 +640,18 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"    Layer 2: VS Code extension         {color('(passive)', BLUE)}")
     print(f"    Layer 3: Pre-commit hook            {color('(blocking)', GREEN)}")
     print(f"    Layer 4: GitHub Action              {color('(absolute)', RED)}")
+    print(f"    Layer 5: Gateway governance         {color('(interceptor)', RED)}")
+    print()
+    print("  Governance:")
+    print(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
+    print("    Audit log: .codetrust/audit.jsonl")
+    print("    Mode:      enforce (block violations)")
     print()
     print("  Next steps:")
     print("    1. Push to GitHub")
     print("    2. Settings → Branches → Require 'CodeTrust Quality Gate' to pass")
-    print("    3. Install VS Code extension: code --install-extension codetrust.codetrust")
+    print("    3. Install VS Code extension: code --install-extension SaidBorna.codetrust")
+    print("    4. Add gateway to Claude/Cursor config (see: codetrust governance --setup)")
     print()
 
     return 0
@@ -414,6 +678,55 @@ def _calculate_drift_score(findings: list[dict]) -> dict:
     return {"score": score, "grade": grade}
 
 
+_SARIF_SEVERITY: dict[str, str] = {"BLOCK": "error", "WARN": "warning", "INFO": "note"}
+
+
+def _findings_to_sarif(findings: list[dict]) -> dict:
+    """Convert CLI findings to a SARIF v2.1.0 document."""
+    seen_rules: set[str] = set()
+    rules: list[dict] = []
+    results: list[dict] = []
+
+    for f in findings:
+        rid = str(f.get("rule_id", "unknown"))
+        sev = str(f.get("severity", "INFO"))
+        level = _SARIF_SEVERITY.get(sev, "note")
+        if rid not in seen_rules:
+            seen_rules.add(rid)
+            rules.append({
+                "id": rid,
+                "shortDescription": {"text": str(f.get("message", ""))},
+                "defaultConfiguration": {"level": level},
+            })
+        results.append({
+            "ruleId": rid,
+            "level": level,
+            "message": {"text": str(f.get("message", ""))},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": str(f.get("file", "unknown"))},
+                    "region": {"startLine": max(int(f.get("line", 1)), 1), "startColumn": 1},
+                },
+            }],
+        })
+
+    return {
+        "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "CodeTrust",
+                    "version": "2.0.0",
+                    "informationUri": "https://codetrust.dev",
+                    "rules": rules,
+                },
+            },
+            "results": results,
+        }],
+    }
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     """Scan files for anti-patterns."""
     targets = args.targets
@@ -429,7 +742,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
         if Path(target).is_file():
             files_scanned += 1
         elif Path(target).is_dir():
-            skip_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__"}
+            skip_dirs = {
+                ".git", ".venv", "venv", "node_modules", "__pycache__",
+                "dist", "build", ".next", ".open-next", ".turbo",
+                ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+                "coverage", "out", ".cache",
+            }
             for _root, dirs, files in os.walk(target):
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
                 files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
@@ -482,6 +800,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
             "findings": all_findings,
         }
         print(json.dumps(result, indent=2, default=str))
+
+    # SARIF output
+    if args.sarif or args.sarif_file:
+        sarif_doc = _findings_to_sarif(all_findings)
+        sarif_json = json.dumps(sarif_doc, indent=2, default=str)
+        if args.sarif_file:
+            Path(args.sarif_file).write_text(sarif_json, encoding="utf-8")
+            print(f"  SARIF written to {args.sarif_file}")
+        else:
+            print(sarif_json)
 
     return 1 if blocks else 0
 
@@ -612,6 +940,175 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     return 0 if not issues else 1
 
 
+# --- Governance command ---
+
+
+def cmd_governance(args: argparse.Namespace) -> int:
+    """Manage AI governance policies."""
+    from src.gateway.policies import PolicyEngine
+
+    project_dir = Path.cwd()
+    engine = PolicyEngine.from_workspace(str(project_dir))
+
+    if args.setup:
+        print(f"\n{color('🛡️  CodeTrust Gateway — MCP Setup', BOLD)}\n")
+        print("  Add to your AI client's MCP configuration:\n")
+        print(f"  {color('Claude Desktop', BOLD)} (~/.claude/claude_desktop_config.json):\n")
+        print('  {')
+        print('    "mcpServers": {')
+        print('      "codetrust-gateway": {')
+        print('        "command": "python",')
+        print('        "args": ["-m", "src.gateway.server"],')
+        print(f'        "cwd": "{project_dir}"')
+        print('      }')
+        print('    }')
+        print('  }\n')
+        print(f"  {color('Cursor', BOLD)} (.cursorrules already installed):\n")
+        print("  The gateway works alongside .cursorrules enforcement.")
+        print("  For full interception, add the MCP server config above.\n")
+        print(f"  {color('Configuration', BOLD)}:\n")
+        print("    Config file:  .codetrust.toml")
+        print("    Audit log:    .codetrust/audit.jsonl")
+        print("    Env override: CODETRUST_GOVERNANCE_MODE=enforce|audit|off\n")
+        return 0
+
+    if args.mode:
+        toml_path = project_dir / ".codetrust.toml"
+        if toml_path.is_file():
+            content = toml_path.read_text()
+            import re as _re
+            content = _re.sub(
+                r'mode\s*=\s*"[^"]*"',
+                f'mode = "{args.mode}"',
+                content,
+            )
+            toml_path.write_text(content)
+            print(f"  {color('✅', GREEN)} Governance mode set to: {args.mode}")
+        else:
+            print(f"  {color('❌', RED)} No .codetrust.toml found. Run: codetrust init")
+            return 1
+        return 0
+
+    # Default: show status
+    config = engine.config
+    policies = engine.get_policies()
+    enabled = sum(1 for p in policies if p.enabled)
+    disabled = sum(1 for p in policies if not p.enabled)
+
+    print(f"\n{color('🛡️  CodeTrust Governance Status', BOLD)}\n")
+    print(f"  Mode:     {color(config.mode.value.upper(), GREEN if config.mode.value == 'enforce' else YELLOW)}")
+    print(f"  Enabled:  {config.enabled}")
+    print(f"  Policies: {enabled} active, {disabled} disabled")
+    print(f"  Audit:    {config.audit_path}")
+    print()
+
+    print(f"  {color('Terminal Policies:', BOLD)}")
+    terminal_flags = {
+        "Heredoc":       config.block_heredoc,
+        "Eval":          config.block_eval,
+        "Sudo su":       config.block_sudo,
+        "rm -rf /":      config.block_rm_rf,
+        "curl|sh":       config.block_curl_pipe_sh,
+        "git push":      config.block_git_push,
+        "chmod 777":     config.block_chmod_777,
+    }
+    for name, enabled_flag in terminal_flags.items():
+        icon = color("✅", GREEN) if enabled_flag else color("⚪", BLUE)
+        print(f"    {icon} {name}")
+
+    print()
+    if config.protected_paths:
+        print(f"  {color('Protected Files:', BOLD)}")
+        for p in config.protected_paths:
+            print(f"    🔒 {p}")
+        print()
+
+    return 0
+
+
+# --- Audit command ---
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Query the governance audit log."""
+    import time as _time
+
+    from src.gateway.audit import AuditLogger
+    from src.gateway.policies import PolicyEngine
+
+    project_dir = Path.cwd()
+    engine = PolicyEngine.from_workspace(str(project_dir))
+    audit = AuditLogger(
+        project_dir / engine.config.audit_path,
+        enabled=engine.config.audit_enabled,
+    )
+
+    if getattr(args, "purge", False):
+        retention = engine.config.retention_days
+        purged = audit.purge(older_than_days=retention)
+        remaining = audit.entry_count()
+        print(f"Purged {purged} entries older than {retention} days. {remaining} entries remaining.")
+        return 0
+
+    if args.stats:
+        stats = audit.get_stats()
+        print(f"\n{color('📊 Audit Statistics', BOLD)}\n")
+        if stats["total"] == 0:
+            print("  No audit entries found.\n")
+            return 0
+        print(f"  Total actions: {stats['total']}")
+        for verdict, count in stats.get("by_verdict", {}).items():
+            v_color = RED if verdict == "BLOCK" else (YELLOW if verdict == "WARN" else GREEN)
+            print(f"  {color(verdict, v_color)}: {count}")
+        if stats.get("top_rules"):
+            print(f"\n  {color('Top Triggered Rules:', BOLD)}")
+            for rule in stats["top_rules"][:5]:
+                print(f"    {rule['rule_id']}: {rule['count']}x")
+        print()
+        return 0
+
+    # Show recent entries
+    since = _time.time() - (args.hours * 3600)
+    entries = audit.get_entries(
+        since=since,
+        verdict=args.verdict,
+        limit=50,
+    )
+
+    # SIEM export path
+    fmt = getattr(args, "format", "table")
+    if fmt != "table":
+        from src.gateway.siem import SiemFormat, export_entries, export_to_file
+
+        siem_fmt = SiemFormat(fmt)
+        if args.export:
+            count = export_to_file(entries, siem_fmt, args.export)
+            print(f"Exported {count} entries to {args.export} ({fmt})")
+            return 0
+        for line in export_entries(entries, siem_fmt):
+            print(line)
+        return 0
+
+    print(f"\n{color(f'📋 Audit Log — Last {args.hours} Hours', BOLD)}\n")
+
+    if not entries:
+        print("  No entries found.\n")
+        return 0
+
+    for entry in entries:
+        ts = _time.strftime("%H:%M:%S", _time.localtime(entry.timestamp))
+        v_color = RED if entry.verdict == "BLOCK" else (YELLOW if entry.verdict == "WARN" else GREEN)
+        verdict_str = color(entry.verdict.ljust(5), v_color)
+        action = entry.original_action[:70]
+        if len(entry.original_action) > 70:
+            action += "..."
+        rule = entry.rule_id or "-"
+        print(f"  {ts}  {verdict_str}  {rule.ljust(28)}  {action}")
+
+    print(f"\n  Showing {len(entries)} entries.\n")
+    return 0
+
+
 # --- Main ---
 
 
@@ -631,12 +1128,43 @@ def main() -> int:
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
+    scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")
 
     # status
     subparsers.add_parser("status", help="Check installed enforcement layers")
 
     # doctor
     subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
+
+    # governance
+    gov_parser = subparsers.add_parser("governance", help="Manage AI governance policies")
+    gov_parser.add_argument("--setup", action="store_true", help="Show MCP gateway setup instructions")
+    gov_parser.add_argument("--status", action="store_true", help="Show current governance status")
+    gov_parser.add_argument("--mode", choices=["enforce", "audit", "off"], help="Set governance mode")
+
+    # audit
+    audit_parser = subparsers.add_parser("audit", help="Query governance audit log")
+    audit_parser.add_argument("--hours", type=int, default=24, help="Hours to look back (default: 24)")
+    audit_parser.add_argument("--verdict", choices=["ALLOW", "WARN", "BLOCK"], help="Filter by verdict")
+    audit_parser.add_argument("--stats", action="store_true", help="Show aggregate statistics")
+    audit_parser.add_argument(
+        "--format",
+        choices=["table", "cef", "leef", "syslog", "json"],
+        default="table",
+        help="Output format: table (default), cef, leef, syslog, json",
+    )
+    audit_parser.add_argument(
+        "--export",
+        type=str,
+        default="",
+        help="Export audit entries to file in the chosen --format",
+    )
+    audit_parser.add_argument(
+        "--purge",
+        action="store_true",
+        help="Purge entries older than retention_days (default: 90 days)",
+    )
 
     args = parser.parse_args()
 
@@ -648,6 +1176,10 @@ def main() -> int:
         return cmd_status(args)
     if args.command == "doctor":
         return cmd_doctor(args)
+    if args.command == "governance":
+        return cmd_governance(args)
+    if args.command == "audit":
+        return cmd_audit(args)
 
     parser.print_help()
     return 0

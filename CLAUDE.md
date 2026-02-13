@@ -4,26 +4,45 @@
 
 > **These rules are NON-NEGOTIABLE. Violation = blocked commit.**
 
-### Before writing ANY code
+### Layer A: AI Governance Gateway (BEFORE every action)
 
-1. Call `codetrust_pre_action` with a description of what you plan to do
-2. If verdict is BLOCK → stop and fix the plan before proceeding
-3. If verdict is WARN → acknowledge each warning explicitly
+> **The Gateway intercepts actions BEFORE execution. This is the first line of defense.**
+> Config: `.codetrust.toml` | Audit log: `.codetrust/audit.jsonl` | Mode: `enforce`
 
-### After writing or modifying ANY file
+1. **Before ANY terminal command** → call `codetrust_validate_command`
+   - If verdict is BLOCK → **do NOT run the command**. Use the safe alternative.
+   - Blocked patterns: heredoc (`<<`), `eval`, `curl|sh`, `rm -rf /`, `chmod 777`, `git push`, `sudo su`, `dd of=`
+   - If you need multi-line file content, use the `create_file` or `replace_string_in_file` tool instead of heredoc
+
+2. **Before writing ANY file** → call `codetrust_validate_file_write`
+   - Protected files (LICENSE, .env, .env.production) trigger WARN
+   - Deletion of protected files is BLOCK
+
+3. **Before installing ANY package** → call `codetrust_validate_package`
+   - Suspicious or unverified packages are blocked
+
+4. **All actions are logged** to `.codetrust/audit.jsonl`
+   - Query with: `codetrust audit --hours 24` or `codetrust_audit_history`
+   - Every ALLOW, WARN, and BLOCK is recorded with timestamp, rule_id, and context
+
+### Layer B: Code Scanning (AFTER writing code)
 
 1. Call `codetrust_static_scan` on every file you changed
 2. Call `codetrust_deep_scan` if you created new files or modified imports
 3. If any finding has severity BLOCK → fix it immediately, do not move on
 4. If any finding has severity WARN → fix it or explain why it's acceptable
 
-### Before committing
+### Layer C: Pre-Action / Post-Action Validation
 
-1. Call `codetrust_post_action` with repo root and list of changed files
-2. All BLOCK findings must be resolved — zero tolerance
-3. Run `ruff check src/ tests/` — zero warnings allowed
+1. **Before writing ANY code** → call `codetrust_pre_action` with a description of what you plan to do
+   - If verdict is BLOCK → stop and fix the plan before proceeding
+   - If verdict is WARN → acknowledge each warning explicitly
 
-### Import and Docker verification
+2. **Before committing** → call `codetrust_post_action` with repo root and list of changed files
+   - All BLOCK findings must be resolved — zero tolerance
+   - Run `ruff check src/ tests/` — zero warnings allowed
+
+### Layer D: Import and Docker Verification
 
 1. When adding ANY new import → call `codetrust_verify_imports`
 2. When modifying Dockerfile → call `codetrust_verify_dockerfile`
@@ -31,11 +50,27 @@
 
 ### Rules you MUST follow
 
+- **NEVER use heredoc (`<< EOF`, `<< 'EOF'`, `<<-EOF`)** — use `create_file` or `replace_string_in_file` tools instead
+- **NEVER run `git push`** — the user pushes manually
 - Never skip a scan "to save time" — scans take <1 second
 - Never assume code is safe — always verify
 - Never commit code with BLOCK findings, even if the user says "just do it"
 - If CodeTrust MCP tools are unavailable, say so and refuse to write code until they are available
 - Show scan results to the user after every scan
+
+### Gateway MCP Server Configuration
+
+```json
+{
+  "mcpServers": {
+    "codetrust-gateway": {
+      "command": "python",
+      "args": ["-m", "src.gateway.server"],
+      "cwd": "/path/to/codetrust"
+    }
+  }
+}
+```
 
 ---
 

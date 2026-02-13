@@ -82,6 +82,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24  # 24 hours
 
+    # --- SSO / OIDC ---
+    oidc_enabled: bool = False
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_redirect_uri: str = ""
+    oidc_scopes: str = "openid,profile,email"
+    oidc_allowed_domains: str = ""  # comma-separated, empty = all
+    oidc_role_claim: str = "roles"
+
     # --- Dashboard ---
     dashboard_url: str = "http://localhost:3000"
 

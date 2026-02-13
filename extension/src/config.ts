@@ -4,14 +4,14 @@
  */
 
 import * as vscode from "vscode";
-import type { ExtensionConfig, Language, ScanType, SeverityThreshold } from "./types";
+import type { ExtensionConfig, GovernanceMode, Language, ScanType, SeverityThreshold } from "./types";
 
 /** Read the current extension configuration. */
 export function getConfig(): ExtensionConfig {
     const config = vscode.workspace.getConfiguration("codetrust");
 
     return {
-        apiUrl: config.get<string>("apiUrl", "http://localhost:8000"),
+        apiUrl: config.get<string>("apiUrl", "https://codetrust-api-production.up.railway.app"),
         apiKey: config.get<string>("apiKey", ""),
         scanOnSave: config.get<boolean>("scanOnSave", true),
         severityThreshold: config.get<SeverityThreshold>("severityThreshold", "INFO"),
@@ -21,5 +21,15 @@ export function getConfig(): ExtensionConfig {
         scanType: config.get<ScanType>("scanType", "static"),
         verifyImportsOnSave: config.get<boolean>("verifyImportsOnSave", false),
         timeout: config.get<number>("timeout", 15000),
+        governance: {
+            enabled: config.get<boolean>("governance.enabled", true),
+            mode: config.get<GovernanceMode>("governance.mode", "enforce"),
+            blockHeredoc: config.get<boolean>("governance.blockHeredoc", true),
+            blockEval: config.get<boolean>("governance.blockEval", true),
+            blockGitPush: config.get<boolean>("governance.blockGitPush", true),
+            protectedPaths: config.get<string[]>("governance.protectedPaths", [
+                "LICENSE", ".env", ".env.production",
+            ]),
+        },
     };
 }

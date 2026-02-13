@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codetrust.fullname" . }}
+  labels:
+    {{- include "codetrust.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "codetrust.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "codetrust.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "codetrust.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.port }}
+              protocol: TCP
+          env:
+            - name: CODETRUST_HOST
+              value: {{ .Values.config.host | quote }}
+            - name: CODETRUST_PORT
+              value: {{ .Values.config.port | quote }}
+            - name: CODETRUST_DEBUG
+              value: {{ .Values.config.debug | quote }}
+            - name: CODETRUST_DATABASE_URL
+              value: {{ .Values.config.databaseUrl | quote }}
+            - name: CODETRUST_REDIS_URL
+              value: {{ .Values.config.redisUrl | quote }}
+            - name: CODETRUST_REDIS_ENABLED
+              value: {{ .Values.config.redisEnabled | quote }}
+            - name: CODETRUST_FREE_TIER_DAILY_LIMIT
+              value: {{ .Values.config.freeTierDailyLimit | quote }}
+            - name: CODETRUST_PRO_TIER_DAILY_LIMIT
+              value: {{ .Values.config.proTierDailyLimit | quote }}
+            - name: CODETRUST_SANDBOX_ENABLED
+              value: {{ .Values.config.sandboxEnabled | quote }}
+            - name: CODETRUST_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: api-key
+                  optional: true
+            - name: CODETRUST_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: jwt-secret
+                  optional: true
+            - name: CODETRUST_GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: github-client-id
+                  optional: true
+            - name: CODETRUST_GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: github-client-secret
+                  optional: true
+            - name: CODETRUST_STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: stripe-secret-key
+                  optional: true
+            - name: CODETRUST_STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codetrust.secretName" . }}
+                  key: stripe-webhook-secret
+                  optional: true
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

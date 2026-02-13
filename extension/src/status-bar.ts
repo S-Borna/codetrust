@@ -56,6 +56,7 @@ const VERDICT_DISPLAY: Record<string, VerdictDisplay> = {
 /** Manages the status bar item for scan results. */
 export class StatusBarManager {
     private readonly item: vscode.StatusBarItem;
+    private isOffline = false;
 
     constructor() {
         this.item = vscode.window.createStatusBarItem(
@@ -78,16 +79,23 @@ export class StatusBarManager {
     }
 
     /** Set status to a scan verdict. */
-    setVerdict(verdict: string, findingsCount: number): void {
+    setVerdict(verdict: string, findingsCount: number, offline = false): void {
+        this.isOffline = offline;
         const key = verdict.toUpperCase();
         const display = VERDICT_DISPLAY[key] ?? VERDICT_DISPLAY.IDLE;
 
-        const tooltip =
+        const modeLabel = offline ? " (offline · 49 rules)" : " (online · full scan)";
+        const modeIcon = offline ? "$(cloud-offline)" : "$(cloud)";
+        const countSuffix =
             findingsCount > 0
-                ? `${display.tooltip} (${findingsCount} finding${findingsCount !== 1 ? "s" : ""})`
-                : display.tooltip;
+                ? ` — ${findingsCount} finding${findingsCount !== 1 ? "s" : ""}`
+                : "";
+        const tooltip = `${display.tooltip}${countSuffix}${modeLabel}`;
+        const text = offline
+            ? `${display.icon} ${display.text} (offline)`
+            : `${display.icon} ${display.text}`;
 
-        this.applyDisplay({ ...display, tooltip });
+        this.applyDisplay({ ...display, text, tooltip });
     }
 
     /** Set status to error. */

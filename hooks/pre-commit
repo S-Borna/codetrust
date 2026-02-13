@@ -152,13 +152,26 @@ def main() -> int:
     files = get_staged_files()
     source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
                    ".sql", ".yml", ".yaml", ".toml"}
-    # Exclude test files — they intentionally contain anti-patterns as fixtures
-    test_prefixes = ("tests/", "test_")
+    # Exclude test files — they intentionally contain anti-patterns as fixtures.
+    # Must mirror the CLI engine's exclusion logic (src/cli.py lines 194-198, 522).
+    def _is_test_file(path: str) -> bool:
+        basename = path.split("/")[-1]
+        # Prefix-based: tests/ directory, test_ prefix, conftest
+        if path.startswith("tests/") or basename.startswith("test_") or basename.startswith("conftest"):
+            return True
+        # Extension test suites and JS/TS test conventions
+        if ".test." in basename or ".spec." in basename:
+            return True
+        # Any /test/ or /__tests__/ directory segment
+        if "/test/" in path or "/__tests__/" in path:
+            return True
+        return False
+
     source_files = [
         f
         for f in files
         if any(f.endswith(ext) for ext in source_exts)
-        and not any(f.startswith(p) or f.split("/")[-1].startswith("test_") for p in test_prefixes)
+        and not _is_test_file(f)
     ]
 
     if not source_files:

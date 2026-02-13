@@ -1,5 +1,6 @@
 """FastAPI application — CodeTrust HTTP API with auth and lifespan management."""
 
+import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,6 +15,7 @@ from fastapi.security import APIKeyHeader
 from src.config import settings
 from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
 from src.middleware.ip_rate_limit import IPRateLimitMiddleware
+from src.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AstScanRequest,
@@ -21,6 +23,7 @@ from src.models.requests import (
     CreateApiKeyRequest,
     DeepScanRequest,
     GithubAuthRequest,
+    OIDCCallbackRequest,
     RefreshRequest,
     SandboxRequest,
     StaticScanRequest,
@@ -230,6 +233,10 @@ app.add_middleware(
 # IP-based rate limiting - runs before auth, catches unauthenticated floods
 app.add_middleware(IPRateLimitMiddleware)
 
+# Prometheus metrics — request counts, latency, active connections
+app.add_middleware(MetricsMiddleware)
+app.add_route("/metrics", metrics_endpoint, methods=["GET"])
+
 
 def _get_registry(request: Request) -> RegistryService:
     """Dependency: get RegistryService from app state."""
@@ -355,6 +362,56 @@ async def health_check(
         version=settings.version,
         cache_connected=connected,
     )
+
+
+@app.get("/v1/governance/audit")
+async def governance_audit(
+    hours: int = 24,
+    verdict: str | None = None,
+    limit: int = 100,
+) -> dict:
+    """Query the governance audit log.
+
+    Returns recent audit entries and aggregate statistics.
+    Reads from .codetrust/audit.jsonl in the workspace.
+
+    Args:
+        hours: How many hours back to search (default: 24).
+        verdict: Filter by verdict: ALLOW, WARN, BLOCK.
+        limit: Maximum entries to return (default: 100).
+
+    Returns:
+        Dict with entries list and stats summary.
+    """
+    from src.gateway.audit import AuditLogger
+
+    audit_path = os.path.join(os.getcwd(), ".codetrust", "audit.jsonl")
+    logger_instance = AuditLogger(audit_path)
+
+    since = time.time() - (hours * 3600)
+    entries = logger_instance.get_entries(
+        since=since,
+        verdict=verdict,
+        limit=limit,
+    )
+    stats = logger_instance.get_stats()
+
+    return {
+        "entries": [
+            {
+                "timestamp": e.timestamp,
+                "action_type": e.action_type,
+                "verdict": e.verdict,
+                "rule_id": e.rule_id,
+                "original_action": e.original_action,
+                "message": e.message,
+                "agent_id": e.agent_id,
+                "session_id": e.session_id,
+            }
+            for e in entries
+        ],
+        "stats": stats,
+    }
 
 
 @app.post("/v1/verify/imports", response_model=VerifyImportsResponse)
@@ -1161,3 +1218,156 @@ async def user_profile(
 
 if __name__ == "__main__":
     run()
+
+
+# --- SSO / OIDC ---
+
+
+@app.get("/v1/auth/oidc/login")
+async def oidc_login(
+    request: Request,
+    state: str = Query(default=""),
+) -> dict:
+    """Redirect URL for OIDC/SSO login.
+
+    Returns the authorization URL to redirect the browser to the IdP.
+    Requires OIDC to be configured via CODETRUST_OIDC_* env vars.
+    """
+    from src.services.sso import OIDCConfig, OIDCService
+
+    if not settings.oidc_enabled:
+        raise HTTPException(status_code=503, detail="OIDC not configured")
+
+    http_client = request.app.state.http_client
+    config = OIDCConfig(
+        enabled=True,
+        issuer=settings.oidc_issuer,
+        client_id=settings.oidc_client_id,
+        client_secret=settings.oidc_client_secret,
+        redirect_uri=settings.oidc_redirect_uri,
+        scopes=settings.oidc_scopes.split(","),
+        allowed_domains=(
+            settings.oidc_allowed_domains.split(",")
+            if settings.oidc_allowed_domains
+            else []
+        ),
+        role_claim=settings.oidc_role_claim,
+    )
+    svc = OIDCService(config, http_client)
+    discovered = await svc.discover()
+    if not discovered:
+        raise HTTPException(status_code=502, detail="OIDC discovery failed")
+
+    import secrets as _secrets
+
+    actual_state = state or _secrets.token_urlsafe(32)
+    url = svc.build_auth_url(state=actual_state)
+    return {"auth_url": url, "state": actual_state}
+
+
+@app.post("/v1/auth/oidc/callback", response_model=TokenResponse)
+async def oidc_callback(
+    request: Request,
+    req: OIDCCallbackRequest,
+    db: DatabaseService = Depends(_get_db),
+) -> TokenResponse:
+    """Exchange an OIDC authorization code for a CodeTrust JWT.
+
+    The OIDC IdP redirects back with a code; this endpoint:
+    1. Exchanges the code for tokens at the IdP
+    2. Extracts user info from the ID token
+    3. Creates or updates the user in the database
+    4. Returns a CodeTrust JWT for dashboard sessions
+    """
+    from src.services.sso import OIDCConfig, OIDCService
+
+    if not settings.oidc_enabled:
+        raise HTTPException(status_code=503, detail="OIDC not configured")
+
+    http_client = request.app.state.http_client
+    config = OIDCConfig(
+        enabled=True,
+        issuer=settings.oidc_issuer,
+        client_id=settings.oidc_client_id,
+        client_secret=settings.oidc_client_secret,
+        redirect_uri=settings.oidc_redirect_uri,
+        scopes=settings.oidc_scopes.split(","),
+        allowed_domains=(
+            settings.oidc_allowed_domains.split(",")
+            if settings.oidc_allowed_domains
+            else []
+        ),
+        role_claim=settings.oidc_role_claim,
+    )
+    svc = OIDCService(config, http_client)
+    discovered = await svc.discover()
+    if not discovered:
+        raise HTTPException(status_code=502, detail="OIDC discovery failed")
+
+    user_info = await svc.exchange_code(req.code)
+    if user_info is None:
+        raise HTTPException(status_code=401, detail="OIDC authentication failed")
+
+    if not svc.validate_domain(user_info.email):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Email domain not allowed: {user_info.email}",
+        )
+
+    # Use OIDC sub as github_id placeholder for OIDC users
+    oidc_id = f"oidc:{user_info.provider}:{user_info.sub}"
+    user = await db.get_or_create_user(
+        github_id=oidc_id,
+        email=user_info.email,
+        name=user_info.name,
+        avatar_url=user_info.picture,
+    )
+
+    auth_svc = request.app.state.auth
+    token = auth_svc.create_jwt(user.id, user.plan)
+    return TokenResponse(
+        token=token,
+        user_id=user.id,
+        plan=user.plan,
+        expires_in_minutes=settings.jwt_expire_minutes,
+    )
+
+
+# --- GDPR Data Export / Delete ---
+
+
+@app.get("/v1/user/export")
+async def gdpr_export(
+    db: DatabaseService = Depends(_get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Export all personal data for the authenticated user (GDPR Art. 15).
+
+    Returns a JSON object with all user data including profile,
+    API keys, scan history, and usage statistics.
+    """
+    from src.services.gdpr import GDPRService
+
+    gdpr = GDPRService(db)
+    data = await gdpr.export_user_data(auth.user_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="User not found")
+    return data
+
+
+@app.delete("/v1/user/delete")
+async def gdpr_delete(
+    db: DatabaseService = Depends(_get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Delete all personal data for the authenticated user (GDPR Art. 17).
+
+    WARNING: This action is irreversible. All user data will be permanently deleted.
+    """
+    from src.services.gdpr import GDPRService
+
+    gdpr = GDPRService(db)
+    result = await gdpr.delete_user_data(auth.user_id)
+    if not result.get("deleted"):
+        raise HTTPException(status_code=404, detail="User not found")
+    return result

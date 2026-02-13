@@ -18,6 +18,7 @@ import { registerCommands, handleScanOnSave } from "./commands";
 import type { CommandDeps } from "./commands";
 import { getConfig } from "./config";
 import { LANGUAGE_MAP, DOCKERFILE_LANGUAGE_IDS } from "./types";
+import { VerificationCache } from "./verification-cache";
 
 /** Extension activation — called when a supported file is opened. */
 export function activate(context: vscode.ExtensionContext): void {
@@ -26,12 +27,14 @@ export function activate(context: vscode.ExtensionContext): void {
     const diagnostics = new DiagnosticProvider();
     const statusBar = new StatusBarManager();
     const outputChannel = vscode.window.createOutputChannel("CodeTrust");
+    const cache = new VerificationCache(context.globalState);
 
+    const stats = cache.getStats();
     outputChannel.appendLine(
-        `CodeTrust extension activated | API: ${config.apiUrl}`,
+        `CodeTrust extension activated | API: ${config.apiUrl} | Cache: ${stats.imports} imports, ${stats.docker} images`,
     );
 
-    const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel };
+    const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel, cache };
 
     // Register commands
     registerCommands(context, deps);

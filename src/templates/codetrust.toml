@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════════════════
+#  CodeTrust Governance Configuration
+# ═══════════════════════════════════════════════════════════════
+#
+#  This file controls how CodeTrust governs AI agent behavior
+#  in your workspace. All settings can be toggled per-project.
+#
+#  Modes:
+#    enforce  — Block violations, log everything (default)
+#    audit    — Allow all actions, but log violations for review
+#    off      — Disable governance entirely
+#
+#  Override via env: CODETRUST_GOVERNANCE_MODE=audit
+
+[codetrust]
+exclude_paths = ["migrations/", "vendor/", "node_modules/"]
+ignore_rules = []
+
+[codetrust.governance]
+enabled = true
+mode = "enforce"
+
+# ───────────────────────────────────────────────────────────────
+#  Terminal Command Governance
+# ───────────────────────────────────────────────────────────────
+#  These rules intercept terminal commands BEFORE execution.
+#  Set any to false to allow that specific pattern.
+
+[codetrust.governance.terminal]
+block_heredoc = true         # Heredocs corrupt files via shell escaping
+block_eval = true            # Shell eval is arbitrary code execution
+block_sudo = false           # sudo su — warn but don't block by default
+block_rm_rf = true           # rm -rf / — catastrophic data loss
+block_curl_pipe_sh = true    # curl|sh — remote code execution
+block_git_push = true        # AI agents must not push to remote
+block_chmod_777 = true       # chmod 777 grants all permissions
+
+# ───────────────────────────────────────────────────────────────
+#  File Governance
+# ───────────────────────────────────────────────────────────────
+#  Protected paths trigger a WARN (or BLOCK for deletion) before
+#  the AI agent writes to or deletes them.
+
+[codetrust.governance.files]
+protected_paths = ["LICENSE", ".env", ".env.production"]
+scan_before_write = true
+
+# ───────────────────────────────────────────────────────────────
+#  Package Governance
+# ───────────────────────────────────────────────────────────────
+#  Validates package names before installation.
+#  Combined with codetrust_verify_imports for live registry checks.
+
+[codetrust.governance.packages]
+verify_before_install = true
+block_suspicious_packages = true
+
+# ───────────────────────────────────────────────────────────────
+#  Audit Log
+# ───────────────────────────────────────────────────────────────
+#  Every action (allowed, warned, blocked) is logged for compliance.
+#  Query with: codetrust audit --hours 24
+
+[codetrust.governance.audit]
+enabled = true
+path = ".codetrust/audit.jsonl"
+
+# ───────────────────────────────────────────────────────────────
+#  Disable specific rules (by rule_id)
+# ───────────────────────────────────────────────────────────────
+#  Uncomment any rule to disable it:
+#
+# disabled_rules = [
+#     "gateway_heredoc",
+#     "gateway_eval",
+#     "gateway_git_push",
+# ]

@@ -423,6 +423,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:api[_-]?key|secret[_-]?key|auth[_-]?token)(?:\s*:\s*\w+)?\s*[:=]\s*[\"']?[^\s\"']{8,}",
         "message": "API key or secret in config file. Use environment variables or secret manager.",
         "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf"],
         "skip_comments": True,
     },
 

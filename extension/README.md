@@ -24,7 +24,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 
 ## What's New in 2.2
 
-- **132 total rules** — scan rules + gateway interception rules working together
+- **133 total rules** — scan rules + gateway interception rules working together
 - **AI Governance Gateway** — intercepts destructive AI agent actions in real-time
 - **Live import verification** — every package checked against live registries
 - **Trust Score** — quantified code safety with baseline trending and drift detection

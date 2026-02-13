@@ -5,7 +5,7 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — on main (Marketplace published at 2.2.3, PyPI pending)
+## [Unreleased]
 
 ### Added
 
@@ -23,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
 - Rule count updated: 76 scan + 57 gateway = 133 total
 - Test count: 1315
+
+---
+
+## [2.2.4] - 2026-02-13
+
+### Fixed
+
+- Removed public release-process text from root README to keep product-facing docs clean
+- Strengthened release sync guard to validate version parity across extension/package, pyproject,
+  changelog, and website (without depending on public README strings)
+- Synced release-prep versioning across backend/API docs/site to `2.2.4`
+
+### Changed
+
+- Prepared manual release candidate `2.2.4` locally (no deploy, no push)
 
 ---
 

@@ -5,6 +5,27 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — on main, not yet published to PyPI/Marketplace
+
+### Added
+
+- New `database_url_credentials` rule — catches database URLs with embedded passwords
+  (e.g. `postgresql+asyncpg://user:pass@host/db`). Handles `+asyncpg`, `+pymysql`, etc.
+- Path alias test (`test_path_alias_skipped`) for `@/`, `~/`, `#/` aliases
+
+### Fixed
+
+- `hardcoded_secret` rule now handles Python type annotations (`secret_key: str = "change-me"`)
+  and compound names (`secret_key`, `secret_token`, etc.)
+- `api_key_in_config` rule no longer restricted to `.yml/.yaml/.toml/.json` — applies to all files
+- `api_key_in_config` rule now handles Python type annotations
+- JS/TS import verification no longer flags `@/components`, `@/lib`, `~/config`, `#/db`
+  as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
+- Rule count updated: 76 scan + 57 gateway = 133 total
+- Test count: 1315
+
+---
+
 ## [2.2.2] - 2026-02-13
 
 ### Security

@@ -658,7 +658,7 @@ class CommandInterceptor:
                 )
 
         # Check content rules — return highest severity match
-        _SEVERITY_ORDER = {Verdict.BLOCK: 2, Verdict.WARN: 1, Verdict.ALLOW: 0}
+        severity_order = {Verdict.BLOCK: 2, Verdict.WARN: 1, Verdict.ALLOW: 0}
         worst_result: InterceptResult | None = None
         worst_severity = -1
 
@@ -666,7 +666,7 @@ class CommandInterceptor:
             if rule["id"] in self._disabled_rules:
                 continue
             if rule["_re"].search(content):
-                sev = _SEVERITY_ORDER.get(rule["severity"], 0)
+                sev = severity_order.get(rule["severity"], 0)
                 if sev > worst_severity:
                     worst_severity = sev
                     worst_result = InterceptResult(

@@ -1751,7 +1751,7 @@
                 </svg>
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span></span>
             </div>
-            <span class="hero-version">v2.1.0 &mdash; 1314 tests &mdash; 10 layers &mdash; 132 rules &mdash; zero
+            <span class="hero-version">v2.2.2 &mdash; 1314 tests &mdash; 10 layers &mdash; 132 rules &mdash; zero
                 hallucinations</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <div class="hero-strikes">
@@ -1848,7 +1848,7 @@
             <div class="stat-label">MCP Tools</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">27</div>
+            <div class="stat-num">26</div>
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
@@ -2050,14 +2050,14 @@
             <div class="score-text">
                 <div class="section-tag">Continuous Governance</div>
                 <h2>Is your AI code<br><span class="gradient-green">getting safer?</span></h2>
-                <p>Every scan produces a Trust Score. Hallucination findings are penalized 15x.
+                <p>Every scan produces a Trust Score. Hallucination findings are penalized heavily.
                     The baseline persists between runs. Delta tracking shows improvement or regression.</p>
                 <ul class="score-features">
                     <li>Grade curve: A+ / A / B+ / B / C+ / C / D / F</li>
-                    <li>Baseline stored in .codetrust/drift_baseline.json</li>
+                    <li>Persistent baseline stored per project</li>
                     <li>Trend analysis: improving / degrading / stable</li>
-                    <li>100 data points retained for history</li>
-                    <li>AI trust sub-score weighted by hallucination count</li>
+                    <li>Full history retained for drift tracking</li>
+                    <li>AI trust sub-score weighted by hallucination severity</li>
                 </ul>
             </div>
         </div>
@@ -2406,7 +2406,7 @@
             <div class="install-card">
                 <h4>MCP Server</h4>
                 <p>17 tools. Claude, Copilot, Cursor.</p>
-                <code>python -m src.server</code>
+                <code>codetrust-mcp</code>
                 <a href="https://github.com/S-Borna/codetrust#mcp-gateway" target="_blank" class="card-link">Setup guide
                     &rarr;</a>
             </div>
@@ -2414,8 +2414,8 @@
                 <h4>Cloud API</h4>
                 <p>27 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
-                <a href="https://codetrust-api-production.up.railway.app/v1/status" target="_blank"
-                    class="card-link">Check API status &rarr;</a>
+                <a href="https://codetrust-api.saidborna.com/v1/status" target="_blank" class="card-link">Check API
+                    status &rarr;</a>
             </div>
         </div>
     </section>
@@ -2457,7 +2457,7 @@
         <div class="footer-links">
             <a href="https://pypi.org/project/codetrust/">PyPI</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a>
-            <a href="https://codetrust-api-production.up.railway.app/v1/status">API</a>
+            <a href="https://codetrust-api.saidborna.com/v1/status">API</a>
             <a href="mailto:said@saidborna.com">Contact</a>
         </div>
     </footer>

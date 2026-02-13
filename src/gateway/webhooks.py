@@ -7,7 +7,7 @@ Usage:
     from src.gateway.webhooks import WebhookNotifier, WebhookConfig
 
     config = WebhookConfig(
-        url="https://hooks.slack.com/services/T.../B.../xxx",
+        url="<your-webhook-url>",
         provider="slack",
         on_block=True,
         on_warn=True,

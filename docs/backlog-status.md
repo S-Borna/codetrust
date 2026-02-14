@@ -55,7 +55,7 @@ Legend:
 
 - 🟡 Trust score concepts exist; actionable diffs/trends per commit/PR are not yet first-class
 - 🟡 Trust diff (initial): `codetrust trust-diff` compares drift/findings vs HEAD for changed files
-- ❌ Trend view: quality debt + top regressions
+- 🟡 Trend view (initial): `codetrust trend record` + `codetrust trend show`
 - 🟡 Noise control: dedupe findings and focus on changed lines (CLI flags: `--dedupe`, `--changed-only`)
 
 ## H) Security / Compliance (enterprise)

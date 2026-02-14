@@ -45,6 +45,10 @@ docker-compose.override.yml
 # Local-only files (plans, notes, secrets)
 .local/
 
+# CodeTrust runtime artifacts
+.codetrust/
+!.codetrust.toml
+
 # Node (in case of front-end components)
 node_modules/
 codetrust.db

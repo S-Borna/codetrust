@@ -872,6 +872,11 @@ def cmd_scan(args: argparse.Namespace) -> int:
     all_findings: list[dict[str, str | int]] = []
     files_scanned = 0
 
+    # Machine-readable modes must not mix output (pre-commit, CI, tooling).
+    machine_output = bool(getattr(args, "json", False)) or (
+        bool(getattr(args, "sarif", False)) and not bool(getattr(args, "sarif_file", ""))
+    )
+
     for target in targets:
         findings = scan_path(target)
         all_findings.extend(findings)
@@ -899,20 +904,23 @@ def cmd_scan(args: argparse.Namespace) -> int:
             py_files, js_files = collect_source_files(targets)
             if py_files or js_files:
                 import_count = len(py_files) + len(js_files)
-                print(
-                    f"  {color('🔍 Verifying imports against registries...', BLUE)}"
-                    f" ({import_count} file(s))"
-                )
+                if not machine_output:
+                    print(
+                        f"  {color('🔍 Verifying imports against registries...', BLUE)}"
+                        f" ({import_count} file(s))"
+                    )
                 import_findings = verify_file_imports_sync(py_files, js_files)
                 if import_findings:
                     all_findings.extend(import_findings)
-                    print(
-                        f"  {color(f'   Found {len(import_findings)} unverified import(s)', RED)}\n"
-                    )
+                    if not machine_output:
+                        print(
+                            f"  {color(f'   Found {len(import_findings)} unverified import(s)', RED)}\n"
+                        )
                 else:
-                    print(
-                        f"  {color('   All imports verified ✓', GREEN)}\n"
-                    )
+                    if not machine_output:
+                        print(
+                            f"  {color('   All imports verified ✓', GREEN)}\n"
+                        )
         except Exception:
             pass  # Import verification is best-effort; don't break scan
 
@@ -921,61 +929,76 @@ def cmd_scan(args: argparse.Namespace) -> int:
     infos = [f for f in all_findings if f.get("severity") == "INFO"]
     drift = _calculate_drift_score(all_findings)
 
-    # Output
-    print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
-    print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
-    print(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
+    verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
 
-    if blocks:
-        print(color("  🚫 BLOCK — must fix:", RED))
-        for f in blocks:
-            print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-        print()
+    result = {
+        "verdict": verdict,
+        "files_scanned": files_scanned,
+        "total_findings": len(all_findings),
+        "blocks": len(blocks),
+        "warnings": len(warns),
+        "infos": len(infos),
+        "drift_score": drift,
+        "findings": all_findings,
+    }
 
-    if warns:
-        print(color("  ⚠️  WARN — should fix:", YELLOW))
-        for f in warns[:20]:
-            print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-        if len(warns) > 20:
-            print(f"     ... and {len(warns) - 20} more")
-        print()
+    # Human output (do not mix with machine-readable modes)
+    if not machine_output:
+        print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
+        print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
+        print(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
 
-    if infos and not args.json:
-        print(color("  i  INFO:", BLUE))
-        for f in infos[:10]:
-            print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-        if len(infos) > 10:
-            print(f"     ... and {len(infos) - 10} more")
-        print()
+        if blocks:
+            print(color("  🚫 BLOCK — must fix:", RED))
+            for f in blocks:
+                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            print()
 
-    if not blocks and not warns and not infos:
-        print(color("  ✅ PASS — no issues found\n", GREEN))
+        if warns:
+            print(color("  ⚠️  WARN — should fix:", YELLOW))
+            for f in warns[:20]:
+                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            if len(warns) > 20:
+                print(f"     ... and {len(warns) - 20} more")
+            print()
 
-    # JSON output
-    if args.json:
-        result = {
-            "verdict": "BLOCK" if blocks else ("WARN" if warns else "PASS"),
-            "files_scanned": files_scanned,
-            "total_findings": len(all_findings),
-            "blocks": len(blocks),
-            "warnings": len(warns),
-            "infos": len(infos),
-            "drift_score": drift,
-            "findings": all_findings,
-        }
+        if infos:
+            print(color("  i  INFO:", BLUE))
+            for f in infos[:10]:
+                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            if len(infos) > 10:
+                print(f"     ... and {len(infos) - 10} more")
+            print()
+
+        if not blocks and not warns and not infos:
+            print(color("  ✅ PASS — no issues found\n", GREEN))
+
+    # JSON output (pure JSON on stdout)
+    if getattr(args, "json", False):
         print(json.dumps(result, indent=2, default=str))
 
     # SARIF output
-    if args.sarif or args.sarif_file:
+    if getattr(args, "sarif", False) or getattr(args, "sarif_file", ""):
         sarif_doc = _findings_to_sarif(all_findings)
         sarif_json = json.dumps(sarif_doc, indent=2, default=str)
-        if args.sarif_file:
+        if getattr(args, "sarif_file", ""):
             Path(args.sarif_file).write_text(sarif_json, encoding="utf-8")
-            print(f"  SARIF written to {args.sarif_file}")
+            if not machine_output:
+                print(f"  SARIF written to {args.sarif_file}")
         else:
-            print(sarif_json)
+            # Pure SARIF to stdout (do not mix with JSON)
+            if not getattr(args, "json", False):
+                print(sarif_json)
 
-    return 1 if blocks else 0
+    def _should_fail(v: str, fail_on: str) -> bool:
+        if fail_on == "never":
+            return False
+        if fail_on == "block":
+            return v == "BLOCK"
+        return fail_on == "warn" and v in ("BLOCK", "WARN")
+
+    fail_on = str(getattr(args, "fail_on", "block"))
+    return 1 if _should_fail(verdict, fail_on) else 0
 
 
 # --- Status command ---
@@ -1049,6 +1072,26 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     if not (project_dir / ".git").is_dir():
         issues.append("Not a git repository")
 
+    # 1b. Check git hook activation (core.hooksPath)
+    hooks_path = ""
+    try:
+        result = subprocess.run(
+            ["git", "config", "core.hooksPath"],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+        )
+        hooks_path = result.stdout.strip() if result.returncode == 0 else ""
+    except FileNotFoundError:
+        hooks_path = ""
+
+    hooks_path_set = hooks_path == "hooks"
+    if hooks_path_set:
+        print(f"  {color('✅', GREEN)} core.hooksPath = hooks")
+    else:
+        print(f"  {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
+        print(f"     Fix: {color('git config core.hooksPath hooks', BOLD)}")
+
     # 2. Check CLAUDE.md has enforcement section
     claude_md = project_dir / "CLAUDE.md"
     if claude_md.exists():
@@ -1073,6 +1116,13 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     else:
         issues.append("Pre-commit hook not found")
         print(f"  {color('❌', RED)} Pre-commit hook not found")
+
+    legacy_hook = project_dir / ".git" / "hooks" / "pre-commit"
+    if legacy_hook.exists() and not hooks_path_set:
+        print(f"  {color('⚠️', YELLOW)}  Legacy hook detected (.git/hooks/pre-commit)")
+        print(f"     Recommendation: {color('git config core.hooksPath hooks', BOLD)} (version-controlled hooks)")
+    if hook.exists() and not hooks_path_set:
+        issues.append("core.hooksPath not set to hooks (hook may not run)")
 
     # 4. Test hook works
     if hook.exists() and os.access(hook, os.X_OK):
@@ -1320,6 +1370,13 @@ def main() -> int:
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
     scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
     scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")
+    scan_parser.add_argument(
+        "--fail-on",
+        dest="fail_on",
+        choices=["never", "warn", "block"],
+        default="block",
+        help="Exit non-zero when verdict meets threshold (default: block)",
+    )
     scan_parser.add_argument(
         "--no-verify-imports",
         action="store_true",

@@ -97,31 +97,31 @@ def _try_cli_scan(files: list[str]) -> int | None:
             timeout=30,
         )
         if result.returncode >= 0:
-            # Parse JSON output for pretty display
+            # Parse deterministic JSON output for pretty display
             try:
                 import json
-                lines = result.stdout.strip().split("\n")
-                # Find JSON block (skip the pretty header)
-                for i, ln in enumerate(lines):
-                    if ln.strip().startswith("{"):
-                        data = json.loads("\n".join(lines[i:]))
-                        verdict = data.get("verdict", "PASS")
-                        total = data.get("total_findings", 0)
-                        blocks = data.get("blocks", 0)
-                        if blocks > 0:
-                            print(f"\n\U0001f6ab CodeTrust BLOCKED ({blocks} issues, {total} total)")
-                            for f in data.get("findings", []):
-                                if f.get("severity") == "BLOCK":
-                                    print(f"  \U0001f6ab {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-                            print("\nFix the issues above before committing.\n")
-                            return 1
-                        elif total > 0:
-                            print(f"\n\u26a0\ufe0f  CodeTrust: {verdict} ({total} warnings)")
-                            return 0
-                        else:
-                            print("\u2705 CodeTrust: All checks passed.")
-                            return 0
-                        break
+                data = json.loads(result.stdout.strip() or "{}")
+                verdict = data.get("verdict", "PASS")
+                total = int(data.get("total_findings", 0) or 0)
+                blocks = int(data.get("blocks", 0) or 0)
+                warnings = int(data.get("warnings", 0) or 0)
+                infos = int(data.get("infos", 0) or 0)
+
+                if blocks > 0:
+                    print(f"\n\U0001f6ab CodeTrust BLOCKED ({blocks} issues, {total} total)")
+                    for f in data.get("findings", []):
+                        if f.get("severity") == "BLOCK":
+                            print(f"  \U0001f6ab {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+                    print("\nFix the issues above before committing.\n")
+                    return 1
+
+                if warnings > 0 or infos > 0:
+                    info_part = f", {infos} info" if infos else ""
+                    print(f"\n\u26a0\ufe0f  CodeTrust: {verdict} ({warnings} warnings{info_part})")
+                    return 0
+
+                print("\u2705 CodeTrust: All checks passed.")
+                return 0
             except (json.JSONDecodeError, KeyError, IndexError):
                 pass
             # Fallback: use raw exit code
@@ -152,13 +152,26 @@ def main() -> int:
     files = get_staged_files()
     source_exts = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
                    ".sql", ".yml", ".yaml", ".toml"}
-    # Exclude test files — they intentionally contain anti-patterns as fixtures
-    test_prefixes = ("tests/", "test_")
+    # Exclude test files — they intentionally contain anti-patterns as fixtures.
+    # Must mirror the CLI engine's exclusion logic.
+    def _is_test_file(path: str) -> bool:
+        basename = path.split("/")[-1]
+        # Prefix-based: tests/ directory, test_ prefix, conftest
+        if path.startswith("tests/") or basename.startswith("test_") or basename.startswith("conftest"):
+            return True
+        # Extension test suites and JS/TS test conventions
+        if ".test." in basename or ".spec." in basename:
+            return True
+        # Any /test/ or /__tests__/ directory segment
+        if "/test/" in path or "/__tests__/" in path:
+            return True
+        return False
+
     source_files = [
         f
         for f in files
         if any(f.endswith(ext) for ext in source_exts)
-        and not any(f.startswith(p) or f.split("/")[-1].startswith("test_") for p in test_prefixes)
+        and not _is_test_file(f)
     ]
 
     if not source_files:

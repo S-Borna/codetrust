@@ -148,6 +148,8 @@ export interface ExtensionConfig {
     apiUrl: string;
     apiKey: string;
     scanOnSave: boolean;
+    scanOnType: boolean;
+    scanOnTypeDebounceMs: number;
     severityThreshold: SeverityThreshold;
     enabledLanguages: Language[];
     scanType: ScanType;

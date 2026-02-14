@@ -13,6 +13,8 @@ function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
         apiUrl: "http://localhost:8000",
         apiKey: "tk_test",
         scanOnSave: true,
+        scanOnType: false,
+        scanOnTypeDebounceMs: 600,
         severityThreshold: "INFO",
         enabledLanguages: ["python", "javascript", "typescript", "go", "rust"],
         scanType: "static",

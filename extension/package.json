@@ -105,6 +105,16 @@
                     "default": true,
                     "description": "Automatically scan files on save"
                 },
+                "codetrust.scanOnType": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Scan while typing using the embedded offline scanner (debounced)"
+                },
+                "codetrust.scanOnTypeDebounceMs": {
+                    "type": "number",
+                    "default": 600,
+                    "description": "Debounce delay (ms) for scan while typing"
+                },
                 "codetrust.severityThreshold": {
                     "type": "string",
                     "enum": [

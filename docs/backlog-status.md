@@ -33,7 +33,7 @@ Legend:
 
 ## D) AI assist “per line” (practical IDE loop)
 
-- ❌ Live feedback while typing (debounced): not implemented yet (planned Phase 4)
+- ✅ Live feedback while typing (debounced): implemented (opt-in) via text-change listener using embedded offline scanner
 - 🟡 Quick Fixes in Problems: Code actions exist; expanding safe autofix coverage is incremental
 - ❌ Auto-refactor recipes (nested ternary → if/else, `any` → typed, `console.log` → logger)
 - 🟡 One-line “why” + “safe fix plan”: findings already have messages; summarization can be improved

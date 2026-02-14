@@ -14,6 +14,8 @@ export function getConfig(): ExtensionConfig {
         apiUrl: config.get<string>("apiUrl", "https://codetrust-api-production.up.railway.app"),
         apiKey: config.get<string>("apiKey", ""),
         scanOnSave: config.get<boolean>("scanOnSave", true),
+        scanOnType: config.get<boolean>("scanOnType", false),
+        scanOnTypeDebounceMs: config.get<number>("scanOnTypeDebounceMs", 600),
         severityThreshold: config.get<SeverityThreshold>("severityThreshold", "INFO"),
         enabledLanguages: config.get<Language[]>("enabledLanguages", [
             "python", "javascript", "typescript", "go", "rust",

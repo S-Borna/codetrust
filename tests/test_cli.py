@@ -28,6 +28,7 @@ from src.cli import (
     WARN_RULES,
     _findings_to_sarif,
     _dedupe_findings,
+    _detect_verify_gates,
     _filter_findings_to_changed_lines,
     _normalize_path_for_git,
     _sort_findings,
@@ -89,6 +90,33 @@ class TestChangedLines:
             assert "eval_exec" in rule_ids
             # Should normalize file path to relative
             assert all(str(f.get("file", "")).endswith("a.py") for f in kept)
+        finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestVerifyGates:
+    def test_detects_npm_verify_script(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            (tmp_dir / "package.json").write_text(
+                '{"scripts": {"verify": "npm run lint && npm test"}}',
+                encoding="utf-8",
+            )
+            gates = _detect_verify_gates(tmp_dir)
+            assert "npm run verify" in gates
+        finally:
+            shutil.rmtree(tmp_dir)
+
+    def test_detects_ruff_and_pytest_from_pyproject(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            (tmp_dir / "pyproject.toml").write_text(
+                "[tool.ruff]\nline-length = 88\n\n[tool.pytest.ini_options]\naddopts = '-q'\n",
+                encoding="utf-8",
+            )
+            gates = _detect_verify_gates(tmp_dir)
+            assert "ruff check" in gates
+            assert "pytest" in gates
         finally:
             shutil.rmtree(tmp_dir)
 

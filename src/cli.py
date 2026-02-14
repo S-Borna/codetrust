@@ -327,6 +327,75 @@ def _load_project_config() -> dict:
     return {}
 
 
+def _read_text_if_exists(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
+def _read_json_if_exists(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _detect_verify_gates(project_dir: Path) -> list[str]:
+    """Best-effort detection of common repo verification gates.
+
+    Used only for human-facing hints (must never affect machine outputs).
+    """
+    gates: list[str] = []
+
+    package_json = project_dir / "package.json"
+    if package_json.is_file():
+        data = _read_json_if_exists(package_json)
+        scripts = data.get("scripts") if isinstance(data, dict) else None
+        if isinstance(scripts, dict):
+            if "verify" in scripts:
+                gates.append("npm run verify")
+            else:
+                for k in ("lint", "test", "typecheck", "build"):
+                    if k in scripts:
+                        gates.append(f"npm run {k}")
+
+    pyproject = project_dir / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            raw = pyproject.read_text(encoding="utf-8", errors="ignore")
+            data = tomllib.loads(raw)
+            tool = data.get("tool", {}) if isinstance(data, dict) else {}
+            if isinstance(tool, dict):
+                if "ruff" in tool:
+                    gates.append("ruff check")
+                if "pytest" in tool:
+                    gates.append("pytest")
+        except (OSError, ValueError, TypeError):
+            # Best-effort detection only — ignore unreadable/invalid TOML.
+            data = {}
+
+    # Loose detection for common config files
+    if (project_dir / "pytest.ini").is_file() or (project_dir / "tox.ini").is_file():
+        if "pytest" not in gates:
+            gates.append("pytest")
+    if (project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file():
+        if "ruff check" not in gates:
+            gates.append("ruff check")
+    if (project_dir / "tsconfig.json").is_file():
+        gates.append("tsc")
+
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for g in gates:
+        if g in seen:
+            continue
+        seen.add(g)
+        out.append(g)
+    return out
+
+
 # Loaded once at import time — available globally
 PROJECT_CONFIG = _load_project_config()
 
@@ -1117,6 +1186,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     # Human output (do not mix with machine-readable modes)
     if not machine_output:
+        gates = _detect_verify_gates(cwd)
+        if gates:
+            gates_str = ", ".join(gates[:4]) + ("" if len(gates) <= 4 else ", …")
+            print(color(f"  🔒 Repo gates detected: {gates_str}", BLUE))
+            print(color("  Tip: run these gates before merging to reduce CI churn\n", BLUE))
+
         print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
         print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
         print(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")

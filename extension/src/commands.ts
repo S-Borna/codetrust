@@ -27,6 +27,10 @@ export interface CommandDeps {
     cache: VerificationCache;
 }
 
+let lastScannableDocumentUri: vscode.Uri | null = null;
+let lastScanAtIso: string | null = null;
+let lastScanTarget: string | null = null;
+
 /** Register all extension commands. */
 export function registerCommands(
     context: vscode.ExtensionContext,
@@ -34,6 +38,7 @@ export function registerCommands(
 ): void {
     const commands: Array<[string, () => Promise<void>]> = [
         ["codetrust.scanFile", (): Promise<void> => scanCurrentFile(deps)],
+        ["codetrust.healthCheck", (): Promise<void> => healthCheckCommand(deps)],
         ["codetrust.verifyImports", (): Promise<void> => verifyImportsCommand(deps)],
         ["codetrust.verifyDockerfile", (): Promise<void> => verifyDockerfileCommand(deps)],
         ["codetrust.deepScan", (): Promise<void> => deepScanCommand(deps)],
@@ -52,6 +57,32 @@ export function registerCommands(
 async function scanCurrentFile(deps: CommandDeps): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
+        if (lastScannableDocumentUri) {
+            deps.outputChannel.appendLine(
+                `[${timestamp()}] No active editor — scanning last saved file`,
+            );
+            const doc = await vscode.workspace.openTextDocument(lastScannableDocumentUri);
+            const language = LANGUAGE_MAP[doc.languageId];
+            if (!language) {
+                vscode.window.showWarningMessage(
+                    "CodeTrust: No active file to scan, and last saved file is not supported.",
+                );
+                return;
+            }
+            const config = getConfig();
+            if (!config.enabledLanguages.includes(language)) {
+                vscode.window.showInformationMessage(
+                    `CodeTrust: ${language} scanning is disabled in settings.`,
+                );
+                return;
+            }
+            if (config.scanType === "deep") {
+                await runDeepScan(deps, doc, language);
+            } else {
+                await runStaticScan(deps, doc, language);
+            }
+            return;
+        }
         vscode.window.showWarningMessage("CodeTrust: No active file to scan.");
         return;
     }
@@ -98,6 +129,10 @@ async function runStaticScan(
         `[${timestamp()}] Static scan: ${document.fileName}`,
     );
 
+    lastScanAtIso = new Date().toISOString();
+    lastScanTarget = document.fileName;
+    lastScannableDocumentUri = document.uri;
+
     try {
         const response = await deps.client.staticScan(
             document.getText(),
@@ -114,6 +149,7 @@ async function runStaticScan(
         deps.statusBar.setVerdict(response.verdict, response.total_findings, false);
         logScanResult(deps.outputChannel, "Static", response.verdict, response.findings);
     } catch (err) {
+        logApiError(deps, err);
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
             `  API unavailable — using embedded scanner (49 rules)`,
@@ -140,6 +176,10 @@ async function runDeepScan(
     deps.outputChannel.appendLine(
         `[${timestamp()}] Deep scan: ${document.fileName}`,
     );
+
+    lastScanAtIso = new Date().toISOString();
+    lastScanTarget = document.fileName;
+    lastScannableDocumentUri = document.uri;
 
     try {
         const response = await deps.client.deepScan(
@@ -177,6 +217,7 @@ async function runDeepScan(
             `${response.latency_ms}ms`,
         );
     } catch (err) {
+        logApiError(deps, err);
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
             `  API unavailable — falling back to embedded scanner (49 rules)`,
@@ -209,6 +250,79 @@ async function deepScanCommand(deps: CommandDeps): Promise<void> {
     }
 
     await runDeepScan(deps, editor.document, language);
+}
+
+/** Show health diagnostics for the extension + API connectivity. */
+async function healthCheckCommand(deps: CommandDeps): Promise<void> {
+    const config = getConfig();
+    const cacheStats = deps.cache.getStats();
+
+    deps.outputChannel.appendLine(`[${timestamp()}] Health Check`);
+    deps.outputChannel.appendLine(`  API URL: ${config.apiUrl}`);
+    deps.outputChannel.appendLine(`  API key configured: ${config.apiKey ? "yes" : "no"}`);
+    deps.outputChannel.appendLine(
+        `  Mode: scanOnSave=${config.scanOnSave} scanType=${config.scanType} threshold=${config.severityThreshold}`,
+    );
+    deps.outputChannel.appendLine(
+        `  Governance: enabled=${config.governance.enabled} mode=${config.governance.mode}`,
+    );
+    deps.outputChannel.appendLine(
+        `  Cache: imports=${cacheStats.imports} docker=${cacheStats.docker}`,
+    );
+    deps.outputChannel.appendLine(
+        `  Last scan: ${lastScanAtIso ? lastScanAtIso : "never"}${lastScanTarget ? ` | ${lastScanTarget}` : ""}`,
+    );
+
+    try {
+        const health = await deps.client.checkHealth();
+        deps.outputChannel.appendLine(`  API status: ok (v${health.version})`);
+        vscode.window.showInformationMessage(
+            `CodeTrust: API ok (v${health.version}) — ${config.apiUrl}`,
+        );
+    } catch (err) {
+        logApiError(deps, err);
+        vscode.window.showWarningMessage(
+            "CodeTrust: API not reachable — extension will use offline scanner where possible.",
+        );
+    }
+}
+
+function logApiError(deps: CommandDeps, err: unknown): void {
+    if (err instanceof ApiError) {
+        const hint = apiErrorHint(err.statusCode);
+        deps.outputChannel.appendLine(
+            `  API error (${err.statusCode}): ${hint}${err.body ? ` | ${truncate(err.body, 240)}` : ""}`,
+        );
+        return;
+    }
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    deps.outputChannel.appendLine(`  API error: ${msg}`);
+}
+
+function apiErrorHint(statusCode: number): string {
+    if (statusCode === 401) {
+        return "Unauthorized — set codetrust.apiKey (X-API-Key) or sign in (JWT)";
+    }
+    if (statusCode === 403) {
+        return "Forbidden — credentials are valid but lack access";
+    }
+    if (statusCode === 429) {
+        return "Rate limited — slow down or upgrade plan";
+    }
+    if (statusCode >= 500) {
+        return "Server error — try again or switch to offline scan";
+    }
+    if (statusCode === 0) {
+        return "Network error/timeout — check codetrust.apiUrl";
+    }
+    return "Request failed";
+}
+
+function truncate(text: string, maxLen: number): string {
+    if (text.length <= maxLen) {
+        return text;
+    }
+    return `${text.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
 /** Verify imports in the current file. */

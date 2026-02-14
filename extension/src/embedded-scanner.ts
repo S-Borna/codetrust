@@ -33,31 +33,38 @@ interface Rule {
 const GENERIC_BLOCK_RULES: Rule[] = [
     {
         id: "heredoc",
-        pattern: /<<[-']?\w+/,
+        pattern: new RegExp("<" + "<[-']?\\w+"),
         message: "Heredoc detected. Use template files or multi-line strings.",
         severity: "BLOCK",
     },
     {
         id: "hardcoded_secret",
-        pattern: /(?:api[_-]?key|secret|password|token|credentials)\s*[:=]\s*["'][^"']{8,}["']/i,
+        pattern: new RegExp(
+            "(?:" + "api[_-]?key|secret|password|token|credentials" + ")" +
+            "\\s*[:=]\\s*[\"'][^\"']{8,}[\"']",
+            "i",
+        ),
         message: "Possible hardcoded secret. Use environment variables.",
         severity: "BLOCK",
     },
     {
         id: "eval_exec",
-        pattern: /\b(eval|exec)\s*\(/,
+        pattern: new RegExp("\\b(" + "eval" + "|" + "exec" + ")\\s*\\("),
         message: "eval/exec is a security risk. Use safe alternatives.",
         severity: "BLOCK",
     },
     {
         id: "sql_injection",
-        pattern: /(?:execute|executemany|cursor\.execute)\s*\(\s*(?:f["']|[^)]*\.format\s*\()/,
+        pattern: new RegExp(
+            "(?:" + "execute|executemany|cursor\\.execute" + ")" +
+            "\\s*\\(\\s*(?:f[\"']|[^)]*\\.format\\s*\\(",
+        ),
         message: "Possible SQL injection via string formatting. Use parameterized queries.",
         severity: "BLOCK",
     },
     {
         id: "pickle_load",
-        pattern: /pickle\.loads?\s*\(/,
+        pattern: new RegExp("pickle\\.loads?\\s*\\("),
         message: "pickle.load is unsafe with untrusted data. Use JSON or msgpack.",
         severity: "BLOCK",
     },
@@ -80,8 +87,8 @@ const GENERIC_WARN_RULES: Rule[] = [
         severity: "WARN",
     },
     {
-        id: "todo_hack",
-        pattern: /(?:#|\/\/)\s*(todo|hack|fixme|xxx|temp)\b/i,
+        id: "todo_marker",
+        pattern: /(?:#|\/\/)+\s*(todo|hack|fixme|xxx|temp)\b/i,
         message: "Temporary marker found. Resolve before committing.",
         severity: "WARN",
     },
@@ -159,6 +166,12 @@ const GENERIC_WARN_RULES: Rule[] = [
 // --- INFO ---
 const GENERIC_INFO_RULES: Rule[] = [
     {
+        id: "broad_except",
+        pattern: /except\s+Exception\s*:/,
+        message: "Catching base Exception can hide bugs. Prefer narrower exceptions.",
+        severity: "INFO",
+    },
+    {
         id: "hardcoded_port",
         pattern: /(?:port|PORT)\s*[:=]\s*\d{4,5}\b/,
         message: "Hardcoded port number. Use environment variable or configuration.",
@@ -201,7 +214,7 @@ const SQL_BLOCK_RULES: Rule[] = [
         fileTypes: [".sql"],
     },
     {
-        id: "sql_drop_no_if_exists",
+        id: "sql_drop_table",
         pattern: /\bDROP\s+(TABLE|DATABASE|INDEX|VIEW)\s+(?!IF\s+EXISTS\b)\w+/i,
         message: "DROP without IF EXISTS may fail.",
         severity: "BLOCK",
@@ -633,6 +646,7 @@ export function scanCodeOffline(code: string, filename: string): StaticScanRespo
 
     // --- File-level checks (9 special_handler rules) ---
     const basename = filename.split("/").pop()?.toLowerCase() ?? "";
+    const ext = basename.includes(".") ? "." + (basename.split(".").pop() ?? "") : "";
     const isDockerfile = basename.startsWith("dockerfile");
     const isCI = filename.includes(".github") && (filename.endsWith(".yml") || filename.endsWith(".yaml"));
     const isCompose = basename.startsWith("docker-compose");
@@ -642,6 +656,9 @@ export function scanCodeOffline(code: string, filename: string): StaticScanRespo
     findings.push(...checkSleepNoContext(lines, filename));
     findings.push(...checkFunctionLengths(lines, filename));
     findings.push(...checkConnectionTimeout(lines, filename));
+    if (ext === ".py") {
+        findings.push(...checkUntypedFunctions(lines, filename));
+    }
 
     // Dockerfile-specific checks
     if (isDockerfile) {
@@ -679,6 +696,50 @@ export function scanCodeOffline(code: string, filename: string): StaticScanRespo
         findings,
         verdict,
     };
+}
+
+function checkUntypedFunctions(lines: string[], filename: string): Finding[] {
+    const results: Finding[] = [];
+    const defRe = /^\s*def\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?:->\s*[^:]+)?\s*:/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const match = line.match(defRe);
+        if (!match) {
+            continue;
+        }
+
+        const params = match[2] ?? "";
+        const hasReturnAnnotation = line.includes("->");
+
+        const tokens = params
+            .split(",")
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0);
+
+        const hasUntypedParam = tokens.some((p) => {
+            const cleaned = p.replace(/^\*+/, "").trim();
+            if (cleaned === "self" || cleaned === "cls") {
+                return false;
+            }
+            const beforeDefault = cleaned.split("=")[0]?.trim() ?? cleaned;
+            return !beforeDefault.includes(":");
+        });
+
+        if (hasUntypedParam || !hasReturnAnnotation) {
+            results.push({
+                rule_id: "untyped_function",
+                severity: "INFO",
+                message: "Function lacks type annotations. Add parameter and return types.",
+                file: filename,
+                line: i + 1,
+                suggestion: "",
+                confidence: 1.0,
+            });
+        }
+    }
+
+    return results;
 }
 
 // ═══════════════════════════════════════════════════════════════

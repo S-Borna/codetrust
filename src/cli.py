@@ -540,6 +540,142 @@ def _load_template(name: str) -> str:
     return ref.read_text(encoding="utf-8")
 
 
+def _confirm(prompt: str) -> bool:
+    """Ask for confirmation on stdin when interactive."""
+    if not sys.stdin.isatty():
+        return False
+    ans = input(f"{prompt} [y/N]: ").strip().lower()
+    return ans in {"y", "yes"}
+
+
+def _write_text_file_safe(
+    path: Path,
+    content: str,
+    *,
+    yes: bool,
+) -> bool:
+    """Write a text file, never overwriting without explicit confirmation.
+
+    Returns True if written/updated, False otherwise.
+    """
+    if path.exists():
+        existing = path.read_text(encoding="utf-8", errors="ignore")
+        if existing == content:
+            return False
+        if not yes and not _confirm(f"Update existing {path}?"):
+            return False
+        shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def _read_json(path: Path) -> dict:
+    """Read a JSON file into a dict. Returns empty dict on parse error."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _write_json_file_safe(path: Path, obj: dict, *, yes: bool) -> bool:
+    """Write JSON file safely with no overwrite without confirmation."""
+    content = json.dumps(obj, indent=2, sort_keys=True) + "\n"
+    return _write_text_file_safe(path, content, yes=yes)
+
+
+def cmd_add(args: argparse.Namespace) -> int:
+    """Add CodeTrust bootstrap files to the current repo (VS Code/DevContainer/docs)."""
+    project_dir = Path.cwd()
+    yes = bool(getattr(args, "yes", False))
+
+    print(f"\n{color('🧩 CodeTrust — Adding repo bootstrap files', BOLD)}\n")
+
+    # 1) .vscode/extensions.json
+    vscode_dir = project_dir / ".vscode"
+    ext_file = vscode_dir / "extensions.json"
+    ext_data: dict = _read_json(ext_file) if ext_file.exists() else {}
+    recs = ext_data.get("recommendations")
+    if not isinstance(recs, list):
+        recs = []
+    if "SaidBorna.codetrust" not in recs:
+        recs.append("SaidBorna.codetrust")
+    ext_data["recommendations"] = recs
+    if "unwantedRecommendations" not in ext_data:
+        ext_data["unwantedRecommendations"] = []
+    wrote_ext = _write_json_file_safe(ext_file, ext_data, yes=yes)
+    print(f"  {color('✅', GREEN) if wrote_ext else color('↪', BLUE)} {ext_file}")
+
+    # 2) .vscode/settings.json (only add missing keys; never override)
+    if args.settings:
+        settings_file = vscode_dir / "settings.json"
+        settings: dict = _read_json(settings_file) if settings_file.exists() else {}
+        if not isinstance(settings, dict):
+            settings = {}
+        defaults: dict[str, object] = {
+            "codetrust.scanOnSave": True,
+            "codetrust.scanType": "static",
+            "codetrust.severityThreshold": "INFO",
+            "codetrust.verifyImportsOnSave": False,
+            "codetrust.governance.enabled": True,
+            "codetrust.governance.mode": "enforce",
+        }
+        for k, v in defaults.items():
+            if k not in settings:
+                settings[k] = v
+        wrote_settings = _write_json_file_safe(settings_file, settings, yes=yes)
+        print(f"  {color('✅', GREEN) if wrote_settings else color('↪', BLUE)} {settings_file}")
+
+    # 3) .devcontainer/devcontainer.json
+    if args.devcontainer:
+        dc_file = project_dir / ".devcontainer" / "devcontainer.json"
+        dc: dict = _read_json(dc_file) if dc_file.exists() else {}
+        if not isinstance(dc, dict):
+            dc = {}
+        custom = dc.get("customizations")
+        if not isinstance(custom, dict):
+            custom = {}
+        vscode_custom = custom.get("vscode")
+        if not isinstance(vscode_custom, dict):
+            vscode_custom = {}
+        exts = vscode_custom.get("extensions")
+        if not isinstance(exts, list):
+            exts = []
+        if "SaidBorna.codetrust" not in exts:
+            exts.append("SaidBorna.codetrust")
+        vscode_custom["extensions"] = exts
+        custom["vscode"] = vscode_custom
+        dc["customizations"] = custom
+        if "name" not in dc:
+            dc["name"] = "CodeTrust DevContainer"
+        wrote_dc = _write_json_file_safe(dc_file, dc, yes=yes)
+        print(f"  {color('✅', GREEN) if wrote_dc else color('↪', BLUE)} {dc_file}")
+
+    # 4) CONTRIBUTING.md snippet
+    if args.contributing:
+        contrib_file = project_dir / "CONTRIBUTING.md"
+        if contrib_file.exists():
+            text = contrib_file.read_text(encoding="utf-8", errors="ignore")
+            marker = "## CodeTrust"
+            if marker not in text:
+                snippet = (
+                    "\n\n## CodeTrust\n\n"
+                    "This repo uses CodeTrust as a quality gate for AI-assisted development.\n\n"
+                    "- Local: run `codetrust scan .` before opening a PR\n"
+                    "- Pre-commit: commits may be blocked until BLOCK findings are resolved\n"
+                    "- CI: PRs can fail the CodeTrust Quality Gate (SARIF uploaded to Security)\n"
+                )
+                wrote = _write_text_file_safe(contrib_file, text + snippet, yes=yes)
+                print(f"  {color('✅', GREEN) if wrote else color('↪', BLUE)} {contrib_file}")
+            else:
+                print(f"  {color('↪', BLUE)} {contrib_file} (already has CodeTrust section)")
+        else:
+            print(f"  {color('⚠️', YELLOW)}  CONTRIBUTING.md not found — skipping")
+
+    print("\nDone.\n")
+    return 0
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """Install CodeTrust enforcement layers into current project."""
     project_dir = Path.cwd()
@@ -1152,6 +1288,32 @@ def main() -> int:
     init_parser = subparsers.add_parser("init", help="Install enforcement layers")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
 
+    # add
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Add CodeTrust repo bootstrap files (.vscode/.devcontainer/CONTRIBUTING)",
+    )
+    add_parser.add_argument(
+        "--settings",
+        action="store_true",
+        help="Also write .vscode/settings.json defaults (only missing keys)",
+    )
+    add_parser.add_argument(
+        "--devcontainer",
+        action="store_true",
+        help="Also write/merge .devcontainer/devcontainer.json",
+    )
+    add_parser.add_argument(
+        "--contributing",
+        action="store_true",
+        help="Also append a CodeTrust section to CONTRIBUTING.md (if present)",
+    )
+    add_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Overwrite/merge without prompting",
+    )
+
     # scan
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
@@ -1203,6 +1365,14 @@ def main() -> int:
 
     if args.command == "init":
         return cmd_init(args)
+    if args.command == "add":
+        # default to full bootstrap when no specific targets requested
+        if not args.devcontainer and not args.contributing:
+            args.devcontainer = True
+            args.contributing = True
+        if not args.settings:
+            args.settings = True
+        return cmd_add(args)
     if args.command == "scan":
         return cmd_scan(args)
     if args.command == "status":

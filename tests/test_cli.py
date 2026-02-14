@@ -29,6 +29,7 @@ from src.cli import (
     _findings_to_sarif,
     _dedupe_findings,
     _detect_verify_gates,
+    _suppress_lint_covered_findings,
     _filter_findings_to_changed_lines,
     _normalize_path_for_git,
     _sort_findings,
@@ -104,6 +105,44 @@ class TestVerifyGates:
             )
             gates = _detect_verify_gates(tmp_dir)
             assert "npm run verify" in gates
+        finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestSuppressLintNoise:
+    def test_suppresses_console_log_when_eslint_present(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            (tmp_dir / "package.json").write_text(
+                '{"devDependencies": {"eslint": "^9.0.0"}}',
+                encoding="utf-8",
+            )
+            findings = [
+                {"file": "x.ts", "line": 1, "rule_id": "console_log", "severity": "WARN", "message": "m"},
+                {"file": "x.ts", "line": 2, "rule_id": "eval_exec", "severity": "BLOCK", "message": "e"},
+            ]
+            kept, suppressed = _suppress_lint_covered_findings(project_dir=tmp_dir, findings=findings)
+            assert suppressed == 1
+            assert any(f.get("rule_id") == "eval_exec" for f in kept)
+            assert all(f.get("rule_id") != "console_log" for f in kept)
+        finally:
+            shutil.rmtree(tmp_dir)
+
+    def test_suppresses_print_debug_when_ruff_present(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            (tmp_dir / "pyproject.toml").write_text(
+                "[tool.ruff]\nselect = ['T201']\n",
+                encoding="utf-8",
+            )
+            findings = [
+                {"file": "a.py", "line": 1, "rule_id": "print_debug", "severity": "WARN", "message": "p"},
+                {"file": "a.py", "line": 2, "rule_id": "hardcoded_secret", "severity": "BLOCK", "message": "s"},
+            ]
+            kept, suppressed = _suppress_lint_covered_findings(project_dir=tmp_dir, findings=findings)
+            assert suppressed == 1
+            assert any(f.get("rule_id") == "hardcoded_secret" for f in kept)
+            assert all(f.get("rule_id") != "print_debug" for f in kept)
         finally:
             shutil.rmtree(tmp_dir)
 

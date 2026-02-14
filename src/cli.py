@@ -396,6 +396,76 @@ def _detect_verify_gates(project_dir: Path) -> list[str]:
     return out
 
 
+def _has_eslint(project_dir: Path) -> bool:
+    package_json = project_dir / "package.json"
+    if package_json.is_file():
+        data = _read_json_if_exists(package_json)
+        if isinstance(data, dict):
+            deps = data.get("dependencies", {})
+            dev = data.get("devDependencies", {})
+            if isinstance(deps, dict) and "eslint" in deps:
+                return True
+            if isinstance(dev, dict) and "eslint" in dev:
+                return True
+            if "eslintConfig" in data:
+                return True
+    for name in (
+        ".eslintrc",
+        ".eslintrc.json",
+        ".eslintrc.js",
+        ".eslintrc.cjs",
+        ".eslintrc.yaml",
+        ".eslintrc.yml",
+    ):
+        if (project_dir / name).is_file():
+            return True
+    return False
+
+
+def _has_ruff(project_dir: Path) -> bool:
+    pyproject = project_dir / "pyproject.toml"
+    if pyproject.is_file():
+        raw = _read_text_if_exists(pyproject)
+        if "[tool.ruff" in raw:
+            return True
+    if (project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file():
+        return True
+    return False
+
+
+def _suppress_lint_covered_findings(
+    *,
+    project_dir: Path,
+    findings: list[dict[str, str | int]],
+) -> tuple[list[dict[str, str | int]], int]:
+    """Optionally suppress findings that are commonly covered by linters.
+
+    Returns: (kept_findings, suppressed_count)
+    """
+    has_eslint = _has_eslint(project_dir)
+    has_ruff = _has_ruff(project_dir)
+    if not has_eslint and not has_ruff:
+        return findings, 0
+
+    suppressed = 0
+    kept: list[dict[str, str | int]] = []
+    for f in findings:
+        file = str(f.get("file", ""))
+        rule_id = str(f.get("rule_id", ""))
+        ext = Path(file).suffix.lower()
+
+        if has_eslint and ext in {".js", ".ts", ".jsx", ".tsx"} and rule_id == "console_log":
+            suppressed += 1
+            continue
+        if has_ruff and ext == ".py" and rule_id == "print_debug":
+            suppressed += 1
+            continue
+
+        kept.append(f)
+
+    return kept, suppressed
+
+
 # Loaded once at import time — available globally
 PROJECT_CONFIG = _load_project_config()
 
@@ -1161,6 +1231,13 @@ def cmd_scan(args: argparse.Namespace) -> int:
     if getattr(args, "changed_only", False):
         all_findings = _filter_findings_to_changed_lines(cwd=cwd, findings=all_findings)
 
+    suppressed_count = 0
+    if getattr(args, "suppress_lint_noise", False):
+        all_findings, suppressed_count = _suppress_lint_covered_findings(
+            project_dir=cwd,
+            findings=all_findings,
+        )
+
     if getattr(args, "dedupe", False):
         all_findings = _dedupe_findings(all_findings)
 
@@ -1191,6 +1268,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
             gates_str = ", ".join(gates[:4]) + ("" if len(gates) <= 4 else ", …")
             print(color(f"  🔒 Repo gates detected: {gates_str}", BLUE))
             print(color("  Tip: run these gates before merging to reduce CI churn\n", BLUE))
+
+        if suppressed_count:
+            print(color(f"  🧹 Suppressed {suppressed_count} linter-covered finding(s) (opt-in)", BLUE))
+            print()
 
         print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
         print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
@@ -1639,6 +1720,12 @@ def main() -> int:
         "--dedupe",
         action="store_true",
         help="Dedupe identical findings for noise control",
+    )
+    scan_parser.add_argument(
+        "--suppress-lint-noise",
+        dest="suppress_lint_noise",
+        action="store_true",
+        help="Suppress findings commonly covered by existing linters (opt-in)",
     )
 
     # status

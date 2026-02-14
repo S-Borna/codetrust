@@ -6,6 +6,7 @@ and produces correct findings for all file types.
 
 import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -26,10 +27,70 @@ from src.cli import (
     SQL_WARN_RULES,
     WARN_RULES,
     _findings_to_sarif,
+    _dedupe_findings,
+    _filter_findings_to_changed_lines,
+    _normalize_path_for_git,
+    _sort_findings,
     scan_file,
     scan_path,
 )
 from src.rules.anti_patterns import ANTI_PATTERNS
+
+
+class TestNoiseControl:
+    def test_dedupe_removes_exact_duplicates(self) -> None:
+        findings = [
+            {"file": "a.py", "line": 1, "rule_id": "eval_exec", "severity": "BLOCK", "message": "x"},
+            {"file": "a.py", "line": 1, "rule_id": "eval_exec", "severity": "BLOCK", "message": "x"},
+            {"file": "a.py", "line": 2, "rule_id": "todo_hack", "severity": "WARN", "message": "y"},
+        ]
+        out = _dedupe_findings(findings)
+        assert len(out) == 2
+
+    def test_sort_is_deterministic(self) -> None:
+        findings = [
+            {"file": "b.py", "line": 2, "rule_id": "todo_hack", "severity": "WARN", "message": "y"},
+            {"file": "a.py", "line": 10, "rule_id": "eval_exec", "severity": "BLOCK", "message": "x"},
+            {"file": "a.py", "line": 1, "rule_id": "print_debug", "severity": "WARN", "message": "p"},
+        ]
+        out = _sort_findings(findings)
+        # BLOCK first, then WARN; within same severity: file, line
+        assert out[0]["severity"] == "BLOCK"
+        assert out[0]["file"] == "a.py"
+        assert out[1]["file"] == "a.py"
+        assert int(out[1]["line"]) == 1
+
+
+class TestChangedLines:
+    def test_normalize_path_strips_dot_slash(self) -> None:
+        cwd = Path("/tmp")
+        assert _normalize_path_for_git("./a/b.py", cwd=cwd) == "a/b.py"
+
+    def test_filter_findings_to_changed_lines_keeps_only_modified(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+
+            path = tmp_dir / "a.py"
+            path.write_text("x = 1\nprint('ok')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            # Modify line 2 to introduce a finding
+            path.write_text("x = 1\nresult = eval(user_input)\n", encoding="utf-8")
+
+            findings = scan_file(str(path))
+            assert any(f.get("rule_id") == "eval_exec" for f in findings)
+
+            kept = _filter_findings_to_changed_lines(cwd=tmp_dir, findings=findings)
+            rule_ids = [f.get("rule_id") for f in kept]
+            assert "eval_exec" in rule_ids
+            # Should normalize file path to relative
+            assert all(str(f.get("file", "")).endswith("a.py") for f in kept)
+        finally:
+            shutil.rmtree(tmp_dir)
 
 # ═══════════════════════════════════════════════════════════════
 #  Rule Import Tests — no drift between CLI and backend

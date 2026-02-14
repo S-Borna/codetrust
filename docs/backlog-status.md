@@ -40,7 +40,7 @@ Legend:
 
 ## E) Repo-aware intelligence (real build value)
 
-- ❌ Detect `npm run verify` gates and pre-warn before running
+- 🟡 Detect `npm run verify` gates and pre-warn before running (partial: CLI support in progress)
 - ❌ Read ESLint/Prettier/TS configs and avoid duplicate noise
 - ❌ PR risk radar (routes/modules + tenancy/auth/compliance touchpoints)
 
@@ -55,7 +55,7 @@ Legend:
 
 - 🟡 Trust score concepts exist; actionable diffs/trends per commit/PR are not yet first-class
 - ❌ Trend view: quality debt + top regressions
-- ❌ Noise control: dedupe/group findings and focus on changed lines
+- 🟡 Noise control: dedupe findings and focus on changed lines (CLI flags: `--dedupe`, `--changed-only`)
 
 ## H) Security / Compliance (enterprise)
 

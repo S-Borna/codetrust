@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable
 
 try:
     import tomllib  # Python 3.11+
@@ -133,6 +134,168 @@ def color(text: str, c: str) -> str:
     if sys.stdout.isatty():
         return f"{c}{text}{NC}"
     return text
+
+
+_SEVERITY_ORDER: dict[str, int] = {"BLOCK": 0, "WARN": 1, "INFO": 2}
+
+
+def _normalize_path_for_git(path: str, *, cwd: Path) -> str:
+    """Normalize a filepath for git operations and stable output.
+
+    - Converts absolute paths under cwd to relative paths.
+    - Strips leading './'.
+    - Uses POSIX separators for git compatibility.
+    """
+    try:
+        p = Path(path)
+        if p.is_absolute():
+            try:
+                rel = p.relative_to(cwd.resolve())
+                path = str(rel)
+            except Exception:
+                path = str(p)
+        norm = Path(path).as_posix()
+        if norm.startswith("./"):
+            norm = norm[2:]
+        return norm
+    except Exception:
+        return path
+
+
+def _dedupe_findings(findings: list[dict[str, str | int]]) -> list[dict[str, str | int]]:
+    """Remove duplicate findings while preserving first-seen order."""
+    seen: set[tuple[str, int, str, str, str]] = set()
+    out: list[dict[str, str | int]] = []
+    for f in findings:
+        file = str(f.get("file", ""))
+        line = int(f.get("line", 0) or 0)
+        rule_id = str(f.get("rule_id", ""))
+        severity = str(f.get("severity", "INFO"))
+        message = str(f.get("message", ""))
+        key = (file, line, rule_id, severity, message)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f)
+    return out
+
+
+def _sort_findings(findings: list[dict[str, str | int]]) -> list[dict[str, str | int]]:
+    """Sort findings deterministically for stable diffs and CI output."""
+    def _k(f: dict[str, str | int]) -> tuple[int, str, int, str, str]:
+        sev = str(f.get("severity", "INFO"))
+        sev_rank = _SEVERITY_ORDER.get(sev, 9)
+        file = str(f.get("file", ""))
+        line = int(f.get("line", 0) or 0)
+        rule_id = str(f.get("rule_id", ""))
+        msg = str(f.get("message", ""))
+        return (sev_rank, file, line, rule_id, msg)
+
+    return sorted(findings, key=_k)
+
+
+_HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@", re.MULTILINE)
+
+
+def _parse_unified0_changed_ranges(diff_text: str) -> list[tuple[int, int]]:
+    """Parse `git diff --unified=0` and return changed line ranges on the + side."""
+    ranges: list[tuple[int, int]] = []
+    for m in _HUNK_RE.finditer(diff_text):
+        start = int(m.group(1))
+        length_str = m.group(2)
+        length = int(length_str) if length_str is not None else 1
+        if length <= 0:
+            continue
+        ranges.append((start, start + length - 1))
+    return ranges
+
+
+def _is_line_in_ranges(line: int, ranges: Iterable[tuple[int, int]]) -> bool:
+    for start, end in ranges:
+        if start <= line <= end:
+            return True
+    return False
+
+
+def _get_git_changed_ranges(
+    *,
+    cwd: Path,
+    files: list[str],
+) -> dict[str, list[tuple[int, int]]]:
+    """Get changed line ranges for files using git diff.
+
+    Prefer staged changes when present; otherwise use working-tree diff vs HEAD.
+    Returns a map from normalized relative file path -> list of (start,end).
+    """
+    try:
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        has_staged = bool(staged.stdout.strip())
+    except Exception:
+        return {}
+
+    result: dict[str, list[tuple[int, int]]] = {}
+    for fp in files:
+        rel = _normalize_path_for_git(fp, cwd=cwd)
+        if not rel:
+            continue
+        base_cmd = ["git", "diff", "--unified=0"]
+        if has_staged:
+            base_cmd.append("--cached")
+        else:
+            base_cmd.append("HEAD")
+        base_cmd.extend(["--", rel])
+
+        try:
+            diff = subprocess.run(
+                base_cmd,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            ranges = _parse_unified0_changed_ranges(diff.stdout)
+            if ranges:
+                result[rel] = ranges
+        except Exception:
+            continue
+
+    return result
+
+
+def _filter_findings_to_changed_lines(
+    *,
+    cwd: Path,
+    findings: list[dict[str, str | int]],
+) -> list[dict[str, str | int]]:
+    """Keep only findings that fall on changed lines for their file."""
+    files = [str(f.get("file", "")) for f in findings if f.get("file")]
+    if not files:
+        return []
+    changed = _get_git_changed_ranges(cwd=cwd, files=files)
+    if not changed:
+        return []
+
+    kept: list[dict[str, str | int]] = []
+    for f in findings:
+        raw_file = str(f.get("file", ""))
+        rel = _normalize_path_for_git(raw_file, cwd=cwd)
+        ranges = changed.get(rel)
+        if not ranges:
+            continue
+        line = int(f.get("line", 0) or 0)
+        if line <= 0:
+            continue
+        if _is_line_in_ranges(line, ranges):
+            # Normalize file path for stable output
+            f = {**f, "file": rel}
+            kept.append(f)
+    return kept
 
 
 # --- Project config loader ---
@@ -924,6 +1087,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
         except Exception:
             pass  # Import verification is best-effort; don't break scan
 
+    cwd = Path.cwd()
+
+    if getattr(args, "changed_only", False):
+        all_findings = _filter_findings_to_changed_lines(cwd=cwd, findings=all_findings)
+
+    if getattr(args, "dedupe", False):
+        all_findings = _dedupe_findings(all_findings)
+
+    all_findings = _sort_findings(all_findings)
+
     blocks = [f for f in all_findings if f.get("severity") == "BLOCK"]
     warns = [f for f in all_findings if f.get("severity") == "WARN"]
     infos = [f for f in all_findings if f.get("severity") == "INFO"]
@@ -1381,6 +1554,16 @@ def main() -> int:
         "--no-verify-imports",
         action="store_true",
         help="Skip live registry verification of imports",
+    )
+    scan_parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="Only report findings that fall on changed lines (uses git diff)",
+    )
+    scan_parser.add_argument(
+        "--dedupe",
+        action="store_true",
+        help="Dedupe identical findings for noise control",
     )
 
     # status

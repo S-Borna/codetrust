@@ -886,6 +886,114 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
     return findings
 
 
+def _scan_code_text(code: str, filename: str) -> list[dict[str, str | int]]:
+    """Scan in-memory code using the same routing as scan_file()."""
+    tmp_path = Path(filename)
+    basename = tmp_path.name.lower()
+    if basename.startswith("test_") or basename.startswith("conftest") or ".test." in basename or ".spec." in basename:
+        return []
+
+    # Preserve path-based routing (e.g., .github, dockerfile naming) by writing
+    # to a temp directory that mirrors the original relative path.
+    import tempfile as _tempfile
+
+    with _tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_file = Path(tmp_dir) / tmp_path
+        tmp_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_file.write_text(code, encoding="utf-8", errors="ignore")
+        return scan_file(str(tmp_file))
+
+
+def _git_show_head(project_dir: Path, relpath: str) -> str | None:
+    """Return file content at HEAD for relpath, or None if missing."""
+    rel = _normalize_path_for_git(relpath, cwd=project_dir)
+    try:
+        res = subprocess.run(
+            ["git", "show", f"HEAD:{rel}"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
+            return None
+        return res.stdout
+    except (OSError, ValueError):
+        return None
+
+
+def _compute_trust_diff(*, project_dir: Path, changed_files: list[str], staged: bool) -> dict[str, object]:
+    """Compute a trust/drift diff between HEAD and current changes."""
+    norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
+    norm_files = [f for f in norm_files if Path(f).suffix.lower() in SOURCE_EXTS]
+    norm_files = sorted(set(norm_files))
+
+    head_findings: list[dict[str, str | int]] = []
+    cur_findings: list[dict[str, str | int]] = []
+
+    for rel in norm_files:
+        head_text = _git_show_head(project_dir, rel)
+        if head_text is not None:
+            head_findings.extend(_scan_code_text(head_text, rel))
+        abs_path = project_dir / rel
+        if abs_path.is_file():
+            cur_findings.extend(scan_file(str(abs_path)))
+
+    head_findings = _sort_findings(_dedupe_findings(head_findings))
+    cur_findings = _sort_findings(_dedupe_findings(cur_findings))
+
+    head_drift = _calculate_drift_score(head_findings)
+    cur_drift = _calculate_drift_score(cur_findings)
+
+    def _counts(findings: list[dict[str, str | int]]) -> dict[str, int]:
+        return {
+            "total": len(findings),
+            "blocks": sum(1 for f in findings if f.get("severity") == "BLOCK"),
+            "warnings": sum(1 for f in findings if f.get("severity") == "WARN"),
+            "infos": sum(1 for f in findings if f.get("severity") == "INFO"),
+        }
+
+    head_counts = _counts(head_findings)
+    cur_counts = _counts(cur_findings)
+
+    return {
+        "scope": "staged" if staged else "working_tree",
+        "files": norm_files,
+        "head": {"drift": head_drift, "counts": head_counts},
+        "current": {"drift": cur_drift, "counts": cur_counts},
+        "delta": {
+            "drift_score": int(cur_drift.get("score", 0)) - int(head_drift.get("score", 0)),
+            "total_findings": cur_counts["total"] - head_counts["total"],
+            "blocks": cur_counts["blocks"] - head_counts["blocks"],
+            "warnings": cur_counts["warnings"] - head_counts["warnings"],
+            "infos": cur_counts["infos"] - head_counts["infos"],
+        },
+    }
+
+
+def cmd_trust_diff(args: argparse.Namespace) -> int:
+    """Compare trust/drift between HEAD and current changes."""
+    project_dir = Path.cwd()
+    changed_files, staged = _get_git_changed_files(cwd=project_dir)
+    report = _compute_trust_diff(project_dir=project_dir, changed_files=changed_files, staged=staged)
+
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2, default=str))
+        return 0
+
+    delta = report.get("delta", {})
+    head = report.get("head", {})
+    cur = report.get("current", {})
+    head_drift = head.get("drift", {}) if isinstance(head, dict) else {}
+    cur_drift = cur.get("drift", {}) if isinstance(cur, dict) else {}
+    print(f"\n{color('📈 CodeTrust Trust Diff', BOLD)}")
+    print(f"   Scope: {report.get('scope', '-')}")
+    print(f"   Files compared: {len(report.get('files', []) if isinstance(report.get('files', []), list) else [])}")
+    print(f"   Drift score: {head_drift.get('score', 0)}/100 → {cur_drift.get('score', 0)}/100 (Δ {delta.get('drift_score', 0)})\n")
+    print(f"   Findings Δ: total {delta.get('total_findings', 0)}, blocks {delta.get('blocks', 0)}, warns {delta.get('warnings', 0)}, infos {delta.get('infos', 0)}")
+    return 0
+
+
 # ── Special handler implementations ──────────────────────────────
 
 
@@ -2018,6 +2126,10 @@ def main() -> int:
     pr_parser = subparsers.add_parser("pr-risk", help="Estimate PR risk based on changed files")
     pr_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
+    # trust-diff
+    td_parser = subparsers.add_parser("trust-diff", help="Compare trust/drift between HEAD and current changes")
+    td_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
     # governance
     gov_parser = subparsers.add_parser("governance", help="Manage AI governance policies")
     gov_parser.add_argument("--setup", action="store_true", help="Show MCP gateway setup instructions")
@@ -2067,6 +2179,8 @@ def main() -> int:
         return cmd_doctor(args)
     if args.command == "pr-risk":
         return cmd_pr_risk(args)
+    if args.command == "trust-diff":
+        return cmd_trust_diff(args)
     if args.command == "governance":
         return cmd_governance(args)
     if args.command == "audit":

@@ -121,7 +121,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `codetrust.apiUrl` | `https://codetrust-api-production.up.railway.app` | CodeTrust API server URL |
-| `codetrust.apiKey` | `""` | API key for authentication (`X-API-Key`) |
+| `codetrust.apiKey` | `""` | Deprecated: API key is stored in VS Code Secret Storage (use Guided Onboarding) |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
 | `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
 | `codetrust.scanOnTypeDebounceMs` | `600` | Debounce delay for scan while typing |

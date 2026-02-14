@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scan-on-type (opt-in, debounced, offline)
   - Expanded Quick Fix coverage (deterministic transforms)
   - Guided onboarding: configure API URL/key + run first scan
+  - API key now stored in VS Code Secret Storage (migrated from settings)
+  - Onboarding success confirmation message
 - GitHub Action:
   - PR-mode default (auto on pull_request): scans changed files and gates on new findings only
   - New input `pr-mode: auto|always|never` to override behavior

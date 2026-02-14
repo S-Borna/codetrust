@@ -110,7 +110,7 @@
                 "codetrust.apiKey": {
                     "type": "string",
                     "default": "",
-                    "description": "API key for authentication (X-API-Key header)"
+                    "description": "Deprecated: API key is stored in VS Code Secret Storage. Use 'CodeTrust: Guided Onboarding'. If set here, it will be migrated and cleared."
                 },
                 "codetrust.scanOnSave": {
                     "type": "boolean",

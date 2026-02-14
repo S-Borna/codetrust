@@ -20,15 +20,21 @@ import { getConfig } from "./config";
 import { LANGUAGE_MAP, DOCKERFILE_LANGUAGE_IDS } from "./types";
 import { VerificationCache } from "./verification-cache";
 import { scanCodeOffline } from "./embedded-scanner";
+import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 
 /** Extension activation — called when a supported file is opened. */
-export function activate(context: vscode.ExtensionContext): void {
-    const config = getConfig();
-    const client = new ApiClient(config);
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+    const baseConfig = getConfig();
     const diagnostics = new DiagnosticProvider();
     const statusBar = new StatusBarManager();
     const outputChannel = vscode.window.createOutputChannel("CodeTrust");
     const cache = new VerificationCache(context.globalState);
+
+    await migrateApiKeySettingToSecretIfNeeded(context, outputChannel);
+    const apiKey = await getApiKeySecret(context);
+
+    const config = { ...baseConfig, apiKey };
+    const client = new ApiClient(config);
 
     const stats = cache.getStats();
     outputChannel.appendLine(
@@ -143,11 +149,15 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("codetrust")) {
-                const newConfig = getConfig();
-                client.updateConfig(newConfig);
-                outputChannel.appendLine(
-                    `Configuration updated | API: ${newConfig.apiUrl}`,
-                );
+                void (async (): Promise<void> => {
+                    const updatedBase = getConfig();
+                    const updatedKey = await getApiKeySecret(context);
+                    const updated = { ...updatedBase, apiKey: updatedKey };
+                    client.updateConfig(updated);
+                    outputChannel.appendLine(
+                        `Configuration updated | API: ${updated.apiUrl}`,
+                    );
+                })();
             }
         }),
     );

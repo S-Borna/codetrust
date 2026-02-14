@@ -10,6 +10,7 @@ import { StatusBarManager } from "./status-bar";
 import { scanCodeOffline } from "./embedded-scanner";
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
+import { getApiKeySecret, storeApiKeySecret } from "./secrets";
 import type { VerificationCache } from "./verification-cache";
 import type {
     Language,
@@ -88,6 +89,7 @@ async function guidedOnboardingCommand(
 
     const cfg = vscode.workspace.getConfiguration("codetrust");
     const current = getConfig();
+    const currentSecretKey = await getApiKeySecret(context);
 
     const apiUrlChoice = (await vscode.window.showQuickPick(
         API_URL_CHOICES,
@@ -147,10 +149,10 @@ async function guidedOnboardingCommand(
     if (apiUrlChoice !== "Skip (offline only)") {
         const apiKey = await vscode.window.showInputBox({
             title: "CodeTrust setup",
-            prompt: "Enter API key (stored in VS Code settings)",
+            prompt: "Enter API key (stored in VS Code Secret Storage)",
             password: true,
             ignoreFocusOut: true,
-            value: current.apiKey,
+            value: currentSecretKey.length > 0 ? "" : "",
         });
 
         if (apiKey === undefined) {
@@ -159,10 +161,12 @@ async function guidedOnboardingCommand(
         }
 
         const trimmedKey = apiKey.trim();
-        await cfg.update("apiKey", trimmedKey, vscode.ConfigurationTarget.Global);
+        await storeApiKeySecret(context, trimmedKey);
+        const updatedBase = getConfig();
+        deps.client.updateConfig({ ...updatedBase, apiKey: trimmedKey });
         deps.outputChannel.appendLine(
             trimmedKey.length > 0
-                ? "  API key saved to settings."
+                ? "  API key saved to Secret Storage."
                 : "  API key left empty (offline usage only).",
         );
     }
@@ -191,7 +195,9 @@ async function guidedOnboardingCommand(
     }
 
     await context.globalState.update(key, true);
-    vscode.window.showInformationMessage("CodeTrust: Onboarding complete.");
+    vscode.window.showInformationMessage(
+        "CodeTrust is active. Your code is now protected.",
+    );
 }
 
 async function createProfileCommand(deps: CommandDeps): Promise<void> {
@@ -525,7 +531,7 @@ function logApiError(deps: CommandDeps, err: unknown): void {
 
 function apiErrorHint(statusCode: number): string {
     if (statusCode === 401) {
-        return "Unauthorized — set codetrust.apiKey (X-API-Key) or sign in (JWT)";
+        return "Unauthorized — run 'CodeTrust: Guided Onboarding' to set API key (Secret Storage), or sign in (JWT)";
     }
     if (statusCode === 403) {
         return "Forbidden — credentials are valid but lack access";

@@ -90,7 +90,7 @@ AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI co
 | Failure Mode | What Happens | Who Catches It |
 |---|---|---|
 | **Hallucinated packages** | `pip install` fails — or worse: typosquatted malware installs | CodeTrust verifies imports against live registries |
-| **Destructive agent commands** | `rm -rf /`, `eval()`, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
+| **Destructive agent commands** | `rm -rf /`, `eval`, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
 | **Ghost Docker images** | AI references images that don't exist — build breaks at 2AM | CodeTrust validates images against Docker Hub |
 | **Invisible code drift** | AI code quality degrades gradually — no one measures it | CodeTrust tracks trust score over time |
 
@@ -194,9 +194,16 @@ codetrust scan src/                # Scan a directory
 codetrust scan . --sarif           # SARIF output for CI
 codetrust scan . --json            # JSON output
 codetrust scan . --no-verify-imports  # Skip registry checks (offline)
+codetrust scan . --changed-only --dedupe  # Reduce noise in large repos
+codetrust scan . --suppress-lint-noise    # Optional suppression for lint-heavy output
 
 codetrust status                   # Check enforcement status
 codetrust doctor                   # Diagnose installation
+
+codetrust pr-risk                  # Repo-aware PR risk summary (git diff aware)
+codetrust trust-diff               # Compare trust score: HEAD vs working tree
+codetrust trend record             # Record a local snapshot
+codetrust trend show               # Show recorded snapshots
 
 codetrust governance --status      # Governance overview
 codetrust governance --mode audit  # Switch to audit mode
@@ -212,17 +219,28 @@ code --install-extension SaidBorna.codetrust
 ```
 
 - Scans on save (configurable)
+- Scan on type (opt-in, debounced) using the embedded offline scanner
 - Inline diagnostics with severity levels
 - Works fully offline — all scan rules embedded
 - "Scan Workspace" — up to 500 files with progress UI
+- Profile create/apply commands for quick setup
+- Quick Fixes for common findings
+- Health Check command for connectivity and config sanity
 - AI governance controls built in
 - Deep scan mode for full analysis
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `codetrust.apiUrl` | `https://codetrust-api-production.up.railway.app` | API server URL (or `http://localhost:8000` self-hosted) |
+| `codetrust.apiKey` | `""` | API key for authentication (`X-API-Key`) |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
+| `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
+| `codetrust.scanOnTypeDebounceMs` | `600` | Debounce delay for scan while typing |
 | `codetrust.severityThreshold` | `INFO` | Minimum severity to show |
+| `codetrust.enabledLanguages` | `[...]` | Languages to scan |
 | `codetrust.scanType` | `static` | `static` or `deep` |
+| `codetrust.verifyImportsOnSave` | `false` | Verify imports on save (network) |
+| `codetrust.timeout` | `15000` | Request timeout in milliseconds |
 | `codetrust.governance.enabled` | `true` | Enable AI governance |
 | `codetrust.governance.mode` | `enforce` | `enforce` / `audit` / `off` |
 

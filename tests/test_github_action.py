@@ -16,6 +16,7 @@ from action.scan_runner import (
     scan_files,
     should_fail,
     diff_new_findings,
+    write_markdown_report,
     write_sarif,
 )
 from src.models.enums import Severity
@@ -282,6 +283,35 @@ class TestPrModeDiff:
         new_only = diff_new_findings(head, baseline)
         assert len(new_only) == 1
         assert new_only[0].rule_id == "hardcoded_secret"
+
+
+class TestMarkdownReport:
+    """Test markdown report generation."""
+
+    def test_writes_markdown_report(self, tmp_path: Path) -> None:
+        """Report file is created and includes verdict and counts."""
+        report_path = tmp_path / "codetrust-report.md"
+        findings = [
+            Finding(
+                rule_id="eval_exec",
+                severity=Severity.BLOCK,
+                message="eval",
+                file="a.py",
+                line=1,
+            ),
+        ]
+
+        write_markdown_report(
+            verdict="BLOCK",
+            findings=findings,
+            files_scanned=1,
+            report_path=str(report_path),
+            pr_mode_active=True,
+        )
+
+        text = report_path.read_text(encoding="utf-8")
+        assert "Verdict: BLOCK" in text
+        assert "Files scanned: 1" in text
 
 
 # --- SARIF output tests ---

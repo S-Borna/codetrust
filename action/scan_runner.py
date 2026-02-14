@@ -398,6 +398,7 @@ def compute_verdict(findings: list[Finding]) -> str:
 def set_outputs(
     verdict: str,
     findings: list[Finding],
+    report_path: str,
     sarif_path: str,
 ) -> None:
     """Set GitHub Actions outputs.
@@ -415,7 +416,100 @@ def set_outputs(
     _set_output("total-findings", str(total))
     _set_output("blocks", str(blocks))
     _set_output("warnings", str(warns))
+    _set_output("report", report_path)
     _set_output("sarif-file", sarif_path)
+
+
+def write_markdown_report(
+    verdict: str,
+    findings: list[Finding],
+    files_scanned: int,
+    report_path: str,
+    pr_mode_active: bool,
+) -> None:
+    """Write a markdown report to disk.
+
+    Intended for PR comments and artifact use.
+    """
+    blocks = [f for f in findings if f.severity == Severity.BLOCK]
+    warns = [f for f in findings if f.severity == Severity.WARN]
+    infos = [f for f in findings if f.severity == Severity.INFO]
+
+    mode = "PR-mode (new findings only)" if pr_mode_active else "Full scan"
+
+    lines: list[str] = [
+        "## 🛡️ CodeTrust Scan Results",
+        "",
+        f"**Verdict: {verdict}**",
+        f"Mode: {mode}",
+        "",
+        f"Files scanned: {files_scanned} | BLOCK: {len(blocks)} | WARN: {len(warns)} | INFO: {len(infos)}",
+        "",
+    ]
+
+    def add_table(title: str, items: list[Finding]) -> None:
+        if not items:
+            return
+        lines.append(f"### {title}")
+        lines.append("")
+        lines.append("| File | Line | Rule | Message |")
+        lines.append("|------|------|------|---------|")
+        for f in items[:50]:
+            file_str = f.file or "unknown"
+            line_num = f.line or 1
+            rule_id = f.rule_id
+            msg = f.message.replace("\n", " ")
+            lines.append(f"| `{file_str}` | {line_num} | `{rule_id}` | {msg} |")
+        lines.append("")
+
+    add_table("🚫 BLOCK", blocks)
+    add_table("⚠️ WARN", warns)
+    add_table("ℹ️ INFO", infos)
+
+    Path(report_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_step_summary(
+    verdict: str,
+    findings: list[Finding],
+    files_scanned: int,
+    pr_mode_active: bool,
+) -> None:
+    """Append a concise summary to GitHub Actions step summary (if available)."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "")
+    if not summary_path:
+        return
+
+    blocks = sum(1 for f in findings if f.severity == Severity.BLOCK)
+    warns = sum(1 for f in findings if f.severity == Severity.WARN)
+    infos = sum(1 for f in findings if f.severity == Severity.INFO)
+    mode = "PR-mode (new findings only)" if pr_mode_active else "Full scan"
+
+    top = findings[:10]
+    lines = [
+        "## 🛡️ CodeTrust",
+        "",
+        f"**Verdict:** `{verdict}`  ",
+        f"**Mode:** {mode}  ",
+        f"**Files scanned:** {files_scanned}  ",
+        f"**Findings:** BLOCK {blocks} · WARN {warns} · INFO {infos}",
+        "",
+    ]
+
+    if top:
+        lines.append("### Top findings")
+        for f in top:
+            file_str = f.file or "unknown"
+            line_num = f.line or 1
+            msg = f.message.replace("\n", " ")
+            lines.append(f"- `{f.rule_id}` {file_str}:{line_num} — {msg}")
+        lines.append("")
+
+    try:
+        with open(summary_path, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except OSError:
+        return
 
 
 def _set_output(name: str, value: str) -> None:
@@ -576,8 +670,13 @@ def main() -> int:
     # Write SARIF
     write_sarif(effective_findings, args.sarif_file)
 
+    # Write markdown report + step summary
+    report_path = "codetrust-report.md"
+    write_markdown_report(verdict, effective_findings, len(files), report_path, pr_mode_active)
+    write_step_summary(verdict, effective_findings, len(files), pr_mode_active)
+
     # Set outputs
-    set_outputs(verdict, effective_findings, args.sarif_file)
+    set_outputs(verdict, effective_findings, report_path, args.sarif_file)
 
     # Print summary
     print_summary(verdict, effective_findings, len(files))

@@ -30,6 +30,7 @@ from src.cli import (
     _dedupe_findings,
     _detect_verify_gates,
     _compute_pr_risk,
+    _compute_trust_diff,
     _get_git_changed_files,
     _suppress_lint_covered_findings,
     _filter_findings_to_changed_lines,
@@ -164,6 +165,31 @@ class TestPrRiskRadar:
             labels = {s.get("label") for s in signals if isinstance(s, dict)}
             assert "Auth / identity" in labels
             assert "Tenancy / multi-tenant" in labels
+        finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestTrustDiff:
+    def test_trust_diff_detects_new_block(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+
+            (tmp_dir / "a.py").write_text("x = 1\n", encoding="utf-8")
+            subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            # Introduce a BLOCK in working tree and stage it
+            (tmp_dir / "a.py").write_text("result = eval(user_input)\n", encoding="utf-8")
+            subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
+
+            files, staged = _get_git_changed_files(cwd=tmp_dir)
+            report = _compute_trust_diff(project_dir=tmp_dir, changed_files=files, staged=staged)
+            delta = report.get("delta", {})
+            assert isinstance(delta, dict)
+            assert int(delta.get("blocks", 0) or 0) >= 1
         finally:
             shutil.rmtree(tmp_dir)
 

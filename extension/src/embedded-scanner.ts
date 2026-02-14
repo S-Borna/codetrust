@@ -57,7 +57,7 @@ const GENERIC_BLOCK_RULES: Rule[] = [
         id: "sql_injection",
         pattern: new RegExp(
             "(?:" + "execute|executemany|cursor\\.execute" + ")" +
-            "\\s*\\(\\s*(?:f[\"']|[^)]*\\.format\\s*\\(",
+            "\\s*\\(\\s*(?:f[\"']|[^)]*\\.format\\s*\\()",
         ),
         message: "Possible SQL injection via string formatting. Use parameterized queries.",
         severity: "BLOCK",

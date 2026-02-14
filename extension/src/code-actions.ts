@@ -57,6 +57,9 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
             actions.push(suppressAction);
         }
 
+        // Rule-specific deterministic quick fixes
+        actions.push(...this.createRuleSpecificActions(document, diagnostic, ruleId));
+
         // Action: Apply suggestion if it looks like a replacement
         if (suggestion) {
             const applyAction = this.createApplySuggestionAction(
@@ -77,6 +80,91 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         }
 
         return actions;
+    }
+
+    private createRuleSpecificActions(
+        document: vscode.TextDocument,
+        diagnostic: vscode.Diagnostic,
+        ruleId: string,
+    ): vscode.CodeAction[] {
+        if (ruleId !== "print_debug") {
+            return [];
+        }
+
+        if (document.languageId !== "python") {
+            return [];
+        }
+
+        const line = diagnostic.range.start.line;
+        const lineText = document.lineAt(line).text;
+        const match = lineText.match(/\bprint\s*\((.*)\)\s*$/);
+        if (!match) {
+            return [];
+        }
+
+        const expr = match[1] ?? "";
+        const action = new vscode.CodeAction(
+            "Convert print() to logging.info()",
+            vscode.CodeActionKind.QuickFix,
+        );
+
+        const edit = new vscode.WorkspaceEdit();
+
+        // Replace the print(...) call with logging.info(...)
+        const startIdx = lineText.indexOf("print");
+        if (startIdx >= 0) {
+            const replaceRange = new vscode.Range(
+                line,
+                startIdx,
+                line,
+                lineText.length,
+            );
+            edit.replace(document.uri, replaceRange, `logging.info(${expr})`);
+        }
+
+        // Ensure `import logging` exists near the top
+        const hasImport = document.getText().split("\n").some((ln) => ln.trim() === "import logging");
+        if (!hasImport) {
+            const insertAt = this.findPythonImportInsertLine(document);
+            edit.insert(document.uri, new vscode.Position(insertAt, 0), "import logging\n");
+        }
+
+        action.edit = edit;
+        action.diagnostics = [diagnostic];
+        action.isPreferred = true;
+        return [action];
+    }
+
+    private findPythonImportInsertLine(document: vscode.TextDocument): number {
+        // Insert after shebang and module docstring if present.
+        const lines = document.getText().split("\n");
+        let i = 0;
+        if (lines[0]?.startsWith("#!")) {
+            i = 1;
+        }
+
+        // Skip encoding comment
+        if (lines[i]?.includes("coding")) {
+            i += 1;
+        }
+
+        // Skip module docstring
+        const first = (lines[i] ?? "").trim();
+        const triple = first.startsWith('"""') || first.startsWith("'''");
+        if (triple) {
+            const quote = first.startsWith('"""') ? '"""' : "'''";
+            // If the opener also closes on same line, just advance one line
+            if (first.slice(3).includes(quote)) {
+                return Math.min(i + 1, lines.length);
+            }
+            for (let j = i + 1; j < lines.length; j++) {
+                if ((lines[j] ?? "").includes(quote)) {
+                    return Math.min(j + 1, lines.length);
+                }
+            }
+        }
+
+        return Math.min(i, lines.length);
     }
 
     /** Create a suppress action that adds a disable comment. */
@@ -203,12 +291,10 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         switch (ruleId) {
             case "console_log":
                 return lineText.match(/console\.log\([^)]*\)/)?.[0] ?? null;
-            case "print_statement":
+            case "print_debug":
                 return lineText.match(/print\([^)]*\)/)?.[0] ?? null;
-            case "eval_usage":
-                return lineText.match(/eval\([^)]*\)/)?.[0] ?? null;
-            case "exec_usage":
-                return lineText.match(/exec\([^)]*\)/)?.[0] ?? null;
+            case "eval_exec":
+                return lineText.match(/\b(eval|exec)\([^)]*\)/)?.[0] ?? null;
             default:
                 return null;
         }
@@ -239,10 +325,8 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
     private isDeletableRule(ruleId: string): boolean {
         const deletable = new Set([
             "console_log",
-            "print_statement",
-            "debugger_statement",
             "todo_marker",
-            "hack_marker",
+            "print_debug",
         ]);
         return deletable.has(ruleId);
     }

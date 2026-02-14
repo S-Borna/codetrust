@@ -155,6 +155,28 @@ PR_RISK_RULES: list[tuple[str, int, tuple[str, ...]]] = [
     ("Compliance", 10, ("gdpr", "compliance", "retention", "pii", "privacy")),
 ]
 
+_ENDPOINT_RE = re.compile(r"['\"](/(?:v\d+|api)[^'\"\s]{1,120})['\"]")
+
+
+def _extract_touched_endpoints(diff_text: str) -> list[str]:
+    """Extract API endpoint-looking strings from added lines in a unified diff."""
+    endpoints: list[str] = []
+    seen: set[str] = set()
+    for ln in diff_text.splitlines():
+        if not ln.startswith("+") or ln.startswith("+++"):
+            continue
+        for m in _ENDPOINT_RE.finditer(ln):
+            ep = m.group(1)
+            if not ep or len(ep) < 3:
+                continue
+            if ep in seen:
+                continue
+            seen.add(ep)
+            endpoints.append(ep)
+            if len(endpoints) >= 20:
+                return endpoints
+    return endpoints
+
 
 def _normalize_path_for_git(path: str, *, cwd: Path) -> str:
     """Normalize a filepath for git operations and stable output.
@@ -322,6 +344,7 @@ def _compute_pr_risk(
 
     signals: list[dict[str, object]] = []
     total = 0
+    touched_endpoints: list[str] = []
     lowered = [f.lower() for f in norm_files]
 
     for label, points, needles in PR_RISK_RULES:
@@ -378,11 +401,28 @@ def _compute_pr_risk(
         diff_text = _get_git_file_diff(cwd=project_dir, staged=staged, path=rel)
         if not diff_text:
             continue
+        touched_endpoints.extend(_extract_touched_endpoints(diff_text))
         low = diff_text.lower()
         for label, points, needles in diff_rules:
             if any(n in low for n in needles):
                 total += points
                 signals.append({"label": label, "points": points, "matched": [rel]})
+
+    if touched_endpoints:
+        unique_eps: list[str] = []
+        seen_ep: set[str] = set()
+        for ep in touched_endpoints:
+            if ep in seen_ep:
+                continue
+            seen_ep.add(ep)
+            unique_eps.append(ep)
+        touched_endpoints = unique_eps[:25]
+        total += 20
+        signals.append({
+            "label": "API endpoints touched",
+            "points": 20,
+            "matched": touched_endpoints[:10],
+        })
 
     score = min(PR_RISK_MAX_SCORE, total)
     if score >= PR_RISK_HIGH_THRESHOLD:
@@ -400,6 +440,8 @@ def _compute_pr_risk(
         "changed_files": sorted(set(norm_files)),
         "changed_files_count": file_count,
         "changed_lines": total_changed_lines,
+        "touched_endpoints": touched_endpoints,
+        "touched_endpoints_count": len(touched_endpoints),
     }
 
 
@@ -1696,6 +1738,15 @@ def cmd_pr_risk(args: argparse.Namespace) -> int:
     print(f"   Changed files: {int(risk.get('changed_files_count', 0) or 0)}")
     print(f"   Changed lines: {int(risk.get('changed_lines', 0) or 0)}")
     print(f"   Risk: {risk['level']} ({risk['score']}/{PR_RISK_MAX_SCORE})\n")
+
+    eps = risk.get("touched_endpoints", [])
+    if isinstance(eps, list) and eps:
+        print(color("  Touched endpoints:", BLUE))
+        for ep in eps[:8]:
+            print(f"    - {ep}")
+        if len(eps) > 8:
+            print(f"    ... and {len(eps) - 8} more")
+        print()
 
     signals = risk.get("signals", [])
     if isinstance(signals, list) and signals:

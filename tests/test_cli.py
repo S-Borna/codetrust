@@ -167,6 +167,39 @@ class TestPrRiskRadar:
         finally:
             shutil.rmtree(tmp_dir)
 
+    def test_pr_risk_detects_touched_endpoints(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+
+            (tmp_dir / "src").mkdir(parents=True, exist_ok=True)
+            api_file = tmp_dir / "src" / "api.py"
+            api_file.write_text(
+                "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/v1/status')\ndef status():\n    return {'ok': True}\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "src/api.py"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            # Add a new endpoint
+            api_file.write_text(
+                "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/v1/status')\ndef status():\n    return {'ok': True}\n\n@app.post('/v1/payments')\ndef pay():\n    return {'ok': True}\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "src/api.py"], cwd=tmp_dir, check=True)
+
+            files, staged = _get_git_changed_files(cwd=tmp_dir)
+            risk = _compute_pr_risk(project_dir=tmp_dir, changed_files=files, staged=staged)
+            eps = risk.get("touched_endpoints", [])
+            assert isinstance(eps, list)
+            assert "/v1/payments" in eps
+            labels = {s.get("label") for s in risk.get("signals", []) if isinstance(s, dict)}
+            assert "API endpoints touched" in labels
+        finally:
+            shutil.rmtree(tmp_dir)
+
     def test_suppresses_print_debug_when_ruff_present(self) -> None:
         tmp_dir = Path(tempfile.mkdtemp())
         try:

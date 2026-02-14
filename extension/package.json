@@ -59,6 +59,10 @@
                 "title": "CodeTrust: Scan File"
             },
             {
+                "command": "codetrust.guidedOnboarding",
+                "title": "CodeTrust: Guided Onboarding"
+            },
+            {
                 "command": "codetrust.createProfile",
                 "title": "CodeTrust: Create CodeTrust Profile"
             },

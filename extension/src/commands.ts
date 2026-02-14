@@ -38,6 +38,10 @@ export function registerCommands(
 ): void {
     const commands: Array<[string, () => Promise<void>]> = [
         ["codetrust.scanFile", (): Promise<void> => scanCurrentFile(deps)],
+        [
+            "codetrust.guidedOnboarding",
+            (): Promise<void> => guidedOnboardingCommand(context, deps),
+        ],
         ["codetrust.createProfile", (): Promise<void> => createProfileCommand(deps)],
         ["codetrust.applyProfile", (): Promise<void> => applyProfileCommand(deps)],
         ["codetrust.healthCheck", (): Promise<void> => healthCheckCommand(deps)],
@@ -53,6 +57,141 @@ export function registerCommands(
             vscode.commands.registerCommand(id, handler),
         );
     }
+}
+
+const API_URL_CHOICES = [
+    "Use Cloud API (recommended)",
+    "Set custom API URL",
+    "Skip (offline only)",
+] as const;
+
+type ApiUrlChoice = (typeof API_URL_CHOICES)[number];
+
+async function guidedOnboardingCommand(
+    context: vscode.ExtensionContext,
+    deps: CommandDeps,
+): Promise<void> {
+    deps.outputChannel.appendLine(`[${timestamp()}] Guided onboarding`);
+
+    const key = "codetrust.guidedOnboardingCompleted.v1";
+    const existing = context.globalState.get<boolean | null>(key, null);
+    if (existing === true) {
+        const again = await vscode.window.showInformationMessage(
+            "CodeTrust onboarding was already completed. Run it again?",
+            "Run again",
+            "Cancel",
+        );
+        if (again !== "Run again") {
+            return;
+        }
+    }
+
+    const cfg = vscode.workspace.getConfiguration("codetrust");
+    const current = getConfig();
+
+    const apiUrlChoice = (await vscode.window.showQuickPick(
+        API_URL_CHOICES,
+        {
+            title: "CodeTrust setup",
+            placeHolder: "Choose API mode",
+            ignoreFocusOut: true,
+        },
+    )) as ApiUrlChoice | undefined;
+
+    if (apiUrlChoice === undefined) {
+        deps.outputChannel.appendLine("  Cancelled at API mode step.");
+        return;
+    }
+
+    if (apiUrlChoice === "Use Cloud API (recommended)") {
+        await cfg.update(
+            "apiUrl",
+            "https://codetrust-api-production.up.railway.app",
+            vscode.ConfigurationTarget.Global,
+        );
+        deps.outputChannel.appendLine("  Set apiUrl to cloud default.");
+    }
+
+    if (apiUrlChoice === "Set custom API URL") {
+        const url = await vscode.window.showInputBox({
+            title: "CodeTrust setup",
+            prompt: "Enter your CodeTrust API URL (http/https)",
+            value: current.apiUrl,
+            ignoreFocusOut: true,
+            validateInput: (value: string): string | null => {
+                const trimmed = value.trim();
+                if (trimmed.length === 0) {
+                    return "API URL is required.";
+                }
+                try {
+                    const parsed = new URL(trimmed);
+                    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+                        return "URL must start with http:// or https://";
+                    }
+                    return null;
+                } catch {
+                    return "Invalid URL.";
+                }
+            },
+        });
+
+        if (!url) {
+            deps.outputChannel.appendLine("  Cancelled at API URL input.");
+            return;
+        }
+
+        await cfg.update("apiUrl", url.trim(), vscode.ConfigurationTarget.Global);
+        deps.outputChannel.appendLine("  Updated apiUrl.");
+    }
+
+    if (apiUrlChoice !== "Skip (offline only)") {
+        const apiKey = await vscode.window.showInputBox({
+            title: "CodeTrust setup",
+            prompt: "Enter API key (stored in VS Code settings)",
+            password: true,
+            ignoreFocusOut: true,
+            value: current.apiKey,
+        });
+
+        if (apiKey === undefined) {
+            deps.outputChannel.appendLine("  Cancelled at API key step.");
+            return;
+        }
+
+        const trimmedKey = apiKey.trim();
+        await cfg.update("apiKey", trimmedKey, vscode.ConfigurationTarget.Global);
+        deps.outputChannel.appendLine(
+            trimmedKey.length > 0
+                ? "  API key saved to settings."
+                : "  API key left empty (offline usage only).",
+        );
+    }
+
+    const runHealth = await vscode.window.showInformationMessage(
+        "Run CodeTrust Health Check now?",
+        "Run Health Check",
+        "Skip",
+    );
+    if (runHealth === "Run Health Check") {
+        await vscode.commands.executeCommand("codetrust.healthCheck");
+    }
+
+    const firstScan = await vscode.window.showInformationMessage(
+        "Run your first scan now?",
+        "Scan Workspace",
+        "Scan Current File",
+        "Not now",
+    );
+
+    if (firstScan === "Scan Workspace") {
+        await vscode.commands.executeCommand("codetrust.scanWorkspace");
+    }
+    if (firstScan === "Scan Current File") {
+        await vscode.commands.executeCommand("codetrust.scanFile");
+    }
+
+    await context.globalState.update(key, true);
+    vscode.window.showInformationMessage("CodeTrust: Onboarding complete.");
 }
 
 async function createProfileCommand(deps: CommandDeps): Promise<void> {

@@ -36,6 +36,7 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     void maybePromptAlwaysOn(context, outputChannel);
+    void maybePromptGuidedOnboarding(context, outputChannel);
 
     const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel, cache };
 
@@ -155,6 +156,43 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(diagnostics.diagnosticCollection);
     context.subscriptions.push(statusBar);
     context.subscriptions.push(outputChannel);
+}
+
+async function maybePromptGuidedOnboarding(
+    context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel,
+): Promise<void> {
+    const key = "codetrust.guidedOnboardingPrompted.v1";
+    const existing = context.globalState.get<boolean | null>(key, null);
+    if (existing !== null) {
+        return;
+    }
+
+    const config = getConfig();
+    if (config.apiKey.trim().length > 0) {
+        await context.globalState.update(key, true);
+        return;
+    }
+
+    const choice = await vscode.window.showInformationMessage(
+        "CodeTrust setup: configure API key and run your first scan?",
+        "Start",
+        "Not now",
+    );
+
+    await context.globalState.update(key, true);
+
+    if (choice !== "Start") {
+        outputChannel.appendLine("Guided onboarding prompt dismissed.");
+        return;
+    }
+
+    try {
+        await vscode.commands.executeCommand("codetrust.guidedOnboarding");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        outputChannel.appendLine(`Guided onboarding failed to start: ${msg}`);
+    }
 }
 
 async function maybePromptAlwaysOn(

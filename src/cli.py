@@ -138,6 +138,23 @@ def color(text: str, c: str) -> str:
 
 _SEVERITY_ORDER: dict[str, int] = {"BLOCK": 0, "WARN": 1, "INFO": 2}
 
+PR_RISK_MAX_SCORE = 100
+PR_RISK_HIGH_THRESHOLD = 60
+PR_RISK_MED_THRESHOLD = 25
+
+PR_RISK_RULES: list[tuple[str, int, tuple[str, ...]]] = [
+    ("Auth / identity", 25, ("auth", "oidc", "sso", "jwt", "oauth")),
+    ("Tenancy / multi-tenant", 25, ("tenant", "tenancy", "org", "organization")),
+    ("Billing / payments", 20, ("billing", "stripe", "invoice", "subscription")),
+    ("Data model / migrations", 20, ("alembic/versions/", "migrations/", "schema", "models/")),
+    ("API surface", 15, ("src/api.py", "openapi", "routes", "controllers")),
+    ("Gateway / enforcement", 15, ("gateway/", "policies", "governance")),
+    ("Secrets / config", 15, (".env", "config", "settings", "secrets")),
+    ("CI/CD / deployment", 10, (".github/workflows/", "dockerfile", "docker-compose", "helm/", "deploy/")),
+    ("Security", 10, ("security", "crypto", "encryption", "rbac", "acl")),
+    ("Compliance", 10, ("gdpr", "compliance", "retention", "pii", "privacy")),
+]
+
 
 def _normalize_path_for_git(path: str, *, cwd: Path) -> str:
     """Normalize a filepath for git operations and stable output.
@@ -208,6 +225,74 @@ def _parse_unified0_changed_ranges(diff_text: str) -> list[tuple[int, int]]:
             continue
         ranges.append((start, start + length - 1))
     return ranges
+
+
+def _get_git_changed_files(*, cwd: Path) -> tuple[list[str], bool]:
+    """Return (changed_files, staged) using git diff.
+
+    Prefers staged changes when present; otherwise uses working-tree diff vs HEAD.
+    """
+    try:
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        staged_files = [ln.strip() for ln in staged.stdout.splitlines() if ln.strip()]
+        if staged_files:
+            return staged_files, True
+
+        wt = subprocess.run(
+            ["git", "diff", "HEAD", "--name-only", "--diff-filter=ACMRT"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        wt_files = [ln.strip() for ln in wt.stdout.splitlines() if ln.strip()]
+        return wt_files, False
+    except (OSError, ValueError):
+        return ([], False)
+
+
+def _compute_pr_risk(*, project_dir: Path, changed_files: list[str]) -> dict[str, object]:
+    """Compute a simple PR risk score from changed file paths."""
+    norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
+
+    signals: list[dict[str, object]] = []
+    total = 0
+    lowered = [f.lower() for f in norm_files]
+
+    for label, points, needles in PR_RISK_RULES:
+        hit_files: list[str] = []
+        for f in lowered:
+            if any(n in f for n in needles):
+                hit_files.append(f)
+        if hit_files:
+            total += points
+            signals.append({
+                "label": label,
+                "points": points,
+                "matched": sorted(set(hit_files))[:10],
+            })
+
+    score = min(PR_RISK_MAX_SCORE, total)
+    if score >= PR_RISK_HIGH_THRESHOLD:
+        level = "HIGH"
+    elif score >= PR_RISK_MED_THRESHOLD:
+        level = "MED"
+    else:
+        level = "LOW"
+
+    signals_sorted = sorted(signals, key=lambda s: int(s.get("points", 0) or 0), reverse=True)
+    return {
+        "score": score,
+        "level": level,
+        "signals": signals_sorted,
+        "changed_files": sorted(set(norm_files)),
+    }
 
 
 def _is_line_in_ranges(line: int, ranges: Iterable[tuple[int, int]]) -> bool:
@@ -1483,6 +1568,41 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     return 0 if not issues else 1
 
 
+# --- PR risk command ---
+
+
+def cmd_pr_risk(args: argparse.Namespace) -> int:
+    """Estimate PR risk based on changed files (git diff)."""
+    project_dir = Path.cwd()
+    changed_files, staged = _get_git_changed_files(cwd=project_dir)
+    risk = _compute_pr_risk(project_dir=project_dir, changed_files=changed_files)
+
+    if getattr(args, "json", False):
+        payload = {**risk, "staged": staged}
+        print(json.dumps(payload, indent=2, default=str))
+        return 0
+
+    print(f"\n{color('📡 CodeTrust PR Risk Radar', BOLD)}")
+    scope = "staged changes" if staged else "working tree vs HEAD"
+    print(f"   Scope: {scope}")
+    print(f"   Changed files: {len(changed_files)}")
+    print(f"   Risk: {risk['level']} ({risk['score']}/{PR_RISK_MAX_SCORE})\n")
+
+    signals = risk.get("signals", [])
+    if isinstance(signals, list) and signals:
+        print(color("  Top signals:", BLUE))
+        for s in signals[:6]:
+            label = str(s.get("label", ""))
+            points = int(s.get("points", 0) or 0)
+            print(f"    - +{points}: {label}")
+        print()
+    else:
+        print(color("  No high-risk touchpoints detected from file paths.", GREEN))
+        print()
+
+    return 0
+
+
 # --- Governance command ---
 
 
@@ -1734,6 +1854,10 @@ def main() -> int:
     # doctor
     subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
 
+    # pr-risk
+    pr_parser = subparsers.add_parser("pr-risk", help="Estimate PR risk based on changed files")
+    pr_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
     # governance
     gov_parser = subparsers.add_parser("governance", help="Manage AI governance policies")
     gov_parser.add_argument("--setup", action="store_true", help="Show MCP gateway setup instructions")
@@ -1781,6 +1905,8 @@ def main() -> int:
         return cmd_status(args)
     if args.command == "doctor":
         return cmd_doctor(args)
+    if args.command == "pr-risk":
+        return cmd_pr_risk(args)
     if args.command == "governance":
         return cmd_governance(args)
     if args.command == "audit":

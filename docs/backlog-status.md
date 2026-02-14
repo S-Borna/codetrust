@@ -42,7 +42,7 @@ Legend:
 
 - ✅ Detect `npm run verify` gates and pre-warn before running (CLI human-output hint)
 - 🟡 Read ESLint/Prettier/TS configs and avoid duplicate noise (partial: CLI `--suppress-lint-noise`)
-- ❌ PR risk radar (routes/modules + tenancy/auth/compliance touchpoints)
+- 🟡 PR risk radar (initial): `codetrust pr-risk` based on changed file touchpoints
 
 ## F) Policy & config UX
 

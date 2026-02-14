@@ -19,6 +19,7 @@ import type { CommandDeps } from "./commands";
 import { getConfig } from "./config";
 import { LANGUAGE_MAP, DOCKERFILE_LANGUAGE_IDS } from "./types";
 import { VerificationCache } from "./verification-cache";
+import { scanCodeOffline } from "./embedded-scanner";
 
 /** Extension activation — called when a supported file is opened. */
 export function activate(context: vscode.ExtensionContext): void {
@@ -61,6 +62,52 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
 
+    // Scan on type (debounced, offline only)
+    const debounceTimers = new Map<string, NodeJS.Timeout>();
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument((event) => {
+            const cfg = getConfig();
+            if (!cfg.scanOnType) {
+                return;
+            }
+
+            const doc = event.document;
+            if (doc.uri.scheme !== "file") {
+                return;
+            }
+
+            if (DOCKERFILE_LANGUAGE_IDS.has(doc.languageId)) {
+                return;
+            }
+
+            const language = LANGUAGE_MAP[doc.languageId];
+            if (!language || !cfg.enabledLanguages.includes(language)) {
+                return;
+            }
+
+            const key = doc.uri.toString();
+            const existing = debounceTimers.get(key);
+            if (existing) {
+                clearTimeout(existing);
+            }
+
+            const timeout = setTimeout(() => {
+                try {
+                    const response = scanCodeOffline(doc.getText(), doc.fileName);
+                    diagnostics.setFindingsDiagnostics(
+                        doc.uri,
+                        response.findings,
+                        cfg.severityThreshold,
+                    );
+                } catch {
+                    // Best-effort only — never disrupt typing
+                }
+            }, cfg.scanOnTypeDebounceMs);
+
+            debounceTimers.set(key, timeout);
+        }),
+    );
+
     // Scan on open
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument((document) => {
@@ -81,6 +128,12 @@ export function activate(context: vscode.ExtensionContext): void {
     // Clear diagnostics when a file is closed
     context.subscriptions.push(
         vscode.workspace.onDidCloseTextDocument((document) => {
+            const key = document.uri.toString();
+            const existing = debounceTimers.get(key);
+            if (existing) {
+                clearTimeout(existing);
+                debounceTimers.delete(key);
+            }
             diagnostics.clearForDocument(document.uri);
         }),
     );

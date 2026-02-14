@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scan-on-type (opt-in, debounced, offline)
   - Expanded Quick Fix coverage (deterministic transforms)
   - Guided onboarding: configure API URL/key + run first scan
+- GitHub Action:
+  - PR-mode default (auto on pull_request): scans changed files and gates on new findings only
+  - New input `pr-mode: auto|always|never` to override behavior
 - CLI:
   - `codetrust add` stack presets for `.vscode/settings.json` (`--stack auto|nextjs|node|python|go|generic`)
   - Noise-control flags: `--dedupe`, `--changed-only`, `--suppress-lint-noise` (opt-in)

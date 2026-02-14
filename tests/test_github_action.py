@@ -15,6 +15,7 @@ from action.scan_runner import (
     print_summary,
     scan_files,
     should_fail,
+    diff_new_findings,
     write_sarif,
 )
 from src.models.enums import Severity
@@ -245,6 +246,42 @@ class TestShouldFail:
     def test_block_passes_on_pass(self) -> None:
         """fail-on=block passes on PASS verdict."""
         assert should_fail("PASS", "block") is False
+
+
+class TestPrModeDiff:
+    """Test PR-mode new-findings diffing."""
+
+    def test_diff_returns_only_new_findings(self) -> None:
+        """Findings present only in head are returned."""
+        baseline = [
+            Finding(
+                rule_id="eval_exec",
+                severity=Severity.BLOCK,
+                message="eval",
+                file="a.py",
+                line=1,
+            ),
+        ]
+        head = [
+            Finding(
+                rule_id="eval_exec",
+                severity=Severity.BLOCK,
+                message="eval",
+                file="a.py",
+                line=1,
+            ),
+            Finding(
+                rule_id="hardcoded_secret",
+                severity=Severity.BLOCK,
+                message="secret",
+                file="a.py",
+                line=2,
+            ),
+        ]
+
+        new_only = diff_new_findings(head, baseline)
+        assert len(new_only) == 1
+        assert new_only[0].rule_id == "hardcoded_secret"
 
 
 # --- SARIF output tests ---

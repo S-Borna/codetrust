@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (e.g. `postgresql+asyncpg://user:pass@host/db`). Handles `+asyncpg`, `+pymysql`, etc.
 - Path alias test (`test_path_alias_skipped`) for `@/`, `~/`, `#/` aliases
 
+- VS Code extension:
+  - Profile support commands: Create/Apply CodeTrust Profile
+  - Scan-on-type (opt-in, debounced, offline)
+  - Expanded Quick Fix coverage (deterministic transforms)
+  - Guided onboarding: configure API URL/key + run first scan
+- CLI:
+  - `codetrust add` stack presets for `.vscode/settings.json` (`--stack auto|nextjs|node|python|go|generic`)
+  - Noise-control flags: `--dedupe`, `--changed-only`, `--suppress-lint-noise` (opt-in)
+  - Repo-aware commands: `codetrust pr-risk`, `codetrust trust-diff`, `codetrust trend record/show`
+
 ### Fixed
 
 - `hardcoded_secret` rule now handles Python type annotations (`secret_key: str = "change-me"`)
@@ -23,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
 - Rule count updated: 76 scan + 57 gateway = 133 total
 - Test count: 1315
+
+- Pre-commit and CLI interoperability:
+  - Deterministic `codetrust scan --json` output (pure JSON on stdout)
+  - Hook/template JSON parsing made robust (accurate warn/info counts)
+- Extension tests now compile before running to ensure TS tests are executed
 
 ---
 
@@ -303,7 +318,7 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 - **Procfile** — removed `alembic upgrade head &&` that blocked server start; migration now handled by `preDeployCommand`
 - **railway.toml** — removed `preDeployCommand` (alembic migration was hanging on DB lock)
 - **blocking_prestart self-scan** — split regex string with concatenation to prevent rule definitions from self-matching in `cli.py`, `anti_patterns.py`, `pre-commit`, `templates/pre-commit`
-- **GitHub Action heredoc** — replaced `<<EOF` with dynamic delimiter in `.github/workflows/codetrust-scan.yml`
+- **GitHub Action heredoc** — replaced a fixed heredoc delimiter with a dynamic delimiter in `.github/workflows/codetrust-scan.yml`
 - **4 except_swallow BLOCK violations** in production code:
   - `src/cli.py:522` — `except: pass` → `hooks_path_set = False`
   - `src/services/registry.py:539` — `except: pass` → `logger.debug()`

@@ -41,7 +41,7 @@ Legend:
 ## E) Repo-aware intelligence (real build value)
 
 - ✅ Detect `npm run verify` gates and pre-warn before running (CLI human-output hint)
-- ❌ Read ESLint/Prettier/TS configs and avoid duplicate noise
+- 🟡 Read ESLint/Prettier/TS configs and avoid duplicate noise (partial: CLI `--suppress-lint-noise`)
 - ❌ PR risk radar (routes/modules + tenancy/auth/compliance touchpoints)
 
 ## F) Policy & config UX

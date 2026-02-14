@@ -8,6 +8,8 @@ writes SARIF output for the Security tab.
 import argparse
 import json
 import sys
+import os
+import subprocess
 from pathlib import Path
 
 # Add parent directory to path so we can import src modules
@@ -101,9 +103,103 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fail-on", default="block", choices=["block", "warn", "never"])
     parser.add_argument("--max-file-size", type=int, default=500_000)
     parser.add_argument("--include-pattern", default="")
+    parser.add_argument(
+        "--pr-mode",
+        default="auto",
+        choices=["auto", "always", "never"],
+        help="PR-mode: auto (default), always, or never",
+    )
     parser.add_argument("--api-key", default="")
     parser.add_argument("--api-url", default="https://codetrust-api-production.up.railway.app")
     return parser.parse_args()
+
+
+def _is_pull_request_event() -> bool:
+    """Return True if running under a pull_request GitHub Actions event."""
+    if os.environ.get("GITHUB_EVENT_NAME", "") == "pull_request":
+        return True
+    return bool(os.environ.get("GITHUB_BASE_REF", ""))
+
+
+def _get_pr_base_sha() -> str | None:
+    """Best-effort: get PR base SHA from GitHub event payload."""
+    event_path = os.environ.get("GITHUB_EVENT_PATH", "")
+    if not event_path:
+        return None
+    try:
+        data = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    pr = data.get("pull_request")
+    if not isinstance(pr, dict):
+        return None
+    base = pr.get("base")
+    if not isinstance(base, dict):
+        return None
+    sha = base.get("sha")
+    if isinstance(sha, str) and sha.strip():
+        return sha.strip()
+    return None
+
+
+def _git(args: list[str]) -> str | None:
+    """Run a git command and return stdout (or None on failure)."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def _get_changed_files(base_sha: str, head_sha: str) -> list[Path]:
+    """Get changed files between base and head SHAs (best-effort)."""
+    out = _git(["diff", "--name-only", "--diff-filter=ACM", base_sha, head_sha])
+    if not out:
+        return []
+    files: list[Path] = []
+    for line in out.splitlines():
+        rel = line.strip()
+        if not rel:
+            continue
+        p = Path(rel)
+        if p.exists() and p.is_file() and not _is_excluded(p):
+            files.append(p)
+    return files
+
+
+def _read_file_at_ref(ref: str, file_path: Path) -> str | None:
+    """Read a file's contents at a given git ref (best-effort)."""
+    spec = f"{ref}:{file_path.as_posix()}"
+    out = _git(["show", spec])
+    if out is None:
+        return None
+    return out
+
+
+def _finding_key(f: Finding) -> tuple[str, str, int, str, str]:
+    """Stable identity key for a finding for diffing across refs."""
+    return (
+        str(f.rule_id),
+        str(f.file or ""),
+        int(f.line or 1),
+        str(f.severity.value if hasattr(f.severity, "value") else f.severity),
+        str(f.message),
+    )
+
+
+def diff_new_findings(head: list[Finding], baseline: list[Finding]) -> list[Finding]:
+    """Return only findings that exist in head but not baseline."""
+    baseline_keys = {_finding_key(f) for f in baseline}
+    return [f for f in head if _finding_key(f) not in baseline_keys]
 
 
 def discover_files(
@@ -388,11 +484,31 @@ def main() -> int:
     """
     args = parse_args()
 
+    pr_mode_active = (
+        (args.pr_mode == "always")
+        or (args.pr_mode == "auto" and _is_pull_request_event())
+    )
+
     # Discover files
     files = discover_files(
         args.path, args.language,
         args.include_pattern, args.max_file_size,
     )
+
+    baseline_findings: list[Finding] = []
+    baseline_sha: str | None = None
+    if pr_mode_active and Path(args.path).is_dir():
+        baseline_sha = _get_pr_base_sha()
+        head_sha = os.environ.get("GITHUB_SHA", "HEAD") or "HEAD"
+        if baseline_sha:
+            changed = _get_changed_files(baseline_sha, head_sha)
+            if changed:
+                files = changed
+                _write_output(f"PR-mode: scanning {len(files)} changed file(s)")
+            else:
+                _write_output("PR-mode: no changed files detected — falling back to normal discovery")
+        else:
+            _write_output("PR-mode: base SHA unavailable — falling back to normal discovery")
 
     if not files:
         _write_output("No files found to scan.")
@@ -416,20 +532,55 @@ def main() -> int:
         _write_output(f"Import verification: {len(import_findings)} finding(s)")
     findings.extend(import_findings)
 
-    # Emit annotations
-    emit_annotations(findings)
+    effective_findings = findings
+    if pr_mode_active and baseline_sha:
+        analyzer = StaticAnalyzer()
+        interceptor = CommandInterceptor()
+
+        baseline_files: list[tuple[Path, str]] = []
+        for file_path in files:
+            content = _read_file_at_ref(baseline_sha, file_path)
+            if content is None:
+                continue
+            baseline_files.append((file_path, content))
+
+        # Baseline: static + governance (best-effort). Import verification baseline is best-effort.
+        for file_path, content in baseline_files:
+            baseline_findings.extend(analyzer.scan_code(content, str(file_path)))
+
+            result = interceptor.check_file_write(str(file_path), content)
+            if result.verdict != Verdict.ALLOW:
+                severity = Severity.BLOCK if result.verdict == Verdict.BLOCK else Severity.WARN
+                baseline_findings.append(
+                    Finding(
+                        rule_id=result.rule_id,
+                        severity=severity,
+                        message=f"[Governance] {result.message}",
+                        file=str(file_path),
+                        line=1,
+                        suggestion=result.suggestion,
+                    )
+                )
+
+        effective_findings = diff_new_findings(findings, baseline_findings)
+        _write_output(
+            f"PR-mode: new findings {len(effective_findings)} (head {len(findings)} vs base {len(baseline_findings)})"
+        )
+
+    # Emit annotations (PR-mode emits only new findings)
+    emit_annotations(effective_findings)
 
     # Compute verdict
-    verdict = compute_verdict(findings)
+    verdict = compute_verdict(effective_findings)
 
     # Write SARIF
-    write_sarif(findings, args.sarif_file)
+    write_sarif(effective_findings, args.sarif_file)
 
     # Set outputs
-    set_outputs(verdict, findings, args.sarif_file)
+    set_outputs(verdict, effective_findings, args.sarif_file)
 
     # Print summary
-    print_summary(verdict, findings, len(files))
+    print_summary(verdict, effective_findings, len(files))
 
     # Determine exit code
     if should_fail(verdict, args.fail_on):

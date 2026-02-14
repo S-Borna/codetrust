@@ -13,6 +13,7 @@ MAX_FILE_SIZE="${CODETRUST_MAX_FILE_SIZE:-500000}"
 INCLUDE_PATTERN="${CODETRUST_INCLUDE_PATTERN:-}"
 CT_AUTH="${CODETRUST_API_KEY:-}"
 API_URL="${CODETRUST_API_URL:-https://api.codetrust.dev}"
+PR_MODE="${CODETRUST_PR_MODE:-auto}"
 
 # ---- Resolve action root ----
 ACTION_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,6 +33,7 @@ python3 "${ACTION_ROOT}/action/scan_runner.py" \
   --fail-on "${FAIL_ON}" \
   --max-file-size "${MAX_FILE_SIZE}" \
   --include-pattern "${INCLUDE_PATTERN}" \
+  --pr-mode "${PR_MODE}" \
   --api-key "${CT_AUTH}" \
   --api-url "${API_URL}"
 

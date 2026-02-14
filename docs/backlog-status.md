@@ -40,7 +40,7 @@ Legend:
 
 ## E) Repo-aware intelligence (real build value)
 
-- 🟡 Detect `npm run verify` gates and pre-warn before running (partial: CLI support in progress)
+- ✅ Detect `npm run verify` gates and pre-warn before running (CLI human-output hint)
 - ❌ Read ESLint/Prettier/TS configs and avoid duplicate noise
 - ❌ PR risk radar (routes/modules + tenancy/auth/compliance touchpoints)
 

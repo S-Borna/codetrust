@@ -59,6 +59,14 @@
                 "title": "CodeTrust: Scan File"
             },
             {
+                "command": "codetrust.createProfile",
+                "title": "CodeTrust: Create CodeTrust Profile"
+            },
+            {
+                "command": "codetrust.applyProfile",
+                "title": "CodeTrust: Apply CodeTrust Profile"
+            },
+            {
                 "command": "codetrust.healthCheck",
                 "title": "CodeTrust: Health Check"
             },

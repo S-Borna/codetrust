@@ -11,7 +11,7 @@ Legend:
 ## A) Zero‑setup / Always‑on (global)
 
 - ✅ Auto-detect first workspace open and ask once: “Enable Always‑On CodeTrust for all workspaces?” (persist globally)
-- ❌ VS Code Profiles support: “Create/Apply CodeTrust Profile” (one click)
+- ✅ VS Code Profiles support: “Create/Apply CodeTrust Profile” (one click)
 - ✅ Enable “scan active file” + “scan on save” by default (with a clear toggle)
 - ✅ When “No active file to scan” → fallback to scanning the most recently changed git file or last saved file
 - 🟡 Add a “Health Check” panel: active file, watchers, rulepack loaded, last scan time

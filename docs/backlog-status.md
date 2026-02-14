@@ -21,7 +21,7 @@ Legend:
 - ✅ Generator: “Add CodeTrust to repo” → writes `.vscode/extensions.json` + optional `.vscode/settings.json` (never overwrites existing without diff/confirm)
 - ✅ Generator: “Add DevContainer auto-install” → creates `.devcontainer/devcontainer.json` with extension list
 - ✅ Generator: “Add CONTRIBUTING snippet” → adds DoD + how CodeTrust complements `npm run verify`
-- ❌ Templates per stack (Next.js/TS, Python, Go) with sane defaults
+- 🟡 Templates per stack (Next.js/TS, Python, Go) with sane defaults (partial: `codetrust add --settings --stack auto|…` presets)
 
 ## C) Enforce as hard gate (CI / pre-commit)
 

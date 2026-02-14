@@ -1229,6 +1229,36 @@ def _write_json_file_safe(path: Path, obj: dict, *, yes: bool) -> bool:
     return _write_text_file_safe(path, content, yes=yes)
 
 
+def _detect_stack(project_dir: Path) -> str:
+    """Best-effort repo stack detection."""
+    if (project_dir / "next.config.js").is_file() or (project_dir / "next.config.mjs").is_file():
+        return "nextjs"
+    if (project_dir / "package.json").is_file():
+        return "node"
+    if (project_dir / "pyproject.toml").is_file() or (project_dir / "requirements.txt").is_file():
+        return "python"
+    if (project_dir / "go.mod").is_file():
+        return "go"
+    return "generic"
+
+
+def _stack_settings_presets(stack: str) -> dict[str, object]:
+    """Return stack-specific VS Code settings presets for CodeTrust."""
+    if stack == "python":
+        return {
+            "codetrust.enabledLanguages": ["python"],
+        }
+    if stack == "go":
+        return {
+            "codetrust.enabledLanguages": ["go"],
+        }
+    if stack in {"node", "nextjs"}:
+        return {
+            "codetrust.enabledLanguages": ["javascript", "typescript"],
+        }
+    return {}
+
+
 def cmd_add(args: argparse.Namespace) -> int:
     """Add CodeTrust bootstrap files to the current repo (VS Code/DevContainer/docs)."""
     project_dir = Path.cwd()
@@ -1265,6 +1295,10 @@ def cmd_add(args: argparse.Namespace) -> int:
             "codetrust.governance.enabled": True,
             "codetrust.governance.mode": "enforce",
         }
+
+        stack_arg = str(getattr(args, "stack", "auto"))
+        stack = _detect_stack(project_dir) if stack_arg == "auto" else stack_arg
+        defaults.update(_stack_settings_presets(stack))
         for k, v in defaults.items():
             if k not in settings:
                 settings[k] = v
@@ -2064,6 +2098,12 @@ def main() -> int:
         "--settings",
         action="store_true",
         help="Also write .vscode/settings.json defaults (only missing keys)",
+    )
+    add_parser.add_argument(
+        "--stack",
+        choices=["auto", "nextjs", "node", "python", "go", "generic"],
+        default="auto",
+        help="Stack presets to apply when writing settings.json (default: auto-detect)",
     )
     add_parser.add_argument(
         "--devcontainer",

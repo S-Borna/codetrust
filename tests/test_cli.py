@@ -29,6 +29,8 @@ from src.cli import (
     _findings_to_sarif,
     _dedupe_findings,
     _detect_verify_gates,
+    _compute_pr_risk,
+    _get_git_changed_files,
     _suppress_lint_covered_findings,
     _filter_findings_to_changed_lines,
     _normalize_path_for_git,
@@ -125,6 +127,42 @@ class TestSuppressLintNoise:
             assert suppressed == 1
             assert any(f.get("rule_id") == "eval_exec" for f in kept)
             assert all(f.get("rule_id") != "console_log" for f in kept)
+        finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestPrRiskRadar:
+    def test_pr_risk_uses_staged_changes_when_present(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+
+            (tmp_dir / "README.md").write_text("x\n", encoding="utf-8")
+            subprocess.run(["git", "add", "README.md"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            # Create staged high-risk touchpoints
+            (tmp_dir / "src").mkdir(parents=True, exist_ok=True)
+            (tmp_dir / "alembic" / "versions").mkdir(parents=True, exist_ok=True)
+            (tmp_dir / "src" / "auth_service.py").write_text("x=1\n", encoding="utf-8")
+            (tmp_dir / "src" / "tenant.py").write_text("x=1\n", encoding="utf-8")
+            (tmp_dir / "alembic" / "versions" / "001_add.sql").write_text("-- mig\n", encoding="utf-8")
+            subprocess.run(["git", "add", "src/auth_service.py", "src/tenant.py", "alembic/versions/001_add.sql"], cwd=tmp_dir, check=True)
+
+            files, staged = _get_git_changed_files(cwd=tmp_dir)
+            assert staged is True
+            assert "src/auth_service.py" in files
+
+            risk = _compute_pr_risk(project_dir=tmp_dir, changed_files=files)
+            assert risk["level"] in ("MED", "HIGH")
+            assert int(risk["score"]) >= 25
+            signals = risk.get("signals", [])
+            assert isinstance(signals, list)
+            labels = {s.get("label") for s in signals if isinstance(s, dict)}
+            assert "Auth / identity" in labels
+            assert "Tenancy / multi-tenant" in labels
         finally:
             shutil.rmtree(tmp_dir)
 

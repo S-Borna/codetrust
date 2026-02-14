@@ -14,7 +14,9 @@ venv/
 env/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -26,6 +28,7 @@ Thumbs.db
 # Environment
 .env
 .env.*
+!.env.example
 *.secret
 *.pem
 *.key
@@ -42,16 +45,6 @@ docker-compose.override.yml
 # Local-only files (plans, notes, secrets)
 .local/
 
-# Internal docs — blueprints, specs, build plans (private, never committed)
-SESSION_LOG.md
-SPEC.md
-PLAN.md
-PRODUCT.md
-PITCH.md
-COMPARISON.md
-CLAUDE.md
-TEST_EVIDENCE.md
-
 # Node (in case of front-end components)
 node_modules/
 codetrust.db
@@ -61,5 +54,3 @@ codetrust-results.sarif
 # VS Code Extension builds
 *.vsix
 CTfavicon.png
-.gitignore
-scan_all_projects.py

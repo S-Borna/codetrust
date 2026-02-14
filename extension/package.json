@@ -59,6 +59,10 @@
                 "title": "CodeTrust: Scan File"
             },
             {
+                "command": "codetrust.healthCheck",
+                "title": "CodeTrust: Health Check"
+            },
+            {
                 "command": "codetrust.verifyImports",
                 "title": "CodeTrust: Verify Imports"
             },

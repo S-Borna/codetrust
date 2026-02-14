@@ -34,6 +34,8 @@ export function activate(context: vscode.ExtensionContext): void {
         `CodeTrust extension activated | API: ${config.apiUrl} | Cache: ${stats.imports} imports, ${stats.docker} images`,
     );
 
+    void maybePromptAlwaysOn(context, outputChannel);
+
     const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel, cache };
 
     // Register commands
@@ -100,6 +102,34 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(diagnostics.diagnosticCollection);
     context.subscriptions.push(statusBar);
     context.subscriptions.push(outputChannel);
+}
+
+async function maybePromptAlwaysOn(
+    context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel,
+): Promise<void> {
+    const key = "codetrust.alwaysOnConsent.v1";
+    const existing = context.globalState.get<boolean | null>(key, null);
+    if (existing !== null) {
+        return;
+    }
+
+    const choice = await vscode.window.showInformationMessage(
+        "Enable Always‑On CodeTrust for all workspaces? (Scan on Save)",
+        "Enable",
+        "Not now",
+    );
+
+    if (choice === "Enable") {
+        const cfg = vscode.workspace.getConfiguration("codetrust");
+        await cfg.update("scanOnSave", true, vscode.ConfigurationTarget.Global);
+        await context.globalState.update(key, true);
+        outputChannel.appendLine("Always‑On enabled globally (scanOnSave=true).");
+        return;
+    }
+
+    await context.globalState.update(key, false);
+    outputChannel.appendLine("Always‑On prompt dismissed.");
 }
 
 /** Extension deactivation — cleanup. */

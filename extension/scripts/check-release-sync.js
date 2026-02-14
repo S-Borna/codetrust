@@ -6,6 +6,16 @@ const EXTENSION_PACKAGE_PATH = path.resolve(__dirname, "..", "package.json");
 const PYPROJECT_PATH = path.resolve(REPO_ROOT, "pyproject.toml");
 const WEBSITE_PATH = path.resolve(REPO_ROOT, "docs", "index.html");
 const CHANGELOG_PATH = path.resolve(REPO_ROOT, "CHANGELOG.md");
+const ROOT_README_PATH = path.resolve(REPO_ROOT, "README.md");
+const EXTENSION_README_PATH = path.resolve(REPO_ROOT, "extension", "README.md");
+
+const FORBIDDEN_PUBLIC_DOC_STRINGS = [
+    "SESSION_LOG",
+    "PLAN.md",
+    "SPEC.md",
+    "CLAUDE.md",
+    "docs/backlog-status.md",
+];
 
 function readText(filePath) {
     return fs.readFileSync(filePath, "utf8");
@@ -25,12 +35,22 @@ function ensureContains(content, needle, sourceName, failures) {
     }
 }
 
+function ensureNotContains(content, needles, sourceName, failures) {
+    for (const needle of needles) {
+        if (content.includes(needle)) {
+            failures.push(`${sourceName} contains forbidden internal reference: ${needle}`);
+        }
+    }
+}
+
 function main() {
     const extensionPackage = JSON.parse(readText(EXTENSION_PACKAGE_PATH));
     const extensionVersion = extensionPackage.version;
     const pyprojectVersion = parsePythonVersion(readText(PYPROJECT_PATH));
     const website = readText(WEBSITE_PATH);
     const changelog = readText(CHANGELOG_PATH);
+    const rootReadme = readText(ROOT_README_PATH);
+    const extensionReadme = readText(EXTENSION_README_PATH);
 
     const failures = [];
 
@@ -41,6 +61,9 @@ function main() {
     }
     ensureContains(website, `v${extensionVersion}`, "docs/index.html", failures);
     ensureContains(changelog, `## [${extensionVersion}]`, "CHANGELOG.md", failures);
+
+    ensureNotContains(rootReadme, FORBIDDEN_PUBLIC_DOC_STRINGS, "README.md", failures);
+    ensureNotContains(extensionReadme, FORBIDDEN_PUBLIC_DOC_STRINGS, "extension/README.md", failures);
 
     if (failures.length > 0) {
         console.error("\nRelease sync guard failed:\n");

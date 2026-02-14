@@ -8,7 +8,8 @@ This roadmap is ordered by **ROI** (value delivered / engineering risk) and desi
 2. Extension: Better API failure hints (401/403/429/timeout)
 3. Extension: Fallback scan when no active editor (last saved/scanned file)
 4. Extension: First-run “Always‑On for all workspaces?” global consent
-5. Keep extension test suite green (embedded scanner + commands)
+5. VS Code Profiles support: “Create/Apply CodeTrust Profile” (one click)
+6. Keep extension test suite green (embedded scanner + commands)
 
 ## Phase 2 — Repo bootstrap generators (high ROI)
 

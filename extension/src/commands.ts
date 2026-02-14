@@ -38,6 +38,8 @@ export function registerCommands(
 ): void {
     const commands: Array<[string, () => Promise<void>]> = [
         ["codetrust.scanFile", (): Promise<void> => scanCurrentFile(deps)],
+        ["codetrust.createProfile", (): Promise<void> => createProfileCommand(deps)],
+        ["codetrust.applyProfile", (): Promise<void> => applyProfileCommand(deps)],
         ["codetrust.healthCheck", (): Promise<void> => healthCheckCommand(deps)],
         ["codetrust.verifyImports", (): Promise<void> => verifyImportsCommand(deps)],
         ["codetrust.verifyDockerfile", (): Promise<void> => verifyDockerfileCommand(deps)],
@@ -51,6 +53,89 @@ export function registerCommands(
             vscode.commands.registerCommand(id, handler),
         );
     }
+}
+
+async function createProfileCommand(deps: CommandDeps): Promise<void> {
+    deps.outputChannel.appendLine(`[${timestamp()}] Create CodeTrust Profile`);
+
+    const ok = await applyProfileSettings(deps, {
+        promptTitle: "Create & apply CodeTrust Profile",
+        promptBody:
+            "This will apply CodeTrust recommended settings to the current VS Code Profile. " +
+            "You can create/switch profiles using VS Code Profiles UI.",
+    });
+    if (!ok) {
+        return;
+    }
+
+    // Best-effort: trigger VS Code's built-in Profile creation UI when available.
+    // Command IDs are not part of the stable API surface, so try a small set.
+    const candidateCommands = [
+        "workbench.profiles.actions.createProfile",
+        "workbench.profiles.actions.manageProfiles",
+        "workbench.profiles.actions.switchProfile",
+    ];
+
+    for (const cmd of candidateCommands) {
+        try {
+            // eslint-disable-next-line no-await-in-loop
+            await vscode.commands.executeCommand(cmd);
+            deps.outputChannel.appendLine(`  Triggered VS Code Profiles UI: ${cmd}`);
+            return;
+        } catch {
+            // Try next
+        }
+    }
+
+    deps.outputChannel.appendLine("  VS Code Profiles UI command not available in this build.");
+    vscode.window.showInformationMessage(
+        "CodeTrust: Settings applied to current profile. Create/switch profiles via: Settings (Profiles).",
+    );
+}
+
+async function applyProfileCommand(deps: CommandDeps): Promise<void> {
+    deps.outputChannel.appendLine(`[${timestamp()}] Apply CodeTrust Profile`);
+    await applyProfileSettings(deps, {
+        promptTitle: "Apply CodeTrust Profile",
+        promptBody: "Apply CodeTrust recommended settings to the current VS Code Profile?",
+    });
+}
+
+type ProfilePrompt = {
+    promptTitle: string;
+    promptBody: string;
+};
+
+async function applyProfileSettings(deps: CommandDeps, prompt: ProfilePrompt): Promise<boolean> {
+    const choice = await vscode.window.showInformationMessage(
+        prompt.promptBody,
+        { modal: true, detail: "This updates profile-scoped User settings for CodeTrust." },
+        "Apply",
+        "Cancel",
+    );
+
+    if (choice !== "Apply") {
+        deps.outputChannel.appendLine("  Cancelled.");
+        return false;
+    }
+
+    const cfg = vscode.workspace.getConfiguration("codetrust");
+    const target = vscode.ConfigurationTarget.Global;
+
+    // Recommended baseline for a dedicated CodeTrust profile
+    await cfg.update("scanOnSave", true, target);
+    await cfg.update("scanOnType", false, target);
+    await cfg.update("scanType", "static", target);
+    await cfg.update("severityThreshold", "INFO", target);
+    await cfg.update("governance.enabled", true, target);
+    await cfg.update("governance.mode", "enforce", target);
+    await cfg.update("governance.blockHeredoc", true, target);
+    await cfg.update("governance.blockEval", true, target);
+    await cfg.update("governance.blockGitPush", true, target);
+
+    deps.outputChannel.appendLine("  Applied recommended CodeTrust profile settings.");
+    vscode.window.showInformationMessage("CodeTrust: Profile settings applied.");
+    return true;
 }
 
 /** Scan the currently active file. */

@@ -32,6 +32,9 @@ from src.cli import (
     _detect_verify_gates,
     _compute_pr_risk,
     _compute_trust_diff,
+    _trend_read,
+    _trend_snapshot,
+    _trend_write,
     _get_git_changed_files,
     _suppress_lint_covered_findings,
     _filter_findings_to_changed_lines,
@@ -219,6 +222,27 @@ class TestAddStackPresets:
             assert data.get("codetrust.enabledLanguages") == ["javascript", "typescript"]
         finally:
             os.chdir(old_cwd)
+            shutil.rmtree(tmp_dir)
+
+
+class TestTrend:
+    def test_trend_record_and_read(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+            (tmp_dir / "a.py").write_text("x = 1\n", encoding="utf-8")
+            subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            snap = _trend_snapshot(tmp_dir, ["."])
+            assert "ts" in snap
+            _trend_write(tmp_dir, snap)
+            entries = _trend_read(tmp_dir)
+            assert len(entries) == 1
+            assert entries[0].get("git_sha")
+        finally:
             shutil.rmtree(tmp_dir)
 
     def test_add_settings_explicit_python(self) -> None:

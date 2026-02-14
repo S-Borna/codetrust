@@ -155,6 +155,8 @@ PR_RISK_RULES: list[tuple[str, int, tuple[str, ...]]] = [
     ("Compliance", 10, ("gdpr", "compliance", "retention", "pii", "privacy")),
 ]
 
+TREND_FILE_REL = ".codetrust/trend.jsonl"
+
 _ENDPOINT_RE = re.compile(r"['\"](/(?:v\d+|api)[^'\"\s]{1,120})['\"]")
 
 
@@ -991,6 +993,131 @@ def cmd_trust_diff(args: argparse.Namespace) -> int:
     print(f"   Files compared: {len(report.get('files', []) if isinstance(report.get('files', []), list) else [])}")
     print(f"   Drift score: {head_drift.get('score', 0)}/100 → {cur_drift.get('score', 0)}/100 (Δ {delta.get('drift_score', 0)})\n")
     print(f"   Findings Δ: total {delta.get('total_findings', 0)}, blocks {delta.get('blocks', 0)}, warns {delta.get('warnings', 0)}, infos {delta.get('infos', 0)}")
+    return 0
+
+
+# --- Trend command ---
+
+
+def _git_rev_parse(project_dir: Path, ref: str) -> str:
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", ref],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return res.stdout.strip() if res.returncode == 0 else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def _trend_path(project_dir: Path) -> Path:
+    return project_dir / TREND_FILE_REL
+
+
+def _trend_read(project_dir: Path) -> list[dict[str, object]]:
+    path = _trend_path(project_dir)
+    if not path.is_file():
+        return []
+    entries: list[dict[str, object]] = []
+    for ln in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            obj = json.loads(ln)
+            if isinstance(obj, dict):
+                entries.append(obj)
+        except json.JSONDecodeError:
+            continue
+    return entries
+
+
+def _trend_write(project_dir: Path, entry: dict[str, object]) -> None:
+    path = _trend_path(project_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, sort_keys=True, default=str) + "\n")
+
+
+def _trend_snapshot(project_dir: Path, targets: list[str]) -> dict[str, object]:
+    all_findings: list[dict[str, str | int]] = []
+    files_scanned = 0
+    for t in targets:
+        all_findings.extend(scan_path(t))
+        if Path(t).is_file():
+            files_scanned += 1
+        elif Path(t).is_dir():
+            for _root, _dirs, files in os.walk(t):
+                files_scanned += sum(1 for fn in files if Path(fn).suffix in SOURCE_EXTS)
+
+    all_findings = _sort_findings(_dedupe_findings(all_findings))
+    drift = _calculate_drift_score(all_findings)
+    blocks = sum(1 for f in all_findings if f.get("severity") == "BLOCK")
+    warns = sum(1 for f in all_findings if f.get("severity") == "WARN")
+    infos = sum(1 for f in all_findings if f.get("severity") == "INFO")
+    verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
+
+    from datetime import datetime, timezone
+
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "git_sha": _git_rev_parse(project_dir, "HEAD"),
+        "targets": targets,
+        "verdict": verdict,
+        "files_scanned": files_scanned,
+        "total_findings": len(all_findings),
+        "blocks": blocks,
+        "warnings": warns,
+        "infos": infos,
+        "drift_score": drift,
+    }
+
+
+def cmd_trend(args: argparse.Namespace) -> int:
+    project_dir = Path.cwd()
+    sub = str(getattr(args, "subcommand", "show"))
+    limit = int(getattr(args, "limit", 20) or 20)
+    if limit < 1:
+        limit = 1
+
+    if sub == "record":
+        targets = list(getattr(args, "targets", []) or ["."])
+        entry = _trend_snapshot(project_dir, targets)
+        _trend_write(project_dir, entry)
+        if getattr(args, "json", False):
+            print(json.dumps(entry, indent=2, default=str))
+            return 0
+        print(f"\n{color('📌 CodeTrust Trend — Recorded', BOLD)}")
+        print(f"   {entry['ts']} | {entry['verdict']} | drift {entry['drift_score'].get('score', 0)}/100")
+        print(f"   Findings: {entry['total_findings']} (BLOCK {entry['blocks']}, WARN {entry['warnings']}, INFO {entry['infos']})")
+        print(f"   Stored: {TREND_FILE_REL}\n")
+        return 0
+
+    # show (default)
+    entries = _trend_read(project_dir)
+    entries = entries[-limit:]
+    if getattr(args, "json", False):
+        print(json.dumps({"entries": entries}, indent=2, default=str))
+        return 0
+
+    print(f"\n{color('📈 CodeTrust Trend', BOLD)}")
+    if not entries:
+        print("   No trend data yet. Run: codetrust trend record\n")
+        return 0
+
+    for e in entries:
+        ts = str(e.get("ts", ""))
+        verdict = str(e.get("verdict", ""))
+        drift = e.get("drift_score", {})
+        score = drift.get("score", 0) if isinstance(drift, dict) else 0
+        total = int(e.get("total_findings", 0) or 0)
+        blocks = int(e.get("blocks", 0) or 0)
+        warns = int(e.get("warnings", 0) or 0)
+        print(f"   {ts} | {verdict} | drift {score}/100 | {total} findings (B{blocks} W{warns})")
+    print()
     return 0
 
 
@@ -2170,6 +2297,18 @@ def main() -> int:
     td_parser = subparsers.add_parser("trust-diff", help="Compare trust/drift between HEAD and current changes")
     td_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
+    # trend
+    trend_parser = subparsers.add_parser("trend", help="Record/show drift trend snapshots")
+    trend_sub = trend_parser.add_subparsers(dest="subcommand")
+
+    trend_show = trend_sub.add_parser("show", help="Show last snapshots")
+    trend_show.add_argument("--limit", type=int, default=20, help="How many entries to show")
+    trend_show.add_argument("--json", action="store_true", help="Output as JSON")
+
+    trend_record = trend_sub.add_parser("record", help="Record a snapshot")
+    trend_record.add_argument("targets", nargs="*", default=["."], help="Files or directories")
+    trend_record.add_argument("--json", action="store_true", help="Output as JSON")
+
     # governance
     gov_parser = subparsers.add_parser("governance", help="Manage AI governance policies")
     gov_parser.add_argument("--setup", action="store_true", help="Show MCP gateway setup instructions")
@@ -2221,6 +2360,8 @@ def main() -> int:
         return cmd_pr_risk(args)
     if args.command == "trust-diff":
         return cmd_trust_diff(args)
+    if args.command == "trend":
+        return cmd_trend(args)
     if args.command == "governance":
         return cmd_governance(args)
     if args.command == "audit":

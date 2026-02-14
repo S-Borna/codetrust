@@ -5,6 +5,7 @@ and produces correct findings for all file types.
 """
 
 import os
+import json
 import shutil
 import subprocess
 import tempfile
@@ -38,6 +39,7 @@ from src.cli import (
     _sort_findings,
     scan_file,
     scan_path,
+    cmd_add,
 )
 from src.rules.anti_patterns import ANTI_PATTERNS
 
@@ -191,6 +193,56 @@ class TestTrustDiff:
             assert isinstance(delta, dict)
             assert int(delta.get("blocks", 0) or 0) >= 1
         finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestAddStackPresets:
+    def test_add_settings_auto_detect_node(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        old_cwd = Path.cwd()
+        try:
+            (tmp_dir / "package.json").write_text('{"name":"x"}', encoding="utf-8")
+            os.chdir(tmp_dir)
+
+            args = type("Args", (), {
+                "settings": True,
+                "devcontainer": False,
+                "contributing": False,
+                "yes": True,
+                "stack": "auto",
+            })()
+
+            rc = cmd_add(args)  # type: ignore[arg-type]
+            assert rc == 0
+            settings_path = tmp_dir / ".vscode" / "settings.json"
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+            assert data.get("codetrust.enabledLanguages") == ["javascript", "typescript"]
+        finally:
+            os.chdir(old_cwd)
+            shutil.rmtree(tmp_dir)
+
+    def test_add_settings_explicit_python(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        old_cwd = Path.cwd()
+        try:
+            (tmp_dir / "pyproject.toml").write_text("[tool.codetrust]\n", encoding="utf-8")
+            os.chdir(tmp_dir)
+
+            args = type("Args", (), {
+                "settings": True,
+                "devcontainer": False,
+                "contributing": False,
+                "yes": True,
+                "stack": "python",
+            })()
+
+            rc = cmd_add(args)  # type: ignore[arg-type]
+            assert rc == 0
+            settings_path = tmp_dir / ".vscode" / "settings.json"
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+            assert data.get("codetrust.enabledLanguages") == ["python"]
+        finally:
+            os.chdir(old_cwd)
             shutil.rmtree(tmp_dir)
 
     def test_pr_risk_detects_touched_endpoints(self) -> None:

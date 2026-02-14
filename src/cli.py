@@ -257,8 +257,67 @@ def _get_git_changed_files(*, cwd: Path) -> tuple[list[str], bool]:
         return ([], False)
 
 
-def _compute_pr_risk(*, project_dir: Path, changed_files: list[str]) -> dict[str, object]:
-    """Compute a simple PR risk score from changed file paths."""
+def _get_git_numstat(*, cwd: Path, staged: bool) -> dict[str, tuple[int, int]]:
+    """Return git numstat mapping: file -> (added_lines, deleted_lines)."""
+    base_cmd = ["git", "diff", "--numstat"]
+    if staged:
+        base_cmd.append("--cached")
+    else:
+        base_cmd.append("HEAD")
+    try:
+        res = subprocess.run(
+            base_cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        out: dict[str, tuple[int, int]] = {}
+        for ln in res.stdout.splitlines():
+            parts = ln.split("\t")
+            if len(parts) < 3:
+                continue
+            a, d, p = parts[0], parts[1], parts[2]
+            try:
+                added = int(a) if a.isdigit() else 0
+                deleted = int(d) if d.isdigit() else 0
+            except ValueError:
+                added, deleted = 0, 0
+            out[p.strip()] = (added, deleted)
+        return out
+    except (OSError, ValueError):
+        return {}
+
+
+def _get_git_file_diff(*, cwd: Path, staged: bool, path: str) -> str:
+    """Get unified=0 diff for a single file (best-effort)."""
+    rel = _normalize_path_for_git(path, cwd=cwd)
+    base_cmd = ["git", "diff", "--unified=0", "--no-color"]
+    if staged:
+        base_cmd.append("--cached")
+    else:
+        base_cmd.append("HEAD")
+    base_cmd.extend(["--", rel])
+    try:
+        res = subprocess.run(
+            base_cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return res.stdout
+    except (OSError, ValueError):
+        return ""
+
+
+def _compute_pr_risk(
+    *,
+    project_dir: Path,
+    changed_files: list[str],
+    staged: bool,
+) -> dict[str, object]:
+    """Compute a PR risk score from changed files, diff stats, and diff content."""
     norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
 
     signals: list[dict[str, object]] = []
@@ -278,6 +337,53 @@ def _compute_pr_risk(*, project_dir: Path, changed_files: list[str]) -> dict[str
                 "matched": sorted(set(hit_files))[:10],
             })
 
+    # Stats signals (file count + line changes)
+    file_count = len(set(norm_files))
+    if file_count >= 50:
+        total += 15
+        signals.append({"label": "Many files changed", "points": 15, "matched": [str(file_count)]})
+    elif file_count >= 20:
+        total += 10
+        signals.append({"label": "Many files changed", "points": 10, "matched": [str(file_count)]})
+    elif file_count >= 10:
+        total += 5
+        signals.append({"label": "Many files changed", "points": 5, "matched": [str(file_count)]})
+
+    numstat = _get_git_numstat(cwd=project_dir, staged=staged)
+    total_changed_lines = 0
+    for f in norm_files:
+        a, d = numstat.get(f, (0, 0))
+        total_changed_lines += int(a) + int(d)
+
+    if total_changed_lines >= 800:
+        total += 20
+        signals.append({"label": "Large diff", "points": 20, "matched": [str(total_changed_lines)]})
+    elif total_changed_lines >= 300:
+        total += 10
+        signals.append({"label": "Large diff", "points": 10, "matched": [str(total_changed_lines)]})
+    elif total_changed_lines >= 100:
+        total += 5
+        signals.append({"label": "Large diff", "points": 5, "matched": [str(total_changed_lines)]})
+
+    # Diff-content signals (keyword-based, best-effort)
+    diff_rules: list[tuple[str, int, tuple[str, ...]]] = [
+        ("Authorization changes", 20, ("authorization", "x-api-key", "bearer")),
+        ("Tenant boundary changes", 15, ("tenant", "org_id", "organization_id")),
+        ("Schema / migration changes", 20, ("alter table", "create table", "drop table", "alembic")),
+        ("Sensitive data handling", 15, ("pii", "ssn", "credit card", "gdpr", "retention")),
+        ("CI/CD changes", 10, (".github/workflows", "timeout-minutes", "uses:")),
+    ]
+
+    for rel in norm_files:
+        diff_text = _get_git_file_diff(cwd=project_dir, staged=staged, path=rel)
+        if not diff_text:
+            continue
+        low = diff_text.lower()
+        for label, points, needles in diff_rules:
+            if any(n in low for n in needles):
+                total += points
+                signals.append({"label": label, "points": points, "matched": [rel]})
+
     score = min(PR_RISK_MAX_SCORE, total)
     if score >= PR_RISK_HIGH_THRESHOLD:
         level = "HIGH"
@@ -292,6 +398,8 @@ def _compute_pr_risk(*, project_dir: Path, changed_files: list[str]) -> dict[str
         "level": level,
         "signals": signals_sorted,
         "changed_files": sorted(set(norm_files)),
+        "changed_files_count": file_count,
+        "changed_lines": total_changed_lines,
     }
 
 
@@ -1575,7 +1683,7 @@ def cmd_pr_risk(args: argparse.Namespace) -> int:
     """Estimate PR risk based on changed files (git diff)."""
     project_dir = Path.cwd()
     changed_files, staged = _get_git_changed_files(cwd=project_dir)
-    risk = _compute_pr_risk(project_dir=project_dir, changed_files=changed_files)
+    risk = _compute_pr_risk(project_dir=project_dir, changed_files=changed_files, staged=staged)
 
     if getattr(args, "json", False):
         payload = {**risk, "staged": staged}
@@ -1585,7 +1693,8 @@ def cmd_pr_risk(args: argparse.Namespace) -> int:
     print(f"\n{color('📡 CodeTrust PR Risk Radar', BOLD)}")
     scope = "staged changes" if staged else "working tree vs HEAD"
     print(f"   Scope: {scope}")
-    print(f"   Changed files: {len(changed_files)}")
+    print(f"   Changed files: {int(risk.get('changed_files_count', 0) or 0)}")
+    print(f"   Changed lines: {int(risk.get('changed_lines', 0) or 0)}")
     print(f"   Risk: {risk['level']} ({risk['score']}/{PR_RISK_MAX_SCORE})\n")
 
     signals = risk.get("signals", [])

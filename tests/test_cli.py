@@ -155,9 +155,10 @@ class TestPrRiskRadar:
             assert staged is True
             assert "src/auth_service.py" in files
 
-            risk = _compute_pr_risk(project_dir=tmp_dir, changed_files=files)
+            risk = _compute_pr_risk(project_dir=tmp_dir, changed_files=files, staged=staged)
             assert risk["level"] in ("MED", "HIGH")
             assert int(risk["score"]) >= 25
+            assert int(risk.get("changed_lines", 0) or 0) >= 0
             signals = risk.get("signals", [])
             assert isinstance(signals, list)
             labels = {s.get("label") for s in signals if isinstance(s, dict)}

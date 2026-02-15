@@ -22,6 +22,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import structlog
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover
@@ -41,6 +43,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from src.gateway.policies import GovernanceConfig
+
+
+logger = structlog.get_logger()
 
 
 def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
@@ -477,7 +482,8 @@ def _get_git_changed_ranges(
             check=False,
         )
         has_staged = bool(staged.stdout.strip())
-    except Exception:
+    except (OSError, ValueError) as exc:
+        logger.debug("git_diff_name_only_failed", error=str(exc))
         return {}
 
     result: dict[str, list[tuple[int, int]]] = {}
@@ -503,7 +509,8 @@ def _get_git_changed_ranges(
             ranges = _parse_unified0_changed_ranges(diff.stdout)
             if ranges:
                 result[rel] = ranges
-        except Exception:
+        except (OSError, ValueError) as exc:
+            logger.debug("git_diff_unified0_failed", path=rel, error=str(exc))
             continue
 
     return result
@@ -682,7 +689,8 @@ def cmd_fix(args: argparse.Namespace) -> int:
     for fp in files:
         try:
             code = fp.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        except OSError as exc:
+            logger.debug("fix_read_failed", path=str(fp), error=str(exc))
             continue
         new_code, changed = _autofix_print_debug_python(code)
         if not changed:
@@ -1208,6 +1216,7 @@ def _trend_read(project_dir: Path) -> list[dict[str, object]]:
     if not path.is_file():
         return []
     entries: list[dict[str, object]] = []
+    invalid_json_lines = 0
     for ln in path.read_text(encoding="utf-8", errors="ignore").splitlines():
         ln = ln.strip()
         if not ln:
@@ -1217,7 +1226,14 @@ def _trend_read(project_dir: Path) -> list[dict[str, object]]:
             if isinstance(obj, dict):
                 entries.append(obj)
         except json.JSONDecodeError:
+            invalid_json_lines += 1
             continue
+    if invalid_json_lines:
+        logger.debug(
+            "trend_read_skipped_invalid_json",
+            path=str(path),
+            count=invalid_json_lines,
+        )
     return entries
 
 

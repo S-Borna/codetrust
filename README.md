@@ -248,12 +248,24 @@ code --install-extension SaidBorna.codetrust
 
 ## GitHub Action
 
+Minimum permissions required for PR comments and SARIF upload:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+```
+
 ```yaml
 - uses: S-Borna/codetrust@v2
   with:
     fail-on: block
     scan-type: static
     sarif: true
+
+# Optional (default: auto on pull_request)
+# pr-comment: auto|always|never
 
 - uses: github/codeql-action/upload-sarif@v3
   if: always()

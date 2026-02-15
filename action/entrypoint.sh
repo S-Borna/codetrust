@@ -14,6 +14,7 @@ INCLUDE_PATTERN="${CODETRUST_INCLUDE_PATTERN:-}"
 CT_AUTH="${CODETRUST_API_KEY:-}"
 API_URL="${CODETRUST_API_URL:-https://api.codetrust.dev}"
 PR_MODE="${CODETRUST_PR_MODE:-auto}"
+PR_COMMENT="${CODETRUST_PR_COMMENT:-auto}"
 
 # ---- Resolve action root ----
 ACTION_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,6 +35,7 @@ python3 "${ACTION_ROOT}/action/scan_runner.py" \
   --max-file-size "${MAX_FILE_SIZE}" \
   --include-pattern "${INCLUDE_PATTERN}" \
   --pr-mode "${PR_MODE}" \
+  --pr-comment "${PR_COMMENT}" \
   --api-key "${CT_AUTH}" \
   --api-url "${API_URL}"
 

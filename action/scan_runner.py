@@ -109,6 +109,12 @@ def parse_args() -> argparse.Namespace:
         choices=["auto", "always", "never"],
         help="PR-mode: auto (default), always, or never",
     )
+    parser.add_argument(
+        "--pr-comment",
+        default="auto",
+        choices=["auto", "always", "never"],
+        help="PR comment: auto (default), always, or never",
+    )
     parser.add_argument("--api-key", default="")
     parser.add_argument("--api-url", default="https://codetrust-api-production.up.railway.app")
     return parser.parse_args()
@@ -141,6 +147,102 @@ def _get_pr_base_sha() -> str | None:
     if isinstance(sha, str) and sha.strip():
         return sha.strip()
     return None
+
+
+def _get_pr_number() -> int | None:
+    """Best-effort: get PR number from env or GitHub event payload."""
+    from_env = os.environ.get("PR_NUMBER", "").strip()
+    if from_env.isdigit():
+        return int(from_env)
+
+    event_path = os.environ.get("GITHUB_EVENT_PATH", "")
+    if not event_path:
+        return None
+    try:
+        data = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    pr = data.get("pull_request")
+    if not isinstance(pr, dict):
+        return None
+    number = pr.get("number")
+    if isinstance(number, int) and number > 0:
+        return number
+    return None
+
+
+def _post_or_update_pr_comment(report_path: str) -> None:
+    """Post or update a CodeTrust PR comment (best-effort).
+
+    Requires:
+    - GITHUB_TOKEN
+    - GITHUB_REPOSITORY (owner/repo)
+    - PR number (PR_NUMBER or event payload)
+    """
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    pr_number = _get_pr_number()
+
+    if not token or not repo or not pr_number:
+        return
+
+    report_file = Path(report_path)
+    if not report_file.exists():
+        return
+
+    try:
+        import httpx
+    except ImportError:
+        _write_output("::warning::PR comment skipped (httpx not installed)")
+        return
+
+    marker = "<!-- codetrust-scan -->"
+    body_text = report_file.read_text(encoding="utf-8", errors="replace")
+    comment_body = f"{marker}\n{body_text}".strip() + "\n"
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    base_url = f"https://api.github.com/repos/{repo}"
+    list_url = f"{base_url}/issues/{pr_number}/comments?per_page=100"
+
+    try:
+        with httpx.Client(timeout=10.0, headers=headers) as client:
+            existing_id: int | None = None
+            resp = client.get(list_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    for c in data:
+                        if not isinstance(c, dict):
+                            continue
+                        cid = c.get("id")
+                        cbody = c.get("body")
+                        if isinstance(cid, int) and isinstance(cbody, str) and marker in cbody:
+                            existing_id = cid
+                            break
+
+            if existing_id is not None:
+                update_url = f"{base_url}/issues/comments/{existing_id}"
+                upd = client.patch(update_url, json={"body": comment_body})
+                if upd.status_code >= 200 and upd.status_code < 300:
+                    _write_output("PR comment updated.")
+                else:
+                    _write_output(f"::warning::PR comment update failed (HTTP {upd.status_code})")
+                return
+
+            post_url = f"{base_url}/issues/{pr_number}/comments"
+            created = client.post(post_url, json={"body": comment_body})
+            if created.status_code >= 200 and created.status_code < 300:
+                _write_output("PR comment posted.")
+            else:
+                _write_output(f"::warning::PR comment post failed (HTTP {created.status_code})")
+    except Exception:
+        _write_output("::warning::PR comment failed (exception)")
 
 
 def _git(args: list[str]) -> str | None:
@@ -438,12 +540,18 @@ def write_markdown_report(
     mode = "PR-mode (new findings only)" if pr_mode_active else "Full scan"
 
     lines: list[str] = [
-        "## 🛡️ CodeTrust Scan Results",
+        "## 🛡️ CodeTrust Report",
         "",
         f"**Verdict: {verdict}**",
         f"Mode: {mode}",
         "",
         f"Files scanned: {files_scanned} | BLOCK: {len(blocks)} | WARN: {len(warns)} | INFO: {len(infos)}",
+        "",
+        "Run locally:",
+        "```bash",
+        "pip install codetrust",
+        "codetrust scan . --changed-only --dedupe",
+        "```",
         "",
     ]
 
@@ -583,6 +691,11 @@ def main() -> int:
         or (args.pr_mode == "auto" and _is_pull_request_event())
     )
 
+    pr_comment_active = (
+        (args.pr_comment == "always")
+        or (args.pr_comment == "auto" and _is_pull_request_event())
+    )
+
     # Discover files
     files = discover_files(
         args.path, args.language,
@@ -674,6 +787,9 @@ def main() -> int:
     report_path = "codetrust-report.md"
     write_markdown_report(verdict, effective_findings, len(files), report_path, pr_mode_active)
     write_step_summary(verdict, effective_findings, len(files), pr_mode_active)
+
+    if pr_comment_active:
+        _post_or_update_pr_comment(report_path)
 
     # Set outputs
     set_outputs(verdict, effective_findings, report_path, args.sarif_file)

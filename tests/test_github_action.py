@@ -16,6 +16,8 @@ from action.scan_runner import (
     scan_files,
     should_fail,
     diff_new_findings,
+    _get_pr_base_sha,
+    _get_pr_number,
     write_markdown_report,
     write_sarif,
 )
@@ -312,6 +314,29 @@ class TestMarkdownReport:
         text = report_path.read_text(encoding="utf-8")
         assert "Verdict: BLOCK" in text
         assert "Files scanned: 1" in text
+
+
+class TestGitHubEventParsing:
+    """Test parsing of PR metadata from GitHub event payload."""
+
+    def test_get_pr_base_sha_from_event_payload(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Base SHA is parsed from pull_request.base.sha."""
+        payload = {
+            "pull_request": {
+                "number": 123,
+                "base": {"sha": "abc123"},
+            }
+        }
+        event_path = tmp_path / "event.json"
+        event_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+        assert _get_pr_base_sha() == "abc123"
+
+    def test_get_pr_number_prefers_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PR number uses PR_NUMBER env when set."""
+        monkeypatch.setenv("PR_NUMBER", "456")
+        assert _get_pr_number() == 456
 
 
 # --- SARIF output tests ---

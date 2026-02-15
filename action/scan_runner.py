@@ -71,6 +71,17 @@ def verify_imports(
     if not py_files and not js_files:
         return []
 
+    return verify_imports_from_sources(py_files, js_files)
+
+
+def verify_imports_from_sources(
+    py_files: list[tuple[str, str]],
+    js_files: list[tuple[str, str]],
+) -> list[Finding]:
+    """Verify imports against registries from in-memory sources (best-effort)."""
+    if not py_files and not js_files:
+        return []
+
     try:
         from src.services.import_verifier import verify_file_imports_sync
 
@@ -90,7 +101,7 @@ def verify_imports(
             for f in raw_findings
         ]
     except Exception:
-        return []  # Import verification is best-effort
+        return []
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,6 +125,12 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         choices=["auto", "always", "never"],
         help="PR comment: auto (default), always, or never",
+    )
+    parser.add_argument(
+        "--new-findings-only",
+        default="auto",
+        choices=["auto", "always", "never"],
+        help="Hard gate: auto (default), always, or never. When enabled on PRs, gates only on new findings vs base SHA.",
     )
     parser.add_argument("--api-key", default="")
     parser.add_argument("--api-url", default="https://codetrust-api-production.up.railway.app")
@@ -528,6 +545,7 @@ def write_markdown_report(
     files_scanned: int,
     report_path: str,
     pr_mode_active: bool,
+    new_findings_note: str | None = None,
 ) -> None:
     """Write a markdown report to disk.
 
@@ -544,6 +562,7 @@ def write_markdown_report(
         "",
         f"**Verdict: {verdict}**",
         f"Mode: {mode}",
+        (new_findings_note or "").strip(),
         "",
         f"Files scanned: {files_scanned} | BLOCK: {len(blocks)} | WARN: {len(warns)} | INFO: {len(infos)}",
         "",
@@ -554,6 +573,9 @@ def write_markdown_report(
         "```",
         "",
     ]
+
+    lines = [ln for ln in lines if ln != ""]
+    lines.insert(1, "")
 
     def add_table(title: str, items: list[Finding]) -> None:
         if not items:
@@ -686,9 +708,21 @@ def main() -> int:
     """
     args = parse_args()
 
+    is_pr = _is_pull_request_event()
+
+    new_findings_only_active = (
+        (args.new_findings_only == "always")
+        or (args.new_findings_only == "auto" and is_pr)
+    )
+    if new_findings_only_active and not is_pr:
+        _write_output("::notice::new-findings-only enabled but not a PR event — ignoring")
+        new_findings_only_active = False
+
+    # PR-mode scanning is required for new-findings-only gate.
     pr_mode_active = (
-        (args.pr_mode == "always")
-        or (args.pr_mode == "auto" and _is_pull_request_event())
+        new_findings_only_active
+        or (args.pr_mode == "always")
+        or (args.pr_mode == "auto" and is_pr)
     )
 
     pr_comment_active = (
@@ -715,6 +749,29 @@ def main() -> int:
             else:
                 _write_output("PR-mode: no changed files detected — falling back to normal discovery")
         else:
+            if new_findings_only_active:
+                _write_output(
+                    "::error::CodeTrust new-findings-only gate requires PR base SHA. "
+                    "Ensure checkout has full history (fetch-depth: 0) and the workflow runs on pull_request."
+                )
+                report_path = "codetrust-report.md"
+                write_markdown_report(
+                    verdict="BLOCK",
+                    findings=[],
+                    files_scanned=0,
+                    report_path=report_path,
+                    pr_mode_active=True,
+                    new_findings_note="New findings: unknown (baseline unavailable)",
+                )
+                write_step_summary("BLOCK", [], 0, True)
+                if (
+                    (args.pr_comment == "always")
+                    or (args.pr_comment == "auto" and is_pr)
+                ):
+                    _post_or_update_pr_comment(report_path)
+                set_outputs("BLOCK", [], report_path, args.sarif_file)
+                return 1
+
             _write_output("PR-mode: base SHA unavailable — falling back to normal discovery")
 
     if not files:
@@ -740,9 +797,15 @@ def main() -> int:
     findings.extend(import_findings)
 
     effective_findings = findings
+    new_findings_note: str | None = None
     if pr_mode_active and baseline_sha:
         analyzer = StaticAnalyzer()
         interceptor = CommandInterceptor()
+
+        py_exts = {".py"}
+        js_exts = {".js", ".ts", ".jsx", ".tsx"}
+        baseline_py: list[tuple[str, str]] = []
+        baseline_js: list[tuple[str, str]] = []
 
         baseline_files: list[tuple[Path, str]] = []
         for file_path in files:
@@ -751,7 +814,7 @@ def main() -> int:
                 continue
             baseline_files.append((file_path, content))
 
-        # Baseline: static + governance (best-effort). Import verification baseline is best-effort.
+        # Baseline: static + governance + import verification (best-effort).
         for file_path, content in baseline_files:
             baseline_findings.extend(analyzer.scan_code(content, str(file_path)))
 
@@ -769,10 +832,20 @@ def main() -> int:
                     )
                 )
 
+            ext = file_path.suffix.lower()
+            if ext in py_exts:
+                baseline_py.append((str(file_path), content))
+            elif ext in js_exts:
+                baseline_js.append((str(file_path), content))
+
+        baseline_findings.extend(verify_imports_from_sources(baseline_py, baseline_js))
+
         effective_findings = diff_new_findings(findings, baseline_findings)
-        _write_output(
-            f"PR-mode: new findings {len(effective_findings)} (head {len(findings)} vs base {len(baseline_findings)})"
+        new_findings_note = (
+            f"New findings: {len(effective_findings)} "
+            f"(head {len(findings)} vs base {len(baseline_findings)})"
         )
+        _write_output(f"PR-mode: {new_findings_note}")
 
     # Emit annotations (PR-mode emits only new findings)
     emit_annotations(effective_findings)
@@ -785,7 +858,14 @@ def main() -> int:
 
     # Write markdown report + step summary
     report_path = "codetrust-report.md"
-    write_markdown_report(verdict, effective_findings, len(files), report_path, pr_mode_active)
+    write_markdown_report(
+        verdict,
+        effective_findings,
+        len(files),
+        report_path,
+        pr_mode_active,
+        new_findings_note,
+    )
     write_step_summary(verdict, effective_findings, len(files), pr_mode_active)
 
     if pr_comment_active:

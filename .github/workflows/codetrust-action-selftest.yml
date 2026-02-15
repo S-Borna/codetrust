@@ -71,7 +71,9 @@ jobs:
     action-cloud-api:
         name: Composite action cloud API smoke (optional)
         runs-on: ubuntu-latest
-        if: ${{ secrets.CODETRUST_API_KEY != '' }}
+      env:
+        CODETRUST_API_KEY: ${{ secrets.CODETRUST_API_KEY }}
+        CODETRUST_API_URL: ${{ secrets.CODETRUST_API_URL }}
 
         steps:
             - name: Checkout
@@ -82,7 +84,14 @@ jobs:
               run: |
                   python3 -c "from pathlib import Path; p=Path('.codetrust_action_selftest'); p.mkdir(exist_ok=True); (p/'cloud.py').write_text('x = 1\n', encoding='utf-8')"
 
+            - name: Skip (no API key configured)
+              if: ${{ env.CODETRUST_API_KEY == '' }}
+              shell: bash
+              run: |
+                echo "::notice::CODETRUST_API_KEY is not configured for this repo — skipping cloud API selftest."
+
             - name: Run action (cloud API)
+              if: ${{ env.CODETRUST_API_KEY != '' }}
               uses: ./.
               with:
                   scan-type: static
@@ -93,8 +102,8 @@ jobs:
                   pr-mode: never
                   pr-comment: never
                   new-findings-only: never
-                  api-url: ${{ secrets.CODETRUST_API_URL || 'https://codetrust-api-production.up.railway.app' }}
-                  api-key: ${{ secrets.CODETRUST_API_KEY }}
+                  api-url: ${{ env.CODETRUST_API_URL != '' && env.CODETRUST_API_URL || 'https://codetrust-api-production.up.railway.app' }}
+                  api-key: ${{ env.CODETRUST_API_KEY }}
 
     pr-comment-idempotent:
         name: PR comment idempotence (PR only)

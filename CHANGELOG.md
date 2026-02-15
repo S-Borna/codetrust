@@ -52,6 +52,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hook/template JSON parsing made robust (accurate warn/info counts)
 - Extension tests now compile before running to ensure TS tests are executed
 
+- Pre-commit hook reliability:
+  - Hook/template no longer crashes when `.venv/bin/python` is missing (new repo onboarding)
+  - Subprocess failures/timeouts now gracefully fall back instead of blocking commits
+
+- API optional-auth semantics:
+  - When auth is not configured, `X-API-Key` / Bearer headers are ignored (no surprising 401)
+  - When auth is configured, invalid keys still return 401 with actionable guidance
+
+- VS Code extension verification hardening:
+  - Added VS Code test-harness integration coverage for activation + `codetrust.scanFile` → diagnostics
+  - Added regression coverage for settings → SecretStorage API key migration
+
 ---
 
 ## [2.2.4] - 2026-02-13

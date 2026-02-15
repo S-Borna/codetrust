@@ -327,6 +327,11 @@ class TestTrend:
             snap = _trend_snapshot(tmp_dir, ["."])
             assert "ts" in snap
             _trend_write(tmp_dir, snap)
+
+            # Corrupted/partial lines should be skipped safely (e.g. interrupted write)
+            trend_path = tmp_dir / ".codetrust" / "trend.jsonl"
+            trend_path.write_text(trend_path.read_text(encoding="utf-8") + "{not-json}\n", encoding="utf-8")
+
             entries = _trend_read(tmp_dir)
             assert len(entries) == 1
             assert entries[0].get("git_sha")

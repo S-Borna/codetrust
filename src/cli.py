@@ -2060,7 +2060,100 @@ def cmd_status(_args: argparse.Namespace) -> int:
 # --- Doctor command ---
 
 
-def cmd_doctor(_args: argparse.Namespace) -> int:
+def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
+    """Install missing enforcement layers.
+
+    Returns a list of actions performed.
+    """
+    actions: list[str] = []
+
+    # 1) Ensure hooks/pre-commit exists
+    hooks_dir = project_dir / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+
+    hook_file = hooks_dir / "pre-commit"
+    hook_content = _load_template("pre-commit")
+    wrote_hook = _write_text_file_safe(hook_file, hook_content, yes=yes)
+    if wrote_hook:
+        actions.append("Installed hooks/pre-commit")
+    try:
+        hook_file.chmod(0o755)
+    except OSError:
+        actions.append("Warning: could not chmod hooks/pre-commit")
+
+    # Legacy hook fallback
+    git_dir = project_dir / ".git"
+    if git_dir.is_dir():
+        legacy_hook = git_dir / "hooks" / "pre-commit"
+        wrote_legacy = _write_text_file_safe(legacy_hook, hook_content, yes=yes)
+        if wrote_legacy:
+            actions.append("Installed .git/hooks/pre-commit (legacy fallback)")
+        try:
+            legacy_hook.chmod(0o755)
+        except OSError:
+            actions.append("Warning: could not chmod .git/hooks/pre-commit")
+
+        # Activate version-controlled hooks
+        try:
+            subprocess.run(
+                ["git", "config", "core.hooksPath", "hooks"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            actions.append("Set git core.hooksPath=hooks")
+        except Exception as exc:
+            actions.append(f"Warning: could not set core.hooksPath ({exc})")
+
+    # 2) Ensure governance config
+    ct_toml = project_dir / ".codetrust.toml"
+    wrote_toml = _write_text_file_safe(ct_toml, _load_template("codetrust.toml"), yes=yes)
+    if wrote_toml:
+        actions.append("Installed .codetrust.toml")
+
+    # 3) Ensure GitHub Action workflow
+    wf = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
+    wf.parent.mkdir(parents=True, exist_ok=True)
+    wrote_wf = _write_text_file_safe(wf, _load_template("codetrust-scan.yml"), yes=yes)
+    if wrote_wf:
+        actions.append("Installed .github/workflows/codetrust-scan.yml")
+
+    # 4) Ensure .cursorrules
+    cursorrules = project_dir / ".cursorrules"
+    wrote_cursor = _write_text_file_safe(cursorrules, _load_template("cursorrules"), yes=yes)
+    if wrote_cursor:
+        actions.append("Installed .cursorrules")
+
+    # 5) Ensure CLAUDE.md (only if missing)
+    claude_md = project_dir / "CLAUDE.md"
+    if not claude_md.exists():
+        wrote_claude = _write_text_file_safe(claude_md, _load_template("CLAUDE.md"), yes=yes)
+        if wrote_claude:
+            actions.append("Installed CLAUDE.md")
+
+    # 6) Ensure .gitignore contains CodeTrust patterns
+    gitignore = project_dir / ".gitignore"
+    patterns_to_add = ["codetrust-report.md", ".codetrust/"]
+    try:
+        existing = gitignore.read_text(encoding="utf-8", errors="ignore") if gitignore.exists() else ""
+        missing = [p for p in patterns_to_add if p not in existing]
+        if missing:
+            if not gitignore.exists():
+                gitignore.write_text("\n".join(missing) + "\n", encoding="utf-8")
+            else:
+                with open(gitignore, "a", encoding="utf-8") as f:
+                    f.write("\n# CodeTrust\n")
+                    for p in missing:
+                        f.write(f"{p}\n")
+            actions.append("Updated .gitignore (CodeTrust patterns)")
+    except OSError:
+        actions.append("Warning: could not update .gitignore")
+
+    return actions
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
     """Run diagnostic checks on CodeTrust installation."""
     print(f"\n{color('🛡️  CodeTrust Doctor', BOLD)}\n")
 
@@ -2147,10 +2240,25 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     print()
     if not issues:
         print(color("  All checks passed. CodeTrust is fully operational.\n", GREEN))
-    else:
-        print(f"  {len(issues)} issue(s) found. Run {color('codetrust init', BOLD)} to fix.\n")
+        return 0
 
-    return 0 if not issues else 1
+    if getattr(args, "fix", False):
+        yes = bool(getattr(args, "yes", False))
+        actions = _doctor_fix(project_dir=project_dir, yes=yes)
+        if actions:
+            print(color("  Applied fixes:", GREEN))
+            for a in actions:
+                print(f"    - {a}")
+            print()
+        else:
+            print(color("  No safe fixes applied.", YELLOW))
+            print()
+
+        print(color("  Re-checking...\n", BLUE))
+        return cmd_doctor(argparse.Namespace(fix=False, yes=False))
+
+    print(f"  {len(issues)} issue(s) found. Run {color('codetrust doctor --fix', BOLD)} to install missing layers.\n")
+    return 1
 
 
 # --- PR risk command ---
@@ -2466,7 +2574,17 @@ def main() -> int:
     subparsers.add_parser("status", help="Check installed enforcement layers")
 
     # doctor
-    subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
+    doctor_parser = subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
+    doctor_parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Install missing enforcement layers (safe; no overwrite without confirmation)",
+    )
+    doctor_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Apply fixes without prompting (when safe)",
+    )
 
     # pr-risk
     pr_parser = subparsers.add_parser("pr-risk", help="Estimate PR risk based on changed files")

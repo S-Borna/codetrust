@@ -47,6 +47,10 @@ inputs:
     description: "PR-mode: auto (default), always, or never. In PR-mode CodeTrust scans changed files and gates on new findings only."
     required: false
     default: "auto"
+  pr-comment:
+    description: "PR comment: auto (default), always, or never. Posts/updates a CodeTrust report comment on pull requests."
+    required: false
+    default: "auto"
 
 outputs:
   verdict:
@@ -89,6 +93,10 @@ runs:
         CODETRUST_MAX_FILE_SIZE: ${{ inputs.max-file-size }}
         CODETRUST_INCLUDE_PATTERN: ${{ inputs.include-pattern }}
         CODETRUST_PR_MODE: ${{ inputs.pr-mode }}
+        CODETRUST_PR_COMMENT: ${{ inputs.pr-comment }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: bash ${{ github.action_path }}/action/entrypoint.sh
 
     - name: Upload SARIF to GitHub Security

@@ -55,7 +55,7 @@ This roadmap is ordered by **ROI** (value delivered / engineering risk) and desi
 ✅ 7) Marketplace-first guided onboarding (API URL/key + first scan)
 ✅ 1) PR-mode default in CI (changed-lines + new findings only)
 ❌ 3) New-findings-only hard gate (baseline vs HEAD)
-🟡 2) GitHub PR summary comment + richer annotations
+✅ 2) GitHub PR summary comment + richer annotations
 ❌ 6) Doctor as onboarding checklist + auto-fix (`--fix`)
 ❌ 4) Autofix recipes (safe deterministic subset)
 ❌ 5) Policy Wizard + schema autocomplete

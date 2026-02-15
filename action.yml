@@ -51,6 +51,10 @@ inputs:
     description: "PR comment: auto (default), always, or never. Posts/updates a CodeTrust report comment on pull requests."
     required: false
     default: "auto"
+  new-findings-only:
+    description: "Hard gate: auto (default), always, or never. When enabled on PRs, CodeTrust fails the job if baseline cannot be computed and gates only on new findings vs base SHA."
+    required: false
+    default: "auto"
 
 outputs:
   verdict:
@@ -94,6 +98,7 @@ runs:
         CODETRUST_INCLUDE_PATTERN: ${{ inputs.include-pattern }}
         CODETRUST_PR_MODE: ${{ inputs.pr-mode }}
         CODETRUST_PR_COMMENT: ${{ inputs.pr-comment }}
+        CODETRUST_NEW_FINDINGS_ONLY: ${{ inputs.new-findings-only }}
         GITHUB_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}

@@ -44,6 +44,7 @@ from src.cli import (
     scan_path,
     cmd_add,
     cmd_scan,
+    _autofix_print_debug_python,
 )
 from src.rules.anti_patterns import ANTI_PATTERNS
 
@@ -140,6 +141,15 @@ class TestBaselineGating:
         finally:
             os.chdir(old_cwd)
             shutil.rmtree(tmp_dir)
+
+
+class TestAutofix:
+    def test_autofix_print_debug_adds_logging_import_and_rewrites_call(self) -> None:
+        code = "def f():\n    print('x')\n"
+        new_code, changed = _autofix_print_debug_python(code)
+        assert changed is True
+        assert "import logging" in new_code
+        assert "logging.info('x')" in new_code
 
 
 class TestVerifyGates:

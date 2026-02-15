@@ -5,12 +5,12 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import pytest
-
 import src.cli as cli
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 
 @dataclass(frozen=True)

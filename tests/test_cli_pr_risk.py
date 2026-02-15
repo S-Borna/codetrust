@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 import src.cli as cli
+
+if TYPE_CHECKING:
+    import pytest
 
 
 @dataclass(frozen=True)

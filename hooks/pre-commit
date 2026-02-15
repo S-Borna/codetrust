@@ -81,21 +81,29 @@ def _try_cli_scan(files: list[str]) -> int | None:
     """
     # Locate python in .venv or system
     for py in (".venv/bin/python", "python3", "python"):
+        if py.startswith(".venv/") and not os.path.exists(py):
+            continue
         if " " not in py and not os.path.isabs(py):
             # Check if available
-            check = subprocess.run(
-                [py, "-c", "import src.cli"],
-                capture_output=True,
-                timeout=5,
-            )
+            try:
+                check = subprocess.run(
+                    [py, "-c", "import src.cli"],
+                    capture_output=True,
+                    timeout=5,
+                )
+            except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+                continue
             if check.returncode != 0:
                 continue
-        result = subprocess.run(
-            [py, "-m", "src.cli", "scan", "--json", *files],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        try:
+            result = subprocess.run(
+                [py, "-m", "src.cli", "scan", "--json", *files],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            continue
         if result.returncode >= 0:
             # Parse deterministic JSON output for pretty display
             try:

@@ -10,7 +10,7 @@ Highlights:
 - VS Code extension: profiles (create/apply), scan-on-type (opt-in), expanded Quick Fixes, Health Check command
 - CLI: deterministic JSON output + unified fail semantics, stack presets, noise controls, repo-aware commands (`pr-risk`, `trust-diff`, `trend`)
 
-## Planned next (go-to-market add-ons)
+## Go-to-market add-ons delivered
 
 - PR-mode default in CI (changed-lines + new findings only)
 - GitHub PR summary comment + richer annotations

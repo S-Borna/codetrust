@@ -58,4 +58,4 @@ This roadmap is ordered by **ROI** (value delivered / engineering risk) and desi
 ✅ 2) GitHub PR summary comment + richer annotations
 ✅ 6) Doctor as onboarding checklist + auto-fix (`--fix`)
 ✅ 4) Autofix recipes (safe deterministic subset)
-❌ 5) Policy Wizard + schema autocomplete
+✅ 5) Policy Wizard + schema autocomplete

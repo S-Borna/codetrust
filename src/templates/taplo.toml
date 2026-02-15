@@ -1,0 +1,9 @@
+# Taplo schema association for CodeTrust config autocomplete
+# Requires the Taplo VS Code extension.
+
+[schema]
+enabled = true
+
+[[schema.associations]]
+pattern = ".codetrust.toml"
+schema = ".codetrust.schema.json"

@@ -9,6 +9,8 @@ Usage:
     codetrust doctor        Verify all enforcement layers are working
 """
 
+from __future__ import annotations
+
 import argparse
 import importlib.resources
 import json
@@ -18,7 +20,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING
 
 try:
     import tomllib  # Python 3.11+
@@ -34,6 +36,11 @@ from src.rules.anti_patterns import (
     DEVOPS_FILENAMES,
     SQL_EXTENSIONS,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from src.gateway.policies import GovernanceConfig
 
 
 def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
@@ -448,10 +455,7 @@ def _compute_pr_risk(
 
 
 def _is_line_in_ranges(line: int, ranges: Iterable[tuple[int, int]]) -> bool:
-    for start, end in ranges:
-        if start <= line <= end:
-            return True
-    return False
+    return any(start <= line <= end for start, end in ranges)
 
 
 def _get_git_changed_ranges(
@@ -552,7 +556,10 @@ def _load_project_config() -> dict:
     ct_toml = cwd / ".codetrust.toml"
     if ct_toml.is_file():
         with open(ct_toml, "rb") as f:
-            return tomllib.load(f)
+            data = tomllib.load(f)
+        if isinstance(data, dict) and isinstance(data.get("codetrust"), dict):
+            return data.get("codetrust", {})
+        return data
 
     # 2. pyproject.toml [tool.codetrust]
     pyproject = cwd / "pyproject.toml"
@@ -637,6 +644,24 @@ def cmd_fix(args: argparse.Namespace) -> int:
     apply = bool(getattr(args, "apply", False))
 
     project_dir = Path.cwd()
+
+    def _is_excluded_for_fix(path: Path) -> bool:
+        try:
+            rel = str(path.resolve().relative_to(project_dir.resolve())).replace("\\", "/")
+        except Exception:
+            rel = str(path).replace("\\", "/")
+
+        parts = {p for p in Path(rel).parts if p}
+        if parts & {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}:
+            return True
+
+        exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
+        if isinstance(exclude_paths, list):
+            for pat in exclude_paths:
+                if isinstance(pat, str) and pat and pat in rel:
+                    return True
+        return False
+
     files: list[Path] = []
     for t in targets:
         p = Path(t)
@@ -644,7 +669,7 @@ def cmd_fix(args: argparse.Namespace) -> int:
             files.append(p)
         elif p.is_dir():
             for fp in sorted(p.rglob("*.py")):
-                if _is_excluded(fp):
+                if _is_excluded_for_fix(fp):
                     continue
                 files.append(fp)
 
@@ -664,7 +689,11 @@ def cmd_fix(args: argparse.Namespace) -> int:
             continue
 
         changed_files += 1
-        changed_lines += sum(1 for a, b in zip(code.splitlines(), new_code.splitlines()) if a != b)
+        changed_lines += sum(
+            1
+            for a, b in zip(code.splitlines(), new_code.splitlines(), strict=False)
+            if a != b
+        )
 
         if apply:
             fp.write_text(new_code, encoding="utf-8")
@@ -711,12 +740,10 @@ def _detect_verify_gates(project_dir: Path) -> list[str]:
             data = {}
 
     # Loose detection for common config files
-    if (project_dir / "pytest.ini").is_file() or (project_dir / "tox.ini").is_file():
-        if "pytest" not in gates:
-            gates.append("pytest")
-    if (project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file():
-        if "ruff check" not in gates:
-            gates.append("ruff check")
+    if ((project_dir / "pytest.ini").is_file() or (project_dir / "tox.ini").is_file()) and "pytest" not in gates:
+        gates.append("pytest")
+    if ((project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file()) and "ruff check" not in gates:
+        gates.append("ruff check")
     if (project_dir / "tsconfig.json").is_file():
         gates.append("tsc")
 
@@ -763,9 +790,7 @@ def _has_ruff(project_dir: Path) -> bool:
         raw = _read_text_if_exists(pyproject)
         if "[tool.ruff" in raw:
             return True
-    if (project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file():
-        return True
-    return False
+    return (project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file()
 
 
 def _suppress_lint_covered_findings(
@@ -1221,10 +1246,12 @@ def _trend_snapshot(project_dir: Path, targets: list[str]) -> dict[str, object]:
     infos = sum(1 for f in all_findings if f.get("severity") == "INFO")
     verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
 
-    from datetime import datetime, timezone
+    import datetime as _dt
+
+    utc_tz = _dt.UTC
 
     return {
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "ts": _dt.datetime.now(utc_tz).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "git_sha": _git_rev_parse(project_dir, "HEAD"),
         "targets": targets,
         "verdict": verdict,
@@ -1545,6 +1572,210 @@ def _stack_settings_presets(stack: str) -> dict[str, object]:
             "codetrust.enabledLanguages": ["javascript", "typescript"],
         }
     return {}
+
+
+POLICY_PROFILE_CHOICES: tuple[str, ...] = ("startup", "team", "enterprise")
+POLICY_DEFAULT_PROFILE = "team"
+
+POLICY_DEFAULT_EXCLUDE_PATHS: list[str] = [
+    "migrations/",
+    "vendor/",
+    "node_modules/",
+]
+
+PYPROJECT_POLICY_BEGIN = "# BEGIN CODETRUST POLICY (generated)"
+PYPROJECT_POLICY_END = "# END CODETRUST POLICY"
+
+
+def _toml_escape_string(value: str) -> str:
+    """Escape a string for TOML basic string contexts."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _toml_string_array(values: list[str]) -> str:
+    """Render a TOML array of basic strings."""
+    escaped = [f'"{_toml_escape_string(v)}"' for v in values]
+    return "[" + ", ".join(escaped) + "]"
+
+
+def _governance_config_for_profile(profile: str) -> GovernanceConfig:
+    """Create a GovernanceConfig preset for the given profile."""
+    from src.gateway.policies import GovernanceConfig, GovernanceMode
+
+    cfg = GovernanceConfig()
+    if profile == "startup":
+        cfg.mode = GovernanceMode.AUDIT
+        cfg.block_sudo = False
+    elif profile == "team":
+        cfg.mode = GovernanceMode.ENFORCE
+        cfg.block_sudo = False
+    elif profile == "enterprise":
+        cfg.mode = GovernanceMode.ENFORCE
+        cfg.block_sudo = True
+    else:
+        raise ValueError(f"Unknown profile: {profile}")
+
+    return cfg
+
+
+def _render_governance_sections(*, root: str, cfg: GovernanceConfig) -> str:
+    """Render governance TOML sections under the given root table.
+
+    root examples:
+      - codetrust
+      - tool.codetrust
+    """
+    lines: list[str] = []
+
+    lines.extend([
+        f"[{root}.governance]",
+        f"enabled = {str(bool(cfg.enabled)).lower()}",
+        f'mode = "{cfg.mode.value}"',
+        "",
+        f"[{root}.governance.terminal]",
+        f"block_heredoc = {str(bool(cfg.block_heredoc)).lower()}",
+        f"block_eval = {str(bool(cfg.block_eval)).lower()}",
+        f"block_sudo = {str(bool(cfg.block_sudo)).lower()}",
+        f"block_rm_rf = {str(bool(cfg.block_rm_rf)).lower()}",
+        f"block_curl_pipe_sh = {str(bool(cfg.block_curl_pipe_sh)).lower()}",
+        f"block_git_push = {str(bool(cfg.block_git_push)).lower()}",
+        f"block_chmod_777 = {str(bool(cfg.block_chmod_777)).lower()}",
+        "",
+        f"[{root}.governance.files]",
+        f"protected_paths = {_toml_string_array(list(cfg.protected_paths))}",
+        f"scan_before_write = {str(bool(cfg.scan_before_write)).lower()}",
+        "",
+        f"[{root}.governance.packages]",
+        f"verify_before_install = {str(bool(cfg.verify_before_install)).lower()}",
+        f"block_suspicious_packages = {str(bool(cfg.block_suspicious_packages)).lower()}",
+        "",
+        f"[{root}.governance.audit]",
+        f"enabled = {str(bool(cfg.audit_enabled)).lower()}",
+        f'path = "{_toml_escape_string(cfg.audit_path)}"',
+        f"retention_days = {int(cfg.retention_days)}",
+        "",
+        f"[{root}.governance.webhooks]",
+        f'url = "{_toml_escape_string(cfg.webhook_url)}"',
+        f'provider = "{_toml_escape_string(cfg.webhook_provider)}"',
+        f"on_block = {str(bool(cfg.webhook_on_block)).lower()}",
+        f"on_warn = {str(bool(cfg.webhook_on_warn)).lower()}",
+    ])
+
+    disabled_rules = sorted(cfg.disabled_rules)
+    if disabled_rules:
+        lines.append("")
+        lines.append(f"disabled_rules = {_toml_string_array(disabled_rules)}")
+
+    return "\n".join(lines) + "\n"
+
+
+def _render_codetrust_toml_for_profile(profile: str) -> str:
+    """Render full .codetrust.toml content for the chosen policy profile."""
+    cfg = _governance_config_for_profile(profile)
+    header = (
+        "# CodeTrust Governance Configuration\n"
+        f"# Generated by: codetrust policy wizard --profile {profile}\n\n"
+        "[codetrust]\n"
+        f"exclude_paths = {_toml_string_array(POLICY_DEFAULT_EXCLUDE_PATHS)}\n"
+        "ignore_rules = []\n\n"
+    )
+    return header + _render_governance_sections(root="codetrust", cfg=cfg)
+
+
+def _render_pyproject_codetrust_for_profile(profile: str) -> str:
+    """Render [tool.codetrust] TOML content for pyproject.toml."""
+    cfg = _governance_config_for_profile(profile)
+    header = (
+        "[tool.codetrust]\n"
+        f"exclude_paths = {_toml_string_array(POLICY_DEFAULT_EXCLUDE_PATHS)}\n"
+        "ignore_rules = []\n\n"
+    )
+    return header + _render_governance_sections(root="tool.codetrust", cfg=cfg)
+
+
+def _upsert_marked_block(
+    text: str,
+    *,
+    begin_marker: str,
+    end_marker: str,
+    inner_block: str,
+) -> tuple[str, bool]:
+    """Insert or replace a marker-delimited block in a text file."""
+    if begin_marker in text and end_marker in text:
+        pre, rest = text.split(begin_marker, 1)
+        _old, post = rest.split(end_marker, 1)
+        new = pre.rstrip("\n") + "\n" + begin_marker + "\n" + inner_block.rstrip("\n") + "\n" + end_marker + "\n" + post.lstrip("\n")
+        return (new, new != text)
+
+    if begin_marker in text or end_marker in text:
+        # Partial markers — don't guess; avoid corrupting TOML.
+        return (text, False)
+
+    appended = text.rstrip("\n") + "\n\n" + begin_marker + "\n" + inner_block.rstrip("\n") + "\n" + end_marker + "\n"
+    return (appended, True)
+
+
+def cmd_policy(args: argparse.Namespace) -> int:
+    """Policy wizard for generating governance config presets."""
+    project_dir = Path.cwd()
+
+    sub = str(getattr(args, "subcommand", ""))
+    if sub != "wizard":
+        print("Run: codetrust policy wizard")
+        return 1
+
+    yes = bool(getattr(args, "yes", False))
+    profile = str(getattr(args, "profile", POLICY_DEFAULT_PROFILE))
+    if profile not in POLICY_PROFILE_CHOICES:
+        print(f"Invalid --profile. Choose one of: {', '.join(POLICY_PROFILE_CHOICES)}")
+        return 2
+
+    print(f"\n{color('🧭 CodeTrust Policy Wizard', BOLD)}\n")
+    print(f"  Profile: {profile}")
+
+    # 1) .codetrust.toml
+    ct_toml_path = project_dir / ".codetrust.toml"
+    ct_content = _render_codetrust_toml_for_profile(profile)
+    wrote_ct = _write_text_file_safe(ct_toml_path, ct_content, yes=yes)
+    print(f"  {color('✅', GREEN) if wrote_ct else color('↪', BLUE)} {ct_toml_path}")
+
+    # 2) Schema autocomplete helpers (.taplo.toml + .codetrust.schema.json)
+    taplo_path = project_dir / ".taplo.toml"
+    wrote_taplo = _write_text_file_safe(taplo_path, _load_template("taplo.toml"), yes=yes)
+    print(f"  {color('✅', GREEN) if wrote_taplo else color('↪', BLUE)} {taplo_path}")
+
+    schema_path = project_dir / ".codetrust.schema.json"
+    wrote_schema = _write_text_file_safe(schema_path, _load_template("codetrust.schema.json"), yes=yes)
+    print(f"  {color('✅', GREEN) if wrote_schema else color('↪', BLUE)} {schema_path}")
+
+    # 3) Optional pyproject.toml sync
+    py_mode = str(getattr(args, "pyproject", "auto"))
+    if py_mode not in {"auto", "skip", "force"}:
+        py_mode = "auto"
+
+    pyproject = project_dir / "pyproject.toml"
+    if py_mode != "skip" and pyproject.is_file():
+        existing = pyproject.read_text(encoding="utf-8", errors="ignore")
+        has_tool_section = "[tool.codetrust]" in existing or "[tool.codetrust." in existing
+
+        if has_tool_section and PYPROJECT_POLICY_BEGIN not in existing and py_mode != "force":
+            print(f"  {color('↪', BLUE)} {pyproject} (existing [tool.codetrust] found; skipping sync)")
+        else:
+            inner = _render_pyproject_codetrust_for_profile(profile)
+            updated, changed = _upsert_marked_block(
+                existing,
+                begin_marker=PYPROJECT_POLICY_BEGIN,
+                end_marker=PYPROJECT_POLICY_END,
+                inner_block=inner,
+            )
+            if changed:
+                wrote_py = _write_text_file_safe(pyproject, updated, yes=yes)
+                print(f"  {color('✅', GREEN) if wrote_py else color('↪', BLUE)} {pyproject} ({'synced' if wrote_py else 'no change'})")
+            else:
+                print(f"  {color('↪', BLUE)} {pyproject} (no change)")
+
+    print("\nDone.\n")
+    return 0
 
 
 def cmd_add(args: argparse.Namespace) -> int:
@@ -2719,6 +2950,28 @@ def main() -> int:
     gov_parser.add_argument("--status", action="store_true", help="Show current governance status")
     gov_parser.add_argument("--mode", choices=["enforce", "audit", "off"], help="Set governance mode")
 
+    # policy
+    policy_parser = subparsers.add_parser("policy", help="Policy wizard for governance config")
+    policy_sub = policy_parser.add_subparsers(dest="subcommand")
+    policy_wizard = policy_sub.add_parser("wizard", help="Generate policy presets + config autocomplete")
+    policy_wizard.add_argument(
+        "--profile",
+        choices=list(POLICY_PROFILE_CHOICES),
+        default=POLICY_DEFAULT_PROFILE,
+        help="Policy preset: startup|team|enterprise (default: team)",
+    )
+    policy_wizard.add_argument(
+        "--pyproject",
+        choices=["auto", "skip", "force"],
+        default="auto",
+        help="Sync into pyproject.toml [tool.codetrust]: auto|skip|force (default: auto)",
+    )
+    policy_wizard.add_argument(
+        "--yes",
+        action="store_true",
+        help="Overwrite/update without prompting",
+    )
+
     # audit
     audit_parser = subparsers.add_parser("audit", help="Query governance audit log")
     audit_parser.add_argument("--hours", type=int, default=24, help="Hours to look back (default: 24)")
@@ -2770,6 +3023,8 @@ def main() -> int:
         return cmd_trend(args)
     if args.command == "governance":
         return cmd_governance(args)
+    if args.command == "policy":
+        return cmd_policy(args)
     if args.command == "audit":
         return cmd_audit(args)
 

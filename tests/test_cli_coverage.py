@@ -87,7 +87,7 @@ class TestLoadProjectConfig:
         toml_file.write_text('[codetrust]\nignore_rules = ["eval_exec"]\n')
         with patch("src.cli.Path.cwd", return_value=tmp_path):
             result = _load_project_config()
-            assert "codetrust" in result
+            assert result.get("ignore_rules") == ["eval_exec"]
 
     def test_pyproject_toml(self, tmp_path: Path) -> None:
         toml_file = tmp_path / "pyproject.toml"

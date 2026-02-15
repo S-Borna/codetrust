@@ -205,6 +205,8 @@ codetrust trust-diff               # Compare trust score: HEAD vs working tree
 codetrust trend record             # Record a local snapshot
 codetrust trend show               # Show recorded snapshots
 
+codetrust policy wizard            # Generate governance policy presets + TOML autocomplete
+
 codetrust governance --status      # Governance overview
 codetrust governance --mode audit  # Switch to audit mode
 codetrust audit --hours 24         # Review recent actions

@@ -578,6 +578,104 @@ def _read_json_if_exists(path: Path) -> dict:
         return {}
 
 
+def _autofix_print_debug_python(code: str) -> tuple[str, bool]:
+    """Deterministic autofix: replace leading print(...) with logging.info(...).
+
+    Also ensures `import logging` exists.
+    """
+    lines = code.splitlines(keepends=True)
+
+    changed = False
+    out_lines: list[str] = []
+    print_re = re.compile(r"^(\s*)print\s*\(")
+    for line in lines:
+        m = print_re.match(line)
+        if m:
+            indent = m.group(1)
+            out_lines.append(indent + "logging.info(" + line[m.end():])
+            changed = True
+        else:
+            out_lines.append(line)
+
+    new_code = "".join(out_lines)
+
+    if "import logging" in new_code:
+        return new_code, changed
+
+    if not changed:
+        return new_code, False
+
+    # Insert import logging after shebang/encoding/docstring when possible.
+    insert_at = 0
+    if out_lines and out_lines[0].startswith("#!"):
+        insert_at = 1
+    if len(out_lines) > insert_at and "coding" in out_lines[insert_at]:
+        insert_at += 1
+
+    # Handle module docstring.
+    if len(out_lines) > insert_at and out_lines[insert_at].lstrip().startswith(('"""', "'''")):
+        delim = '"""' if '"""' in out_lines[insert_at] else "'''"
+        i = insert_at
+        # If docstring ends on same line, move one line down; else scan until closing.
+        if out_lines[i].count(delim) >= 2:
+            insert_at = i + 1
+        else:
+            i += 1
+            while i < len(out_lines):
+                if delim in out_lines[i]:
+                    insert_at = i + 1
+                    break
+                i += 1
+
+    out_lines.insert(insert_at, "import logging\n")
+    return "".join(out_lines), True
+
+
+def cmd_fix(args: argparse.Namespace) -> int:
+    """Apply safe deterministic autofix recipes to files."""
+    targets = getattr(args, "targets", []) or ["."]
+    apply = bool(getattr(args, "apply", False))
+
+    project_dir = Path.cwd()
+    files: list[Path] = []
+    for t in targets:
+        p = Path(t)
+        if p.is_file():
+            files.append(p)
+        elif p.is_dir():
+            for fp in sorted(p.rglob("*.py")):
+                if _is_excluded(fp):
+                    continue
+                files.append(fp)
+
+    if not files:
+        print("No files to fix.")
+        return 0
+
+    changed_files = 0
+    changed_lines = 0
+    for fp in files:
+        try:
+            code = fp.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        new_code, changed = _autofix_print_debug_python(code)
+        if not changed:
+            continue
+
+        changed_files += 1
+        changed_lines += sum(1 for a, b in zip(code.splitlines(), new_code.splitlines()) if a != b)
+
+        if apply:
+            fp.write_text(new_code, encoding="utf-8")
+
+    if apply:
+        print(f"Applied fixes to {changed_files} file(s).")
+    else:
+        print(f"Fix preview: {changed_files} file(s) would change. Re-run with --apply to write.")
+    return 0
+
+
 def _detect_verify_gates(project_dir: Path) -> list[str]:
     """Best-effort detection of common repo verification gates.
 
@@ -2570,6 +2668,15 @@ def main() -> int:
         help="Suppress findings commonly covered by existing linters (opt-in)",
     )
 
+    # fix
+    fix_parser = subparsers.add_parser("fix", help="Apply safe deterministic autofix recipes")
+    fix_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
+    fix_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write changes to disk (default: preview only)",
+    )
+
     # status
     subparsers.add_parser("status", help="Check installed enforcement layers")
 
@@ -2649,6 +2756,8 @@ def main() -> int:
         return cmd_add(args)
     if args.command == "scan":
         return cmd_scan(args)
+    if args.command == "fix":
+        return cmd_fix(args)
     if args.command == "status":
         return cmd_status(args)
     if args.command == "doctor":

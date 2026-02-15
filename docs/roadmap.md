@@ -57,5 +57,5 @@ This roadmap is ordered by **ROI** (value delivered / engineering risk) and desi
 ✅ 3) New-findings-only hard gate (baseline vs HEAD)
 ✅ 2) GitHub PR summary comment + richer annotations
 ✅ 6) Doctor as onboarding checklist + auto-fix (`--fix`)
-❌ 4) Autofix recipes (safe deterministic subset)
+✅ 4) Autofix recipes (safe deterministic subset)
 ❌ 5) Policy Wizard + schema autocomplete

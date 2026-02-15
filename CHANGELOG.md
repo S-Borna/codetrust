@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Repo-aware commands: `codetrust pr-risk`, `codetrust trust-diff`, `codetrust trend record/show`
   - Baseline-aware gating: `codetrust scan --baseline <ref> --fail-on-new BLOCK` (new findings only)
   - Doctor onboarding: `codetrust doctor --fix` installs missing enforcement layers
+  - Safe autofix: `codetrust fix` (preview by default, `--apply` to write)
 
 ### Fixed
 

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Markdown report + GitHub Actions step summary output (for PR review workflows)
   - PR comment posted/updated automatically (requires `pull-requests: write`)
   - Hard gate: new-findings-only baseline vs HEAD (fails PR if baseline cannot be computed)
+  - PR comment is idempotent (start/end markers), machine-readable, and includes actionable CLI commands
 - CLI:
   - `codetrust add` stack presets for `.vscode/settings.json` (`--stack auto|nextjs|node|python|go|generic`)
   - Noise-control flags: `--dedupe`, `--changed-only`, `--suppress-lint-noise` (opt-in)

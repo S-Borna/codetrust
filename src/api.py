@@ -135,15 +135,30 @@ async def get_auth_context(
     db = getattr(request.app.state, "db", None)
     auth_svc = getattr(request.app.state, "auth", None)
 
+    auth_is_configured = (
+        bool(settings.api_key)
+        or (db is not None)
+        or (auth_svc is not None and auth_svc.jwt_configured())
+    )
+
     if key:
+        if not auth_is_configured:
+            # Unauthenticated mode: ignore any provided API key to avoid surprising 401s.
+            return AuthContext()
         ctx = await _resolve_auth_from_key(key, db)
         if ctx.user_id != "local":
             return ctx
-        raise HTTPException(status_code=401, detail="Invalid API key")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key. Omit X-API-Key to use unauthenticated mode.",
+        )
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
+        if not auth_is_configured:
+            # Unauthenticated mode: ignore bearer tokens.
+            return AuthContext()
         ctx = await _resolve_auth_from_bearer(token, auth_svc)
         if ctx is not None:
             return ctx

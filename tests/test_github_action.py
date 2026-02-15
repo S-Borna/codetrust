@@ -18,6 +18,9 @@ from action.scan_runner import (
     diff_new_findings,
     _get_pr_base_sha,
     _get_pr_number,
+    upsert_comment,
+    COMMENT_START,
+    COMMENT_END,
     write_markdown_report,
     write_sarif,
 )
@@ -312,8 +315,34 @@ class TestMarkdownReport:
         )
 
         text = report_path.read_text(encoding="utf-8")
-        assert "Verdict: BLOCK" in text
-        assert "Files scanned: 1" in text
+        assert "CodeTrust Verdict: BLOCK" in text
+        assert "CodeTrust Enforcement: ACTIVE" in text
+        assert "Fix locally:" in text
+        assert "codetrust scan --changed-only --baseline origin/main --fail-on-new BLOCK" in text
+
+
+class TestPrCommentUpsert:
+    """Test deterministic PR comment upsert markers."""
+
+    def test_creates_new_block_when_missing(self) -> None:
+        merged = upsert_comment("", "hello")
+        assert COMMENT_START in merged
+        assert COMMENT_END in merged
+        assert "hello" in merged
+
+    def test_replaces_only_block_when_present(self) -> None:
+        existing = (
+            "prefix\n"
+            + COMMENT_START
+            + "\n\nold\n\n"
+            + COMMENT_END
+            + "\nsuffix\n"
+        )
+        merged = upsert_comment(existing, "new")
+        assert merged.startswith("prefix\n" + COMMENT_START)
+        assert merged.endswith(COMMENT_END + "\nsuffix\n")
+        assert "old" not in merged
+        assert "new" in merged
 
 
 class TestGitHubEventParsing:

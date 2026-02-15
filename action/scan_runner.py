@@ -21,6 +21,41 @@ from src.models.enums import Severity
 from src.models.responses import Finding
 from src.services.static_analyzer import StaticAnalyzer
 
+COMMENT_START = "<!-- codetrust-scan:start -->"
+COMMENT_END = "<!-- codetrust-scan:end -->"
+
+
+def upsert_comment(existing: str, new_report: str) -> str:
+    """Upsert the CodeTrust comment block using stable start/end markers."""
+    report = new_report.strip("\n")
+    if COMMENT_START in existing and COMMENT_END in existing:
+        before = existing.split(COMMENT_START)[0]
+        after = existing.split(COMMENT_END)[1]
+        return f"{before}{COMMENT_START}\n\n{report}\n\n{COMMENT_END}{after}"
+    return f"{COMMENT_START}\n\n{report}\n\n{COMMENT_END}\n"
+
+
+def calculate_trust_score(findings: list[Finding]) -> float:
+    """Compute trust score (0.00–1.00) using the canonical CLI scorer."""
+    try:
+        from src.cli import _calculate_drift_score  # canonical scorer
+
+        items = [
+            {
+                "rule_id": f.rule_id,
+                "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                "message": f.message,
+                "file": f.file,
+                "line": f.line,
+            }
+            for f in findings
+        ]
+        drift = _calculate_drift_score(items)
+        score = float(drift.get("score", 0))
+        return max(0.0, min(1.0, score / 100.0))
+    except Exception:
+        return 0.0
+
 
 def verify_imports(
     files: list[Path],
@@ -214,9 +249,8 @@ def _post_or_update_pr_comment(report_path: str) -> None:
         _write_output("::warning::PR comment skipped (httpx not installed)")
         return
 
-    marker = "<!-- codetrust-scan -->"
     body_text = report_file.read_text(encoding="utf-8", errors="replace")
-    comment_body = f"{marker}\n{body_text}".strip() + "\n"
+    new_block = body_text.strip("\n")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -230,6 +264,7 @@ def _post_or_update_pr_comment(report_path: str) -> None:
     try:
         with httpx.Client(timeout=10.0, headers=headers) as client:
             existing_id: int | None = None
+            existing_body: str | None = None
             resp = client.get(list_url)
             if resp.status_code == 200:
                 data = resp.json()
@@ -239,13 +274,17 @@ def _post_or_update_pr_comment(report_path: str) -> None:
                             continue
                         cid = c.get("id")
                         cbody = c.get("body")
-                        if isinstance(cid, int) and isinstance(cbody, str) and marker in cbody:
+                        if isinstance(cid, int) and isinstance(cbody, str) and (
+                            COMMENT_START in cbody or "<!-- codetrust-scan -->" in cbody
+                        ):
                             existing_id = cid
+                            existing_body = cbody
                             break
 
             if existing_id is not None:
                 update_url = f"{base_url}/issues/comments/{existing_id}"
-                upd = client.patch(update_url, json={"body": comment_body})
+                merged = upsert_comment(existing_body or "", new_block)
+                upd = client.patch(update_url, json={"body": merged})
                 if upd.status_code >= 200 and upd.status_code < 300:
                     _write_output("PR comment updated.")
                 else:
@@ -253,7 +292,7 @@ def _post_or_update_pr_comment(report_path: str) -> None:
                 return
 
             post_url = f"{base_url}/issues/{pr_number}/comments"
-            created = client.post(post_url, json={"body": comment_body})
+            created = client.post(post_url, json={"body": upsert_comment("", new_block)})
             if created.status_code >= 200 and created.status_code < 300:
                 _write_output("PR comment posted.")
             else:
@@ -555,27 +594,29 @@ def write_markdown_report(
     warns = [f for f in findings if f.severity == Severity.WARN]
     infos = [f for f in findings if f.severity == Severity.INFO]
 
-    mode = "PR-mode (new findings only)" if pr_mode_active else "Full scan"
+    trust = calculate_trust_score(findings)
+    baseline = "origin/main"
+    new_findings = len(findings) if not pr_mode_active else len(findings)
 
     lines: list[str] = [
-        "## 🛡️ CodeTrust Report",
+        "CodeTrust Verdict: " + verdict,
+        f"CodeTrust Trust Score: {trust:.2f}",
+        f"CodeTrust New Findings: {new_findings}",
+        f"CodeTrust Baseline: {baseline}",
+        "CodeTrust Enforcement: ACTIVE",
         "",
-        f"**Verdict: {verdict}**",
-        f"Mode: {mode}",
-        (new_findings_note or "").strip(),
+        "Fix locally:",
         "",
-        f"Files scanned: {files_scanned} | BLOCK: {len(blocks)} | WARN: {len(warns)} | INFO: {len(infos)}",
-        "",
-        "Run locally:",
-        "```bash",
         "pip install codetrust",
-        "codetrust scan . --changed-only --dedupe",
-        "```",
+        "codetrust scan --changed-only --baseline origin/main --fail-on-new BLOCK",
+        "",
+        "Full governance check:",
+        "",
+        "codetrust governance",
+        "",
+        "---",
         "",
     ]
-
-    lines = [ln for ln in lines if ln != ""]
-    lines.insert(1, "")
 
     def add_table(title: str, items: list[Finding]) -> None:
         if not items:

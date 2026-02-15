@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `codetrust add` stack presets for `.vscode/settings.json` (`--stack auto|nextjs|node|python|go|generic`)
   - Noise-control flags: `--dedupe`, `--changed-only`, `--suppress-lint-noise` (opt-in)
   - Repo-aware commands: `codetrust pr-risk`, `codetrust trust-diff`, `codetrust trend record/show`
+  - Baseline-aware gating: `codetrust scan --baseline <ref> --fail-on-new BLOCK` (new findings only)
 
 ### Fixed
 

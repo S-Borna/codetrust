@@ -726,9 +726,24 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
             if b"\x00" in chunk:
                 return findings  # Binary file — skip
         with open(filepath, encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
+            code = f.read()
     except OSError:
         return findings
+
+    return scan_text(code, filepath)
+
+
+def scan_text(code: str, filepath: str) -> list[dict[str, str | int]]:
+    """Scan in-memory code using the same routing logic as scan_file."""
+    findings: list[dict[str, str | int]] = []
+
+    # Config-based path exclusions
+    exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
+    for pat in exclude_paths:
+        if pat in filepath:
+            return findings
+
+    lines = code.splitlines(keepends=True)
 
     basename = os.path.basename(filepath).lower()
     ext = Path(filepath).suffix.lower()
@@ -886,6 +901,54 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
         findings = filtered
 
     return findings
+
+
+def _scan_text_at_git_ref(
+    *,
+    cwd: Path,
+    ref: str,
+    rel_path: str,
+) -> list[dict[str, str | int]]:
+    """Scan file content at a git ref (best-effort)."""
+    try:
+        out = subprocess.run(
+            ["git", "show", f"{ref}:{rel_path}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.returncode != 0:
+            return []
+        return scan_text(out.stdout, rel_path)
+    except Exception:
+        return []
+
+
+def _finding_key_cli(f: dict[str, str | int]) -> tuple[str, str, int, str, str]:
+    """Stable identity key for diffing findings across refs."""
+    return (
+        str(f.get("rule_id", "")),
+        str(f.get("file", "")),
+        int(f.get("line", 0) or 0),
+        str(f.get("severity", "")),
+        str(f.get("message", "")),
+    )
+
+
+def _diff_new_findings_cli(
+    *,
+    head: list[dict[str, str | int]],
+    baseline: list[dict[str, str | int]],
+) -> list[dict[str, str | int]]:
+    """Return only findings that exist in head but not baseline."""
+    baseline_keys = {_finding_key_cli(f) for f in baseline}
+    return [f for f in head if _finding_key_cli(f) not in baseline_keys]
+
+
+def _severity_meets_threshold(severity: str, threshold: str) -> bool:
+    order = {"INFO": 1, "WARN": 2, "BLOCK": 3}
+    return order.get(severity, 0) >= order.get(threshold, 3)
 
 
 def _scan_code_text(code: str, filename: str) -> list[dict[str, str | int]]:
@@ -1683,21 +1746,105 @@ def cmd_scan(args: argparse.Namespace) -> int:
         bool(getattr(args, "sarif", False)) and not bool(getattr(args, "sarif_file", ""))
     )
 
-    for target in targets:
-        findings = scan_path(target)
-        all_findings.extend(findings)
-        if Path(target).is_file():
-            files_scanned += 1
-        elif Path(target).is_dir():
-            skip_dirs = {
-                ".git", ".venv", "venv", "node_modules", "__pycache__",
-                "dist", "build", ".next", ".open-next", ".turbo",
-                ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
-                "coverage", "out", ".cache",
-            }
-            for _root, dirs, files in os.walk(target):
-                dirs[:] = [d for d in dirs if d not in skip_dirs]
-                files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
+    baseline_ref = str(getattr(args, "baseline", "") or "").strip()
+    baseline_mode = bool(baseline_ref)
+
+    if baseline_mode:
+        cwd = Path.cwd()
+        try:
+            diff = subprocess.run(
+                ["git", "diff", "--name-only", "--diff-filter=ACM", baseline_ref, "--"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            changed_files = [ln.strip() for ln in diff.stdout.splitlines() if ln.strip()]
+        except Exception:
+            changed_files = []
+
+        # Limit to supported source files and to explicit targets if provided.
+        allowed: set[str] = set()
+        for t in targets:
+            p = Path(t)
+            if p.is_file():
+                allowed.add(_normalize_path_for_git(str(p), cwd=cwd) or str(p))
+
+        scan_files = []
+        for rel in changed_files:
+            if Path(rel).suffix.lower() not in SOURCE_EXTS:
+                continue
+            if allowed and rel not in allowed:
+                continue
+            if not Path(rel).exists():
+                continue
+            scan_files.append(rel)
+
+        baseline_findings: list[dict[str, str | int]] = []
+        head_findings: list[dict[str, str | int]] = []
+
+        for rel in scan_files:
+            head_findings.extend(scan_file(rel))
+            baseline_findings.extend(_scan_text_at_git_ref(cwd=cwd, ref=baseline_ref, rel_path=rel))
+        files_scanned = len(scan_files)
+
+        # If requested, filter to changed lines *against the baseline ref*.
+        if getattr(args, "changed_only", False) and head_findings:
+            try:
+                changed_ranges: dict[str, list[tuple[int, int]]] = {}
+                for rel in {str(f.get("file", "")) for f in head_findings if f.get("file")}:
+                    base_cmd = ["git", "diff", "--unified=0", baseline_ref, "--", rel]
+                    d = subprocess.run(
+                        base_cmd,
+                        cwd=cwd,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    ranges = _parse_unified0_changed_ranges(d.stdout)
+                    if ranges:
+                        changed_ranges[rel] = ranges
+
+                kept: list[dict[str, str | int]] = []
+                for f in head_findings:
+                    rel = _normalize_path_for_git(str(f.get("file", "")), cwd=cwd)
+                    ranges = changed_ranges.get(rel)
+                    if not ranges:
+                        continue
+                    line = int(f.get("line", 0) or 0)
+                    if line <= 0:
+                        continue
+                    if _is_line_in_ranges(line, ranges):
+                        kept.append({**f, "file": rel})
+                head_findings = kept
+            except Exception as exc:
+                if not machine_output:
+                    print(
+                        color(
+                            f"  ⚠️  Could not compute changed-line ranges vs baseline ({baseline_ref}): {exc}",
+                            YELLOW,
+                        )
+                    )
+
+        new_findings = _diff_new_findings_cli(head=head_findings, baseline=baseline_findings)
+        all_findings = new_findings
+
+    else:
+        for target in targets:
+            findings = scan_path(target)
+            all_findings.extend(findings)
+            if Path(target).is_file():
+                files_scanned += 1
+            elif Path(target).is_dir():
+                skip_dirs = {
+                    ".git", ".venv", "venv", "node_modules", "__pycache__",
+                    "dist", "build", ".next", ".open-next", ".turbo",
+                    ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+                    "coverage", "out", ".cache",
+                }
+                for _root, dirs, files in os.walk(target):
+                    dirs[:] = [d for d in dirs if d not in skip_dirs]
+                    files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
 
     # --- Live import verification against registries ---
     if not getattr(args, "no_verify_imports", False):
@@ -1732,7 +1879,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     cwd = Path.cwd()
 
-    if getattr(args, "changed_only", False):
+    if (not baseline_mode) and getattr(args, "changed_only", False):
         all_findings = _filter_findings_to_changed_lines(cwd=cwd, findings=all_findings)
 
     suppressed_count = 0
@@ -1754,6 +1901,15 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
 
+    if baseline_mode:
+        threshold = str(getattr(args, "fail_on_new", "BLOCK"))
+        has_new_threshold = any(
+            _severity_meets_threshold(str(f.get("severity", "INFO")), threshold)
+            for f in all_findings
+        )
+        if has_new_threshold:
+            verdict = "BLOCK" if threshold == "BLOCK" else ("WARN" if threshold == "WARN" else verdict)
+
     result = {
         "verdict": verdict,
         "files_scanned": files_scanned,
@@ -1762,6 +1918,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
         "warnings": len(warns),
         "infos": len(infos),
         "drift_score": drift,
+        "baseline": baseline_ref if baseline_mode else "",
+        "fail_on_new": str(getattr(args, "fail_on_new", "")) if baseline_mode else "",
         "findings": all_findings,
     }
 
@@ -1829,6 +1987,14 @@ def cmd_scan(args: argparse.Namespace) -> int:
         if fail_on == "block":
             return v == "BLOCK"
         return fail_on == "warn" and v in ("BLOCK", "WARN")
+
+    if baseline_mode:
+        threshold = str(getattr(args, "fail_on_new", "BLOCK"))
+        fail = any(
+            _severity_meets_threshold(str(f.get("severity", "INFO")), threshold)
+            for f in all_findings
+        )
+        return 1 if fail else 0
 
     fail_on = str(getattr(args, "fail_on", "block"))
     return 1 if _should_fail(verdict, fail_on) else 0
@@ -2270,6 +2436,19 @@ def main() -> int:
         "--changed-only",
         action="store_true",
         help="Only report findings that fall on changed lines (uses git diff)",
+    )
+    scan_parser.add_argument(
+        "--baseline",
+        type=str,
+        default="",
+        help="Baseline git ref (e.g. origin/main). When set, gates on new findings vs baseline and scans only files changed against that ref.",
+    )
+    scan_parser.add_argument(
+        "--fail-on-new",
+        dest="fail_on_new",
+        choices=["INFO", "WARN", "BLOCK"],
+        default="BLOCK",
+        help="Exit non-zero if NEW findings include this severity or higher (requires --baseline). Default: BLOCK.",
     )
     scan_parser.add_argument(
         "--dedupe",

@@ -353,7 +353,7 @@ See `codetrust init` for a starter configuration.
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v           # 1315 tests
+pytest tests/ -v           # 1338 tests
 ruff check src/ tests/     # zero warnings
 ```
 

@@ -46,9 +46,9 @@ Legend:
 
 ## F) Policy & config UX
 
-- 🟡 `.codetrust.toml` is supported; wizard + schema/autocomplete is missing
+- ✅ `.codetrust.toml` is supported; policy wizard + schema/autocomplete implemented
 - ❌ `codetrust.json` schema + auto-complete
-- ❌ “Policy Wizard”: Startup / Team / Enterprise → generates rulepack
+- ✅ “Policy Wizard”: Startup / Team / Enterprise → generates rulepack
 - 🟡 Per-repo overrides with reason + audit trail: governance audit exists; UX for “reasoned overrides” can be formalized
 
 ## G) Drift / Trust score (more actionable)

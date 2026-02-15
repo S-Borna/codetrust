@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Baseline-aware gating: `codetrust scan --baseline <ref> --fail-on-new BLOCK` (new findings only)
   - Doctor onboarding: `codetrust doctor --fix` installs missing enforcement layers
   - Safe autofix: `codetrust fix` (preview by default, `--apply` to write)
+  - Policy Wizard: `codetrust policy wizard` generates governance presets + installs `.taplo.toml` + `.codetrust.schema.json` for autocomplete
 
 ### Fixed
 

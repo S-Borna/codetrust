@@ -7,20 +7,20 @@ import pytest
 from starlette.testclient import TestClient
 
 from action.scan_runner import (
+    COMMENT_END,
+    COMMENT_START,
+    _get_pr_base_sha,
+    _get_pr_number,
     _is_excluded,
     _language_glob,
     compute_verdict,
+    diff_new_findings,
     discover_files,
     emit_annotations,
     print_summary,
     scan_files,
     should_fail,
-    diff_new_findings,
-    _get_pr_base_sha,
-    _get_pr_number,
     upsert_comment,
-    COMMENT_START,
-    COMMENT_END,
     write_markdown_report,
     write_sarif,
 )

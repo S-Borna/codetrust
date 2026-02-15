@@ -1,5 +1,7 @@
 name: CodeTrust Action Selftest
 
+# PR selftest trigger (no-op)
+
 on:
     workflow_dispatch:
     pull_request:

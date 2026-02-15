@@ -43,6 +43,7 @@ from src.cli import (
     scan_file,
     scan_path,
     cmd_add,
+    cmd_scan,
 )
 from src.rules.anti_patterns import ANTI_PATTERNS
 
@@ -100,6 +101,44 @@ class TestChangedLines:
             # Should normalize file path to relative
             assert all(str(f.get("file", "")).endswith("a.py") for f in kept)
         finally:
+            shutil.rmtree(tmp_dir)
+
+
+class TestBaselineGating:
+    def test_fail_on_new_block_with_baseline_head(self) -> None:
+        tmp_dir = Path(tempfile.mkdtemp())
+        old_cwd = Path.cwd()
+        try:
+            subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_dir, check=True)
+
+            path = tmp_dir / "a.py"
+            path.write_text("x = 1\nprint('ok')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
+
+            # Introduce a new BLOCK finding in working tree
+            path.write_text("x = 1\nresult = eval(user_input)\n", encoding="utf-8")
+
+            os.chdir(tmp_dir)
+            args = type("Args", (), {})()
+            args.targets = ["."]
+            args.json = False
+            args.sarif = False
+            args.sarif_file = ""
+            args.fail_on = "never"
+            args.no_verify_imports = True
+            args.changed_only = True
+            args.dedupe = False
+            args.suppress_lint_noise = False
+            args.baseline = "HEAD"
+            args.fail_on_new = "BLOCK"
+
+            rc = cmd_scan(args)
+            assert rc == 1
+        finally:
+            os.chdir(old_cwd)
             shutil.rmtree(tmp_dir)
 
 

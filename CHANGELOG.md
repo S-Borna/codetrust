@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JS/TS import verification no longer flags `@/components`, `@/lib`, `~/config`, `#/db`
   as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
 - Rule count updated: 76 scan + 57 gateway = 133 total
-- Test count: 1339
+- Test count: 1358
 
 - Pre-commit and CLI interoperability:
   - Deterministic `codetrust scan --json` output (pure JSON on stdout)

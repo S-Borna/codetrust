@@ -1,15 +1,19 @@
 import httpx
 import pytest
 
+from src.config import settings
 from src.services.cache import CacheService
 from src.services.public_stats import (
     MARKETPLACE_EXTENSION_QUERY_URL,
     OPEN_VSX_EXTENSION_NAME,
     OPEN_VSX_EXTENSION_URL_TEMPLATE,
     OPEN_VSX_NAMESPACE,
+    PEPY_PROJECT,
+    PEPY_PROJECT_URL_TEMPLATE,
     PYPISTATS_RECENT_URL,
     get_marketplace_stats,
     get_open_vsx_stats,
+    get_pepy_download_stats,
     get_pypi_download_stats,
 )
 
@@ -96,3 +100,33 @@ async def test_get_open_vsx_stats_404_falls_back_to_zero(
 
     stats = await get_open_vsx_stats(http_client=mock_http_client, cache=fake_cache)
     assert stats == {"openvsx_downloads": 0}
+
+
+@pytest.mark.asyncio
+async def test_get_pepy_download_stats_parses_total_downloads(
+    fake_cache: CacheService,
+    mock_http_client: httpx.AsyncClient,
+    httpx_mock,
+) -> None:
+    base_url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
+    url = str(
+        httpx.URL(base_url).copy_merge_params(
+            {
+                "timeRange": "threeMonths",
+                "category": "version",
+                "includeCIDownloads": "true",
+                "granularity": "daily",
+                "viewType": "line",
+                "versions": settings.version,
+            }
+        )
+    )
+    httpx_mock.add_response(
+        method="GET",
+        url=url,
+        text='<!doctype html><script>self.__next_f.push([1,"{\\"totalDownloads\\":2712}"])</script>',
+    )
+
+    stats = await get_pepy_download_stats(http_client=mock_http_client, cache=fake_cache)
+    assert stats == {"pypi_downloads_last_3_months_ci": 2712}
+

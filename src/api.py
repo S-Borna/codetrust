@@ -514,6 +514,9 @@ async def public_stats(request: Request) -> dict:
             "pypi_downloads_last_week": int(
                 stats.get("distribution", {}).get("pypi", {}).get("downloads_this_week", 0)
             ),
+            "pypi_downloads_last_3_months_ci": int(
+                stats.get("distribution", {}).get("pypi", {}).get("downloads_last_3_months_ci", 0)
+            ),
             "marketplace_installs": int(
                 stats.get("distribution", {}).get("marketplace", {}).get("installs", 0)
             ),
@@ -530,6 +533,7 @@ async def public_stats(request: Request) -> dict:
     from src.services.public_stats import (
         get_marketplace_stats,
         get_open_vsx_stats,
+        get_pepy_download_stats,
         get_pypi_download_stats,
     )
 
@@ -540,6 +544,7 @@ async def public_stats(request: Request) -> dict:
         "pypi_downloads_last_day": 0,
         "pypi_downloads_last_week": 0,
         "pypi_downloads_last_month": 0,
+        "pypi_downloads_last_3_months_ci": 0,
         "marketplace_installs": 0,
         "marketplace_downloads": 0,
         "marketplace_updates": 0,
@@ -559,9 +564,10 @@ async def public_stats(request: Request) -> dict:
         return base
 
     pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
+    pepy = await get_pepy_download_stats(http_client=http_client, cache=cache)
     marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
     openvsx = await get_open_vsx_stats(http_client=http_client, cache=cache)
-    return {**base, **pypi, **marketplace, **openvsx}
+    return {**base, **pypi, **pepy, **marketplace, **openvsx}
 
 
 async def _telemetry_batch_writer(app: FastAPI) -> None:

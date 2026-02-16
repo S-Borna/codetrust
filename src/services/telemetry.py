@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ import httpx
 import redis.asyncio as redis
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.config import settings
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable as _Awaitable
@@ -53,6 +56,11 @@ MARKETPLACE_FLAGS: int = 914
 OPEN_VSX_EXTENSION_URL_TEMPLATE: str = "https://open-vsx.org/api/{namespace}/{name}"
 OPEN_VSX_NAMESPACE: str = "SaidBorna"
 OPEN_VSX_EXTENSION_NAME: str = "codetrust"
+
+PEPY_PROJECT_URL_TEMPLATE: str = "https://pepy.tech/projects/{project}"
+PEPY_PROJECT: str = "codetrust"
+
+_PEPY_TOTAL_DOWNLOADS_RE: re.Pattern[str] = re.compile(r'\\?"totalDownloads\\?"\s*:\s*(\d+)')
 
 
 class TelemetryIngestEvent(BaseModel):
@@ -324,6 +332,26 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_pypi_failed", error=str(exc))
 
+    # Pepy (PyPI downloads, last 3 months, include CI)
+    try:
+        url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
+        params = {
+            "timeRange": "threeMonths",
+            "category": "version",
+            "includeCIDownloads": "true",
+            "granularity": "daily",
+            "viewType": "line",
+            "versions": settings.version,
+        }
+        res = await http_client.get(url, params=params, follow_redirects=True)
+        res.raise_for_status()
+        html = res.text
+        match = _PEPY_TOTAL_DOWNLOADS_RE.search(html)
+        downloads = int(match.group(1)) if match else 0
+        await r.set("ct:ext:pepy_3m_ci_downloads", str(_safe_int(downloads)), ex=EXT_STATS_TTL_SECONDS)
+    except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
+        logger.warning("ext_stats_pepy_failed", error=str(exc))
+
     # VS Code Marketplace
     body = {
         "filters": [{"criteria": [{"filterType": 7, "value": MARKETPLACE_EXTENSION_ID}]}],
@@ -447,6 +475,7 @@ async def build_public_stats(
         "ct:ext:pypi_last_day",
         "ct:ext:pypi_last_week",
         "ct:ext:pypi_last_month",
+        "ct:ext:pepy_3m_ci_downloads",
         "ct:ext:marketplace_installs",
         "ct:ext:marketplace_downloads",
         "ct:ext:marketplace_updates",
@@ -531,6 +560,7 @@ async def build_public_stats(
                 "downloads_today": kv.get("ct:ext:pypi_last_day", 0),
                 "downloads_this_week": kv.get("ct:ext:pypi_last_week", 0),
                 "downloads_this_month": kv.get("ct:ext:pypi_last_month", 0),
+                "downloads_last_3_months_ci": kv.get("ct:ext:pepy_3m_ci_downloads", 0),
             },
             "marketplace": {
                 "installs": kv.get("ct:ext:marketplace_installs", 0),

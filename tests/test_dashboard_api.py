@@ -1,6 +1,6 @@
 """Tests for dashboard API endpoints — API keys, scan history, usage, billing."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -9,6 +9,22 @@ from fastapi.testclient import TestClient
 from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.database import DatabaseService
+
+
+_TELEMETRY_EVENT_PAYLOAD: dict[str, object] = {
+    "instance_id": "a" * 32,
+    "client": "cli",
+    "client_version": "2.3.2",
+    "schema_version": 1,
+    "event_type": "scan_completed",
+    "scan_type": "static",
+    "verdict": "PASS",
+    "language": "python",
+    "delta_scans": 1,
+    "delta_findings_total": 3,
+    "delta_hallucinated_packages_prevented": 0,
+    "delta_destructive_commands_blocked": 0,
+}
 
 
 def _setup_app_state(app_obj: object) -> None:
@@ -22,7 +38,7 @@ def _setup_app_state(app_obj: object) -> None:
     if state is None:
         return
 
-    http_client = httpx.AsyncClient()
+    http_client = httpx.AsyncClient(timeout=5.0)
     state.analyzer = StaticAnalyzer()
     state.ast_analyzer = AstAnalyzer()
     state.sandbox = SandboxService()
@@ -37,11 +53,11 @@ def _setup_app_state(app_obj: object) -> None:
 
 
 @pytest.fixture()
-def client_with_db(tmp_path: object) -> TestClient:
+def client_with_db(tmp_path: object) -> "TestClient":
     """Create TestClient with real in-memory database."""
     import asyncio
 
-    from src.api import app
+    from src.api import app, settings as api_settings
     from src.services.rate_limiter import RateLimiter
 
     _setup_app_state(app)
@@ -54,29 +70,55 @@ def client_with_db(tmp_path: object) -> TestClient:
     app.state.db = db
     app.state.rate_limiter = RateLimiter(db)
 
-    with patch("src.api.settings") as mock_settings:
-        mock_settings.api_key = ""
-        mock_settings.version = "1.0.0-test"
-        mock_settings.jwt_secret = ""
-        mock_settings.jwt_algorithm = "HS256"
-        return TestClient(app, raise_server_exceptions=False)
+    original_api_key = api_settings.api_key
+    original_version = api_settings.version
+    original_jwt_secret = api_settings.jwt_secret
+    original_jwt_algorithm = api_settings.jwt_algorithm
+
+    api_settings.api_key = ""
+    api_settings.version = "1.0.0-test"
+    api_settings.jwt_secret = ""
+    api_settings.jwt_algorithm = "HS256"
+
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        yield client
+    finally:
+        client.close()
+        api_settings.api_key = original_api_key
+        api_settings.version = original_version
+        api_settings.jwt_secret = original_jwt_secret
+        api_settings.jwt_algorithm = original_jwt_algorithm
 
 
 @pytest.fixture()
-def client_no_db() -> TestClient:
+def client_no_db() -> "TestClient":
     """Create TestClient with no database available."""
-    from src.api import app
+    from src.api import app, settings as api_settings
 
     _setup_app_state(app)
     app.state.db = None
     app.state.rate_limiter = None
 
-    with patch("src.api.settings") as mock_settings:
-        mock_settings.api_key = ""
-        mock_settings.version = "1.0.0-test"
-        mock_settings.jwt_secret = ""
-        mock_settings.jwt_algorithm = "HS256"
-        return TestClient(app, raise_server_exceptions=False)
+    original_api_key = api_settings.api_key
+    original_version = api_settings.version
+    original_jwt_secret = api_settings.jwt_secret
+    original_jwt_algorithm = api_settings.jwt_algorithm
+
+    api_settings.api_key = ""
+    api_settings.version = "1.0.0-test"
+    api_settings.jwt_secret = ""
+    api_settings.jwt_algorithm = "HS256"
+
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        yield client
+    finally:
+        client.close()
+        api_settings.api_key = original_api_key
+        api_settings.version = original_version
+        api_settings.jwt_secret = original_jwt_secret
+        api_settings.jwt_algorithm = original_jwt_algorithm
 
 
 # --- API Key endpoint tests ---
@@ -216,6 +258,32 @@ class TestBillingEndpoints:
         """POST /v1/billing/portal returns 503 when not configured."""
         resp = client_with_db.post("/v1/billing/portal")
         assert resp.status_code == 503
+
+
+class TestTelemetryEndpoints:
+    """Tests for anonymous telemetry endpoints."""
+
+    def test_ingest_telemetry_ok_without_db(self, client_no_db: TestClient) -> None:
+        """POST /v1/telemetry returns 200 even when DB is unavailable."""
+        resp = client_no_db.post("/v1/telemetry", json=_TELEMETRY_EVENT_PAYLOAD)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+
+    def test_ingest_telemetry_aggregates_into_public_stats(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """Inserted telemetry deltas show up in GET /v1/stats/public."""
+        ingest = client_with_db.post("/v1/telemetry", json=_TELEMETRY_EVENT_PAYLOAD)
+        assert ingest.status_code == 200
+
+        stats = client_with_db.get("/v1/stats/public")
+        assert stats.status_code == 200
+        data = stats.json()
+
+        assert data["telemetry_events_total"] == 1
+        assert data["telemetry_unique_instances"] == 1
+        assert data["telemetry_scans_total"] == 1
+        assert data["telemetry_findings_total"] == 3
 
 
 # --- Database unavailable tests ---

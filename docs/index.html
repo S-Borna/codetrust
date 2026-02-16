@@ -1799,8 +1799,13 @@
             <div class="usage-num" data-count="0" data-key="marketplace_downloads">0</div>
             <div class="usage-label">Marketplace downloads</div>
         </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="openvsx_downloads">0</div>
+            <div class="usage-label">Open VSX downloads</div>
+        </div>
     </div>
-    <div class="telemetry-note">Cloud API telemetry + distribution signals (PyPI/Marketplace). Offline CLI/VS Code/CI
+    <div class="telemetry-note">Cloud API telemetry + distribution signals (PyPI/Marketplace/Open VSX). Offline CLI/VS
+        Code/CI
         runs are not counted in cloud telemetry.</div>
 
     <!-- WORKS WITH -->
@@ -2526,6 +2531,7 @@
                     pypi_downloads_last_week: (s.distribution && s.distribution.pypi && s.distribution.pypi.downloads_this_week) || 0,
                     marketplace_installs: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.installs) || 0,
                     marketplace_downloads: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.downloads) || 0,
+                    openvsx_downloads: (s.distribution && s.distribution.open_vsx && s.distribution.open_vsx.downloads) || 0,
                 };
                 if (Object.prototype.hasOwnProperty.call(map, key)) return map[key] || 0;
             }

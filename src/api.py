@@ -527,7 +527,11 @@ async def public_stats(request: Request) -> dict:
         return {**legacy, "stats": stats}
 
     # Fallback for deployments without Redis.
-    from src.services.public_stats import get_marketplace_stats, get_open_vsx_stats, get_pypi_download_stats
+    from src.services.public_stats import (
+        get_marketplace_stats,
+        get_open_vsx_stats,
+        get_pypi_download_stats,
+    )
 
     base: dict[str, int] = {
         "total_scans": 0,

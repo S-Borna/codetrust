@@ -12,7 +12,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 
 ---
 
-## What's New in 2.3.1
+## What's New in 2.3.2
 
 - **Guided onboarding** — configure API URL/key and run your first scan from the command palette
 - **Scan-on-type** — opt-in, debounced offline scanning as you type (no save required)
@@ -114,7 +114,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `codetrust.apiUrl` | `https://codetrust-api-production.up.railway.app` | CodeTrust API server URL |
+| `codetrust.apiUrl` | `https://codetrust-api.saidborna.com` | CodeTrust API server URL |
 | `codetrust.apiKey` | `""` | Deprecated: API key is stored in VS Code Secret Storage (use Guided Onboarding) |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
 | `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
@@ -138,7 +138,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
 | **REST API** | 27 endpoints |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

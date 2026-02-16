@@ -168,7 +168,7 @@ def parse_args() -> argparse.Namespace:
         help="Hard gate: auto (default), always, or never. When enabled on PRs, gates only on new findings vs base SHA.",
     )
     parser.add_argument("--api-key", default="")
-    parser.add_argument("--api-url", default="https://codetrust-api-production.up.railway.app")
+    parser.add_argument("--api-url", default="https://codetrust-api.saidborna.com")
     return parser.parse_args()
 
 

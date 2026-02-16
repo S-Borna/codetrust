@@ -20,8 +20,8 @@ interactions.
 ### Development Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/S-Borna/codetrust.git
+# Clone the repository (private)
+# Request access via the website, then clone using your internal remote URL
 cd codetrust
 
 # Create virtual environment
@@ -51,13 +51,13 @@ npm run compile
 
 ### Reporting Bugs
 
-1. Check existing [issues](https://github.com/S-Borna/codetrust/issues) first
-2. Use the bug report template
-3. Include: Python version, OS, steps to reproduce, expected vs actual behavior
+1. Report issues privately (the repository is not public)
+2. Include: Python version, OS, steps to reproduce, expected vs actual behavior
+3. Website: <https://codetrust.saidborna.com>
 
 ### Suggesting Features
 
-1. Open a [discussion](https://github.com/S-Borna/codetrust/discussions) first
+1. Send feature requests privately (the repository is not public)
 2. Describe the use case, not just the solution
 3. Be specific about which component (CLI, API, Extension, Gateway)
 
@@ -154,5 +154,5 @@ contributions will be licensed under the same terms as the project.
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/S-Borna/codetrust/discussions)
+- Website: <https://codetrust.saidborna.com>
 - Email: <codetrust@saidborna.com>

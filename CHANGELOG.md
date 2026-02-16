@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.2] - 2026-02-16
+
+### Fixed
+
+- Release surfaces synced: docs/README/action snippets updated to a single tag
+- VS Code extension settings/help text clarified (no "localhost" in public-facing descriptions)
+
 ## [2.3.1] - 2026-02-16
 
 ### Added

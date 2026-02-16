@@ -36,7 +36,7 @@ jobs:
           pr-mode: never
           pr-comment: never
           new-findings-only: never
-          api-url: https://codetrust-api-production.up.railway.app
+          api-url: https://codetrust-api.saidborna.com
 
       - name: Verify outputs (PASS)
         shell: bash
@@ -56,7 +56,7 @@ jobs:
           pr-mode: never
           pr-comment: never
           new-findings-only: never
-          api-url: https://codetrust-api-production.up.railway.app
+          api-url: https://codetrust-api.saidborna.com
 
       - name: Verify expected failure (BLOCK)
         shell: bash
@@ -100,7 +100,7 @@ jobs:
           pr-mode: never
           pr-comment: never
           new-findings-only: never
-          api-url: ${{ env.CODETRUST_API_URL || 'https://codetrust-api-production.up.railway.app' }}
+          api-url: ${{ env.CODETRUST_API_URL || 'https://codetrust-api.saidborna.com' }}
           api-key: ${{ env.CODETRUST_API_KEY }}
 
   pr-comment-idempotent:
@@ -130,7 +130,7 @@ jobs:
           pr-mode: always
           pr-comment: always
           new-findings-only: never
-          api-url: https://codetrust-api-production.up.railway.app
+          api-url: https://codetrust-api.saidborna.com
 
       - name: Run action (comment 2)
         uses: ./.
@@ -143,7 +143,7 @@ jobs:
           pr-mode: always
           pr-comment: always
           new-findings-only: never
-          api-url: https://codetrust-api-production.up.railway.app
+          api-url: https://codetrust-api.saidborna.com
 
       - name: Assert single CodeTrust comment block
         uses: actions/github-script@v7

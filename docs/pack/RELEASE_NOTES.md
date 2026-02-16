@@ -3,12 +3,16 @@
 This is a **shareable excerpt** intended for testers and stakeholders.
 For the complete history, see the repo root CHANGELOG.md.
 
-## 2.3.1 (2026-02-16)
+## 2.3.2 (2026-02-16)
 
 Highlights:
 
 - VS Code extension: profiles (create/apply), scan-on-type (opt-in), expanded Quick Fixes, Health Check command
 - CLI: deterministic JSON output + unified fail semantics, stack presets, noise controls, repo-aware commands (`pr-risk`, `trust-diff`, `trend`)
+
+Release sync:
+
+- Documentation and Marketplace/PyPI-facing metadata aligned to a single version/tag
 
 ## Go-to-market add-ons delivered
 

@@ -3,7 +3,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, BigInteger, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -166,4 +166,37 @@ class TelemetryEvent(Base):
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True,
+    )
+
+
+class TelemetryEventRaw(Base):
+    """Raw anonymous telemetry event storage (JSON payload).
+
+    This is the canonical event log used for offline analysis and auditing.
+    """
+
+    __tablename__ = "telemetry_events_raw"
+
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=_new_id,
+    )
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    source: Mapped[str] = mapped_column(String(20), index=True)
+    installation_id: Mapped[str] = mapped_column(String(128), index=True, default="")
+    version: Mapped[str] = mapped_column(String(32), default="")
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True,
+    )
+
+
+class MetricsCounter(Base):
+    """Pre-aggregated metrics for fast reads and durability."""
+
+    __tablename__ = "metrics_counters"
+
+    metric_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    metric_value: Mapped[int] = mapped_column(BigInteger, default=0)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
     )

@@ -2507,25 +2507,92 @@
             });
         });
 
-        // Fetch live usage stats from API
+        // Live stats: WebSocket push with polling fallback
         const API_URL = 'https://codetrust-api.saidborna.com/v1/stats/public';
-        const USAGE_REFRESH_MS = 60_000;
-        async function loadUsageStats() {
+        const WS_URL = 'wss://codetrust-api.saidborna.com/v1/stats/live';
+        const POLL_REFRESH_MS = 30_000;
+
+        let pollTimer = null;
+        let ws = null;
+
+        function pickStatValue(payload, key) {
+            // New API shape: { stats: { usage, impact, distribution, ... } }
+            if (payload && payload.stats) {
+                const s = payload.stats;
+                const map = {
+                    total_scans: (s.usage && s.usage.total_scans) || 0,
+                    hallucinated_packages_prevented: (s.impact && s.impact.hallucinations_caught) || 0,
+                    destructive_commands_blocked: (s.impact && s.impact.gateway_commands_blocked) || 0,
+                    pypi_downloads_last_week: (s.distribution && s.distribution.pypi && s.distribution.pypi.downloads_this_week) || 0,
+                    marketplace_installs: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.installs) || 0,
+                    marketplace_downloads: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.downloads) || 0,
+                };
+                if (Object.prototype.hasOwnProperty.call(map, key)) return map[key] || 0;
+            }
+            // Legacy API shape: flat keys
+            return (payload && payload[key]) || 0;
+        }
+
+        function updateUsageCounters(payload) {
+            document.querySelectorAll('.usage-num[data-key]').forEach(el => {
+                const val = pickStatValue(payload, el.dataset.key);
+                el.dataset.count = val;
+                el.textContent = Number(val || 0).toLocaleString();
+            });
+        }
+
+        async function fetchStatsOnce() {
             try {
-                const res = await fetch(API_URL);
+                const res = await fetch(API_URL, { cache: 'no-store' });
                 if (!res.ok) throw new Error(res.status);
                 const data = await res.json();
-                document.querySelectorAll('.usage-num[data-key]').forEach(el => {
-                    const val = data[el.dataset.key] || 0;
-                    el.dataset.count = val;
-                    el.textContent = val.toLocaleString();
-                });
-            } catch (e) {
-                // Silently keep 0 if API unreachable
+                updateUsageCounters(data);
+            } catch (_) {
+                // keep previous values
             }
         }
-        loadUsageStats();
-        setInterval(loadUsageStats, USAGE_REFRESH_MS);
+
+        function startPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(fetchStatsOnce, POLL_REFRESH_MS);
+        }
+
+        function stopPolling() {
+            if (!pollTimer) return;
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+
+        function connectWebSocket() {
+            stopPolling();
+            try {
+                ws = new WebSocket(WS_URL);
+            } catch (_) {
+                startPolling();
+                return;
+            }
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg && msg.stats) {
+                        updateUsageCounters({ stats: msg.stats });
+                    }
+                } catch (_) {
+                    // ignore
+                }
+            };
+            ws.onclose = () => {
+                ws = null;
+                startPolling();
+                setTimeout(connectWebSocket, 30_000);
+            };
+            ws.onerror = () => {
+                try { ws.close(); } catch (_) { }
+            };
+        }
+
+        fetchStatsOnce();
+        connectWebSocket();
 
         // Animate usage counters on scroll
         const counterObserver = new IntersectionObserver((entries) => {

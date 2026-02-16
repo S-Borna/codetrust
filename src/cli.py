@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -2079,6 +2080,7 @@ def _findings_to_sarif(findings: list[dict]) -> dict:
 
 def cmd_scan(args: argparse.Namespace) -> int:
     """Scan files for anti-patterns."""
+    start_time = time.monotonic()
     targets = args.targets
     if not targets:
         targets = ["."]
@@ -2219,8 +2221,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
                         print(
                             f"  {color('   All imports verified ✓', GREEN)}\n"
                         )
-        except Exception:
-            pass  # Import verification is best-effort; don't break scan
+        except Exception as exc:
+            logger.debug(
+                "import_verification_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
 
     cwd = Path.cwd()
 
@@ -2267,6 +2273,52 @@ def cmd_scan(args: argparse.Namespace) -> int:
         "fail_on_new": str(getattr(args, "fail_on_new", "")) if baseline_mode else "",
         "findings": all_findings,
     }
+
+    # --- Anonymous telemetry (best-effort, fire-and-forget) ---
+    try:
+        from importlib.metadata import version as _pkg_version
+
+        pkg_version = _pkg_version("codetrust")
+    except Exception:
+        pkg_version = "unknown"
+
+    try:
+        from src.telemetry_client import send_telemetry
+
+        unique_rules = list({str(f.get("rule_id", "")) for f in all_findings if f.get("rule_id")})
+        send_telemetry(
+            event_type="scan_completed",
+            source="cli",
+            version=pkg_version,
+            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
+            payload={
+                "scan_type": "static",
+                "files_scanned": files_scanned,
+                "languages": {},
+                "total_findings": len(all_findings),
+                "findings_by_severity": {"BLOCK": len(blocks), "WARN": len(warns), "INFO": len(infos)},
+                "rules_triggered": unique_rules[:50],
+                "layers_hit": [],
+                "trust_score": int(drift.get("score", 0) or 0),
+                "grade": str(drift.get("grade", "")),
+                "trend": str(drift.get("trend", "")),
+                "trend_delta": int(drift.get("delta", 0) or 0),
+                "hallucinations_found": 0,
+                "scan_duration_ms": int((time.monotonic() - start_time) * 1000),
+                "used_baseline": bool(baseline_mode),
+                "used_dedupe": bool(getattr(args, "dedupe", False)),
+                "used_sarif_output": bool(getattr(args, "sarif", False) or getattr(args, "sarif_file", "")),
+                "used_json_output": bool(getattr(args, "json", False)),
+            },
+        )
+    except Exception as exc:
+        logger.debug(
+            "telemetry_emit_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            event_type="scan_completed",
+            source="cli",
+        )
 
     # Human output (do not mix with machine-readable modes)
     if not machine_output:
@@ -2828,6 +2880,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="codetrust",
         description="CodeTrust — AI code verification. Install, scan, enforce.",
+    )
+
+    parser.add_argument(
+        "--no-telemetry",
+        action="store_true",
+        help="Disable anonymous telemetry (also supports CODETRUST_TELEMETRY=0)",
     )
     subparsers = parser.add_subparsers(dest="command")
 

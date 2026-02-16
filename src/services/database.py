@@ -6,6 +6,7 @@ import secrets
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -13,7 +14,16 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from src.models.database import ApiKeyRecord, Base, ScanLog, TelemetryEvent, UsageDay, User
+from src.models.database import (
+    ApiKeyRecord,
+    Base,
+    MetricsCounter,
+    ScanLog,
+    TelemetryEvent,
+    TelemetryEventRaw,
+    UsageDay,
+    User,
+)
 
 logger = structlog.get_logger()
 
@@ -462,3 +472,69 @@ class DatabaseService:
                 "telemetry_hallucinated_packages_prevented": int(hallucinated),
                 "telemetry_destructive_commands_blocked": int(blocked),
             }
+
+    async def insert_telemetry_raw_batch(self, events: list[dict[str, object]]) -> None:
+        """Bulk insert raw telemetry events.
+
+        Each dict must include: event_type, source, installation_id, version, payload.
+        """
+
+        if not events:
+            return
+
+        async with self._session_factory() as session:
+            rows: list[TelemetryEventRaw] = []
+            for e in events:
+                event_type = str(e.get("event_type", ""))
+                source = str(e.get("source", ""))
+                installation_id = str(e.get("installation_id", "") or "")
+                version = str(e.get("version", "") or "")
+                payload = e.get("payload")
+                payload_dict: dict[str, object] = payload if isinstance(payload, dict) else {}
+                rows.append(
+                    TelemetryEventRaw(
+                        event_type=event_type,
+                        source=source,
+                        installation_id=installation_id,
+                        version=version,
+                        payload=payload_dict,
+                    )
+                )
+            session.add_all(rows)
+            await session.commit()
+
+    async def upsert_metrics_counters(self, counters: dict[str, int]) -> None:
+        """Upsert metric counters for durability.
+
+        Uses PostgreSQL ON CONFLICT when available; falls back to per-row merge on other DBs.
+        """
+
+        if not counters:
+            return
+
+        async with self._session_factory() as session:
+            try:
+                stmt = pg_insert(MetricsCounter).values(
+                    [
+                        {"metric_name": name, "metric_value": int(value)}
+                        for name, value in counters.items()
+                    ]
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=[MetricsCounter.metric_name],
+                    set_={
+                        "metric_value": stmt.excluded.metric_value,
+                        "updated_at": func.now(),
+                    },
+                )
+                await session.execute(stmt)
+                await session.commit()
+            except Exception:
+                # SQLite / non-Postgres fallback
+                for name, value in counters.items():
+                    existing = await session.get(MetricsCounter, name)
+                    if existing is None:
+                        session.add(MetricsCounter(metric_name=name, metric_value=int(value)))
+                    else:
+                        existing.metric_value = int(value)
+                await session.commit()

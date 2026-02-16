@@ -29,6 +29,11 @@ class CacheService:
             logger.warning("redis_connect_failed", error=str(exc))
             self._client = None
 
+    def raw_client(self) -> redis.Redis | None:
+        """Return the underlying redis client (or None if unavailable)."""
+
+        return self._client
+
     async def disconnect(self) -> None:
         """Close Redis connection pool."""
         if self._client is not None:

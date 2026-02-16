@@ -50,6 +50,10 @@ MARKETPLACE_EXTENSION_QUERY_URL: str = "https://marketplace.visualstudio.com/_ap
 MARKETPLACE_EXTENSION_ID: str = "SaidBorna.codetrust"
 MARKETPLACE_FLAGS: int = 914
 
+OPEN_VSX_EXTENSION_URL_TEMPLATE: str = "https://open-vsx.org/api/{namespace}/{name}"
+OPEN_VSX_NAMESPACE: str = "SaidBorna"
+OPEN_VSX_EXTENSION_NAME: str = "codetrust"
+
 
 class TelemetryIngestEvent(BaseModel):
     """Anonymous telemetry event payload.
@@ -359,6 +363,23 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
     except (httpx.HTTPError, ValueError, TypeError, IndexError, KeyError, redis.RedisError) as exc:
         logger.warning("ext_stats_marketplace_failed", error=str(exc))
 
+    # Open VSX (for VSCodium/Cursor distributions)
+    try:
+        url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME)
+        res = await http_client.get(url)
+        res.raise_for_status()
+        payload = res.json()
+        download_count = payload.get("downloadCount") if isinstance(payload, dict) else None
+        await r.set("ct:ext:openvsx_downloads", str(_safe_int(download_count)), ex=EXT_STATS_TTL_SECONDS)
+    except httpx.HTTPStatusError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status == 404:
+            logger.debug("ext_stats_openvsx_not_found")
+        else:
+            logger.warning("ext_stats_openvsx_failed", error=str(exc), status_code=status)
+    except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
+        logger.warning("ext_stats_openvsx_failed", error=str(exc))
+
 
 async def stats_worker(*, r: redis.Redis, http_client: httpx.AsyncClient, stop: asyncio.Event) -> None:
     """Background loop updating external stats and pruning time windows."""
@@ -371,7 +392,12 @@ async def stats_worker(*, r: redis.Redis, http_client: httpx.AsyncClient, stop: 
             logger.warning("stats_worker_failed", error=str(exc), error_type=type(exc).__name__)
         try:
             await asyncio.wait_for(stop.wait(), timeout=EXT_STATS_POLL_SECONDS)
-        except TimeoutError:
+        except TimeoutError as exc:
+            logger.debug(
+                "stats_worker_tick",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             continue
 
 
@@ -424,6 +450,7 @@ async def build_public_stats(
         "ct:ext:marketplace_installs",
         "ct:ext:marketplace_downloads",
         "ct:ext:marketplace_updates",
+        "ct:ext:openvsx_downloads",
     ]
     pipe = r.pipeline()
     for k in keys:
@@ -509,6 +536,9 @@ async def build_public_stats(
                 "installs": kv.get("ct:ext:marketplace_installs", 0),
                 "downloads": kv.get("ct:ext:marketplace_downloads", 0),
                 "updates": kv.get("ct:ext:marketplace_updates", 0),
+            },
+            "open_vsx": {
+                "downloads": kv.get("ct:ext:openvsx_downloads", 0),
             },
         },
         "usage": {

@@ -520,11 +520,14 @@ async def public_stats(request: Request) -> dict:
             "marketplace_downloads": int(
                 stats.get("distribution", {}).get("marketplace", {}).get("downloads", 0)
             ),
+            "openvsx_downloads": int(
+                stats.get("distribution", {}).get("open_vsx", {}).get("downloads", 0)
+            ),
         }
         return {**legacy, "stats": stats}
 
     # Fallback for deployments without Redis.
-    from src.services.public_stats import get_marketplace_stats, get_pypi_download_stats
+    from src.services.public_stats import get_marketplace_stats, get_open_vsx_stats, get_pypi_download_stats
 
     base: dict[str, int] = {
         "total_scans": 0,
@@ -536,6 +539,7 @@ async def public_stats(request: Request) -> dict:
         "marketplace_installs": 0,
         "marketplace_downloads": 0,
         "marketplace_updates": 0,
+        "openvsx_downloads": 0,
     }
 
     if db is not None:
@@ -552,7 +556,8 @@ async def public_stats(request: Request) -> dict:
 
     pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
     marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
-    return {**base, **pypi, **marketplace}
+    openvsx = await get_open_vsx_stats(http_client=http_client, cache=cache)
+    return {**base, **pypi, **marketplace, **openvsx}
 
 
 async def _telemetry_batch_writer(app: FastAPI) -> None:

@@ -1140,32 +1140,142 @@
             margin-top: 0.3rem;
         }
 
-        /* USAGE METRICS */
-        .usage-bar {
-            display: flex;
-            justify-content: center;
-            gap: 3.5rem;
-            padding: 3rem 1rem;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
+        /* LIVE DASHBOARD */
+        .live-dashboard {
+            padding-top: 3rem;
+            padding-bottom: 2rem;
         }
 
-        .usage-item {
+        .live-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse-dot 2s ease-in-out infinite;
+            vertical-align: middle;
+            margin-right: 2px;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .dash-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.4rem;
+            transition: border-color 0.2s;
+        }
+
+        .dash-card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .dash-card-header {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-2);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .dash-icon {
+            font-size: 1rem;
+        }
+
+        .dash-metric-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .dash-metric-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .dash-metric {
+            flex: 1;
             text-align: center;
         }
 
-        .usage-num {
+        .dash-num {
             font-family: 'IBM Plex Mono', monospace;
-            font-size: 2.2rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--green);
             line-height: 1;
         }
 
-        .usage-label {
-            font-size: 0.78rem;
+        .dash-num-red { color: var(--red); }
+        .dash-num-amber { color: var(--amber); }
+        .dash-num-cyan { color: var(--cyan); }
+        .dash-num-indigo { color: var(--indigo); }
+
+        .dash-label {
+            font-size: 0.68rem;
+            color: var(--text-3);
+            margin-top: 0.3rem;
+        }
+
+        .dash-source-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1.2rem 1rem;
+            margin-top: 1.2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .dash-source-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-3);
+        }
+
+        .dash-source-chip {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
             color: var(--text-2);
-            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .dash-source-chip strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .dash-src-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .usage-bar {
+            display: none; /* replaced by dash-grid */
         }
 
         /* ARCHITECTURE */
@@ -1540,9 +1650,8 @@
                 gap: 2rem;
             }
 
-            .usage-bar {
-                flex-wrap: wrap;
-                gap: 2rem;
+            .dash-grid {
+                grid-template-columns: 1fr;
             }
 
             .install-grid {
@@ -1609,9 +1718,17 @@
                 font-size: 0.75rem;
             }
 
-            .usage-bar {
-                gap: 1.5rem;
-                padding: 2rem 1rem;
+            .dash-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dash-num {
+                font-size: 1.2rem;
+            }
+
+            .dash-source-bar {
+                flex-direction: column;
+                gap: 0.5rem;
             }
 
             .install-grid {
@@ -1773,40 +1890,169 @@
         </div>
     </section>
 
-    <!-- USAGE METRICS -->
-    <div class="usage-bar reveal">
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="total_scans">0</div>
-            <div class="usage-label">Scans performed</div>
+    <!-- LIVE DASHBOARD -->
+    <section class="container live-dashboard reveal" id="live-stats">
+        <div class="section-tag section-center">Live Telemetry</div>
+        <h2 class="reveal" style="text-align:center">Global usage — all users, all platforms, real-time</h2>
+        <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
+            Every scan, every block, every verification — streamed live from production.<br>
+            <span class="live-dot"></span> <span id="live-updated-at" style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting…</span>
+        </p>
+
+        <div class="dash-grid">
+            <!-- SCANNING -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">🔍</span> Scanning
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="total_scans">0</div>
+                        <div class="dash-label">Total scans</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="scans_today">0</div>
+                        <div class="dash-label">Scans today</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="scans_last_hour">0</div>
+                        <div class="dash-label">Last hour</div>
+                    </div>
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="files_scanned">0</div>
+                        <div class="dash-label">Files scanned</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="total_findings">0</div>
+                        <div class="dash-label">Findings</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="avg_trust_score">0</div>
+                        <div class="dash-label">Avg trust score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ENFORCEMENT -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">🛡️</span> Enforcement
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-red" data-key="gateway_blocked">0</div>
+                        <div class="dash-label">Commands blocked</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-amber" data-key="gateway_warned">0</div>
+                        <div class="dash-label">Warnings issued</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="gateway_allowed">0</div>
+                        <div class="dash-label">Allowed</div>
+                    </div>
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-red" data-key="hallucinations_caught">0</div>
+                        <div class="dash-label">Hallucinations caught</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="imports_verified">0</div>
+                        <div class="dash-label">Imports verified</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="docker_verified">0</div>
+                        <div class="dash-label">Docker images verified</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CI / CD -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">⚙️</span> CI / CD
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="ci_runs">0</div>
+                        <div class="dash-label">CI runs</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="ci_passed">0</div>
+                        <div class="dash-label">Gates passed</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-red" data-key="ci_failed">0</div>
+                        <div class="dash-label">Gates failed</div>
+                    </div>
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="fixes_applied">0</div>
+                        <div class="dash-label">Auto-fixes applied</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="unique_installs">0</div>
+                        <div class="dash-label">Unique installations</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="active_today">0</div>
+                        <div class="dash-label">Active today</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DISTRIBUTION -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">📦</span> Distribution
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-cyan" data-key="pypi_week">0</div>
+                        <div class="dash-label">PyPI (this week)</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-cyan" data-key="pypi_month">0</div>
+                        <div class="dash-label">PyPI (this month)</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-cyan" data-key="pypi_total">0</div>
+                        <div class="dash-label">PyPI total (incl CI)</div>
+                    </div>
+                </div>
+                <div class="dash-metric-row">
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-indigo" data-key="marketplace_installs">0</div>
+                        <div class="dash-label">VS Code installs</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num dash-num-indigo" data-key="marketplace_downloads">0</div>
+                        <div class="dash-label">Marketplace downloads</div>
+                    </div>
+                    <div class="dash-metric">
+                        <div class="dash-num" data-key="openvsx_downloads">0</div>
+                        <div class="dash-label">Open VSX downloads</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="hallucinated_packages_prevented">0</div>
-            <div class="usage-label">Hallucinated packages prevented</div>
+
+        <!-- SOURCE BREAKDOWN -->
+        <div class="dash-source-bar reveal">
+            <span class="dash-source-label">Scans by source:</span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span>MCP <strong data-key="src_mcp">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API <strong data-key="src_cloud_api">0</strong></span>
         </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="destructive_commands_blocked">0</div>
-            <div class="usage-label">Destructive commands blocked</div>
-        </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="pypi_downloads_last_week">0</div>
-            <div class="usage-label">PyPI downloads (last week)</div>
-        </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="marketplace_installs">0</div>
-            <div class="usage-label">VS Code installs</div>
-        </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="marketplace_downloads">0</div>
-            <div class="usage-label">Marketplace downloads</div>
-        </div>
-        <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="openvsx_downloads">0</div>
-            <div class="usage-label">Open VSX downloads</div>
-        </div>
-    </div>
-    <div class="telemetry-note">Cloud API telemetry + distribution signals (PyPI/Marketplace/Open VSX). Offline CLI/VS
-        Code/CI
-        runs are not counted in cloud telemetry.</div>
+
+        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, MCP Gateway, GitHub Actions, and Cloud API. Opt-out: CODETRUST_TELEMETRY=0</div>
+    </section>
 
     <!-- WORKS WITH -->
     <div class="works-with reveal">
@@ -1869,7 +2115,7 @@
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">1360</div>
+            <div class="stat-num">1367</div>
             <div class="stat-label">Tests Passing</div>
         </div>
     </div>
@@ -2520,31 +2766,82 @@
         let pollTimer = null;
         let ws = null;
 
-        function pickStatValue(payload, key) {
-            // New API shape: { stats: { usage, impact, distribution, ... } }
-            if (payload && payload.stats) {
-                const s = payload.stats;
-                const map = {
-                    total_scans: (s.usage && s.usage.total_scans) || 0,
-                    hallucinated_packages_prevented: (s.impact && s.impact.hallucinations_caught) || 0,
-                    destructive_commands_blocked: (s.impact && s.impact.gateway_commands_blocked) || 0,
-                    pypi_downloads_last_week: (s.distribution && s.distribution.pypi && s.distribution.pypi.downloads_this_week) || 0,
-                    marketplace_installs: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.installs) || 0,
-                    marketplace_downloads: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.downloads) || 0,
-                    openvsx_downloads: (s.distribution && s.distribution.open_vsx && s.distribution.open_vsx.downloads) || 0,
-                };
-                if (Object.prototype.hasOwnProperty.call(map, key)) return map[key] || 0;
-            }
-            // Legacy API shape: flat keys
-            return (payload && payload[key]) || 0;
+        function extractStats(payload) {
+            // Resolve the nested stats object (works with both API shapes)
+            const s = (payload && payload.stats) ? payload.stats : {};
+            const u = s.usage || {};
+            const i = s.impact || {};
+            const d = s.distribution || {};
+            const q = s.quality || {};
+            const pypi = (d.pypi) || {};
+            const mkt = (d.marketplace) || {};
+            const ovsx = (d.open_vsx) || {};
+            const src = u.scans_by_source || {};
+
+            return {
+                // Scanning
+                total_scans: u.total_scans || payload.total_scans || 0,
+                scans_today: u.scans_today || 0,
+                scans_last_hour: u.scans_last_hour || 0,
+                files_scanned: u.total_files_scanned || 0,
+                total_findings: u.total_findings || 0,
+                avg_trust_score: q.average_trust_score || 0,
+
+                // Enforcement
+                gateway_blocked: i.gateway_commands_blocked || payload.destructive_commands_blocked || 0,
+                gateway_warned: i.gateway_commands_warned || 0,
+                gateway_allowed: i.gateway_commands_allowed || 0,
+                hallucinations_caught: i.hallucinations_caught || payload.hallucinated_packages_prevented || 0,
+                imports_verified: i.imports_verified || 0,
+                docker_verified: i.docker_images_verified || 0,
+
+                // CI / CD
+                ci_runs: i.ci_runs_total || 0,
+                ci_passed: i.ci_gates_passed || 0,
+                ci_failed: i.ci_gates_failed || 0,
+                fixes_applied: i.fixes_applied || 0,
+                unique_installs: u.unique_installations_total || 0,
+                active_today: u.unique_installations_today || 0,
+
+                // Distribution
+                pypi_week: pypi.downloads_this_week || payload.pypi_downloads_last_week || 0,
+                pypi_month: pypi.downloads_this_month || 0,
+                pypi_total: pypi.downloads_last_3_months_ci || 0,
+                marketplace_installs: mkt.installs || payload.marketplace_installs || 0,
+                marketplace_downloads: mkt.downloads || payload.marketplace_downloads || 0,
+                openvsx_downloads: ovsx.downloads || payload.openvsx_downloads || 0,
+
+                // Sources
+                src_cli: src.cli || 0,
+                src_vscode: src.vscode || 0,
+                src_mcp: src.mcp || 0,
+                src_github_action: src.github_action || 0,
+                src_cloud_api: src.cloud_api || 0,
+            };
         }
 
-        function updateUsageCounters(payload) {
-            document.querySelectorAll('.usage-num[data-key]').forEach(el => {
-                const val = pickStatValue(payload, el.dataset.key);
-                el.dataset.count = val;
-                el.textContent = Number(val || 0).toLocaleString();
+        function updateDashboard(payload) {
+            const m = extractStats(payload);
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.dataset.key;
+                const val = m[key];
+                if (val !== undefined) {
+                    el.dataset.count = val;
+                    el.textContent = Number(val || 0).toLocaleString();
+                }
             });
+
+            // Update timestamp
+            const ts = payload && payload.stats && payload.stats.updated_at;
+            const tsEl = document.getElementById('live-updated-at');
+            if (ts && tsEl) {
+                try {
+                    const d = new Date(ts);
+                    tsEl.textContent = 'updated ' + d.toLocaleTimeString();
+                } catch (_) {
+                    tsEl.textContent = 'live';
+                }
+            }
         }
 
         async function fetchStatsOnce() {
@@ -2552,7 +2849,7 @@
                 const res = await fetch(API_URL, { cache: 'no-store' });
                 if (!res.ok) throw new Error(res.status);
                 const data = await res.json();
-                updateUsageCounters(data);
+                updateDashboard(data);
             } catch (_) {
                 // keep previous values
             }
@@ -2581,7 +2878,7 @@
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg && msg.stats) {
-                        updateUsageCounters({ stats: msg.stats });
+                        updateDashboard({ stats: msg.stats });
                     }
                 } catch (_) {
                     // ignore
@@ -2600,13 +2897,13 @@
         fetchStatsOnce();
         connectWebSocket();
 
-        // Animate usage counters on scroll
+        // Animate dashboard counters on scroll
         const counterObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (!entry.isIntersecting) return;
-                entry.target.querySelectorAll('.usage-num').forEach(el => {
+                entry.target.querySelectorAll('[data-key]').forEach(el => {
                     const target = parseInt(el.dataset.count);
-                    if (target === 0) return;
+                    if (!target || target === 0) return;
                     const duration = 2000;
                     const start = performance.now();
                     const step = (now) => {
@@ -2620,8 +2917,8 @@
                 counterObserver.unobserve(entry.target);
             });
         }, { threshold: 0.3 });
-        const usageBar = document.querySelector('.usage-bar');
-        if (usageBar) counterObserver.observe(usageBar);
+        const dashSection = document.getElementById('live-stats');
+        if (dashSection) counterObserver.observe(dashSection);
     </script>
 
 </body>

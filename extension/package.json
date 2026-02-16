@@ -175,6 +175,11 @@
                     "default": 15000,
                     "description": "Request timeout in milliseconds"
                 },
+                "codetrust.telemetry": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Send anonymous usage telemetry (never includes code, filenames, paths, repo URLs, users, or IPs). Disable for all workspaces."
+                },
                 "codetrust.governance.enabled": {
                     "type": "boolean",
                     "default": true,

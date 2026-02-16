@@ -20,6 +20,7 @@ function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
         scanType: "static",
         verifyImportsOnSave: false,
         timeout: 5000,
+        telemetry: true,
         governance: {
             enabled: true,
             mode: "enforce",

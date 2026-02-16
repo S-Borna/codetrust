@@ -21,6 +21,7 @@ import { LANGUAGE_MAP, DOCKERFILE_LANGUAGE_IDS } from "./types";
 import { VerificationCache } from "./verification-cache";
 import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
+import { sendTelemetry } from "./telemetry";
 
 /** Extension activation — called when a supported file is opened. */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -36,6 +37,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const config = { ...baseConfig, apiKey };
     const client = new ApiClient(config);
 
+    void sendTelemetry(context, "client_activated", {
+        api_url_default: config.apiUrl.replace(/\/+$/, "") === "https://codetrust-api.saidborna.com",
+        api_key_configured: config.apiKey.trim().length > 0,
+        scan_on_save: config.scanOnSave,
+        scan_type: config.scanType,
+        enabled_languages_count: config.enabledLanguages.length,
+    });
+
     const stats = cache.getStats();
     outputChannel.appendLine(
         `CodeTrust extension activated | API: ${config.apiUrl} | Cache: ${stats.imports} imports, ${stats.docker} images`,
@@ -44,7 +53,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void maybePromptAlwaysOn(context, outputChannel);
     void maybePromptGuidedOnboarding(context, outputChannel);
 
-    const deps: CommandDeps = { client, diagnostics, statusBar, outputChannel, cache };
+    const deps: CommandDeps = {
+        client,
+        diagnostics,
+        statusBar,
+        outputChannel,
+        cache,
+        telemetry: (eventType: string, payload: Record<string, unknown>): void => {
+            void sendTelemetry(context, eventType, payload);
+        },
+    };
 
     // Register commands
     registerCommands(context, deps);

@@ -23,6 +23,7 @@ export function getConfig(): ExtensionConfig {
         scanType: config.get<ScanType>("scanType", "static"),
         verifyImportsOnSave: config.get<boolean>("verifyImportsOnSave", false),
         timeout: config.get<number>("timeout", 15000),
+        telemetry: config.get<boolean>("telemetry", true),
         governance: {
             enabled: config.get<boolean>("governance.enabled", true),
             mode: config.get<GovernanceMode>("governance.mode", "enforce"),

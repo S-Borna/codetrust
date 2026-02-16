@@ -39,7 +39,7 @@ vulnerability, please report it responsibly.
 The following are in scope:
 
 - **CodeTrust CLI** (`pip install codetrust`)
-- **CodeTrust API** (codetrust-api-production.up.railway.app)
+- **CodeTrust API** (codetrust-api.saidborna.com)
 - **CodeTrust VS Code Extension** (SaidBorna.codetrust)
 - **CodeTrust MCP Server** (codetrust-mcp)
 - **AI Governance Gateway** (src/gateway/)

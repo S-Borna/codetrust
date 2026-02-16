@@ -10,7 +10,7 @@ inputs:
   api-url:
     description: "CodeTrust API URL"
     required: false
-    default: "https://codetrust-api-production.up.railway.app"
+    default: "https://codetrust-api.saidborna.com"
   api-key:
     description: "CodeTrust API key for cloud scanning"
     required: false

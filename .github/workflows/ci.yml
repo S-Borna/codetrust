@@ -145,7 +145,7 @@ jobs:
         id: api_health
         continue-on-error: true
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://codetrust-api-production.up.railway.app/v1/status" || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://codetrust-api.saidborna.com/v1/status" || echo "000")
           echo "status=$HTTP_CODE" >> $GITHUB_OUTPUT
 
       - name: Run CodeTrust Scan (API)

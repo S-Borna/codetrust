@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "2.3.1"
+version = "2.3.2"
 description = "AI code safety platform — 133 rules, 10 enforcement layers, 3 moats no other tool has. AI Governance Gateway blocks destructive AI agent actions before execution (57 real-time rules). Hallucination Detection verifies every import against PyPI/npm/crates.io/Go proxy. Trust Score tracks code safety drift over time. 27 API endpoints, 17 MCP tools, 1358 tests. CLI, VS Code extension, GitHub Action, and MCP server."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"
 authors = [
-    { name = "Said Borna", email = "codetrust@users.noreply.github.com" },
+    { name = "Said Borna", email = "codetrust@saidborna.com" },
 ]
 keywords = ["mcp", "ai-safety", "governance", "code-quality", "verification", "hallucination", "claude-code", "cursor", "devops", "react", "kubernetes", "sarif", "security"]
 classifiers = [
@@ -57,9 +57,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://codetrust.saidborna.com"
-Repository = "https://github.com/S-Borna/codetrust"
 Documentation = "https://codetrust.saidborna.com"
-"Bug Tracker" = "https://github.com/S-Borna/codetrust/issues"
+Support = "mailto:codetrust@saidborna.com"
 
 [project.optional-dependencies]
 dev = [

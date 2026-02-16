@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "2.3.1"
+    version: str = "2.3.2"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
@@ -97,7 +97,7 @@ class Settings(BaseSettings):
 
     # --- SARIF ---
     sarif_schema_url: str = "https://json.schemastore.org/sarif-2.1.0.json"
-    tool_info_uri: str = "https://github.com/codetrust-ai/codetrust"
+    tool_info_uri: str = "https://codetrust.saidborna.com"
 
 
 settings = Settings()

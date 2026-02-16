@@ -108,7 +108,7 @@ async function guidedOnboardingCommand(
     if (apiUrlChoice === "Use Cloud API (recommended)") {
         await cfg.update(
             "apiUrl",
-            "https://codetrust-api-production.up.railway.app",
+            "https://codetrust-api.saidborna.com",
             vscode.ConfigurationTarget.Global,
         );
         deps.outputChannel.appendLine("  Set apiUrl to cloud default.");

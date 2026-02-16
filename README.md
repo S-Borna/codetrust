@@ -7,21 +7,19 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.1</code> &middot; <code>1358 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1358 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/pypi/v/codetrust?style=flat-square&color=38d8fd" alt="PyPI"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
-  <a href="https://github.com/S-Borna/codetrust/actions"><img src="https://img.shields.io/github/actions/workflow/status/S-Borna/codetrust/ci.yml?style=flat-square&label=CI" alt="CI"></a>
 </p>
 
 <p align="center">
   <a href="https://codetrust.saidborna.com">Website</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
-  <a href="https://github.com/S-Borna/codetrust">GitHub</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -184,7 +182,7 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
 | **REST API** | 27 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -237,8 +235,8 @@ code --install-extension SaidBorna.codetrust
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `codetrust.apiUrl` | `https://codetrust-api-production.up.railway.app` | API server URL (or `http://localhost:8000` self-hosted) |
-| `codetrust.apiKey` | `""` | API key for authentication (`X-API-Key`) |
+| `codetrust.apiUrl` | `https://codetrust-api.saidborna.com` | API server URL |
+| `codetrust.apiKey` | `""` | Deprecated: stored in VS Code Secret Storage. Use Guided Onboarding to set it |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
 | `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
 | `codetrust.scanOnTypeDebounceMs` | `600` | Debounce delay for scan while typing |
@@ -249,6 +247,8 @@ code --install-extension SaidBorna.codetrust
 | `codetrust.timeout` | `15000` | Request timeout in milliseconds |
 | `codetrust.governance.enabled` | `true` | Enable AI governance |
 | `codetrust.governance.mode` | `enforce` | `enforce` / `audit` / `off` |
+
+Self-hosting: set `codetrust.apiUrl` to your own API base URL.
 
 ---
 
@@ -265,7 +265,7 @@ permissions:
 ```
 
 ```yaml
-- uses: S-Borna/codetrust@v2.3.1
+- uses: S-Borna/codetrust@v2.3.2
   with:
     fail-on: block
     scan-type: static
@@ -347,7 +347,7 @@ See `codetrust init` for a starter configuration.
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` |
 | **Cloud API** | Available at `codetrust-api.saidborna.com` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

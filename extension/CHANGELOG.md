@@ -5,6 +5,12 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.2] - 2026-02-16
+
+### Fixed
+
+- Marketplace README/action snippets aligned to a single release tag
+
 ## [2.3.1] - 2026-02-16
 
 ### Added

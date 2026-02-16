@@ -1,0 +1,155 @@
+"""Public-facing stats aggregation for the website.
+
+Combines:
+- Cloud API telemetry (from the database ScanLog table, if configured)
+- Distribution signals (PyPI downloads, VS Code Marketplace installs/downloads)
+
+All external calls are cached (Redis when available) to avoid rate limits.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import httpx
+
+if TYPE_CHECKING:
+    from src.services.cache import CacheService
+
+PYPISTATS_RECENT_URL: str = "https://pypistats.org/api/packages/codetrust/recent"
+MARKETPLACE_EXTENSION_QUERY_URL: str = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
+
+MARKETPLACE_EXTENSION_ID: str = "SaidBorna.codetrust"
+MARKETPLACE_FLAGS: int = 914
+
+CACHE_TTL_SECONDS: int = 900  # 15 minutes
+CACHE_KEY_PREFIX: str = "codetrust:public_stats:"
+
+
+def _cache_key(name: str) -> str:
+    """Return the Redis cache key for a public-stats subpayload."""
+
+    return f"{CACHE_KEY_PREFIX}{name}"
+
+
+async def get_pypi_download_stats(
+    http_client: httpx.AsyncClient,
+    cache: CacheService,
+) -> dict[str, int]:
+    """Fetch PyPI download stats from pypistats.org.
+
+    Returns dict with keys:
+      - pypi_downloads_last_day
+      - pypi_downloads_last_week
+      - pypi_downloads_last_month
+
+    Falls back to zeros on any failure.
+    """
+
+    cached = await cache.get_json(_cache_key("pypi"))
+    if cached is not None:
+        return {
+            "pypi_downloads_last_day": int(cached.get("pypi_downloads_last_day", 0)),
+            "pypi_downloads_last_week": int(cached.get("pypi_downloads_last_week", 0)),
+            "pypi_downloads_last_month": int(cached.get("pypi_downloads_last_month", 0)),
+        }
+
+    try:
+        res = await http_client.get(PYPISTATS_RECENT_URL)
+        res.raise_for_status()
+        payload = res.json()
+        data = payload.get("data", {}) if isinstance(payload, dict) else {}
+
+        result: dict[str, int] = {
+            "pypi_downloads_last_day": int(data.get("last_day", 0) or 0),
+            "pypi_downloads_last_week": int(data.get("last_week", 0) or 0),
+            "pypi_downloads_last_month": int(data.get("last_month", 0) or 0),
+        }
+        await cache.set_json(_cache_key("pypi"), result, ttl=CACHE_TTL_SECONDS)
+        return result
+    except (httpx.HTTPError, ValueError, TypeError):
+        return {
+            "pypi_downloads_last_day": 0,
+            "pypi_downloads_last_week": 0,
+            "pypi_downloads_last_month": 0,
+        }
+
+
+async def get_marketplace_stats(
+    http_client: httpx.AsyncClient,
+    cache: CacheService,
+) -> dict[str, int]:
+    """Fetch VS Code Marketplace statistics for the CodeTrust extension.
+
+    Uses the public extension query API.
+
+    Returns dict with keys:
+      - marketplace_installs
+      - marketplace_downloads
+      - marketplace_updates
+
+    Falls back to zeros on any failure.
+    """
+
+    cached = await cache.get_json(_cache_key("marketplace"))
+    if cached is not None:
+        return {
+            "marketplace_installs": int(cached.get("marketplace_installs", 0)),
+            "marketplace_downloads": int(cached.get("marketplace_downloads", 0)),
+            "marketplace_updates": int(cached.get("marketplace_updates", 0)),
+        }
+
+    body = {
+        "filters": [
+            {
+                "criteria": [
+                    {
+                        "filterType": 7,
+                        "value": MARKETPLACE_EXTENSION_ID,
+                    }
+                ]
+            }
+        ],
+        "flags": MARKETPLACE_FLAGS,
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json;api-version=3.0-preview.1",
+    }
+
+    try:
+        res = await http_client.post(MARKETPLACE_EXTENSION_QUERY_URL, json=body, headers=headers)
+        res.raise_for_status()
+        payload = res.json()
+
+        results = payload.get("results", []) if isinstance(payload, dict) else []
+        extensions = results[0].get("extensions", []) if results else []
+        ext = extensions[0] if extensions else {}
+
+        stats_list = ext.get("statistics", []) if isinstance(ext, dict) else []
+        stats_map: dict[str, int] = {}
+        for item in stats_list:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("statisticName")
+            value = item.get("value")
+            if isinstance(name, str):
+                try:
+                    stats_map[name] = int(float(value))
+                except (TypeError, ValueError):
+                    continue
+
+        result = {
+            "marketplace_installs": int(stats_map.get("install", 0)),
+            "marketplace_downloads": int(stats_map.get("downloadCount", 0)),
+            "marketplace_updates": int(stats_map.get("updateCount", 0)),
+        }
+        await cache.set_json(_cache_key("marketplace"), result, ttl=CACHE_TTL_SECONDS)
+        return result
+    except (httpx.HTTPError, ValueError, TypeError, IndexError, KeyError):
+        return {
+            "marketplace_installs": 0,
+            "marketplace_downloads": 0,
+            "marketplace_updates": 0,
+        }

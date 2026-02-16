@@ -1787,8 +1787,21 @@
             <div class="usage-num" data-count="0" data-key="destructive_commands_blocked">0</div>
             <div class="usage-label">Destructive commands blocked</div>
         </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="pypi_downloads_last_week">0</div>
+            <div class="usage-label">PyPI downloads (last week)</div>
+        </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="marketplace_installs">0</div>
+            <div class="usage-label">VS Code installs</div>
+        </div>
+        <div class="usage-item">
+            <div class="usage-num" data-count="0" data-key="marketplace_downloads">0</div>
+            <div class="usage-label">Marketplace downloads</div>
+        </div>
     </div>
-    <div class="telemetry-note">Verified Cloud API telemetry. Local CLI, VS Code, and CI runs are not included.</div>
+    <div class="telemetry-note">Cloud API telemetry + distribution signals (PyPI/Marketplace). Offline CLI/VS Code/CI
+        runs are not counted in cloud telemetry.</div>
 
     <!-- WORKS WITH -->
     <div class="works-with reveal">
@@ -2496,6 +2509,7 @@
 
         // Fetch live usage stats from API
         const API_URL = 'https://codetrust-api.saidborna.com/v1/stats/public';
+        const USAGE_REFRESH_MS = 60_000;
         async function loadUsageStats() {
             try {
                 const res = await fetch(API_URL);
@@ -2511,6 +2525,7 @@
             }
         }
         loadUsageStats();
+        setInterval(loadUsageStats, USAGE_REFRESH_MS);
 
         // Animate usage counters on scroll
         const counterObserver = new IntersectionObserver((entries) => {

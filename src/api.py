@@ -382,23 +382,30 @@ async def health_check(
 @app.get("/v1/stats/public")
 async def public_stats(request: Request) -> dict:
     """Public aggregate stats for landing page — no auth required."""
+    from src.services.public_stats import get_marketplace_stats, get_pypi_download_stats
+
     db = getattr(request.app.state, "db", None)
-    if db is None:
-        return {
-            "total_scans": 0,
-            "hallucinated_packages_prevented": 0,
-            "destructive_commands_blocked": 0,
-        }
-    try:
-        stats = await db.get_public_stats()
-        return stats
-    except Exception as exc:
-        logger.warning("public_stats_failed", error=str(exc))
-        return {
-            "total_scans": 0,
-            "hallucinated_packages_prevented": 0,
-            "destructive_commands_blocked": 0,
-        }
+    cache = getattr(request.app.state, "cache", None)
+    http_client = getattr(request.app.state, "http_client", None)
+
+    base: dict[str, int] = {
+        "total_scans": 0,
+        "hallucinated_packages_prevented": 0,
+        "destructive_commands_blocked": 0,
+    }
+
+    if db is not None:
+        try:
+            base.update(await db.get_public_stats())
+        except Exception as exc:
+            logger.warning("public_stats_failed", error=str(exc))
+
+    if cache is None or http_client is None:
+        return base
+
+    pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
+    marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
+    return {**base, **pypi, **marketplace}
 
 
 @app.get("/v1/governance/audit")

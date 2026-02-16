@@ -121,3 +121,18 @@ exclude_lines = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "dashboard/",
+    "extension/",
+    "docs/",
+    "sandbox/",
+    "deploy/",
+    ".github/",
+    "tests/",
+    "__pycache__/",
+    "*.pyc",
+    "codetrust/",
+    "node_modules/",
+]

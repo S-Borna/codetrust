@@ -739,11 +739,15 @@ class TestSandboxAPIEndpoint:
         import httpx
 
         from src.api import app
+        from src.config import settings as api_settings
         from src.services.ast_analyzer import AstAnalyzer
         from src.services.cache import CacheService
         from src.services.docker_verify import DockerVerifyService
         from src.services.registry import RegistryService
         from src.services.static_analyzer import StaticAnalyzer
+
+        original_api_key = api_settings.api_key
+        api_settings.api_key = ""
 
         cache = CacheService("redis://localhost:6379")
         cache._client = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -761,7 +765,11 @@ class TestSandboxAPIEndpoint:
         app.state.auth = None
         app.state.rate_limiter = None
 
-        return TestClient(app, raise_server_exceptions=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        try:
+            yield client
+        finally:
+            api_settings.api_key = original_api_key
 
     def test_sandbox_run_disabled(self, client: TestClient) -> None:
         """Sandbox endpoint returns result when disabled."""

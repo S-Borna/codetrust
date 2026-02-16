@@ -31,7 +31,10 @@ def _setup_app_state() -> None:
     cache = CacheService("redis://localhost:6379")
     cache._client = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
-    http_client = httpx.AsyncClient()
+    original_api_key = settings.api_key
+    settings.api_key = ""
+
+    http_client = httpx.AsyncClient(timeout=5.0)
     app.state.cache = cache
     app.state.http_client = http_client
     app.state.registry = RegistryService(cache, http_client)
@@ -43,6 +46,10 @@ def _setup_app_state() -> None:
     app.state.billing = MagicMock(spec=BillingService)
     app.state.auth = AuthService(http_client)
     app.state.rate_limiter = None  # No rate limiting without DB
+
+    yield
+
+    settings.api_key = original_api_key
 
 
 @pytest.fixture()

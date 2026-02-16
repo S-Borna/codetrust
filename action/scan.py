@@ -14,6 +14,8 @@ import json
 import os
 import re
 import sys
+import time
+import uuid
 from pathlib import Path
 
 # --- Embedded anti-pattern rules (mirrors src/rules/anti_patterns.py) ---
@@ -211,9 +213,34 @@ def generate_report(all_findings: list[dict], files_scanned: int) -> str:
         lines.append("")
 
     lines.append("---")
-    lines.append("*Powered by [CodeTrust](https://github.com/S-Borna/codetrust)*")
+    lines.append("*Powered by CodeTrust — https://codetrust.saidborna.com*")
 
     return "\n".join(lines)
+
+
+def _telemetry_enabled() -> bool:
+    value = os.environ.get("CODETRUST_TELEMETRY", "true").strip().lower()
+    return value not in {"0", "false", "no"}
+
+
+def _send_telemetry(payload: dict) -> None:
+    """Best-effort telemetry send (never fails the action)."""
+
+    if not _telemetry_enabled():
+        return
+
+    api_url = os.environ.get("CODETRUST_API_URL", "https://codetrust-api.saidborna.com").rstrip("/")
+    url = f"{api_url}/v1/telemetry"
+
+    try:
+        import httpx
+    except ImportError:
+        return
+
+    try:
+        httpx.post(url, json=payload, timeout=3.0)
+    except Exception:
+        return
 
 
 def main() -> int:
@@ -221,6 +248,8 @@ def main() -> int:
     api_url = os.environ.get("CODETRUST_API_URL", "")
     api_key = os.environ.get("CODETRUST_API_KEY", "")
     changed_files_str = os.environ.get("CHANGED_FILES", "")
+
+    start = time.monotonic()
 
     files = [f.strip() for f in changed_files_str.strip().split("\n") if f.strip()]
 
@@ -258,6 +287,25 @@ def main() -> int:
 
     # Exit code: 1 if any BLOCK findings
     has_blocks = any(f.get("severity") == "BLOCK" for f in all_findings)
+    duration_ms = int((time.monotonic() - start) * 1000)
+
+    _send_telemetry(
+        {
+            "event_type": "ci_run_completed",
+            "source": "github_action",
+            "installation_id": f"gha-{uuid.uuid4()}",
+            "version": "2.3.2",
+            "payload": {
+                "scan_type": "static" if use_api else "local",
+                "files_scanned": len(scan_files),
+                "total_findings": len(all_findings),
+                "gate_result": "FAIL" if has_blocks else "PASS",
+                "duration_ms": duration_ms,
+                "pr_mode": os.environ.get("GITHUB_EVENT_NAME", ""),
+            },
+        }
+    )
+
     if has_blocks:
         print("\n🚫 CodeTrust: BLOCKED — fix critical issues before merge.")
         return 1

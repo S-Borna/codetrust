@@ -1,16 +1,28 @@
 """FastAPI application — CodeTrust HTTP API with auth and lifespan management."""
 
+import asyncio
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
 import httpx
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Security
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    Security,
+    WebSocket,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
+from starlette.responses import Response
+from starlette.websockets import WebSocketDisconnect
 
 from src.config import settings
 from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
@@ -27,7 +39,6 @@ from src.models.requests import (
     RefreshRequest,
     SandboxRequest,
     StaticScanRequest,
-    TelemetryEventRequest,
     VerifyDockerRequest,
     VerifyImportsRequest,
 )
@@ -63,6 +74,7 @@ from src.services.rate_limiter import RateLimiter
 from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.static_analyzer import StaticAnalyzer
+from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
 from src.utils.parsers import (
     extract_go_imports,
     extract_js_imports,
@@ -211,10 +223,40 @@ async def _startup(app: FastAPI) -> None:
     app.state.auth = AuthService(http_client)
     app.state.rate_limiter = RateLimiter(db) if db is not None else None
 
+    # --- Telemetry background services (best-effort) ---
+    app.state.telemetry_stop = asyncio.Event()
+    app.state.telemetry_queue = asyncio.Queue(maxsize=10_000)
+    app.state.ws_clients = set()
+    app.state.telemetry_bg_tasks = set()
+
+    redis_client = cache.raw_client()
+    if redis_client is not None:
+        from src.services.telemetry import stats_worker
+
+        app.state.stats_worker_task = asyncio.create_task(
+            stats_worker(r=redis_client, http_client=http_client, stop=app.state.telemetry_stop),
+        )
+    else:
+        app.state.stats_worker_task = None
+
+    app.state.telemetry_writer_task = None
+    if db is not None:
+        app.state.telemetry_writer_task = asyncio.create_task(_telemetry_batch_writer(app))
+
 
 async def _shutdown(app: FastAPI) -> None:
     """Close all connections and dispose of resources."""
     logger.info("api_shutdown")
+
+    stop = getattr(app.state, "telemetry_stop", None)
+    if isinstance(stop, asyncio.Event):
+        stop.set()
+
+    for task_name in ("telemetry_writer_task", "stats_worker_task"):
+        task = getattr(app.state, task_name, None)
+        if task is not None:
+            task.cancel()
+
     await app.state.http_client.aclose()
     await app.state.cache.disconnect()
     if app.state.db is not None:
@@ -253,6 +295,76 @@ app.add_middleware(IPRateLimitMiddleware)
 # Prometheus metrics — request counts, latency, active connections
 app.add_middleware(MetricsMiddleware)
 app.add_route("/metrics", metrics_endpoint, methods=["GET"])
+
+API_TELEMETRY_SKIP_PATHS: set[str] = {
+    "/metrics",
+    "/v1/telemetry",
+    "/v1/stats/public",
+    "/v1/status",
+}
+
+
+@app.middleware("http")
+async def api_request_telemetry(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Emit anonymous request telemetry (best-effort).
+
+    Never blocks the request path; skips endpoints that would cause recursion or noise.
+    """
+
+    path = request.url.path
+    if request.method == "OPTIONS" or path in API_TELEMETRY_SKIP_PATHS:
+        return await call_next(request)
+
+    started = time.monotonic()
+    status_code: int = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duration_ms = int((time.monotonic() - started) * 1000)
+
+        cache: CacheService | None = getattr(request.app.state, "cache", None)
+        redis_client = cache.raw_client() if cache is not None else None
+        queue = getattr(request.app.state, "telemetry_queue", None)
+
+        try:
+            event = TelemetryIngestEvent(
+                event_type="api_request_completed",
+                source="cloud_api",
+                installation_id=None,
+                version=settings.version,
+                payload={
+                    "method": request.method,
+                    "path": path,
+                    "status_code": int(status_code),
+                    "duration_ms": int(duration_ms),
+                },
+            )
+        except Exception:
+            return
+
+        async def _emit() -> None:
+            try:
+                await process_telemetry_event(r=redis_client, queue=queue, event=event)
+            except Exception:
+                return
+
+        try:
+            task = asyncio.create_task(_emit())
+            tasks: set[asyncio.Task[None]] = getattr(request.app.state, "telemetry_bg_tasks", set())
+            tasks.add(task)
+            request.app.state.telemetry_bg_tasks = tasks
+
+            def _cleanup(done: asyncio.Task[None]) -> None:
+                tasks.discard(done)
+
+            task.add_done_callback(_cleanup)
+        except Exception:
+            return
 
 
 def _get_registry(request: Request) -> RegistryService:
@@ -384,30 +496,56 @@ async def health_check(
 @app.get("/v1/stats/public")
 async def public_stats(request: Request) -> dict:
     """Public aggregate stats for landing page — no auth required."""
-    from src.services.public_stats import get_marketplace_stats, get_pypi_download_stats
-
     db = getattr(request.app.state, "db", None)
     cache = getattr(request.app.state, "cache", None)
     http_client = getattr(request.app.state, "http_client", None)
+
+    redis_client = cache.raw_client() if cache is not None else None
+    if redis_client is not None:
+        from src.services.telemetry import build_public_stats
+
+        stats = await build_public_stats(r=redis_client, use_cache=True)
+
+        # Backwards-compatible flat keys for existing website counters.
+        legacy: dict[str, int] = {
+            "total_scans": int(stats.get("usage", {}).get("total_scans", 0)),
+            "hallucinated_packages_prevented": int(stats.get("impact", {}).get("hallucinations_caught", 0)),
+            "destructive_commands_blocked": int(stats.get("impact", {}).get("gateway_commands_blocked", 0)),
+            "pypi_downloads_last_week": int(
+                stats.get("distribution", {}).get("pypi", {}).get("downloads_this_week", 0)
+            ),
+            "marketplace_installs": int(
+                stats.get("distribution", {}).get("marketplace", {}).get("installs", 0)
+            ),
+            "marketplace_downloads": int(
+                stats.get("distribution", {}).get("marketplace", {}).get("downloads", 0)
+            ),
+        }
+        return {**legacy, "stats": stats}
+
+    # Fallback for deployments without Redis.
+    from src.services.public_stats import get_marketplace_stats, get_pypi_download_stats
 
     base: dict[str, int] = {
         "total_scans": 0,
         "hallucinated_packages_prevented": 0,
         "destructive_commands_blocked": 0,
-        "telemetry_events_total": 0,
-        "telemetry_unique_instances": 0,
-        "telemetry_scans_total": 0,
-        "telemetry_findings_total": 0,
-        "telemetry_hallucinated_packages_prevented": 0,
-        "telemetry_destructive_commands_blocked": 0,
+        "pypi_downloads_last_day": 0,
+        "pypi_downloads_last_week": 0,
+        "pypi_downloads_last_month": 0,
+        "marketplace_installs": 0,
+        "marketplace_downloads": 0,
+        "marketplace_updates": 0,
     }
 
     if db is not None:
         try:
             base.update(await db.get_public_stats())
-            base.update(await db.get_public_telemetry_stats())
         except Exception as exc:
             logger.warning("public_stats_failed", error=str(exc))
+
+    if cache is None or http_client is None:
+        return base
 
     if cache is None or http_client is None:
         return base
@@ -417,43 +555,124 @@ async def public_stats(request: Request) -> dict:
     return {**base, **pypi, **marketplace}
 
 
-@app.post("/v1/telemetry", response_model=StatusResponse)
-async def ingest_telemetry(event: TelemetryEventRequest, request: Request) -> StatusResponse:
-    """Ingest a single anonymous telemetry event.
+async def _telemetry_batch_writer(app: FastAPI) -> None:
+    """Flush telemetry write queue into the database in batches."""
 
-    This endpoint is intentionally unauthenticated and must never accept payloads
-    containing user PII, file paths, repository URLs, or code.
+    from src.services.telemetry import (
+        TELEMETRY_BATCH_SIZE,
+        TELEMETRY_FLUSH_INTERVAL_SECONDS,
+        TelemetryWriteItem,
+    )
+
+    queue: asyncio.Queue[TelemetryWriteItem] | None = getattr(app.state, "telemetry_queue", None)
+    stop: asyncio.Event | None = getattr(app.state, "telemetry_stop", None)
+    db: DatabaseService | None = getattr(app.state, "db", None)
+
+    if queue is None or stop is None or db is None:
+        return
+
+    while not stop.is_set():
+        batch: list[TelemetryWriteItem] = []
+        try:
+            while len(batch) < TELEMETRY_BATCH_SIZE:
+                item = await asyncio.wait_for(queue.get(), timeout=TELEMETRY_FLUSH_INTERVAL_SECONDS)
+                batch.append(item)
+        except TimeoutError:
+            if not batch:
+                continue
+        except Exception as exc:
+            logger.warning("telemetry_queue_read_failed", error=str(exc), error_type=type(exc).__name__)
+
+        if not batch:
+            continue
+
+        try:
+            await db.insert_telemetry_raw_batch(
+                [
+                    {
+                        "event_type": b.event_type,
+                        "source": b.source,
+                        "installation_id": b.installation_id or "",
+                        "version": b.version or "",
+                        "payload": b.payload,
+                    }
+                    for b in batch
+                ]
+            )
+        except Exception as exc:
+            logger.warning("telemetry_db_batch_failed", error=str(exc), error_type=type(exc).__name__)
+
+
+@app.post("/v1/telemetry", status_code=202, response_model=StatusResponse)
+async def ingest_telemetry(
+    event: dict[str, object],
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> StatusResponse:
+    """Accept anonymous telemetry.
+
+    Returns immediately (202). Processing is best-effort and must never block.
     """
 
-    db = getattr(request.app.state, "db", None)
-    if db is None:
-        return StatusResponse(status="ok")
+    from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
 
     try:
-        await db.insert_telemetry_event(
-            instance_id=event.instance_id,
-            client=event.client,
-            client_version=event.client_version,
-            schema_version=event.schema_version,
-            event_type=event.event_type,
-            scan_type=event.scan_type,
-            verdict=event.verdict,
-            language=event.language,
-            delta_scans=event.delta_scans,
-            delta_findings_total=event.delta_findings_total,
-            delta_hallucinated_packages_prevented=event.delta_hallucinated_packages_prevented,
-            delta_destructive_commands_blocked=event.delta_destructive_commands_blocked,
-        )
+        parsed = TelemetryIngestEvent.model_validate(event)
     except Exception as exc:
-        logger.warning(
-            "telemetry_insert_failed",
-            error=str(exc),
-            error_type=type(exc).__name__,
-            client=event.client,
-            event_type=event.event_type,
-        )
+        raise HTTPException(status_code=422, detail="Invalid telemetry payload") from exc
 
-    return StatusResponse(status="ok")
+    cache = getattr(request.app.state, "cache", None)
+    redis_client = cache.raw_client() if cache is not None else None
+    queue = getattr(request.app.state, "telemetry_queue", None)
+
+    background_tasks.add_task(
+        process_telemetry_event,
+        r=redis_client,
+        queue=queue,
+        event=parsed,
+    )
+    background_tasks.add_task(_notify_ws_clients, request, parsed.event_type)
+    return StatusResponse(status="accepted")
+
+
+async def _notify_ws_clients(request: Request, event_type: str) -> None:
+    cache = getattr(request.app.state, "cache", None)
+    redis_client = cache.raw_client() if cache is not None else None
+    ws_clients: set[WebSocket] = getattr(request.app.state, "ws_clients", set())
+    if redis_client is None or not ws_clients:
+        return
+
+    from src.services.telemetry import build_public_stats
+
+    try:
+        stats = await build_public_stats(r=redis_client, use_cache=False)
+    except Exception as exc:
+        logger.warning("ws_stats_build_failed", error=str(exc), error_type=type(exc).__name__)
+        return
+
+    dead: set[WebSocket] = set()
+    for ws in ws_clients:
+        try:
+            await ws.send_json({"event": event_type, "stats": stats})
+        except Exception:
+            dead.add(ws)
+    for ws in dead:
+        ws_clients.discard(ws)
+
+
+@app.websocket("/v1/stats/live")
+async def stats_websocket(websocket: WebSocket) -> None:
+    """Push live stats updates to connected clients."""
+
+    await websocket.accept()
+    ws_clients: set[WebSocket] = getattr(app.state, "ws_clients", set())
+    ws_clients.add(websocket)
+    app.state.ws_clients = ws_clients
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_clients.discard(websocket)
 
 
 @app.get("/v1/governance/audit")

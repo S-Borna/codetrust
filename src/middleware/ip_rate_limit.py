@@ -20,7 +20,17 @@ MAX_BODY_SIZE = 1_048_576    # 1 MB max request body
 MAX_URL_LENGTH = 2048        # max URL length
 
 # Paths exempt from IP rate limiting (health checks, status, docs)
-EXEMPT_PATHS = frozenset({"/v1/status", "/v1/stats/public", "/health", "/", "/docs", "/openapi.json", "/metrics"})
+EXEMPT_PATHS = frozenset({
+    "/v1/status",
+    "/v1/stats/public",
+    "/v1/stats/live",
+    "/v1/telemetry",
+    "/health",
+    "/",
+    "/docs",
+    "/openapi.json",
+    "/metrics",
+})
 
 
 class _IPBucket:

@@ -3,7 +3,7 @@
 This is a **shareable excerpt** intended for testers and stakeholders.
 For the complete history, see the repo root CHANGELOG.md.
 
-## 2.3.0 (2026-02-16)
+## 2.3.1 (2026-02-16)
 
 Highlights:
 

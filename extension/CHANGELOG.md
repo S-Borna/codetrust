@@ -5,7 +5,7 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [2.3.0] - 2026-02-16
+## [2.3.1] - 2026-02-16
 
 ### Added
 

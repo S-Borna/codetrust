@@ -1158,8 +1158,15 @@
         }
 
         @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
         }
 
         .dash-grid {
@@ -1220,10 +1227,21 @@
             line-height: 1;
         }
 
-        .dash-num-red { color: var(--red); }
-        .dash-num-amber { color: var(--amber); }
-        .dash-num-cyan { color: var(--cyan); }
-        .dash-num-indigo { color: var(--indigo); }
+        .dash-num-red {
+            color: var(--red);
+        }
+
+        .dash-num-amber {
+            color: var(--amber);
+        }
+
+        .dash-num-cyan {
+            color: var(--cyan);
+        }
+
+        .dash-num-indigo {
+            color: var(--indigo);
+        }
 
         .dash-label {
             font-size: 0.68rem;
@@ -1275,7 +1293,8 @@
         }
 
         .usage-bar {
-            display: none; /* replaced by dash-grid */
+            display: none;
+            /* replaced by dash-grid */
         }
 
         /* ARCHITECTURE */
@@ -1896,7 +1915,8 @@
         <h2 class="reveal" style="text-align:center">Global usage — all users, all platforms, real-time</h2>
         <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
             Every scan, every block, every verification — streamed live from production.<br>
-            <span class="live-dot"></span> <span id="live-updated-at" style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting…</span>
+            <span class="live-dot"></span> <span id="live-updated-at"
+                style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting…</span>
         </p>
 
         <div class="dash-grid">
@@ -2044,14 +2064,20 @@
         <!-- SOURCE BREAKDOWN -->
         <div class="dash-source-bar reveal">
             <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span>MCP <strong data-key="src_mcp">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API <strong data-key="src_cloud_api">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong
+                    data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code
+                <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span>MCP <strong
+                    data-key="src_mcp">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub
+                Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API
+                <strong data-key="src_cloud_api">0</strong></span>
         </div>
 
-        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, MCP Gateway, GitHub Actions, and Cloud API. Opt-out: CODETRUST_TELEMETRY=0</div>
+        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, MCP Gateway, GitHub Actions,
+            and Cloud API. Opt-out: CODETRUST_TELEMETRY=0</div>
     </section>
 
     <!-- WORKS WITH -->

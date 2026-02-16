@@ -58,7 +58,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://codetrust.saidborna.com"
 Documentation = "https://codetrust.saidborna.com"
-Support = "mailto:codetrust@saidborna.com"
+Support = "https://codetrust.saidborna.com"
 
 [project.optional-dependencies]
 dev = [

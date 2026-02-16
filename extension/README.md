@@ -2,14 +2,6 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-- Blocks hallucinated packages before install
-- Intercepts destructive AI agent commands before execution
-- Enforces governance in CI/CD pipelines
-- Trust score tracking and drift analysis
-- Works with Claude Code, Cursor, GitHub Copilot, and any AI assistant
-
----
-
 133 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 57 real-time interception rules block destructive AI agent actions *before* they execute
@@ -20,7 +12,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 
 ---
 
-## What's New in 2.3
+## What's New in 2.3.1
 
 - **Guided onboarding** — configure API URL/key and run your first scan from the command palette
 - **Scan-on-type** — opt-in, debounced offline scanning as you type (no save required)
@@ -146,7 +138,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
 | **REST API** | 27 endpoints |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

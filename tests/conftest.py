@@ -19,6 +19,8 @@ def _disable_api_key_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     """
 
     monkeypatch.delenv("CODETRUST_API_KEY", raising=False)
+    # Prevent any test from performing outbound anonymous telemetry.
+    monkeypatch.setenv("CODETRUST_TELEMETRY", "0")
     from src.config import settings
 
     settings.api_key = ""

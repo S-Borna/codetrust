@@ -1788,8 +1788,8 @@
             <div class="usage-label">Destructive commands blocked</div>
         </div>
         <div class="usage-item">
-            <div class="usage-num" data-count="0" data-key="pypi_downloads_last_3_months_ci">0</div>
-            <div class="usage-label">PyPI downloads (3 months, incl CI)</div>
+            <div class="usage-num" data-count="0" data-key="pypi_downloads_last_week">0</div>
+            <div class="usage-label">PyPI downloads (last week)</div>
         </div>
         <div class="usage-item">
             <div class="usage-num" data-count="0" data-key="marketplace_installs">0</div>
@@ -2528,7 +2528,7 @@
                     total_scans: (s.usage && s.usage.total_scans) || 0,
                     hallucinated_packages_prevented: (s.impact && s.impact.hallucinations_caught) || 0,
                     destructive_commands_blocked: (s.impact && s.impact.gateway_commands_blocked) || 0,
-                    pypi_downloads_last_3_months_ci: (s.distribution && s.distribution.pypi && s.distribution.pypi.downloads_last_3_months_ci) || 0,
+                    pypi_downloads_last_week: (s.distribution && s.distribution.pypi && s.distribution.pypi.downloads_this_week) || 0,
                     marketplace_installs: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.installs) || 0,
                     marketplace_downloads: (s.distribution && s.distribution.marketplace && s.distribution.marketplace.downloads) || 0,
                     openvsx_downloads: (s.distribution && s.distribution.open_vsx && s.distribution.open_vsx.downloads) || 0,

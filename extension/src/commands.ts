@@ -26,6 +26,7 @@ export interface CommandDeps {
     statusBar: StatusBarManager;
     outputChannel: vscode.OutputChannel;
     cache: VerificationCache;
+    telemetry: (eventType: string, payload: Record<string, unknown>) => void;
 }
 
 let lastScannableDocumentUri: vscode.Uri | null = null;
@@ -354,6 +355,7 @@ async function runStaticScan(
     language: Language,
 ): Promise<void> {
     const config = getConfig();
+    const startedAtMs = Date.now();
     deps.statusBar.setScanning();
     deps.outputChannel.appendLine(
         `[${timestamp()}] Static scan: ${document.fileName}`,
@@ -378,6 +380,21 @@ async function runStaticScan(
 
         deps.statusBar.setVerdict(response.verdict, response.total_findings, false);
         logScanResult(deps.outputChannel, "Static", response.verdict, response.findings);
+
+        deps.telemetry("scan_completed", {
+            scan_type: "static",
+            language,
+            verdict: response.verdict,
+            files_scanned: 1,
+            total_findings: response.total_findings,
+            findings_by_severity: {
+                BLOCK: response.blocks,
+                WARN: response.warnings,
+                INFO: response.infos,
+            },
+            offline_used: false,
+            duration_ms: Date.now() - startedAtMs,
+        });
     } catch (err) {
         logApiError(deps, err);
         // Fallback to embedded offline scanner when API is unavailable
@@ -392,6 +409,21 @@ async function runStaticScan(
         );
         deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
         logScanResult(deps.outputChannel, "Static (offline)", response.verdict, response.findings);
+
+        deps.telemetry("scan_completed", {
+            scan_type: "static",
+            language,
+            verdict: response.verdict,
+            files_scanned: 1,
+            total_findings: response.total_findings,
+            findings_by_severity: {
+                BLOCK: response.blocks,
+                WARN: response.warnings,
+                INFO: response.infos,
+            },
+            offline_used: true,
+            duration_ms: Date.now() - startedAtMs,
+        });
     }
 }
 
@@ -402,6 +434,7 @@ async function runDeepScan(
     language: Language,
 ): Promise<void> {
     const config = getConfig();
+    const startedAtMs = Date.now();
     deps.statusBar.setScanning();
     deps.outputChannel.appendLine(
         `[${timestamp()}] Deep scan: ${document.fileName}`,
@@ -446,6 +479,23 @@ async function runDeepScan(
             `${response.total_findings} findings | ` +
             `${response.latency_ms}ms`,
         );
+
+        deps.telemetry("scan_completed", {
+            scan_type: "deep",
+            language,
+            verdict: response.verdict,
+            files_scanned: 1,
+            total_findings: response.total_findings,
+            findings_by_severity: {
+                BLOCK: response.blocks,
+                WARN: response.warnings,
+                INFO: response.infos,
+            },
+            offline_used: false,
+            duration_ms: Date.now() - startedAtMs,
+            api_latency_ms: response.latency_ms,
+            import_results_count: response.import_results.length,
+        });
     } catch (err) {
         logApiError(deps, err);
         // Fallback to embedded offline scanner when API is unavailable
@@ -460,6 +510,21 @@ async function runDeepScan(
         );
         deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
         logScanResult(deps.outputChannel, "Deep (offline)", response.verdict, response.findings);
+
+        deps.telemetry("scan_completed", {
+            scan_type: "deep",
+            language,
+            verdict: response.verdict,
+            files_scanned: 1,
+            total_findings: response.total_findings,
+            findings_by_severity: {
+                BLOCK: response.blocks,
+                WARN: response.warnings,
+                INFO: response.infos,
+            },
+            offline_used: true,
+            duration_ms: Date.now() - startedAtMs,
+        });
     }
 }
 
@@ -582,6 +647,7 @@ async function verifyImportsCommand(deps: CommandDeps): Promise<void> {
     }
 
     deps.statusBar.setScanning();
+    const startedAtMs = Date.now();
     deps.outputChannel.appendLine(
         `[${timestamp()}] Verify imports: ${imports.length} packages in ${document.fileName}`,
     );
@@ -634,6 +700,16 @@ async function verifyImportsCommand(deps: CommandDeps): Promise<void> {
             deps.statusBar.setVerdict("PASS", 0);
             vscode.window.showInformationMessage(`CodeTrust: ${summary}`);
         }
+
+        deps.telemetry("import_verified", {
+            language,
+            total_imports_checked: imports.length,
+            hallucinations_caught: response.failed,
+            offline_used: false,
+            duration_ms: Date.now() - startedAtMs,
+            api_latency_ms: response.latency_ms,
+            cached_ratio: response.cached_ratio,
+        });
     } catch (err) {
         if (err instanceof ApiError && err.statusCode === 0) {
             // Serve cached results if available when offline
@@ -652,6 +728,14 @@ async function verifyImportsCommand(deps: CommandDeps): Promise<void> {
                 vscode.window.showInformationMessage(
                     `CodeTrust: ${cached.length} imports verified from cache (offline)`,
                 );
+
+                deps.telemetry("import_verified", {
+                    language,
+                    total_imports_checked: imports.length,
+                    cached_results_count: cached.length,
+                    offline_used: true,
+                    duration_ms: Date.now() - startedAtMs,
+                });
             } else {
                 deps.statusBar.setError("API offline");
                 deps.outputChannel.appendLine(
@@ -684,6 +768,7 @@ async function verifyDockerfileDocument(
     document: vscode.TextDocument,
 ): Promise<void> {
     const config = getConfig();
+    const startedAtMs = Date.now();
     const content = document.getText();
     const images = extractDockerImages(content);
 
@@ -747,6 +832,13 @@ async function verifyDockerfileDocument(
             deps.statusBar.setVerdict("PASS", 0);
             vscode.window.showInformationMessage(`CodeTrust: ${summary}`);
         }
+
+        deps.telemetry("docker_verified", {
+            images_checked: images.length,
+            offline_used: false,
+            duration_ms: Date.now() - startedAtMs,
+            api_latency_ms: response.latency_ms,
+        });
     } catch (err) {
         if (err instanceof ApiError && err.statusCode === 0) {
             // Serve cached Docker results when offline
@@ -764,6 +856,13 @@ async function verifyDockerfileDocument(
                     config.severityThreshold,
                 );
                 deps.statusBar.setVerdict("PASS", 0, true);
+
+                deps.telemetry("docker_verified", {
+                    images_checked: images.length,
+                    cached_results_count: cachedResults.length,
+                    offline_used: true,
+                    duration_ms: Date.now() - startedAtMs,
+                });
             } else {
                 deps.statusBar.setError("API offline");
                 deps.outputChannel.appendLine(
@@ -790,6 +889,7 @@ async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
     const excludePattern = "{**/node_modules/**,**/.venv/**,**/dist/**,**/build/**,**/__pycache__/**,**/out/**,**/.next/**,**/coverage/**}";
 
     deps.statusBar.setScanning();
+    const startedAtMs = Date.now();
     deps.outputChannel.appendLine(`[${timestamp()}] Workspace scan started`);
 
     const files = await vscode.workspace.findFiles(globPattern, excludePattern, 500);
@@ -852,6 +952,21 @@ async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
     vscode.window.showInformationMessage(
         `CodeTrust: Scanned ${filesScanned} files — ${totalFindings} findings (${blocks} blocks)`,
     );
+
+    deps.telemetry("scan_completed", {
+        scan_type: "workspace_offline",
+        files_scanned: filesScanned,
+        total_findings: totalFindings,
+        findings_by_severity: {
+            BLOCK: blocks,
+            WARN: Math.max(0, totalFindings - blocks),
+            INFO: 0,
+        },
+        blocks,
+        verdict,
+        offline_used: true,
+        duration_ms: Date.now() - startedAtMs,
+    });
 }
 
 /** Clear all CodeTrust diagnostics. */

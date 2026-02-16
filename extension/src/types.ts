@@ -155,6 +155,7 @@ export interface ExtensionConfig {
     scanType: ScanType;
     verifyImportsOnSave: boolean;
     timeout: number;
+    telemetry: boolean;
     governance: GovernanceConfig;
 }
 

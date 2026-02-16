@@ -10,6 +10,21 @@ from src.services.registry import RegistryService
 
 
 @pytest.fixture(autouse=True)
+def _disable_api_key_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force unauthenticated mode in tests.
+
+    Some developer environments may have CODETRUST_API_KEY set, which would
+    make many endpoint tests fail with 401. Individual tests can still
+    override settings.api_key explicitly when exercising auth.
+    """
+
+    monkeypatch.delenv("CODETRUST_API_KEY", raising=False)
+    from src.config import settings
+
+    settings.api_key = ""
+
+
+@pytest.fixture(autouse=True)
 def _reset_ip_rate_limiter() -> None:
     """Clear IP rate limiter buckets before every test.
 

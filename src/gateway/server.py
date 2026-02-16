@@ -34,9 +34,11 @@ import time
 import structlog
 from mcp.server.fastmcp import FastMCP
 
+from src.config import settings
 from src.gateway.audit import AuditLogger
-from src.gateway.interceptor import CommandInterceptor, Verdict
+from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import PolicyEngine
+from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
 
@@ -88,6 +90,31 @@ _agent_id = os.environ.get("CODETRUST_AGENT_ID", _detect_agent())
 gateway = FastMCP("codetrust-gateway")
 
 
+def _emit_gateway_telemetry(*, result: InterceptResult, effective_verdict: str) -> None:
+    """Best-effort anonymous telemetry for gateway checks.
+
+    Privacy: never sends the original command/path/content; only aggregate-friendly labels.
+    """
+
+    action = "ALLOWED"
+    if effective_verdict == "BLOCK":
+        action = "BLOCKED"
+    elif effective_verdict == "WARN":
+        action = "WARNED"
+
+    send_telemetry(
+        event_type="gateway_check",
+        source="mcp",
+        version=settings.version,
+        cli_opt_out=False,
+        payload={
+            "action": action,
+            "rule_triggered": result.rule_id,
+            "action_type": result.action_type.value,
+        },
+    )
+
+
 # ═══════════════════════════════════════════════════════════════
 #  Gateway tools — AI agents call these before acting
 # ═══════════════════════════════════════════════════════════════
@@ -111,12 +138,16 @@ async def validate_command(command: str) -> str:
     result = _interceptor.check_terminal(command)
 
     # In audit mode, never actually block
+    effective_verdict = result.verdict.value
     if _engine.auditing and result.verdict == Verdict.BLOCK:
         result_dict = result.to_dict()
         result_dict["verdict"] = "WARN"
         result_dict["message"] = f"[AUDIT MODE] {result.message}"
+        effective_verdict = "WARN"
     else:
         result_dict = result.to_dict()
+
+    _emit_gateway_telemetry(result=result, effective_verdict=effective_verdict)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
@@ -153,9 +184,13 @@ async def validate_file_write(
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
     result_dict = result.to_dict()
+    effective_verdict = result.verdict.value
     if _engine.auditing and result.verdict == Verdict.BLOCK:
         result_dict["verdict"] = "WARN"
         result_dict["message"] = f"[AUDIT MODE] {result.message}"
+        effective_verdict = "WARN"
+
+    _emit_gateway_telemetry(result=result, effective_verdict=effective_verdict)
 
     return json.dumps(result_dict, indent=2)
 
@@ -176,6 +211,8 @@ async def validate_file_delete(path: str) -> str:
     result = _interceptor.check_file_delete(path)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
+
+    _emit_gateway_telemetry(result=result, effective_verdict=result.verdict.value)
 
     return json.dumps(result.to_dict(), indent=2)
 
@@ -201,6 +238,8 @@ async def validate_package(
     result = _interceptor.check_package_install(package, registry=registry)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
+
+    _emit_gateway_telemetry(result=result, effective_verdict=result.verdict.value)
 
     return json.dumps(result.to_dict(), indent=2)
 

@@ -10,7 +10,6 @@ from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.database import DatabaseService
 
-
 _TELEMETRY_EVENT_PAYLOAD: dict[str, object] = {
     "instance_id": "a" * 32,
     "client": "cli",
@@ -57,7 +56,8 @@ def client_with_db(tmp_path: object) -> "TestClient":
     """Create TestClient with real in-memory database."""
     import asyncio
 
-    from src.api import app, settings as api_settings
+    from src.api import app
+    from src.api import settings as api_settings
     from src.services.rate_limiter import RateLimiter
 
     _setup_app_state(app)
@@ -94,7 +94,8 @@ def client_with_db(tmp_path: object) -> "TestClient":
 @pytest.fixture()
 def client_no_db() -> "TestClient":
     """Create TestClient with no database available."""
-    from src.api import app, settings as api_settings
+    from src.api import app
+    from src.api import settings as api_settings
 
     _setup_app_state(app)
     app.state.db = None

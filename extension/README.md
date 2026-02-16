@@ -2,8 +2,6 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-## Features
-
 - Blocks hallucinated packages before install
 - Intercepts destructive AI agent commands before execution
 - Enforces governance in CI/CD pipelines
@@ -148,7 +146,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
 | **REST API** | 27 endpoints |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
@@ -169,8 +167,7 @@ All scan rules work offline. Import verification, AI governance, and deep scanni
 
 - [Website](https://codetrust.saidborna.com)
 - [PyPI](https://pypi.org/project/codetrust/)
-- [GitHub](https://github.com/S-Borna/codetrust)
-- [Changelog](https://github.com/S-Borna/codetrust/blob/main/CHANGELOG.md)
+- [Changelog](https://codetrust.saidborna.com)
 
 ---
 

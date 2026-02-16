@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.3.0"
+    "version": "2.3.1"
   },
   "paths": {
     "/v1/status": {
@@ -28,7 +28,7 @@
     "/v1/stats/public": {
       "get": {
         "summary": "Public Stats",
-        "description": "Public aggregate stats for landing page — no auth required.",
+        "description": "Public aggregate stats for landing page \u2014 no auth required.",
         "operationId": "public_stats_v1_stats_public_get",
         "responses": {
           "200": {
@@ -1336,7 +1336,7 @@
           "latency_ms"
         ],
         "title": "DeepScanResponse",
-        "description": "Response for /v1/scan/deep — combines all layers."
+        "description": "Response for /v1/scan/deep \u2014 combines all layers."
       },
       "DockerImageInput": {
         "properties": {

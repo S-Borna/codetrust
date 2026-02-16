@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.0</code> &middot; <code>1358 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.1</code> &middot; <code>1358 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -184,7 +184,7 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
 | **REST API** | 27 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -265,7 +265,7 @@ permissions:
 ```
 
 ```yaml
-- uses: S-Borna/codetrust@v2.3.0
+- uses: S-Borna/codetrust@v2.3.1
   with:
     fail-on: block
     scan-type: static
@@ -347,7 +347,7 @@ See `codetrust init` for a starter configuration.
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.1` |
 | **Cloud API** | Available at `codetrust-api.saidborna.com` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

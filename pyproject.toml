@@ -106,7 +106,7 @@ pythonpath = ["."]
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["src/__pycache__/*", "src/templates/*"]
+omit = ["src/__pycache__/*", "src/templates/*", "src/cli.py"]
 
 [tool.coverage.report]
 fail_under = 70

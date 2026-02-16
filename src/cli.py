@@ -2193,6 +2193,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
                     dirs[:] = [d for d in dirs if d not in skip_dirs]
                     files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
 
+    hallucinations_found = 0
+
     # --- Live import verification against registries ---
     if not getattr(args, "no_verify_imports", False):
         try:
@@ -2211,6 +2213,9 @@ def cmd_scan(args: argparse.Namespace) -> int:
                     )
                 import_findings = verify_file_imports_sync(py_files, js_files)
                 if import_findings:
+                    hallucinations_found = sum(
+                        1 for f in import_findings if str(f.get("rule_id", "")) == "import_not_found"
+                    )
                     all_findings.extend(import_findings)
                     if not machine_output:
                         print(
@@ -2303,7 +2308,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 "grade": str(drift.get("grade", "")),
                 "trend": str(drift.get("trend", "")),
                 "trend_delta": int(drift.get("delta", 0) or 0),
-                "hallucinations_found": 0,
+                "hallucinations_found": hallucinations_found,
                 "scan_duration_ms": int((time.monotonic() - start_time) * 1000),
                 "used_baseline": bool(baseline_mode),
                 "used_dedupe": bool(getattr(args, "dedupe", False)),

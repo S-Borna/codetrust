@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     oidc_role_claim: str = "roles"
 
     # --- Dashboard ---
-    dashboard_url: str = "http://localhost:3000"
+    dashboard_url: str = "https://codetrust.saidborna.com"
 
     # --- SARIF ---
     sarif_schema_url: str = "https://json.schemastore.org/sarif-2.1.0.json"

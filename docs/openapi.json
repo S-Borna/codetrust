@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.2.4"
+    "version": "2.3.0"
   },
   "paths": {
     "/v1/status": {
@@ -18,6 +18,27 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/public": {
+      "get": {
+        "summary": "Public Stats",
+        "description": "Public aggregate stats for landing page — no auth required.",
+        "operationId": "public_stats_v1_stats_public_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Public Stats V1 Stats Public Get"
                 }
               }
             }
@@ -877,6 +898,140 @@
           }
         ]
       }
+    },
+    "/v1/auth/oidc/login": {
+      "get": {
+        "summary": "Oidc Login",
+        "description": "Redirect URL for OIDC/SSO login.\n\nReturns the authorization URL to redirect the browser to the IdP.\nRequires OIDC to be configured via CODETRUST_OIDC_* env vars.",
+        "operationId": "oidc_login_v1_auth_oidc_login_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Oidc Login V1 Auth Oidc Login Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/oidc/callback": {
+      "post": {
+        "summary": "Oidc Callback",
+        "description": "Exchange an OIDC authorization code for a CodeTrust JWT.\n\nThe OIDC IdP redirects back with a code; this endpoint:\n1. Exchanges the code for tokens at the IdP\n2. Extracts user info from the ID token\n3. Creates or updates the user in the database\n4. Returns a CodeTrust JWT for dashboard sessions",
+        "operationId": "oidc_callback_v1_auth_oidc_callback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OIDCCallbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/user/export": {
+      "get": {
+        "summary": "Gdpr Export",
+        "description": "Export all personal data for the authenticated user (GDPR Art. 15).\n\nReturns a JSON object with all user data including profile,\nAPI keys, scan history, and usage statistics.",
+        "operationId": "gdpr_export_v1_user_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Gdpr Export V1 User Export Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/user/delete": {
+      "delete": {
+        "summary": "Gdpr Delete",
+        "description": "Delete all personal data for the authenticated user (GDPR Art. 17).\n\nWARNING: This action is irreversible. All user data will be permanently deleted.",
+        "operationId": "gdpr_delete_v1_user_delete_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Gdpr Delete V1 User Delete Delete"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1363,6 +1518,28 @@
         ],
         "title": "Language",
         "description": "Supported programming languages."
+      },
+      "OIDCCallbackRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "State",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "OIDCCallbackRequest",
+        "description": "Request to exchange an OIDC authorization code for a JWT."
       },
       "PackageResult": {
         "properties": {

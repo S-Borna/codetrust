@@ -22,15 +22,19 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 
 ---
 
-## What's New in 2.2
+## What's New in 2.3
 
-- **133 total rules** — scan rules + gateway interception rules working together
-- **AI Governance Gateway** — intercepts destructive AI agent actions in real-time
-- **Live import verification** — every package checked against live registries
-- **Trust Score** — quantified code safety with baseline trending and drift detection
-- **Full REST API** — 27 endpoints with SSO, billing, and SARIF export
-- **17 MCP tools** — Model Context Protocol server for AI agent integration
-- **Live telemetry** — real-time usage stats from production Cloud API
+- **Guided onboarding** — configure API URL/key and run your first scan from the command palette
+- **Scan-on-type** — opt-in, debounced offline scanning as you type (no save required)
+- **Profiles** — Create and Apply CodeTrust Profile for quick workspace setup
+- **Expanded Quick Fixes** — more deterministic code transforms for common findings
+- **API key in Secret Storage** — credentials migrated from settings to VS Code Secret Storage
+- **GitHub Action PR-mode** — auto on pull_request: scans changed files and gates on new findings only
+- **CLI noise controls** — `--dedupe`, `--changed-only`, `--suppress-lint-noise` for cleaner output
+- **CLI repo-aware commands** — `pr-risk`, `trust-diff`, `trend record/show` for commit-level insight
+- **Safe autofix** — `codetrust fix` with preview by default, `--apply` to write
+- **Policy Wizard** — `codetrust policy wizard` generates governance presets with TOML autocomplete
+- **133 total rules** — 76 scan + 57 gateway interception rules
 
 ---
 
@@ -39,7 +43,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 AI coding assistants produce failure modes no existing tool detects:
 
 - **Hallucinated packages** — AI suggests packages that don't exist on PyPI/npm
-- **Destructive commands** — AI agents run `rm -rf /`, `eval`, `curl|sh`
+- **Destructive commands** — AI agents run `rm -rf /`, dynamic code execution, `curl|sh`
 - **Ghost Docker images** — AI references images that don't exist
 - **Invisible drift** — AI code quality degrades without measurement
 
@@ -144,7 +148,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
 | **REST API** | 27 endpoints |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

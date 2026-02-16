@@ -239,6 +239,38 @@ async def _handle_fix_applied(r: redis.Redis, event: TelemetryIngestEvent) -> No
     p = event.payload
     pipe = r.pipeline()
     pipe.incrby("ct:fixes_applied", _safe_int(p.get("fixes_applied"), max_value=10_000_000))
+    pipe.incrby("ct:fix_files_changed", _safe_int(p.get("files_changed"), max_value=10_000_000))
+    pipe.incrby("ct:fix_lines_changed", _safe_int(p.get("lines_changed"), max_value=10_000_000))
+    await pipe.execute()
+
+
+async def _handle_ci_run_completed(r: redis.Redis, event: TelemetryIngestEvent) -> None:
+    """Handle GitHub Action / CI pipeline telemetry.
+
+    Increments CI-specific counters AND overall scan counters so that
+    CI-driven scans contribute to the global totals.
+    """
+    p = event.payload
+    files_scanned = _safe_int(p.get("files_scanned"), max_value=1_000_000)
+    total_findings = _safe_int(p.get("total_findings"), max_value=10_000_000)
+    gate = _safe_str(p.get("gate_result"), max_length=8)
+    duration_ms = _safe_int(p.get("duration_ms"), max_value=600_000)
+
+    pipe = r.pipeline()
+    pipe.incr("ct:ci_runs_total")
+    pipe.incr("ct:total_scans")
+    pipe.incr(f"ct:scans_by_source:{event.source}")
+    pipe.incrby("ct:files_scanned", files_scanned)
+    pipe.incrby("ct:total_findings", total_findings)
+    pipe.incr(SCANS_TODAY_KEY)
+    pipe.expire(SCANS_TODAY_KEY, _end_of_day_ttl_seconds())
+    pipe.zadd(SCANS_LAST_HOUR_KEY, {uuid.uuid4().hex: _now_unix()})
+    if gate == "PASS":
+        pipe.incr("ct:ci_gates_passed")
+    elif gate == "FAIL":
+        pipe.incr("ct:ci_gates_failed")
+    if duration_ms > 0:
+        pipe.incrby("ct:ci_total_duration_ms", duration_ms)
     await pipe.execute()
 
 
@@ -266,6 +298,7 @@ EVENT_HANDLERS: dict[str, _Callable[[redis.Redis, TelemetryIngestEvent], _Awaita
     "import_verified": _handle_import_verified,
     "docker_verified": _handle_docker_verified,
     "fix_applied": _handle_fix_applied,
+    "ci_run_completed": _handle_ci_run_completed,
     "pr_risk_assessed": _handle_pr_risk_assessed,
 }
 
@@ -455,9 +488,12 @@ async def build_public_stats(
         "ct:hallucinations_caught",
         "ct:gateway_blocks",
         "ct:gateway_allowed",
+        "ct:gateway_warned",
         "ct:imports_verified",
         "ct:docker_verified",
         "ct:fixes_applied",
+        "ct:fix_files_changed",
+        "ct:fix_lines_changed",
         "ct:pr_gates_passed",
         "ct:pr_gates_failed",
         "ct:files_scanned",
@@ -472,6 +508,9 @@ async def build_public_stats(
         "ct:scans_by_source:mcp",
         "ct:scans_by_source:github_action",
         "ct:scans_by_source:cloud_api",
+        "ct:ci_runs_total",
+        "ct:ci_gates_passed",
+        "ct:ci_gates_failed",
         "ct:ext:pypi_last_day",
         "ct:ext:pypi_last_week",
         "ct:ext:pypi_last_month",
@@ -596,11 +635,17 @@ async def build_public_stats(
             "hallucinations_caught": kv.get("ct:hallucinations_caught", 0),
             "gateway_commands_blocked": kv.get("ct:gateway_blocks", 0),
             "gateway_commands_allowed": kv.get("ct:gateway_allowed", 0),
+            "gateway_commands_warned": kv.get("ct:gateway_warned", 0),
             "imports_verified": kv.get("ct:imports_verified", 0),
             "docker_images_verified": kv.get("ct:docker_verified", 0),
             "fixes_applied": kv.get("ct:fixes_applied", 0),
+            "fix_files_changed": kv.get("ct:fix_files_changed", 0),
+            "fix_lines_changed": kv.get("ct:fix_lines_changed", 0),
             "pr_gates_passed": kv.get("ct:pr_gates_passed", 0),
             "pr_gates_failed": kv.get("ct:pr_gates_failed", 0),
+            "ci_runs_total": kv.get("ct:ci_runs_total", 0),
+            "ci_gates_passed": kv.get("ct:ci_gates_passed", 0),
+            "ci_gates_failed": kv.get("ct:ci_gates_failed", 0),
         },
         "quality": {
             "average_trust_score": avg_score,

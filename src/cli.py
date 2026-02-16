@@ -711,6 +711,34 @@ def cmd_fix(args: argparse.Namespace) -> int:
         print(f"Applied fixes to {changed_files} file(s).")
     else:
         print(f"Fix preview: {changed_files} file(s) would change. Re-run with --apply to write.")
+
+    # --- Telemetry: report autofix usage ---
+    if changed_files > 0:
+        try:
+            from importlib.metadata import version as _pkg_version
+
+            pkg_version = _pkg_version("codetrust")
+        except Exception:
+            pkg_version = "unknown"
+
+        try:
+            from src.telemetry_client import send_telemetry
+
+            send_telemetry(
+                event_type="fix_applied",
+                source="cli",
+                version=pkg_version,
+                cli_opt_out=bool(getattr(args, "no_telemetry", False)),
+                payload={
+                    "fixes_applied": changed_files,
+                    "files_changed": changed_files,
+                    "lines_changed": changed_lines,
+                    "applied": bool(apply),
+                },
+            )
+        except Exception:
+            pass  # best-effort
+
     return 0
 
 
@@ -2226,6 +2254,23 @@ def cmd_scan(args: argparse.Namespace) -> int:
                         print(
                             f"  {color('   All imports verified ✓', GREEN)}\n"
                         )
+
+                # Emit separate import_verified telemetry so imports_verified counter increments
+                try:
+                    from src.telemetry_client import send_telemetry as _send_import_tel
+
+                    _send_import_tel(
+                        event_type="import_verified",
+                        source="cli",
+                        version="unknown",
+                        cli_opt_out=bool(getattr(args, "no_telemetry", False)),
+                        payload={
+                            "total_imports_checked": import_count,
+                            "hallucinations_caught": hallucinations_found,
+                        },
+                    )
+                except Exception:
+                    pass  # best-effort
         except Exception as exc:
             logger.debug(
                 "import_verification_failed",

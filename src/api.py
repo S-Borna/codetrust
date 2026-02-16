@@ -453,28 +453,55 @@ async def _log_scan(
     language: str = "",
     filename: str = "",
 ) -> None:
-    """Log a scan execution and increment usage counters."""
+    """Log a scan execution, increment usage counters, and emit telemetry.
+
+    This ensures every API-driven scan is reflected in real-time public stats,
+    not just the database log.
+    """
     db = getattr(request.app.state, "db", None)
     rate_limiter = getattr(request.app.state, "rate_limiter", None)
-    if db is None:
-        return
-    try:
-        await db.log_scan(
-            user_id=auth.user_id,
-            scan_type=scan_type,
-            verdict=verdict,
-            findings_count=findings_count,
-            latency_ms=latency_ms,
-            language=language,
-            filename=filename,
-            api_key_id=auth.api_key_id,
-        )
-        if rate_limiter is not None:
-            await rate_limiter.increment(
-                auth.user_id, findings_count, latency_ms,
+    if db is not None:
+        try:
+            await db.log_scan(
+                user_id=auth.user_id,
+                scan_type=scan_type,
+                verdict=verdict,
+                findings_count=findings_count,
+                latency_ms=latency_ms,
+                language=language,
+                filename=filename,
+                api_key_id=auth.api_key_id,
             )
-    except Exception as exc:
-        logger.warning("scan_logging_failed", error=str(exc))
+            if rate_limiter is not None:
+                await rate_limiter.increment(
+                    auth.user_id, findings_count, latency_ms,
+                )
+        except Exception as exc:
+            logger.warning("scan_logging_failed", error=str(exc))
+
+    # Emit telemetry so every API scan shows up in live public stats
+    cache = getattr(request.app.state, "cache", None)
+    redis_client = cache.raw_client() if cache is not None else None
+    queue = getattr(request.app.state, "telemetry_queue", None)
+    if redis_client is not None:
+        blocks_count = findings_count if verdict == "BLOCK" else 0
+        try:
+            event = TelemetryIngestEvent(
+                event_type="scan_completed",
+                source="cloud_api",
+                installation_id=None,
+                version=settings.version,
+                payload={
+                    "scan_type": scan_type,
+                    "files_scanned": 1,
+                    "total_findings": findings_count,
+                    "findings_by_severity": {"BLOCK": blocks_count},
+                    "scan_duration_ms": latency_ms,
+                },
+            )
+            await process_telemetry_event(r=redis_client, queue=queue, event=event)
+        except Exception as exc:
+            logger.debug("scan_telemetry_emit_failed", error=str(exc))
 
 
 # --- Endpoints ---

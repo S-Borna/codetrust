@@ -27,6 +27,7 @@ from src.models.requests import (
     RefreshRequest,
     SandboxRequest,
     StaticScanRequest,
+    TelemetryEventRequest,
     VerifyDockerRequest,
     VerifyImportsRequest,
 )
@@ -186,6 +187,7 @@ async def _startup(app: FastAPI) -> None:
         ),
     )
 
+    db: DatabaseService | None
     try:
         db = DatabaseService(settings.database_url, echo=settings.database_echo)
         await db.create_tables()
@@ -195,7 +197,7 @@ async def _startup(app: FastAPI) -> None:
             error=str(exc),
             error_type=type(exc).__name__,
         )
-        db = None  # type: ignore[assignment]
+        db = None
 
     app.state.cache = cache
     app.state.http_client = http_client
@@ -392,11 +394,18 @@ async def public_stats(request: Request) -> dict:
         "total_scans": 0,
         "hallucinated_packages_prevented": 0,
         "destructive_commands_blocked": 0,
+        "telemetry_events_total": 0,
+        "telemetry_unique_instances": 0,
+        "telemetry_scans_total": 0,
+        "telemetry_findings_total": 0,
+        "telemetry_hallucinated_packages_prevented": 0,
+        "telemetry_destructive_commands_blocked": 0,
     }
 
     if db is not None:
         try:
             base.update(await db.get_public_stats())
+            base.update(await db.get_public_telemetry_stats())
         except Exception as exc:
             logger.warning("public_stats_failed", error=str(exc))
 
@@ -406,6 +415,45 @@ async def public_stats(request: Request) -> dict:
     pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
     marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
     return {**base, **pypi, **marketplace}
+
+
+@app.post("/v1/telemetry", response_model=StatusResponse)
+async def ingest_telemetry(event: TelemetryEventRequest, request: Request) -> StatusResponse:
+    """Ingest a single anonymous telemetry event.
+
+    This endpoint is intentionally unauthenticated and must never accept payloads
+    containing user PII, file paths, repository URLs, or code.
+    """
+
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        return StatusResponse(status="ok")
+
+    try:
+        await db.insert_telemetry_event(
+            instance_id=event.instance_id,
+            client=event.client,
+            client_version=event.client_version,
+            schema_version=event.schema_version,
+            event_type=event.event_type,
+            scan_type=event.scan_type,
+            verdict=event.verdict,
+            language=event.language,
+            delta_scans=event.delta_scans,
+            delta_findings_total=event.delta_findings_total,
+            delta_hallucinated_packages_prevented=event.delta_hallucinated_packages_prevented,
+            delta_destructive_commands_blocked=event.delta_destructive_commands_blocked,
+        )
+    except Exception as exc:
+        logger.warning(
+            "telemetry_insert_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            client=event.client,
+            event_type=event.event_type,
+        )
+
+    return StatusResponse(status="ok")
 
 
 @app.get("/v1/governance/audit")

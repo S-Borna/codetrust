@@ -1,4 +1,4 @@
-"""Async database service for users, API keys, scan logs, and usage tracking."""
+"""Async database service for users, API keys, scan logs, usage, and telemetry."""
 
 import datetime
 import hashlib
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from src.models.database import ApiKeyRecord, Base, ScanLog, UsageDay, User
+from src.models.database import ApiKeyRecord, Base, ScanLog, TelemetryEvent, UsageDay, User
 
 logger = structlog.get_logger()
 
@@ -372,4 +372,93 @@ class DatabaseService:
                 "total_scans": total_scans or 0,
                 "hallucinated_packages_prevented": hallucinated or 0,
                 "destructive_commands_blocked": blocked or 0,
+            }
+
+    # --- Anonymous telemetry (public aggregates) ---
+
+    async def insert_telemetry_event(
+        self,
+        *,
+        instance_id: str,
+        client: str,
+        client_version: str,
+        schema_version: int,
+        event_type: str,
+        scan_type: str = "",
+        verdict: str = "",
+        language: str = "",
+        delta_scans: int = 0,
+        delta_findings_total: int = 0,
+        delta_hallucinated_packages_prevented: int = 0,
+        delta_destructive_commands_blocked: int = 0,
+    ) -> None:
+        """Insert a single anonymous telemetry event.
+
+        Must never store code, filenames, repo URLs, or user identifiers.
+        """
+
+        async with self._session_factory() as session:
+            event = TelemetryEvent(
+                instance_id=instance_id,
+                client=client,
+                client_version=client_version,
+                schema_version=schema_version,
+                event_type=event_type,
+                scan_type=scan_type,
+                verdict=verdict,
+                language=language,
+                delta_scans=delta_scans,
+                delta_findings_total=delta_findings_total,
+                delta_hallucinated_packages_prevented=delta_hallucinated_packages_prevented,
+                delta_destructive_commands_blocked=delta_destructive_commands_blocked,
+            )
+            session.add(event)
+            await session.commit()
+
+    async def get_public_telemetry_stats(self) -> dict[str, int]:
+        """Return anonymous telemetry aggregates for public display.
+
+        If the telemetry table doesn't exist (older deployments), callers should
+        catch database errors and fall back to zeros.
+        """
+
+        async with self._session_factory() as session:
+            events_total_stmt = select(func.count()).select_from(TelemetryEvent)
+            events_total = (await session.execute(events_total_stmt)).scalar_one() or 0
+
+            unique_instances_stmt = select(func.count(func.distinct(TelemetryEvent.instance_id)))
+            unique_instances = (
+                await session.execute(unique_instances_stmt)
+            ).scalar_one() or 0
+
+            scans_total_stmt = select(func.coalesce(func.sum(TelemetryEvent.delta_scans), 0))
+            scans_total = (await session.execute(scans_total_stmt)).scalar_one() or 0
+
+            findings_total_stmt = select(
+                func.coalesce(func.sum(TelemetryEvent.delta_findings_total), 0)
+            )
+            findings_total = (
+                await session.execute(findings_total_stmt)
+            ).scalar_one() or 0
+
+            hallucinated_stmt = select(
+                func.coalesce(
+                    func.sum(TelemetryEvent.delta_hallucinated_packages_prevented),
+                    0,
+                )
+            )
+            hallucinated = (await session.execute(hallucinated_stmt)).scalar_one() or 0
+
+            blocked_stmt = select(
+                func.coalesce(func.sum(TelemetryEvent.delta_destructive_commands_blocked), 0)
+            )
+            blocked = (await session.execute(blocked_stmt)).scalar_one() or 0
+
+            return {
+                "telemetry_events_total": int(events_total),
+                "telemetry_unique_instances": int(unique_instances),
+                "telemetry_scans_total": int(scans_total),
+                "telemetry_findings_total": int(findings_total),
+                "telemetry_hallucinated_packages_prevented": int(hallucinated),
+                "telemetry_destructive_commands_blocked": int(blocked),
             }

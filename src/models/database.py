@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for users, API keys, and scan logs."""
+"""SQLAlchemy ORM models for users, API keys, scan logs, and telemetry."""
 
 import datetime
 import uuid
@@ -125,3 +125,45 @@ class UsageDay(Base):
     scan_count: Mapped[int] = mapped_column(Integer, default=0)
     findings_total: Mapped[int] = mapped_column(Integer, default=0)
     avg_latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class TelemetryEvent(Base):
+    """Anonymous telemetry event used for public aggregate statistics.
+
+    This table must never store user PII, code, filenames, repo URLs, or paths.
+    All numeric fields are deltas that can be safely summed.
+    """
+
+    __tablename__ = "telemetry_events"
+
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=_new_id,
+    )
+    instance_id: Mapped[str] = mapped_column(
+        String(64), index=True,
+    )
+    client: Mapped[str] = mapped_column(
+        String(20), index=True,
+    )
+    client_version: Mapped[str] = mapped_column(
+        String(32), default="",
+    )
+    schema_version: Mapped[int] = mapped_column(
+        Integer, default=1,
+    )
+    event_type: Mapped[str] = mapped_column(
+        String(64), index=True,
+    )
+
+    scan_type: Mapped[str] = mapped_column(String(30), default="", index=True)
+    verdict: Mapped[str] = mapped_column(String(10), default="", index=True)
+    language: Mapped[str] = mapped_column(String(20), default="", index=True)
+
+    delta_scans: Mapped[int] = mapped_column(Integer, default=0)
+    delta_findings_total: Mapped[int] = mapped_column(Integer, default=0)
+    delta_hallucinated_packages_prevented: Mapped[int] = mapped_column(Integer, default=0)
+    delta_destructive_commands_blocked: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True,
+    )

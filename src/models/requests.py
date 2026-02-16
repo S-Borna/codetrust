@@ -205,3 +205,48 @@ class OIDCCallbackRequest(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=2000)
     state: str = Field(default="", max_length=500)
+
+
+# --- Anonymous telemetry ---
+
+
+class TelemetryEventRequest(BaseModel):
+    """Anonymous telemetry event.
+
+    This payload must never include user PII, file paths, repo URLs, or code.
+    It is designed to be aggregated into public stats.
+    """
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    instance_id: str = Field(
+        ...,
+        min_length=16,
+        max_length=64,
+        pattern=r"^[a-f0-9]+$",
+        description="Anonymous client instance identifier (random, not user-linked)",
+    )
+    client: str = Field(
+        ...,
+        pattern=r"^(cli|vscode|action|mcp)$",
+        description="Telemetry source",
+    )
+    client_version: str = Field(default="", max_length=32)
+    schema_version: int = Field(default=1, ge=1, le=10)
+
+    event_type: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9_.:-]+$",
+        description="Event type identifier, e.g. scan_completed",
+    )
+
+    scan_type: str = Field(default="", max_length=30)
+    verdict: str = Field(default="", max_length=10)
+    language: str = Field(default="", max_length=20)
+
+    delta_scans: int = Field(default=0, ge=0, le=10_000)
+    delta_findings_total: int = Field(default=0, ge=0, le=10_000_000)
+    delta_hallucinated_packages_prevented: int = Field(default=0, ge=0, le=10_000)
+    delta_destructive_commands_blocked: int = Field(default=0, ge=0, le=10_000)

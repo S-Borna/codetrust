@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Fixed
+
+---
+
+## [2.3.0] - 2026-02-16
+
+### Added
+
 - New `database_url_credentials` rule — catches database URLs with embedded passwords
   (e.g. `postgresql+asyncpg://user:pass@host/db`). Handles `+asyncpg`, `+pymysql`, etc.
 - Path alias test (`test_path_alias_skipped`) for `@/`, `~/`, `#/` aliases

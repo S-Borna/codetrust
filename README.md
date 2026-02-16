@@ -1,9 +1,13 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/S-Borna/codetrust/main/docs/logo.png" alt="CodeTrust" width="420">
+  <img src="https://codetrust.saidborna.com/logo.png" alt="CodeTrust" width="420">
 </p>
 
 <p align="center">
   <strong>Trust the code. Ship with proof.</strong>
+</p>
+
+<p align="center">
+  <code>Current: v2.3.0</code> &middot; <code>1358 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -90,7 +94,7 @@ AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI co
 | Failure Mode | What Happens | Who Catches It |
 |---|---|---|
 | **Hallucinated packages** | `pip install` fails — or worse: typosquatted malware installs | CodeTrust verifies imports against live registries |
-| **Destructive agent commands** | `rm -rf /`, `eval`, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
+| **Destructive agent commands** | `rm -rf /`, dynamic code execution, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
 | **Ghost Docker images** | AI references images that don't exist — build breaks at 2AM | CodeTrust validates images against Docker Hub |
 | **Invisible code drift** | AI code quality degrades gradually — no one measures it | CodeTrust tracks trust score over time |
 
@@ -180,7 +184,7 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
 | **REST API** | 27 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -254,13 +258,14 @@ Minimum permissions required for PR comments and SARIF upload:
 
 ```yaml
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   security-events: write
 ```
 
 ```yaml
-- uses: S-Borna/codetrust@v2
+- uses: S-Borna/codetrust@v2.3.0
   with:
     fail-on: block
     scan-type: static
@@ -269,7 +274,7 @@ permissions:
 # Optional (default: auto on pull_request)
 # pr-comment: auto|always|never
 
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   if: always()
   with:
     sarif_file: codetrust-results.sarif
@@ -342,7 +347,7 @@ See `codetrust init` for a starter configuration.
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.0` |
 | **Cloud API** | Available at `codetrust-api.saidborna.com` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |

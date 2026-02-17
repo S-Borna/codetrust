@@ -1171,7 +1171,7 @@
 
         .dash-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 1.2rem;
             max-width: 1000px;
             margin: 0 auto;
@@ -1181,8 +1181,12 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.4rem;
+            padding: 1.6rem 1.4rem 1.2rem;
             transition: border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
         }
 
         .dash-card:hover {
@@ -1190,63 +1194,105 @@
         }
 
         .dash-card-header {
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             font-weight: 600;
             color: var(--text-2);
-            margin-bottom: 1rem;
+            margin-bottom: 0.8rem;
             display: flex;
             align-items: center;
             gap: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         .dash-icon {
             font-size: 1rem;
         }
 
-        .dash-metric-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin-bottom: 0.8rem;
-        }
-
-        .dash-metric-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .dash-metric {
-            flex: 1;
-            text-align: center;
-        }
-
-        .dash-num {
+        .dash-hero-num {
             font-family: 'IBM Plex Mono', monospace;
-            font-size: 1.5rem;
+            font-size: 2.8rem;
             font-weight: 700;
             color: var(--green);
             line-height: 1;
+            margin-bottom: 0.15rem;
         }
 
-        .dash-num-red {
+        .dash-hero-num.dash-red {
             color: var(--red);
         }
 
-        .dash-num-amber {
-            color: var(--amber);
-        }
-
-        .dash-num-cyan {
+        .dash-hero-num.dash-cyan {
             color: var(--cyan);
         }
 
-        .dash-num-indigo {
-            color: var(--indigo);
+        .dash-hero-label {
+            font-size: 0.72rem;
+            color: var(--text-3);
+            margin-bottom: 1rem;
         }
 
-        .dash-label {
-            font-size: 0.68rem;
+        .dash-detail-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .dash-detail {
+            font-size: 0.72rem;
             color: var(--text-3);
-            margin-top: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .dash-detail strong {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            color: var(--text-1);
+            font-size: 0.82rem;
+        }
+
+        .dash-detail strong.dash-val-red {
+            color: var(--red);
+        }
+
+        .dash-detail strong.dash-val-amber {
+            color: var(--amber);
+        }
+
+        .dash-detail strong.dash-val-cyan {
+            color: var(--cyan);
+        }
+
+        .dash-compact-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            padding: 0.9rem 1rem;
+            margin-top: 1.2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+            font-size: 0.72rem;
+            color: var(--text-3);
+        }
+
+        .dash-compact-bar .dash-compact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .dash-compact-bar .dash-compact-item strong {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            color: var(--text-1);
+            font-size: 0.82rem;
         }
 
         .dash-source-bar {
@@ -1670,7 +1716,7 @@
             }
 
             .dash-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 1fr;
             }
 
             .install-grid {
@@ -1741,11 +1787,16 @@
                 grid-template-columns: 1fr;
             }
 
-            .dash-num {
-                font-size: 1.2rem;
+            .dash-hero-num {
+                font-size: 2rem;
             }
 
             .dash-source-bar {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .dash-compact-bar {
                 flex-direction: column;
                 gap: 0.5rem;
             }
@@ -1925,140 +1976,54 @@
                 <div class="dash-card-header">
                     <span class="dash-icon">🔍</span> Scanning
                 </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="total_scans">0</div>
-                        <div class="dash-label">Total scans</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="scans_today">0</div>
-                        <div class="dash-label">Scans today</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="scans_last_hour">0</div>
-                        <div class="dash-label">Last hour</div>
-                    </div>
-                </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="files_scanned">0</div>
-                        <div class="dash-label">Files scanned</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="total_findings">0</div>
-                        <div class="dash-label">Findings</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="avg_trust_score">0</div>
-                        <div class="dash-label">Avg trust score</div>
-                    </div>
+                <div class="dash-hero-num" data-key="total_scans">0</div>
+                <div class="dash-hero-label">scans executed</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
+                    <span class="dash-detail"><strong data-key="total_findings">0</strong> findings</span>
+                    <span class="dash-detail"><strong data-key="scans_today">0</strong> today</span>
                 </div>
             </div>
 
-            <!-- ENFORCEMENT -->
+            <!-- PROTECTION -->
             <div class="dash-card">
                 <div class="dash-card-header">
-                    <span class="dash-icon">🛡️</span> Enforcement
+                    <span class="dash-icon">🛡️</span> Protection
                 </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-red" data-key="gateway_blocked">0</div>
-                        <div class="dash-label">Commands blocked</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-amber" data-key="gateway_warned">0</div>
-                        <div class="dash-label">Warnings issued</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="gateway_allowed">0</div>
-                        <div class="dash-label">Allowed</div>
-                    </div>
-                </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-red" data-key="hallucinations_caught">0</div>
-                        <div class="dash-label">Hallucinations caught</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="imports_verified">0</div>
-                        <div class="dash-label">Imports verified</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="docker_verified">0</div>
-                        <div class="dash-label">Docker images verified</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CI / CD -->
-            <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">⚙️</span> CI / CD
-                </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="ci_runs">0</div>
-                        <div class="dash-label">CI runs</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="ci_passed">0</div>
-                        <div class="dash-label">Gates passed</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-red" data-key="ci_failed">0</div>
-                        <div class="dash-label">Gates failed</div>
-                    </div>
-                </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="fixes_applied">0</div>
-                        <div class="dash-label">Auto-fixes applied</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="unique_installs">0</div>
-                        <div class="dash-label">Unique installations</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="active_today">0</div>
-                        <div class="dash-label">Active today</div>
-                    </div>
+                <div class="dash-hero-num dash-red" data-key="threats_caught">0</div>
+                <div class="dash-hero-label">threats caught</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong class="dash-val-red" data-key="gateway_blocked">0</strong>
+                        blocked</span>
+                    <span class="dash-detail"><strong class="dash-val-red" data-key="hallucinations_caught">0</strong>
+                        hallucinations</span>
+                    <span class="dash-detail"><strong data-key="imports_verified">0</strong> verified</span>
                 </div>
             </div>
 
             <!-- DISTRIBUTION -->
             <div class="dash-card">
                 <div class="dash-card-header">
-                    <span class="dash-icon">📦</span> Distribution
+                    <span class="dash-icon">📦</span> Reach
                 </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-cyan" data-key="pypi_week">0</div>
-                        <div class="dash-label">PyPI (this week)</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-cyan" data-key="pypi_month">0</div>
-                        <div class="dash-label">PyPI (this month)</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-cyan" data-key="pypi_total">0</div>
-                        <div class="dash-label">PyPI total (incl CI)</div>
-                    </div>
-                </div>
-                <div class="dash-metric-row">
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-indigo" data-key="marketplace_installs">0</div>
-                        <div class="dash-label">VS Code installs</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num dash-num-indigo" data-key="marketplace_downloads">0</div>
-                        <div class="dash-label">Marketplace downloads</div>
-                    </div>
-                    <div class="dash-metric">
-                        <div class="dash-num" data-key="openvsx_downloads">0</div>
-                        <div class="dash-label">Open VSX downloads</div>
-                    </div>
+                <div class="dash-hero-num dash-cyan" data-key="total_downloads">0</div>
+                <div class="dash-hero-label">total downloads</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>
+                        PyPI/wk</span>
+                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
+                    <span class="dash-detail"><strong data-key="marketplace_installs">0</strong> installs</span>
                 </div>
             </div>
+        </div>
+
+        <!-- COMPACT DETAIL BAR -->
+        <div class="dash-compact-bar reveal">
+            <span class="dash-compact-item"><strong data-key="unique_installs">0</strong> unique installs</span>
+            <span class="dash-compact-item"><strong data-key="active_today">0</strong> active today</span>
+            <span class="dash-compact-item"><strong data-key="ci_runs">0</strong> CI runs</span>
+            <span class="dash-compact-item"><strong data-key="fixes_applied">0</strong> auto-fixes</span>
+            <span class="dash-compact-item"><strong data-key="docker_verified">0</strong> Docker verified</span>
         </div>
 
         <!-- SOURCE BREAKDOWN -->
@@ -2793,51 +2758,43 @@
         let ws = null;
 
         function extractStats(payload) {
-            // Resolve the nested stats object (works with both API shapes)
             const s = (payload && payload.stats) ? payload.stats : {};
             const u = s.usage || {};
             const i = s.impact || {};
             const d = s.distribution || {};
-            const q = s.quality || {};
             const pypi = (d.pypi) || {};
             const mkt = (d.marketplace) || {};
             const ovsx = (d.open_vsx) || {};
             const src = u.scans_by_source || {};
 
+            const gateway_blocked = i.gateway_commands_blocked || payload.destructive_commands_blocked || 0;
+            const hallucinations_caught = i.hallucinations_caught || payload.hallucinated_packages_prevented || 0;
+            const pypi_total = pypi.downloads_last_3_months_ci || 0;
+            const mkt_dl = mkt.downloads || payload.marketplace_downloads || 0;
+            const ovsx_dl = ovsx.downloads || payload.openvsx_downloads || 0;
+
             return {
-                // Scanning
                 total_scans: u.total_scans || payload.total_scans || 0,
                 scans_today: u.scans_today || 0,
-                scans_last_hour: u.scans_last_hour || 0,
                 files_scanned: u.total_files_scanned || 0,
                 total_findings: u.total_findings || 0,
-                avg_trust_score: q.average_trust_score || 0,
 
-                // Enforcement
-                gateway_blocked: i.gateway_commands_blocked || payload.destructive_commands_blocked || 0,
-                gateway_warned: i.gateway_commands_warned || 0,
-                gateway_allowed: i.gateway_commands_allowed || 0,
-                hallucinations_caught: i.hallucinations_caught || payload.hallucinated_packages_prevented || 0,
+                threats_caught: gateway_blocked + hallucinations_caught,
+                gateway_blocked: gateway_blocked,
+                hallucinations_caught: hallucinations_caught,
                 imports_verified: i.imports_verified || 0,
-                docker_verified: i.docker_images_verified || 0,
 
-                // CI / CD
-                ci_runs: i.ci_runs_total || 0,
-                ci_passed: i.ci_gates_passed || 0,
-                ci_failed: i.ci_gates_failed || 0,
-                fixes_applied: i.fixes_applied || 0,
+                total_downloads: pypi_total + mkt_dl + ovsx_dl,
+                pypi_week: pypi.downloads_this_week || payload.pypi_downloads_last_week || 0,
+                marketplace_downloads: mkt_dl,
+                marketplace_installs: mkt.installs || payload.marketplace_installs || 0,
+
                 unique_installs: u.unique_installations_total || 0,
                 active_today: u.unique_installations_today || 0,
+                ci_runs: i.ci_runs_total || 0,
+                fixes_applied: i.fixes_applied || 0,
+                docker_verified: i.docker_images_verified || 0,
 
-                // Distribution
-                pypi_week: pypi.downloads_this_week || payload.pypi_downloads_last_week || 0,
-                pypi_month: pypi.downloads_this_month || 0,
-                pypi_total: pypi.downloads_last_3_months_ci || 0,
-                marketplace_installs: mkt.installs || payload.marketplace_installs || 0,
-                marketplace_downloads: mkt.downloads || payload.marketplace_downloads || 0,
-                openvsx_downloads: ovsx.downloads || payload.openvsx_downloads || 0,
-
-                // Sources
                 src_cli: src.cli || 0,
                 src_vscode: src.vscode || 0,
                 src_mcp: src.mcp || 0,
@@ -2846,18 +2803,36 @@
             };
         }
 
+        function animateValue(el, from, to, duration) {
+            if (from === to) return;
+            const start = performance.now();
+            const step = (now) => {
+                const progress = Math.min((now - start) / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.floor(from + (to - from) * ease).toLocaleString();
+                if (progress < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+        }
+
+        let firstLoad = true;
+
         function updateDashboard(payload) {
             const m = extractStats(payload);
+            const dur = firstLoad ? 1800 : 600;
             document.querySelectorAll('[data-key]').forEach(el => {
                 const key = el.dataset.key;
                 const val = m[key];
-                if (val !== undefined) {
-                    el.dataset.count = val;
-                    el.textContent = Number(val || 0).toLocaleString();
+                if (val === undefined) return;
+                const oldVal = parseInt(el.dataset.count) || 0;
+                const newVal = Number(val || 0);
+                el.dataset.count = newVal;
+                if (newVal !== oldVal) {
+                    animateValue(el, oldVal, newVal, dur);
                 }
             });
+            firstLoad = false;
 
-            // Update timestamp
             const ts = payload && payload.stats && payload.stats.updated_at;
             const tsEl = document.getElementById('live-updated-at');
             if (ts && tsEl) {
@@ -2922,29 +2897,6 @@
 
         fetchStatsOnce();
         connectWebSocket();
-
-        // Animate dashboard counters on scroll
-        const counterObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (!entry.isIntersecting) return;
-                entry.target.querySelectorAll('[data-key]').forEach(el => {
-                    const target = parseInt(el.dataset.count);
-                    if (!target || target === 0) return;
-                    const duration = 2000;
-                    const start = performance.now();
-                    const step = (now) => {
-                        const progress = Math.min((now - start) / duration, 1);
-                        const ease = 1 - Math.pow(1 - progress, 3);
-                        el.textContent = Math.floor(target * ease).toLocaleString();
-                        if (progress < 1) requestAnimationFrame(step);
-                    };
-                    requestAnimationFrame(step);
-                });
-                counterObserver.unobserve(entry.target);
-            });
-        }, { threshold: 0.3 });
-        const dashSection = document.getElementById('live-stats');
-        if (dashSection) counterObserver.observe(dashSection);
     </script>
 
 </body>

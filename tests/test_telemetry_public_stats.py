@@ -8,8 +8,8 @@ from src.services.telemetry import (
     OPEN_VSX_EXTENSION_NAME,
     OPEN_VSX_EXTENSION_URL_TEMPLATE,
     OPEN_VSX_NAMESPACE,
+    PEPY_API_URL_TEMPLATE,
     PEPY_PROJECT,
-    PEPY_PROJECT_URL_TEMPLATE,
     PYPI_RECENT_URL,
     build_public_stats,
     fetch_external_stats,
@@ -56,26 +56,16 @@ async def test_fetch_external_stats_populates_distribution_keys(
     )
     httpx_mock.add_response(method="GET", url=open_vsx_url, json={"downloadCount": 2710})
 
-    pepy_base_url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
-    pepy_url = str(
-        httpx.URL(pepy_base_url).copy_merge_params(
-            {
-                "timeRange": "threeMonths",
-                "category": "version",
-                "includeCIDownloads": "true",
-                "granularity": "daily",
-                "viewType": "line",
-                "versions": settings.version,
-            }
-        )
-    )
+    pepy_url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
     httpx_mock.add_response(
         method="GET",
         url=pepy_url,
-        text='<!doctype html><script>self.__next_f.push([1,"{\\"totalDownloads\\":2712}"])</script>',
+        json={"total_downloads": 2712},
     )
 
-    await fetch_external_stats(r, mock_http_client)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(settings, "pepy_api_key", "test-key-12345678")
+        await fetch_external_stats(r, mock_http_client)
 
     assert await r.get("ct:ext:pypi_last_day") == "11"
     assert await r.get("ct:ext:pypi_last_week") == "881"

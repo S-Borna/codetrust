@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
-import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -57,10 +56,8 @@ OPEN_VSX_EXTENSION_URL_TEMPLATE: str = "https://open-vsx.org/api/{namespace}/{na
 OPEN_VSX_NAMESPACE: str = "SaidBorna"
 OPEN_VSX_EXTENSION_NAME: str = "codetrust"
 
-PEPY_PROJECT_URL_TEMPLATE: str = "https://pepy.tech/projects/{project}"
+PEPY_API_URL_TEMPLATE: str = "https://api.pepy.tech/api/v2/projects/{project}"
 PEPY_PROJECT: str = "codetrust"
-
-_PEPY_TOTAL_DOWNLOADS_RE: re.Pattern[str] = re.compile(r'\\?"totalDownloads\\?"\s*:\s*(\d+)')
 
 
 class TelemetryIngestEvent(BaseModel):
@@ -365,25 +362,25 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_pypi_failed", error=str(exc))
 
-    # Pepy (PyPI downloads, last 3 months, include CI)
-    try:
-        url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
-        params = {
-            "timeRange": "threeMonths",
-            "category": "version",
-            "includeCIDownloads": "true",
-            "granularity": "daily",
-            "viewType": "line",
-            "versions": settings.version,
-        }
-        res = await http_client.get(url, params=params, follow_redirects=True)
-        res.raise_for_status()
-        html = res.text
-        match = _PEPY_TOTAL_DOWNLOADS_RE.search(html)
-        downloads = int(match.group(1)) if match else 0
-        await r.set("ct:ext:pepy_3m_ci_downloads", str(_safe_int(downloads)), ex=EXT_STATS_TTL_SECONDS)
-    except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
-        logger.warning("ext_stats_pepy_failed", error=str(exc))
+    # Pepy (total PyPI downloads via authenticated API)
+    if settings.pepy_api_key:
+        try:
+            url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
+            headers = {"X-Api-Key": settings.pepy_api_key}
+            res = await http_client.get(url, headers=headers)
+            res.raise_for_status()
+            payload = res.json()
+            total_downloads = _safe_int(
+                payload.get("total_downloads") if isinstance(payload, dict) else 0,
+                max_value=100_000_000,
+            )
+            await r.set(
+                "ct:ext:pepy_3m_ci_downloads",
+                str(total_downloads),
+                ex=EXT_STATS_TTL_SECONDS,
+            )
+        except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
+            logger.warning("ext_stats_pepy_failed", error=str(exc))
 
     # VS Code Marketplace
     body = {

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
         "https://hub.docker.com/v2/repositories/library/{image}/tags?page_size=100"
     )
 
+    # --- External Stats ---
+    pepy_api_key: str = ""  # pepy.tech API key for download stats
+
     # --- Sandbox ---
     sandbox_enabled: bool = False  # Must be explicitly enabled
     sandbox_memory_limit: str = "256m"

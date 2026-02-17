@@ -10,7 +10,9 @@ from fastapi.testclient import TestClient
 from src.api import app
 from src.middleware.ip_rate_limit import (
     IP_BURST_LIMIT,
+    IP_BURST_WINDOW,
     IP_RATE_LIMIT,
+    IP_RATE_WINDOW,
     MAX_BODY_SIZE,
     IPRateLimitMiddleware,
     _IPBucket,
@@ -51,18 +53,29 @@ class TestIPBucket:
             bucket.check(now)
         assert bucket.check(now) is False
         # After burst window expires, should allow again
-        assert bucket.check(now + 6.0) is True
+        assert bucket.check(now + IP_BURST_WINDOW + 0.1) is True
 
     def test_blocks_after_rate_limit(self) -> None:
         bucket = _IPBucket()
         now = bucket.window_start
-        # Send requests spread across burst windows to avoid burst limit
+        # Generate traffic that exceeds the per-minute limit while staying under the burst limit.
+        #
+        # Constraints (must satisfy both):
+        # - Burst: <= IP_BURST_LIMIT requests per IP_BURST_WINDOW seconds
+        # - Rate:  <= IP_RATE_LIMIT requests per IP_RATE_WINDOW seconds
+        #
+        # Use a dt that is:
+        # - small enough to exceed the overall rate window (dt < IP_RATE_WINDOW / IP_RATE_LIMIT)
+        # - large enough to stay within burst (dt >= IP_BURST_WINDOW / IP_BURST_LIMIT)
+        rate_dt = (IP_RATE_WINDOW / IP_RATE_LIMIT) * 0.9
+        burst_dt = IP_BURST_WINDOW / IP_BURST_LIMIT
+        dt = max(rate_dt, burst_dt)
+
         for i in range(IP_RATE_LIMIT):
-            t = now + (i * 0.3)  # spread out to avoid burst
-            bucket.check(t)
-        # Should be blocked (over window limit)
-        last_t = now + (IP_RATE_LIMIT * 0.3)
-        assert bucket.check(last_t) is False
+            bucket.check(now + (i * dt))
+
+        # Next request within the same rate window should be blocked.
+        assert bucket.check(now + (IP_RATE_LIMIT * dt)) is False
 
     def test_window_resets_after_expiry(self) -> None:
         bucket = _IPBucket()

@@ -742,6 +742,302 @@ def cmd_fix(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vuln(args: argparse.Namespace) -> int:
+    """Scan dependencies for known vulnerabilities via the OSV database."""
+    targets = getattr(args, "targets", []) or ["."]
+    lang_str = getattr(args, "language", "") or ""
+    json_output = bool(getattr(args, "json_output", False))
+
+    # Find requirements/package files in targets.
+    packages: list[str] = []
+    language_hint = lang_str.lower().strip()
+
+    for t in targets:
+        p = Path(t)
+        if p.is_file():
+            _collect_dependency_packages(p, packages, language_hint)
+        elif p.is_dir():
+            # Look for standard dependency files.
+            for dep_file in ("requirements.txt", "setup.py", "pyproject.toml",
+                             "package.json", "Cargo.toml", "go.mod", "pom.xml"):
+                candidate = p / dep_file
+                if candidate.exists():
+                    _collect_dependency_packages(candidate, packages, language_hint)
+
+    if not packages:
+        print("No dependency packages found. Specify a requirements.txt, package.json, etc.")
+        return 0
+
+    # Detect language from files if not specified.
+    if not language_hint:
+        language_hint = _detect_language_from_dep_files(targets)
+
+    from src.models.enums import Language
+    try:
+        language = Language(language_hint) if language_hint else Language.PYTHON
+    except ValueError:
+        language = Language.PYTHON
+
+    # Run the vulnerability check.
+    import asyncio
+
+    from src.services.cache import CacheService
+    from src.services.vulnerability import VulnerabilityService
+
+    async def _run() -> int:
+        cache = CacheService("redis://localhost:6379")
+        await cache.connect()
+
+        import httpx
+        async with httpx.AsyncClient() as http_client:
+            vuln_svc = VulnerabilityService(cache, http_client)
+            result = await vuln_svc.check_packages(language=language, packages=packages)
+
+        await cache.disconnect()
+        return result
+
+    result = asyncio.run(_run())
+
+    if json_output:
+        import json
+        out = {
+            "total_packages": result.total_packages,
+            "vulnerable_count": result.vulnerable_count,
+            "clean_count": result.clean_count,
+            "total_vulnerabilities": result.total_vulnerabilities,
+            "critical_count": result.critical_count,
+            "high_count": result.high_count,
+            "medium_count": result.medium_count,
+            "low_count": result.low_count,
+            "results": [
+                {
+                    "package": r.package,
+                    "ecosystem": r.ecosystem,
+                    "is_vulnerable": r.is_vulnerable,
+                    "vulnerabilities": [
+                        {"id": v.id, "severity": v.severity, "summary": v.summary,
+                         "fixed_version": v.fixed_version}
+                        for v in r.vulnerabilities
+                    ],
+                }
+                for r in result.results
+            ],
+        }
+        print(json.dumps(out, indent=2))
+    else:
+        print("\n  CodeTrust Vulnerability Scan")
+        print(f"  {'=' * 40}")
+        print(f"  Packages scanned: {result.total_packages}")
+        print(f"  Vulnerable:       {result.vulnerable_count}")
+        print(f"  Clean:            {result.clean_count}")
+        print(f"  Total CVEs:       {result.total_vulnerabilities}")
+        if result.critical_count:
+            print(f"  Critical:         {result.critical_count}")
+        if result.high_count:
+            print(f"  High:             {result.high_count}")
+        if result.medium_count:
+            print(f"  Medium:           {result.medium_count}")
+        if result.low_count:
+            print(f"  Low:              {result.low_count}")
+        print()
+
+        for r in result.results:
+            if r.is_vulnerable:
+                print(f"  VULNERABLE: {r.package} ({r.ecosystem})")
+                for v in r.vulnerabilities:
+                    fixed = f" -> fix: {v.fixed_version}" if v.fixed_version else ""
+                    print(f"    [{v.severity}] {v.id}: {v.summary[:80]}{fixed}")
+                print()
+
+    return 1 if result.vulnerable_count > 0 else 0
+
+
+def cmd_license(args: argparse.Namespace) -> int:
+    """Check dependency licenses for compliance."""
+    targets = getattr(args, "targets", []) or ["."]
+    lang_str = getattr(args, "language", "") or ""
+    json_output = bool(getattr(args, "json_output", False))
+
+    packages: list[str] = []
+    language_hint = lang_str.lower().strip()
+
+    for t in targets:
+        p = Path(t)
+        if p.is_file():
+            _collect_dependency_packages(p, packages, language_hint)
+        elif p.is_dir():
+            for dep_file in ("requirements.txt", "package.json"):
+                candidate = p / dep_file
+                if candidate.exists():
+                    _collect_dependency_packages(candidate, packages, language_hint)
+
+    if not packages:
+        print("No dependency packages found.")
+        return 0
+
+    if not language_hint:
+        language_hint = _detect_language_from_dep_files(targets)
+
+    from src.models.enums import Language
+    try:
+        language = Language(language_hint) if language_hint else Language.PYTHON
+    except ValueError:
+        language = Language.PYTHON
+
+    import asyncio
+
+    from src.services.cache import CacheService
+    from src.services.license_checker import LicenseService
+
+    async def _run() -> int:
+        cache = CacheService("redis://localhost:6379")
+        await cache.connect()
+
+        import httpx
+        async with httpx.AsyncClient() as http_client:
+            license_svc = LicenseService(cache, http_client)
+            result = await license_svc.check_packages(language=language, packages=packages)
+
+        await cache.disconnect()
+        return result
+
+    result = asyncio.run(_run())
+
+    if json_output:
+        import json
+        out = {
+            "total_packages": result.total_packages,
+            "compliant": result.compliant,
+            "permissive_count": result.permissive_count,
+            "weak_copyleft_count": result.weak_copyleft_count,
+            "strong_copyleft_count": result.strong_copyleft_count,
+            "network_copyleft_count": result.network_copyleft_count,
+            "risk_packages": [
+                {"package": r.package, "license": r.license_name, "risk": r.risk.value}
+                for r in result.risk_packages
+            ],
+        }
+        print(json.dumps(out, indent=2))
+    else:
+        print("\n  CodeTrust License Compliance Check")
+        print(f"  {'=' * 40}")
+        print(f"  Packages checked: {result.total_packages}")
+        print(f"  Compliant:        {'Yes' if result.compliant else 'NO'}")
+        print(f"  Permissive:       {result.permissive_count}")
+        if result.weak_copyleft_count:
+            print(f"  Weak copyleft:    {result.weak_copyleft_count}")
+        if result.strong_copyleft_count:
+            print(f"  Strong copyleft:  {result.strong_copyleft_count}")
+        if result.network_copyleft_count:
+            print(f"  Network copyleft: {result.network_copyleft_count}")
+        if result.unknown_count:
+            print(f"  Unknown:          {result.unknown_count}")
+        print()
+
+        if result.risk_packages:
+            print("  Risk packages:")
+            for r in result.risk_packages:
+                print(f"    [{r.risk.value.upper()}] {r.package}: {r.license_name}")
+            print()
+
+    return 0 if result.compliant else 1
+
+
+def _collect_dependency_packages(filepath: Path, packages: list[str], language_hint: str) -> None:
+    """Extract package names from a dependency file."""
+    name = filepath.name.lower()
+    try:
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return
+
+    if name == "requirements.txt" or (name.endswith(".txt") and "require" in name):
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and not line.startswith("-"):
+                # Extract package name (before ==, >=, etc.)
+                pkg = re.split(r"[>=<!~\[]", line)[0].strip()
+                if pkg:
+                    packages.append(pkg)
+
+    elif name == "package.json":
+        import json
+        try:
+            data = json.loads(content)
+            for section in ("dependencies", "devDependencies"):
+                deps = data.get(section, {})
+                if isinstance(deps, dict):
+                    packages.extend(deps.keys())
+        except json.JSONDecodeError as exc:
+            logger.debug("Skipping malformed package.json: %s", exc)
+
+    elif name == "cargo.toml":
+        for line in content.splitlines():
+            line = line.strip()
+            if "=" in line and not line.startswith("[") and not line.startswith("#"):
+                pkg = line.split("=")[0].strip()
+                if pkg and not pkg.startswith("["):
+                    packages.append(pkg)
+
+    elif name == "go.mod":
+        in_require = False
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped == "require (":
+                in_require = True
+                continue
+            if in_require and stripped == ")":
+                in_require = False
+                continue
+            if in_require and stripped:
+                pkg = stripped.split()[0]
+                packages.append(pkg)
+
+    elif name == "pyproject.toml":
+        in_deps = False
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped in ("[project.dependencies]", "dependencies = ["):
+                in_deps = True
+                continue
+            if in_deps:
+                if stripped.startswith("[") or stripped == "]":
+                    in_deps = False
+                    continue
+                pkg = stripped.strip("\",' ")
+                pkg = re.split(r"[>=<!~\[]", pkg)[0].strip()
+                if pkg:
+                    packages.append(pkg)
+
+
+def _detect_language_from_dep_files(targets: list[str]) -> str:
+    """Detect language from dependency files in target paths."""
+    for t in targets:
+        p = Path(t)
+        if p.is_dir():
+            if (p / "requirements.txt").exists() or (p / "pyproject.toml").exists():
+                return "python"
+            if (p / "package.json").exists():
+                return "javascript"
+            if (p / "go.mod").exists():
+                return "go"
+            if (p / "Cargo.toml").exists():
+                return "rust"
+            if (p / "pom.xml").exists():
+                return "java"
+        elif p.is_file():
+            name = p.name.lower()
+            if "requirements" in name or name == "pyproject.toml":
+                return "python"
+            if name == "package.json":
+                return "javascript"
+            if name == "go.mod":
+                return "go"
+            if name == "cargo.toml":
+                return "rust"
+    return ""
+
+
 def _detect_verify_gates(project_dir: Path) -> list[str]:
     """Best-effort detection of common repo verification gates.
 
@@ -3031,6 +3327,26 @@ def main() -> int:
         action="store_true",
         help="Write changes to disk (default: preview only)",
     )
+    fix_parser.add_argument(
+        "--pr",
+        action="store_true",
+        help="Create a GitHub PR with the fixes (requires CODETRUST_GITHUB_TOKEN)",
+    )
+    fix_parser.add_argument("--github-owner", default="", help="GitHub repo owner for --pr")
+    fix_parser.add_argument("--github-repo", default="", help="GitHub repo name for --pr")
+    fix_parser.add_argument("--github-branch", default="main", help="Base branch for --pr")
+
+    # vuln — vulnerability scanning
+    vuln_parser = subparsers.add_parser("vuln", help="Scan dependencies for known vulnerabilities (CVE/GHSA)")
+    vuln_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories to scan")
+    vuln_parser.add_argument("--language", "-l", default="", help="Language (python, javascript, go, rust, java, csharp)")
+    vuln_parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
+
+    # license — license compliance
+    license_parser = subparsers.add_parser("license", help="Check dependency licenses for compliance")
+    license_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories to scan")
+    license_parser.add_argument("--language", "-l", default="", help="Language (python, javascript)")
+    license_parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
 
     # status
     subparsers.add_parser("status", help="Check installed enforcement layers")
@@ -3135,6 +3451,10 @@ def main() -> int:
         return cmd_scan(args)
     if args.command == "fix":
         return cmd_fix(args)
+    if args.command == "vuln":
+        return cmd_vuln(args)
+    if args.command == "license":
+        return cmd_license(args)
     if args.command == "status":
         return cmd_status(args)
     if args.command == "doctor":

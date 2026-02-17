@@ -89,6 +89,22 @@ else
     FAIL=$((FAIL + 1))
 fi
 
+# 11. Vulnerability scan
+check "Vuln scan" "$BASE_URL/v1/vuln/scan" POST \
+    '{"language":"python","packages":["requests"]}'
+
+# 12. License scan
+check "License scan" "$BASE_URL/v1/license/scan" POST \
+    '{"language":"python","packages":["requests"]}'
+
+# 13. Cross-file analysis
+check "Cross-file scan" "$BASE_URL/v1/scan/cross-file" POST \
+    '{"files":{"main.py":"from utils import helper\n","utils.py":"def helper(): pass\n"}}'
+
+# 14. Auto-fix
+check "Auto-fix" "$BASE_URL/v1/fix/apply" POST \
+    '{"files":{"app.py":"print(\"hello\")\n"},"languages":{"app.py":"python"}}'
+
 echo ""
 echo "============================================"
 echo "  Results: $PASS passed, $FAIL failed"

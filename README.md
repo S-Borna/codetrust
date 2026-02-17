@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1367 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1431 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 133 rules across 10 enforcement layers, 17 MCP tools, 28 API endpoints. 1,367 tests.
+**AI Governance Enforcement Platform** — 133 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,431 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -103,9 +103,10 @@ AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI co
 | **SonarQube** | 5,000+ quality rules | Does not intercept AI agents, verify imports, or track trust scores |
 | **Snyk** | CVEs in known packages | Does not intercept AI agents, detect hallucinated packages, or track trust scores |
 | **Semgrep** | Cross-file dataflow analysis | Does not intercept AI agents, verify imports against registries, or track trust scores |
+| **FOSSA / WhiteSource** | License compliance scanning | Does not intercept AI agents, detect hallucinated packages, or scan code quality |
 | **Ruff / ESLint** | Code style, formatting | Does not intercept AI agents, verify imports, or track trust scores |
 
-Unlike traditional tools, CodeTrust uniquely combines pre-execution interception, live registry verification, and quantified safety tracking.
+CodeTrust combines pre-execution interception, live registry verification, quantified safety tracking, CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team management — all in one platform, all free.
 
 ---
 
@@ -184,7 +185,7 @@ codetrust scan .
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
-| **REST API** | 28 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **REST API** | 42 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 
@@ -208,6 +209,11 @@ codetrust trend record             # Record a local snapshot
 codetrust trend show               # Show recorded snapshots
 
 codetrust policy wizard            # Generate governance policy presets + TOML autocomplete
+
+codetrust vuln                     # Scan dependencies for known CVEs (OSV database)
+codetrust license                  # Check dependency license compliance
+codetrust fix                      # Apply auto-fix recipes
+codetrust fix --pr                 # Apply fixes and open a GitHub PR
 
 codetrust governance --status      # Governance overview
 codetrust governance --mode audit  # Switch to audit mode
@@ -400,6 +406,12 @@ Replace `/absolute/path/to/codetrust` with the actual path to your CodeTrust ins
 | JavaScript / TypeScript | ✅ | ✅ | ✅ (npm) |
 | Go | ✅ | ✅ | ✅ (Go proxy) |
 | Rust | ✅ | ✅ | ✅ (crates.io) |
+| Java | ✅ | ✅ | ✅ (Maven) |
+| C# | ✅ | ✅ | ✅ (NuGet) |
+| C / C++ | ✅ | ✅ | — |
+| Shell / Bash | ✅ | — | — |
+| Terraform / HCL | ✅ | — | — |
+| HTML | ✅ | — | — |
 | SQL | ✅ | — | — |
 | Dockerfile | ✅ | — | ✅ (Docker Hub) |
 | YAML / Kubernetes | ✅ | — | — |
@@ -475,6 +487,65 @@ retention_days = 90
 
 ---
 
+## Enterprise Services
+
+Five capabilities that match or exceed paid features from Snyk, SonarQube, Semgrep, FOSSA, and WhiteSource — included free.
+
+### CVE / Vulnerability Scanning
+
+Checks dependencies against the [OSV](https://osv.dev) vulnerability database (Google). Supports PyPI, npm, crates.io, Go, Maven, NuGet.
+
+```bash
+codetrust vuln                     # Scan from requirements.txt / package.json
+codetrust vuln --language python   # Explicit language
+codetrust vuln --json              # Machine-readable output
+```
+
+**API:** `POST /v1/vuln/scan` — batch check up to 200 packages in a single request.
+
+### License Compliance
+
+Extracts licenses from PyPI and npm registries. Classifies as permissive, weak copyleft, strong copyleft, or network copyleft (AGPL). Flags compliance risks.
+
+```bash
+codetrust license                  # Check from dependency files
+codetrust license --json           # Machine-readable output
+```
+
+**API:** `POST /v1/license/scan`
+
+### Cross-File Import Analysis
+
+Builds the import dependency graph for a project. Detects circular dependencies, orphan files, hub files, and propagates findings across import chains.
+
+**API:** `POST /v1/scan/cross-file`
+
+### Auto-Fix PRs
+
+Applies safe, deterministic fix recipes (print→logging, bare except, hardcoded secrets→env vars) and optionally opens a GitHub PR with the fixes.
+
+```bash
+codetrust fix                      # Apply fixes locally
+codetrust fix --pr                 # Create a GitHub PR with fixes
+```
+
+**API:** `POST /v1/fix/apply` — supports optional PR creation via GitHub API.
+
+### Team Management & RBAC
+
+Organizations, team memberships, and role-based access control. Enforce org-wide policies: maximum severity gates, vulnerability thresholds, blocked licenses.
+
+| Role | Permissions |
+|------|------------|
+| **Owner** | Full control, billing, transfer ownership, delete org |
+| **Admin** | Manage members, edit policies, view billing |
+| **Member** | Run scans, create API keys |
+| **Viewer** | View scans and policies |
+
+**API:** 10 endpoints under `/v1/orgs/*` — create/list/delete orgs, manage members, enforce policies.
+
+---
+
 ## Distribution
 
 | Channel | Install |
@@ -492,7 +563,7 @@ retention_days = 90
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v           # 1367 tests
+pytest tests/ -v           # 1431 tests
 ruff check src/ tests/     # zero warnings
 ```
 

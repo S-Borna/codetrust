@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CVE / Vulnerability Scanning** — new `VulnerabilityService` queries Google's OSV database for known CVEs/GHSAs across all supported ecosystems (PyPI, npm, crates.io, Go, Maven, NuGet)
+  - `POST /v1/vuln/scan` — batch check up to 200 packages per request
+  - `codetrust vuln` CLI command with `--language` and `--json` flags
+  - Cache-first pattern with configurable TTLs (1h vulnerable, 6h clean)
+  - Concurrent checking with `asyncio.Semaphore(20)` for throughput
+
+- **License Compliance** — new `LicenseService` extracts and classifies dependency licenses from PyPI and npm registries
+  - `POST /v1/license/scan` — batch license check with risk classification
+  - `codetrust license` CLI command with `--language` and `--json` flags
+  - Classification: permissive, weak copyleft (LGPL/MPL), strong copyleft (GPL), network copyleft (AGPL/SSPL)
+  - LGPL correctly classified as weak (not strong) copyleft
+
+- **Cross-File Import Analysis** — new `CrossFileAnalyzer` builds import dependency graphs across project files
+  - `POST /v1/scan/cross-file` — analyze up to 500 files
+  - Language-specific import extractors for Python, JS/TS, Go, Java, C#
+  - Circular dependency detection via DFS
+  - Orphan file detection (never imported) and hub file detection (imported by 5+)
+  - Finding propagation through reverse import graph
+
+- **Auto-Fix PR Generation** — new `AutoFixService` applies safe fix recipes and optionally creates GitHub PRs
+  - `POST /v1/fix/apply` — apply fixes with optional PR creation via GitHub API
+  - `codetrust fix --pr` with `--github-owner`, `--github-repo`, `--github-branch` flags
+  - Fix recipes: `print_to_logging`, `bare_except`, `hardcoded_secrets`
+  - Detailed PR body generation with per-file fix descriptions
+
+- **Team Management & RBAC** — new `TeamService` with organization CRUD, membership management, and policy enforcement
+  - 10 API endpoints under `/v1/orgs/*`: create/list/get/delete orgs, add/remove/update members, get/update policies
+  - `Organization` and `TeamMember` SQLAlchemy models with full relationship mapping
+  - Role hierarchy: Owner → Admin → Member → Viewer with cumulative permissions
+  - Org-level policy enforcement: max severity gates, vulnerability thresholds, blocked licenses
+
+- **Database models** — `Organization` and `TeamMember` added to `src/models/database.py`
+  - Organization: name, slug, plan, owner, policy fields (max_severity, license compliance, vuln gates)
+  - TeamMember: org/user relationship, role, invited_by tracking
+
+- **53 new tests** covering all 5 enterprise features (vulnerability, license, cross-file, autofix, team/RBAC, API endpoints, database models)
+
 - **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform (+ SQL/YAML already present in backend, now enabled in extension). Total: **13 languages** (up from 6)
 
 - Backend — Language enum:

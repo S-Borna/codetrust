@@ -16,6 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Embedded scanner routes Terraform/HCL (`.tf`, `.tfvars`, `.hcl`) to DevOps rules
 - `enabledLanguages` setting expanded from 6 to 13 entries
 
+### Backend (platform-level, benefits all surfaces)
+
+- **CVE/vulnerability scanning** via OSV database — `POST /v1/vuln/scan`, `codetrust vuln`
+- **License compliance** checking — `POST /v1/license/scan`, `codetrust license`
+- **Cross-file import analysis** with cycle/orphan/hub detection — `POST /v1/scan/cross-file`
+- **Auto-fix PR generation** via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr`
+- **Team management & RBAC** with org policies — 10 new endpoints under `/v1/orgs/*`
+- 13 new API endpoints (41 total, up from 28)
+- 53 new tests (1431 total, up from 1367)
+
 ### Changed
 
 - Status bar: consistent `$(shield) CodeTrust` branding across all verdict states — no color changes, no "(offline)" suffix

@@ -272,3 +272,184 @@ class RateLimitError(BaseModel):
     daily_limit: int
     plan: str
     message: str
+
+
+# --- Vulnerability scanning responses ---
+
+
+class VulnerabilityItem(BaseModel):
+    """A single known vulnerability."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str = Field(description="CVE/GHSA identifier")
+    summary: str = Field(default="")
+    severity: str = Field(default="UNKNOWN")
+    fixed_version: str = Field(default="")
+    aliases: list[str] = Field(default_factory=list)
+    reference_url: str = Field(default="")
+
+
+class PackageVulnResponse(BaseModel):
+    """Vulnerability results for a single package."""
+
+    model_config = ConfigDict(strict=True)
+
+    package: str
+    ecosystem: str
+    version: str = Field(default="")
+    is_vulnerable: bool = Field(default=False)
+    vulnerabilities: list[VulnerabilityItem] = Field(default_factory=list)
+    error: str = Field(default="")
+
+
+class VulnScanApiResponse(BaseModel):
+    """Aggregated vulnerability scan results."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_packages: int
+    vulnerable_count: int
+    clean_count: int
+    total_vulnerabilities: int
+    critical_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    results: list[PackageVulnResponse]
+    latency_ms: int
+
+
+# --- License compliance responses ---
+
+
+class LicenseItem(BaseModel):
+    """License info for a single package."""
+
+    model_config = ConfigDict(strict=True)
+
+    package: str
+    ecosystem: str
+    license_name: str = Field(default="")
+    risk: str = Field(default="unknown")
+    spdx_id: str = Field(default="")
+
+
+class LicenseScanApiResponse(BaseModel):
+    """Aggregated license scan results."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_packages: int
+    permissive_count: int
+    weak_copyleft_count: int
+    strong_copyleft_count: int
+    network_copyleft_count: int
+    unknown_count: int
+    compliant: bool
+    risk_packages: list[LicenseItem]
+    all_licenses: list[LicenseItem]
+    latency_ms: int
+
+
+# --- Cross-file analysis responses ---
+
+
+class CrossFileEdge(BaseModel):
+    """An import edge in the dependency graph."""
+
+    model_config = ConfigDict(strict=True)
+
+    source_file: str
+    target_file: str
+    import_name: str
+    line: int = Field(default=0)
+
+
+class CrossFileScanApiResponse(BaseModel):
+    """Cross-file import graph analysis results."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_files: int
+    total_edges: int
+    circular_dependencies: list[list[str]]
+    orphan_files: list[str]
+    hub_files: list[dict[str, object]]
+    latency_ms: int
+
+
+# --- Auto-fix responses ---
+
+
+class FixedFileResponse(BaseModel):
+    """A file with applied fixes."""
+
+    model_config = ConfigDict(strict=True)
+
+    path: str
+    fixes_applied: list[str]
+
+
+class AutoFixApiResponse(BaseModel):
+    """Auto-fix results."""
+
+    model_config = ConfigDict(strict=True)
+
+    files_fixed: list[FixedFileResponse]
+    total_fixes: int
+    pr_url: str = Field(default="")
+    branch_name: str = Field(default="")
+    error: str = Field(default="")
+
+
+# --- Team management responses ---
+
+
+class OrgResponse(BaseModel):
+    """Organization info."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    name: str
+    slug: str
+    plan: str
+    owner_id: str
+    member_count: int
+    created_at: str
+
+
+class MemberResponse(BaseModel):
+    """Team member info."""
+
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    user_id: str
+    email: str
+    name: str
+    role: str
+    created_at: str
+
+
+class OrgPolicyResponse(BaseModel):
+    """Organization policy settings."""
+
+    model_config = ConfigDict(strict=True)
+
+    max_severity_allowed: str
+    require_license_compliance: bool
+    blocked_licenses: list[str]
+    require_vuln_scan: bool
+    max_critical_vulns: int
+    max_high_vulns: int
+
+
+class PolicyCheckResponse(BaseModel):
+    """Result of checking a scan against org policies."""
+
+    model_config = ConfigDict(strict=True)
+
+    passed: bool
+    violations: list[str]

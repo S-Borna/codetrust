@@ -28,7 +28,7 @@
     "/v1/stats/public": {
       "get": {
         "summary": "Public Stats",
-        "description": "Public aggregate stats for landing page \u2014 no auth required.",
+        "description": "Public aggregate stats for landing page — no auth required.",
         "operationId": "public_stats_v1_stats_public_get",
         "responses": {
           "200": {
@@ -39,6 +39,47 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Public Stats V1 Stats Public Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telemetry": {
+      "post": {
+        "summary": "Ingest Telemetry",
+        "description": "Accept anonymous telemetry.\n\nReturns immediately (202). Processing is best-effort and must never block.",
+        "operationId": "ingest_telemetry_v1_telemetry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Event"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -469,6 +510,684 @@
             "APIKeyHeader": []
           }
         ]
+      }
+    },
+    "/v1/vuln/scan": {
+      "post": {
+        "summary": "Vuln Scan",
+        "description": "Scan packages for known vulnerabilities (CVE/GHSA) via OSV database.",
+        "operationId": "vuln_scan_v1_vuln_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VulnScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Vuln Scan V1 Vuln Scan Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/license/scan": {
+      "post": {
+        "summary": "License Scan",
+        "description": "Check package licenses for compliance (copyleft detection).",
+        "operationId": "license_scan_v1_license_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LicenseScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response License Scan V1 License Scan Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/cross-file": {
+      "post": {
+        "summary": "Cross File Scan",
+        "description": "Analyze import dependency graph across multiple files.",
+        "operationId": "cross_file_scan_v1_scan_cross_file_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrossFileScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Cross File Scan V1 Scan Cross File Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/fix/apply": {
+      "post": {
+        "summary": "Autofix Apply",
+        "description": "Apply auto-fix recipes to code. Optionally create a GitHub PR.",
+        "operationId": "autofix_apply_v1_fix_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoFixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Autofix Apply V1 Fix Apply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/orgs": {
+      "get": {
+        "summary": "List Orgs",
+        "description": "List organizations the authenticated user belongs to.",
+        "operationId": "list_orgs_v1_orgs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Orgs V1 Orgs Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Org",
+        "description": "Create a new organization.",
+        "operationId": "create_org_v1_orgs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrgRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Org V1 Orgs Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/orgs/{org_id}": {
+      "get": {
+        "summary": "Get Org",
+        "description": "Get organization details.",
+        "operationId": "get_org_v1_orgs__org_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Org V1 Orgs  Org Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Org",
+        "description": "Delete an organization. Only the owner can delete.",
+        "operationId": "delete_org_v1_orgs__org_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Org V1 Orgs  Org Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/{org_id}/members": {
+      "get": {
+        "summary": "List Members",
+        "description": "List members of an organization.",
+        "operationId": "list_members_v1_orgs__org_id__members_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Members V1 Orgs  Org Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Member",
+        "description": "Add a member to an organization.",
+        "operationId": "add_member_v1_orgs__org_id__members_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Add Member V1 Orgs  Org Id  Members Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/{org_id}/members/{user_id}": {
+      "delete": {
+        "summary": "Remove Member",
+        "description": "Remove a member from an organization.",
+        "operationId": "remove_member_v1_orgs__org_id__members__user_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Remove Member V1 Orgs  Org Id  Members  User Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/{org_id}/members/{user_id}/role": {
+      "put": {
+        "summary": "Update Role",
+        "description": "Update a member's role in an organization.",
+        "operationId": "update_role_v1_orgs__org_id__members__user_id__role_put",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Role V1 Orgs  Org Id  Members  User Id  Role Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orgs/{org_id}/policy": {
+      "get": {
+        "summary": "Get Policy",
+        "description": "Get organization policy settings.",
+        "operationId": "get_policy_v1_orgs__org_id__policy_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Policy V1 Orgs  Org Id  Policy Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Policy",
+        "description": "Update organization policy settings.",
+        "operationId": "update_policy_v1_orgs__org_id__policy_put",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrgPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Policy V1 Orgs  Org Id  Policy Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/api-keys": {
@@ -1036,6 +1755,28 @@
   },
   "components": {
     "schemas": {
+      "AddMemberRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "User Id"
+          },
+          "role": {
+            "type": "string",
+            "pattern": "^(owner|admin|member|viewer)$",
+            "title": "Role",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "AddMemberRequest",
+        "description": "Request to add a member to an organization."
+      },
       "ApiKeyCreatedResponse": {
         "properties": {
           "key": {
@@ -1186,6 +1927,62 @@
         "title": "AstScanResponse",
         "description": "Response for AST analysis scan."
       },
+      "AutoFixRequest": {
+        "properties": {
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "minProperties": 1,
+            "title": "Files",
+            "description": "Map of filepath -> file content"
+          },
+          "languages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Languages",
+            "description": "Optional map of filepath -> language (auto-detected if omitted)"
+          },
+          "recipes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recipes",
+            "description": "Recipe names to apply (empty = all)"
+          },
+          "create_pr": {
+            "type": "boolean",
+            "title": "Create Pr",
+            "description": "If True, create a GitHub PR with fixes",
+            "default": false
+          },
+          "github_owner": {
+            "type": "string",
+            "title": "Github Owner",
+            "default": ""
+          },
+          "github_repo": {
+            "type": "string",
+            "title": "Github Repo",
+            "default": ""
+          },
+          "github_base_branch": {
+            "type": "string",
+            "title": "Github Base Branch",
+            "default": "main"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "AutoFixRequest",
+        "description": "Request to apply auto-fix recipes to code."
+      },
       "CheckoutRequest": {
         "properties": {
           "plan": {
@@ -1213,6 +2010,41 @@
         "type": "object",
         "title": "CreateApiKeyRequest",
         "description": "Request to create a new API key."
+      },
+      "CreateOrgRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateOrgRequest",
+        "description": "Request to create a new organization."
+      },
+      "CrossFileScanRequest": {
+        "properties": {
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "minProperties": 1,
+            "title": "Files",
+            "description": "Map of filename -> file content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "CrossFileScanRequest",
+        "description": "Request for cross-file import graph analysis."
       },
       "DeepScanRequest": {
         "properties": {
@@ -1336,7 +2168,7 @@
           "latency_ms"
         ],
         "title": "DeepScanResponse",
-        "description": "Response for /v1/scan/deep \u2014 combines all layers."
+        "description": "Response for /v1/scan/deep — combines all layers."
       },
       "DockerImageInput": {
         "properties": {
@@ -1514,10 +2346,39 @@
           "javascript",
           "typescript",
           "go",
-          "rust"
+          "rust",
+          "java",
+          "csharp",
+          "cpp",
+          "shell",
+          "html",
+          "terraform"
         ],
         "title": "Language",
         "description": "Supported programming languages."
+      },
+      "LicenseScanRequest": {
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "packages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Packages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "packages"
+        ],
+        "title": "LicenseScanRequest",
+        "description": "Request to check package licenses for compliance."
       },
       "OIDCCallbackRequest": {
         "properties": {
@@ -1920,6 +2781,63 @@
         "title": "TokenResponse",
         "description": "Response containing JWT token and user info."
       },
+      "UpdateMemberRoleRequest": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "pattern": "^(owner|admin|member|viewer)$",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "UpdateMemberRoleRequest",
+        "description": "Request to update a member's role."
+      },
+      "UpdateOrgPolicyRequest": {
+        "properties": {
+          "max_severity_allowed": {
+            "type": "string",
+            "pattern": "^(INFO|WARN|BLOCK)$",
+            "title": "Max Severity Allowed",
+            "default": "BLOCK"
+          },
+          "require_license_compliance": {
+            "type": "boolean",
+            "title": "Require License Compliance",
+            "default": false
+          },
+          "blocked_licenses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Licenses"
+          },
+          "require_vuln_scan": {
+            "type": "boolean",
+            "title": "Require Vuln Scan",
+            "default": false
+          },
+          "max_critical_vulns": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Critical Vulns",
+            "default": 0
+          },
+          "max_high_vulns": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max High Vulns",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "UpdateOrgPolicyRequest",
+        "description": "Request to update organization policy settings."
+      },
       "UrlResponse": {
         "properties": {
           "url": {
@@ -2216,6 +3134,37 @@
         ],
         "title": "VerifyStatus",
         "description": "Status of a package or image verification."
+      },
+      "VulnScanRequest": {
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "packages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Packages"
+          },
+          "versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Versions",
+            "description": "Optional package -> version mapping for precise matching"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "packages"
+        ],
+        "title": "VulnScanRequest",
+        "description": "Request to scan packages for known vulnerabilities (CVE/GHSA)."
       }
     },
     "securitySchemes": {

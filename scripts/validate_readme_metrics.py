@@ -33,7 +33,7 @@ def check_readme(metrics: dict) -> list[str]:
 
     checks = [
         ("total_rules", r"(\d+) rules across 10 enforcement layers"),
-        ("mcp_tools", r"### (\d+) MCP Tools"),
+        ("mcp_tools", r"(\d+) MCP tools"),
         ("tests_collected", r"# (\d+) tests"),
         ("api_endpoints", r"(\d+) endpoints"),
     ]

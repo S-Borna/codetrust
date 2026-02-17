@@ -254,43 +254,141 @@ Self-hosting: set `codetrust.apiUrl` to your own API base URL.
 
 ## GitHub Action
 
-Minimum permissions required for PR comments and SARIF upload:
+Add CodeTrust to any GitHub Actions workflow. BLOCK findings fail the status check. Hallucinated packages appear as inline PR annotations via SARIF.
+
+<details>
+<summary><strong>Complete workflow file</strong> — copy to <code>.github/workflows/codetrust.yml</code></summary>
 
 ```yaml
+name: CodeTrust Scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
 permissions:
   actions: read
   contents: read
   pull-requests: write
   security-events: write
+
+jobs:
+  codetrust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: S-Borna/codetrust@v2.3.2
+        with:
+          fail-on: block          # block | warn | info
+          scan-type: static       # static | deep
+          sarif: true             # upload to GitHub Security tab
+          # api-key: ${{ secrets.CODETRUST_API_KEY }}  # optional
+
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: codetrust-results.sarif
 ```
 
-```yaml
-- uses: S-Borna/codetrust@v2.3.2
-  with:
-    fail-on: block
-    scan-type: static
-    sarif: true
+</details>
 
-# Optional (default: auto on pull_request)
-# pr-comment: auto|always|never
+**Inputs:**
 
-- uses: github/codeql-action/upload-sarif@v4
-  if: always()
-  with:
-    sarif_file: codetrust-results.sarif
-```
-
-BLOCK findings fail the status check. Hallucinated packages appear as inline PR annotations.
+| Input | Default | Description |
+|-------|---------|-------------|
+| `fail-on` | `block` | Minimum severity to fail the check |
+| `scan-type` | `static` | `static` or `deep` |
+| `sarif` | `true` | Generate SARIF for GitHub Security tab |
+| `api-key` | — | Optional API key (from `secrets.CODETRUST_API_KEY`) |
+| `telemetry` | `true` | Anonymous usage telemetry |
 
 ---
 
-## MCP Server
+## MCP Servers
 
-### 17 MCP Tools
+CodeTrust ships two MCP servers for different purposes:
 
-Two MCP servers — one for scanning, one for governance. Works with Claude Code, Cursor, and any MCP-compatible agent.
+| Server | Command | Purpose | Tools |
+|--------|---------|---------|-------|
+| **Scan Server** | `python -m src.server` | Code scanning, import verification, SARIF export | 10 tools |
+| **Gateway Server** | `python -m src.gateway.server` | Real-time AI action interception — blocks destructive commands before execution | 4 tools + 3 resources |
 
-Add to your MCP configuration and AI agents get real-time code safety feedback, pre-action validation, post-action quality checks, import verification, and governance enforcement — all through the Model Context Protocol.
+**Use both for full coverage.** The Scan Server gives AI agents code analysis capabilities. The Gateway Server intercepts and validates every command, file write, and package install the agent attempts.
+
+### Scan Server tools
+
+`codetrust_static_scan` · `codetrust_ast_scan` · `codetrust_deep_scan` · `codetrust_verify_imports` · `codetrust_verify_dockerfile` · `codetrust_sandbox_run` · `codetrust_sarif_export` · `codetrust_pre_action` · `codetrust_post_action` · `codetrust_list_rules`
+
+### Gateway Server tools
+
+`validate_command` · `validate_file_write` · `validate_file_delete` · `validate_package`
+
+### Setup: Claude Desktop / Claude Code
+
+Add to `~/.claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "codetrust": {
+      "command": "python",
+      "args": ["-m", "src.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    },
+    "codetrust-gateway": {
+      "command": "python",
+      "args": ["-m", "src.gateway.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    }
+  }
+}
+```
+
+### Setup: Cursor
+
+Add to `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "codetrust": {
+      "command": "python",
+      "args": ["-m", "src.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    },
+    "codetrust-gateway": {
+      "command": "python",
+      "args": ["-m", "src.gateway.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    }
+  }
+}
+```
+
+### Setup: Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "codetrust": {
+      "command": "python",
+      "args": ["-m", "src.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    },
+    "codetrust-gateway": {
+      "command": "python",
+      "args": ["-m", "src.gateway.server"],
+      "cwd": "/absolute/path/to/codetrust"
+    }
+  }
+}
+```
+
+Replace `/absolute/path/to/codetrust` with the actual path to your CodeTrust installation (e.g., `~/codetrust` or `/opt/codetrust`).
 
 ---
 
@@ -310,18 +408,54 @@ Add to your MCP configuration and AI agents get real-time code safety feedback, 
 
 ## Configuration
 
-CodeTrust is configured via `.codetrust.toml` or `[tool.codetrust]` in `pyproject.toml`.
+CodeTrust is configured via `.codetrust.toml` in your project root, or `[tool.codetrust]` in `pyproject.toml`. Run `codetrust init` to generate a starter config.
 
-You can:
+<details>
+<summary><strong>Full configuration reference</strong></summary>
 
-- Exclude paths from scanning
-- Ignore specific rules
-- Override severity levels
-- Set governance mode (enforce / audit / off)
-- Define protected files
-- Enable or disable gateway rule categories
+```toml
+# .codetrust.toml
 
-See `codetrust init` for a starter configuration.
+[codetrust]
+exclude_paths = ["migrations/", "vendor/", "node_modules/"]
+ignore_rules  = []                    # e.g. ["eval_exec", "hardcoded_secret"]
+
+[codetrust.governance]
+enabled = true
+mode    = "enforce"                   # enforce | audit | off
+
+[codetrust.governance.terminal]
+block_heredoc     = true              # Block heredoc (<<EOF) patterns
+block_eval        = true              # Block eval/exec calls
+block_sudo        = false             # Block sudo commands
+block_rm_rf       = true              # Block rm -rf /
+block_curl_pipe_sh = true             # Block curl|sh piping
+block_git_push    = true              # Block git push from AI agents
+block_chmod_777   = true              # Block chmod 777
+
+[codetrust.governance.files]
+protected_paths    = ["LICENSE", ".env", ".env.production"]
+scan_before_write  = true             # Scan file content before allowing write
+
+[codetrust.governance.packages]
+verify_before_install    = true       # Registry lookup before pip/npm install
+block_suspicious_packages = true      # Block known typosquat patterns
+
+[codetrust.governance.audit]
+enabled        = true
+path           = ".codetrust/audit.jsonl"   # Append-only audit log
+retention_days = 90
+
+[codetrust.governance.webhooks]
+# url       = "https://hooks.slack.com/services/T.../B.../xxx"
+# provider  = "slack"                 # slack | teams | generic
+# on_block  = true
+# on_warn   = false
+```
+
+</details>
+
+**Override any setting via environment variable:** `CODETRUST_GOVERNANCE_MODE=audit`
 
 ---
 

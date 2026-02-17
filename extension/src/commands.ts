@@ -1021,7 +1021,8 @@ export async function handleScanOnSave(
 ): Promise<void> {
     const config = getConfig();
 
-    if (!config.scanOnSave) {
+    // Skip non-file schemes (e.g. output panels, git diffs)
+    if (document.uri.scheme !== "file") {
         return;
     }
 

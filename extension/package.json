@@ -36,6 +36,7 @@
         "devops"
     ],
     "activationEvents": [
+        "onStartupFinished",
         "onLanguage:python",
         "onLanguage:javascript",
         "onLanguage:typescript",
@@ -45,7 +46,14 @@
         "onLanguage:rust",
         "onLanguage:dockerfile",
         "onLanguage:sql",
-        "onLanguage:yaml"
+        "onLanguage:yaml",
+        "onLanguage:java",
+        "onLanguage:csharp",
+        "onLanguage:cpp",
+        "onLanguage:c",
+        "onLanguage:shellscript",
+        "onLanguage:html",
+        "onLanguage:terraform"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -143,7 +151,14 @@
                             "typescript",
                             "go",
                             "rust",
-                            "sql"
+                            "sql",
+                            "yaml",
+                            "java",
+                            "csharp",
+                            "cpp",
+                            "shell",
+                            "html",
+                            "terraform"
                         ]
                     },
                     "default": [
@@ -152,7 +167,14 @@
                         "typescript",
                         "go",
                         "rust",
-                        "sql"
+                        "sql",
+                        "yaml",
+                        "java",
+                        "csharp",
+                        "cpp",
+                        "shell",
+                        "html",
+                        "terraform"
                     ],
                     "description": "Languages to scan"
                 },

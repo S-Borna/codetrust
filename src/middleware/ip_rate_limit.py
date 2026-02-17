@@ -8,12 +8,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 # --- Rate Limiting ---
-IP_RATE_LIMIT = 120          # requests per window
+IP_RATE_LIMIT = 600          # requests per window (supports workspace-wide scans)
 IP_RATE_WINDOW = 60          # seconds (1 minute)
-IP_BURST_LIMIT = 20          # max requests in burst window
-IP_BURST_WINDOW = 5          # seconds
-IP_BAN_THRESHOLD = 5         # consecutive limit hits before temp ban
-IP_BAN_DURATION = 300        # seconds (5 minutes)
+IP_BURST_LIMIT = 200         # max requests in burst window (startup scan of ~100 files)
+IP_BURST_WINDOW = 10         # seconds
+IP_BAN_THRESHOLD = 10        # consecutive limit hits before temp ban
+IP_BAN_DURATION = 120        # seconds (2 minutes)
 
 # --- Request Size Limits ---
 MAX_BODY_SIZE = 1_048_576    # 1 MB max request body

@@ -17,7 +17,20 @@ export type VerifyStatus =
     | "SKIPPED";
 
 /** Supported languages matching src/models/enums.py */
-export type Language = "python" | "javascript" | "typescript" | "go" | "rust";
+export type Language =
+    | "python"
+    | "javascript"
+    | "typescript"
+    | "go"
+    | "rust"
+    | "sql"
+    | "yaml"
+    | "java"
+    | "csharp"
+    | "cpp"
+    | "shell"
+    | "html"
+    | "terraform";
 
 /** Scan type selection */
 export type ScanType = "static" | "deep";
@@ -168,6 +181,15 @@ export const LANGUAGE_MAP: Record<string, Language> = {
     javascriptreact: "javascript",
     go: "go",
     rust: "rust",
+    sql: "sql",
+    yaml: "yaml",
+    java: "java",
+    csharp: "csharp",
+    cpp: "cpp",
+    c: "cpp",
+    shellscript: "shell",
+    html: "html",
+    terraform: "terraform",
 };
 
 /** Dockerfile-related language IDs */

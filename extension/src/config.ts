@@ -18,7 +18,8 @@ export function getConfig(): ExtensionConfig {
         scanOnTypeDebounceMs: config.get<number>("scanOnTypeDebounceMs", 600),
         severityThreshold: config.get<SeverityThreshold>("severityThreshold", "INFO"),
         enabledLanguages: config.get<Language[]>("enabledLanguages", [
-            "python", "javascript", "typescript", "go", "rust",
+            "python", "javascript", "typescript", "go", "rust", "sql", "yaml",
+            "java", "csharp", "cpp", "shell", "html", "terraform",
         ]),
         scanType: config.get<ScanType>("scanType", "static"),
         verifyImportsOnSave: config.get<boolean>("verifyImportsOnSave", false),

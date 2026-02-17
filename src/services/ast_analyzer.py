@@ -122,6 +122,63 @@ LANGUAGE_NODES: dict[Language, LanguageNodes] = {
         identifier_type="identifier",
         block_type="block",
     ),
+    Language.JAVA: LanguageNodes(
+        function_types=("method_declaration", "constructor_declaration"),
+        branch_types=(
+            "if_statement", "for_statement", "enhanced_for_statement",
+            "while_statement", "do_statement", "catch_clause",
+            "ternary_expression", "switch_expression",
+        ),
+        simple_assignment_types=("local_variable_declaration",),
+        return_types=(
+            "return_statement", "throw_statement",
+            "break_statement", "continue_statement",
+        ),
+        nesting_types=(
+            "if_statement", "for_statement", "enhanced_for_statement",
+            "while_statement", "do_statement", "try_statement",
+        ),
+        identifier_type="identifier",
+        block_type="block",
+    ),
+    Language.CSHARP: LanguageNodes(
+        function_types=("method_declaration", "constructor_declaration"),
+        branch_types=(
+            "if_statement", "for_statement", "for_each_statement",
+            "while_statement", "do_statement", "catch_clause",
+            "conditional_expression", "switch_expression",
+        ),
+        simple_assignment_types=("variable_declaration",),
+        return_types=(
+            "return_statement", "throw_statement",
+            "break_statement", "continue_statement",
+        ),
+        nesting_types=(
+            "if_statement", "for_statement", "for_each_statement",
+            "while_statement", "do_statement", "try_statement",
+        ),
+        identifier_type="identifier",
+        block_type="block",
+    ),
+    Language.CPP: LanguageNodes(
+        function_types=("function_definition",),
+        branch_types=(
+            "if_statement", "for_statement", "for_range_loop",
+            "while_statement", "do_statement", "catch_clause",
+            "conditional_expression", "case_statement",
+        ),
+        simple_assignment_types=("declaration",),
+        return_types=(
+            "return_statement", "throw_statement",
+            "break_statement", "continue_statement",
+        ),
+        nesting_types=(
+            "if_statement", "for_statement", "for_range_loop",
+            "while_statement", "do_statement", "try_statement",
+        ),
+        identifier_type="identifier",
+        block_type="compound_statement",
+    ),
 }
 
 SUPPORTED_LANGUAGES: frozenset[Language] = frozenset(LANGUAGE_NODES.keys())
@@ -167,12 +224,36 @@ def _load_rust_language() -> ts.Language:
     return ts.Language(tsr.language())
 
 
+def _load_java_language() -> ts.Language:
+    """Load the Java tree-sitter grammar."""
+    import tree_sitter_java as tsj
+
+    return ts.Language(tsj.language())
+
+
+def _load_csharp_language() -> ts.Language:
+    """Load the C# tree-sitter grammar."""
+    import tree_sitter_c_sharp as tscs
+
+    return ts.Language(tscs.language())
+
+
+def _load_cpp_language() -> ts.Language:
+    """Load the C++ tree-sitter grammar."""
+    import tree_sitter_cpp as tscpp
+
+    return ts.Language(tscpp.language())
+
+
 _LANGUAGE_LOADERS: dict[Language, object] = {
     Language.PYTHON: _load_python_language,
     Language.JAVASCRIPT: _load_javascript_language,
     Language.TYPESCRIPT: _load_typescript_language,
     Language.GO: _load_go_language,
     Language.RUST: _load_rust_language,
+    Language.JAVA: _load_java_language,
+    Language.CSHARP: _load_csharp_language,
+    Language.CPP: _load_cpp_language,
 }
 
 

@@ -31,6 +31,12 @@ class Language(StrEnum):
     TYPESCRIPT = "typescript"
     GO = "go"
     RUST = "rust"
+    JAVA = "java"
+    CSHARP = "csharp"
+    CPP = "cpp"
+    SHELL = "shell"
+    HTML = "html"
+    TERRAFORM = "terraform"
 
 
 class Registry(StrEnum):

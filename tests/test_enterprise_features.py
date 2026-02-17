@@ -19,7 +19,6 @@ import pytest
 from src.models.enums import Language, Severity
 from src.services.cache import CacheService
 
-
 # ──────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────
@@ -711,7 +710,7 @@ class TestTeamService:
     @pytest.mark.asyncio
     async def test_role_permissions(self) -> None:
         """Test RBAC permission checks."""
-        from src.services.team import ROLE_PERMISSIONS, TeamRole, TeamService
+        from src.services.team import TeamRole, TeamService
 
         engine = None
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -777,11 +776,10 @@ class TestTeamService:
     @pytest.mark.asyncio
     async def test_policy_check_pass(self) -> None:
         """Test policy check that passes."""
-        from src.services.team import OrgPolicy, TeamService
-
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         from src.models.database import Base
+        from src.services.team import OrgPolicy, TeamService
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         async with engine.begin() as conn:
@@ -808,11 +806,10 @@ class TestTeamService:
     @pytest.mark.asyncio
     async def test_policy_check_fail_severity(self) -> None:
         """Test policy check that fails on severity."""
-        from src.services.team import OrgPolicy, TeamService
-
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         from src.models.database import Base
+        from src.services.team import OrgPolicy, TeamService
 
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         async with engine.begin() as conn:

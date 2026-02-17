@@ -12,7 +12,7 @@
 
     <meta property="og:title" content="CodeTrust &mdash; Prevent. Don't detect.">
     <meta property="og:description"
-        content="AI governance enforcement. 10 layers. 1,431 tests. 133 rules. 42 API endpoints. Three moats no other tool has.">
+        content="AI governance enforcement. 10 layers. 1,431 tests. 133 rules. 42 API endpoints. Pre-execution enforcement + enterprise scans.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.saidborna.com">
     <meta name="twitter:card" content="summary_large_image">
@@ -49,6 +49,10 @@
             --amber-dim: rgba(245, 158, 11, 0.12);
             --cyan: #06b6d4;
             --cyan-dim: rgba(6, 182, 212, 0.12);
+            --glow: rgba(99, 102, 241, 0.15);
+            --glow-cyan: rgba(6, 182, 212, 0.15);
+            --glow-green: rgba(16, 185, 129, 0.15);
+            --glow-red: rgba(239, 68, 68, 0.15);
         }
 
         * {
@@ -68,6 +72,110 @@
             line-height: 1.65;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+        }
+
+        /* PORTFOLIO-STYLE AMBIENCE (keeps CodeTrust colors) */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-animation .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.38;
+            animation: float-orb 20s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        .bg-animation .orb:nth-child(1) {
+            width: 640px;
+            height: 640px;
+            background: radial-gradient(circle, var(--indigo-dim) 0%, transparent 70%);
+            top: -240px;
+            right: -140px;
+            animation-delay: 0s;
+        }
+
+        .bg-animation .orb:nth-child(2) {
+            width: 440px;
+            height: 440px;
+            background: radial-gradient(circle, var(--cyan-dim) 0%, transparent 70%);
+            bottom: -140px;
+            left: -140px;
+            animation-delay: -7s;
+        }
+
+        .bg-animation .orb:nth-child(3) {
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, var(--green-dim) 0%, transparent 70%);
+            top: 50%;
+            left: 28%;
+            animation-delay: -14s;
+        }
+
+        @keyframes float-orb {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(50px, -30px) scale(1.08);
+            }
+
+            50% {
+                transform: translate(-30px, 50px) scale(0.92);
+            }
+
+            75% {
+                transform: translate(-50px, -20px) scale(1.04);
+            }
+        }
+
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--indigo), var(--cyan), var(--indigo));
+            background-size: 200% 100%;
+            animation: shimmer-progress 3s ease-in-out infinite;
+            z-index: 1200;
+            transition: width 0.12s ease;
+            box-shadow: 0 0 18px var(--indigo-dim);
+        }
+
+        @keyframes shimmer-progress {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
         }
 
         .mono {
@@ -93,6 +201,12 @@
             background: rgba(5, 5, 7, 0.75);
             backdrop-filter: blur(24px) saturate(1.4);
             border-bottom: 1px solid var(--border);
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .topbar.scrolled {
+            background: rgba(5, 5, 7, 0.92);
+            border-bottom: 1px solid var(--border-strong);
         }
 
         .topbar-logo {
@@ -124,12 +238,13 @@
             font-weight: 500;
             color: var(--text-2);
             border-radius: 6px;
-            transition: color 0.15s, background 0.15s;
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .topbar-nav a:hover {
             color: var(--white);
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-1px);
         }
 
         .topbar-install {
@@ -143,7 +258,8 @@
         }
 
         .topbar-install:hover {
-            opacity: 0.88;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
         }
 
         .mobile-toggle {
@@ -186,6 +302,55 @@
             text-align: center;
         }
 
+        /* Hero entrance — portfolio-style stagger */
+        .hero-logo,
+        .hero-version,
+        .hero h1,
+        .hero-sub,
+        .hero-actions,
+        .hero-pip {
+            opacity: 0;
+            transform: translateY(34px);
+        }
+
+        body.loaded .hero-logo {
+            animation: hero-reveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+        }
+
+        body.loaded .hero-version {
+            animation: hero-reveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+        }
+
+        body.loaded .hero h1 {
+            animation: hero-reveal 1.0s cubic-bezier(0.22, 1, 0.36, 1) 0.38s forwards;
+        }
+
+        body.loaded .hero-sub {
+            animation: hero-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.52s forwards;
+        }
+
+        body.loaded .hero-actions {
+            animation: hero-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.64s forwards;
+        }
+
+        body.loaded .hero-pip {
+            animation: hero-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.76s forwards;
+        }
+
+        @keyframes hero-reveal {
+            from {
+                opacity: 0;
+                transform: translateY(34px);
+                filter: blur(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
         .hero-version {
             display: block;
             width: fit-content;
@@ -207,6 +372,7 @@
             letter-spacing: -0.03em;
             color: var(--white);
             margin-bottom: 1rem;
+            text-shadow: 0 0 80px rgba(59, 130, 246, 0.2), 0 0 40px rgba(59, 130, 246, 0.1);
         }
 
         .hero h1 .line2 {
@@ -214,41 +380,16 @@
             color: #3b82f6;
         }
 
-        .hero-strikes {
-            margin: 1.5rem auto 1rem;
-            text-align: center;
+        .hero-sub {
+            font-size: 1.05rem;
+            color: var(--text-2);
+            max-width: 620px;
+            margin: 0.5rem auto 2.5rem;
+            line-height: 1.75;
+            white-space: nowrap;
         }
 
-        .strike-line {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 1rem;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            background: linear-gradient(90deg, var(--red-dim), rgba(239, 68, 68, 0.18));
-            color: var(--red);
-            padding: 0.5rem 1.4rem;
-            border-radius: 6px;
-            border-left: 3px solid var(--red);
-            display: inline-block;
-        }
-
-        .hero-positive {
-            margin: 0 auto 2.5rem;
-            text-align: center;
-        }
-
-        .positive-line {
-            font-size: 1.15rem;
-            font-weight: 500;
-            background: var(--green-dim);
-            color: var(--green);
-            padding: 0.55rem 1.4rem;
-            border-radius: 6px;
-            border-left: 3px solid var(--green);
-            display: inline-block;
-        }
-
-        .positive-line strong {
+        .hero-sub strong {
             color: var(--white);
         }
 
@@ -278,7 +419,7 @@
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             border: none;
         }
 
@@ -288,8 +429,8 @@
         }
 
         .btn-primary:hover {
-            opacity: 0.88;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(99, 102, 241, 0.3);
         }
 
         .btn-ghost {
@@ -301,6 +442,8 @@
         .btn-ghost:hover {
             color: var(--white);
             border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
 
         .hero-pip {
@@ -347,10 +490,11 @@
 
         .section-desc {
             color: var(--text-2);
-            max-width: 560px;
+            max-width: 780px;
             font-size: 1rem;
             margin: 0 auto 3rem;
             text-align: center;
+            white-space: nowrap;
         }
 
         .container {
@@ -382,11 +526,14 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            transition: border-color 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
 
         .moat-card:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px -5px var(--glow), 0 20px 40px rgba(0, 0, 0, 0.2);
         }
 
         .moat-icon {
@@ -451,6 +598,13 @@
             margin-top: 3rem;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(8px);
+            transition: border-color 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .gateway-container:hover {
+            border-color: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 0 40px -10px var(--glow-red);
         }
 
         .gateway-container::before {
@@ -484,11 +638,13 @@
             border-radius: 10px;
             font-family: 'IBM Plex Mono', monospace;
             font-size: 0.85rem;
-            transition: all 0.3s ease;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
 
         .gateway-row:hover {
-            transform: translateX(4px);
+            transform: translateX(6px) translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
         }
 
         .gateway-row.blocked {
@@ -580,6 +736,14 @@
             padding: 2.5rem;
             text-align: center;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .score-visual:hover {
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 0 30px -5px var(--glow-green), 0 20px 50px rgba(0, 0, 0, 0.3);
         }
 
         .score-circle {
@@ -716,11 +880,14 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 10px;
-            transition: border-color 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
 
         .problem-item:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(239, 68, 68, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 0 20px -5px var(--glow-red), 0 12px 30px rgba(0, 0, 0, 0.2);
         }
 
         .problem-label {
@@ -771,6 +938,14 @@
             overflow: hidden;
             font-family: 'IBM Plex Mono', monospace;
             font-size: 0.82rem;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
+        }
+
+        .terminal:hover {
+            border-color: rgba(16, 185, 129, 0.25);
+            box-shadow: 0 0 30px -5px var(--glow-green), 0 15px 40px rgba(0, 0, 0, 0.25);
+            transform: translateY(-3px);
         }
 
         .terminal-bar {
@@ -870,8 +1045,15 @@
             display: flex;
             align-items: flex-start;
             gap: 1.2rem;
-            padding: 0.9rem 0;
+            padding: 0.9rem 0.8rem;
             position: relative;
+            border-radius: 8px;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .pipe-step:hover {
+            background: rgba(255, 255, 255, 0.015);
+            transform: translateX(4px);
         }
 
         .pipe-num {
@@ -980,11 +1162,14 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             display: none;
-            transition: border-color 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
 
         .rule-card:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px -5px var(--glow), 0 10px 25px rgba(0, 0, 0, 0.15);
         }
 
         .rule-card.visible {
@@ -1047,12 +1232,15 @@
             border: 1px solid var(--border);
             border-radius: 6px;
             color: var(--text-2);
-            transition: all 0.15s;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .lang-chip:hover {
             color: var(--white);
-            border-color: var(--border-strong);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 0 12px -3px var(--glow);
+            background: var(--surface-2);
         }
 
         /* INSTALL */
@@ -1069,11 +1257,14 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 10px;
-            transition: border-color 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
 
         .install-card:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-4px) scale(1.005);
+            box-shadow: 0 0 20px -5px var(--glow), 0 15px 30px rgba(0, 0, 0, 0.2);
         }
 
         .install-card h4 {
@@ -1125,6 +1316,14 @@
 
         .stat-item {
             text-align: center;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .stat-num {
@@ -1182,7 +1381,8 @@
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1.6rem 1.4rem 1.2rem;
-            transition: border-color 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1190,7 +1390,9 @@
         }
 
         .dash-card:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(16, 185, 129, 0.35);
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px -5px var(--glow-green), 0 15px 35px rgba(0, 0, 0, 0.2);
         }
 
         .dash-card-header {
@@ -1364,13 +1566,16 @@
             border: 1px solid var(--border);
             background: var(--surface);
             color: var(--text-2);
-            transition: all 0.2s;
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
             position: relative;
+            backdrop-filter: blur(8px);
         }
 
         .arch-node:hover {
-            border-color: var(--border-strong);
+            border-color: rgba(99, 102, 241, 0.3);
             color: var(--white);
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px -5px var(--glow), 0 10px 25px rgba(0, 0, 0, 0.15);
         }
 
         .arch-node .arch-icon {
@@ -1593,24 +1798,10 @@
             padding: 2.5rem clamp(1.5rem, 6vw, 6rem);
             border-top: 1px solid var(--border);
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             font-size: 0.78rem;
             color: var(--text-3);
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 1.5rem;
-        }
-
-        .footer-links a {
-            color: var(--text-3);
-            transition: color 0.15s;
-        }
-
-        .footer-links a:hover {
-            color: var(--text-2);
         }
 
         /* MOAT HIGHLIGHT */
@@ -1683,13 +1874,136 @@
         /* SCROLL REVEAL */
         .reveal {
             opacity: 0;
-            transform: translateY(24px);
-            transition: opacity 0.7s ease, transform 0.7s ease;
+            transform: translateY(30px);
+            transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .reveal.visible {
             opacity: 1;
             transform: none;
+        }
+
+        /* SCROLL INDICATOR */
+        .scroll-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2.5rem;
+            color: var(--cyan);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            z-index: 2;
+            opacity: 0;
+            transform: translateY(10px);
+            text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+            filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.3));
+        }
+
+        body.loaded .scroll-indicator {
+            animation: hero-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) 1.0s forwards, bounce-scroll 2.5s ease-in-out 2.2s infinite;
+        }
+
+        .scroll-indicator svg {
+            stroke: var(--cyan);
+            filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.6));
+        }
+
+        @keyframes bounce-scroll {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(8px); }
+        }
+
+        /* FLOATING NAV BUTTONS */
+        .floating-nav {
+            position: fixed;
+            right: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            z-index: 900;
+            bottom: 1.5rem;
+        }
+
+        .float-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--border-strong);
+            background: rgba(5, 5, 7, 0.85);
+            backdrop-filter: blur(16px);
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-decoration: none;
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        .float-btn.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .float-btn:hover {
+            border-color: var(--indigo);
+            color: var(--white);
+            transform: translateY(-2px) scale(1.08);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .float-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .float-btn-top {
+            animation: float-bob-up 2.5s ease-in-out infinite;
+        }
+
+        .float-btn-top:hover {
+            animation: none;
+        }
+
+        @keyframes float-bob-up {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        /* ENTERPRISE FREE LINE */
+        .free-line {
+            display: block;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--green) 0%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: free-glow 3s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
+        }
+
+        @keyframes free-glow {
+            0% { filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.2)); }
+            100% { filter: drop-shadow(0 0 35px rgba(16, 185, 129, 0.5)); }
+        }
+
+        .no-upsell {
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--green);
+            margin-top: 0.8rem;
         }
 
         /* RESPONSIVE */
@@ -1821,10 +2135,9 @@
                 text-align: left;
             }
 
-            footer {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
+            .section-desc {
+                white-space: normal;
+                max-width: 100%;
             }
 
             .moats-grid {
@@ -1835,6 +2148,13 @@
 </head>
 
 <body>
+
+    <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+    <div class="bg-animation" aria-hidden="true">
+        <div class="orb" id="orb1"></div>
+        <div class="orb" id="orb2"></div>
+        <div class="orb" id="orb3"></div>
+    </div>
 
     <!-- TOP BAR -->
     <header class="topbar">
@@ -1889,6 +2209,8 @@
             <a href="#pipeline">Layers</a>
             <a href="#demo">Proof</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
+            <a href="https://codetrust-api.saidborna.com/v1/status" target="_blank">API</a>
+            <a href="mailto:said@saidborna.com">Contact</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                 class="topbar-install">Get Extension</a>
         </nav>
@@ -1942,22 +2264,24 @@
             <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 133 rules &mdash; 42
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
-            <div class="hero-strikes">
-                <span class="strike-line">Not a linter. Not a scanner.</span>
-            </div>
-            <div class="hero-positive">
-                <span class="positive-line">The AI Governance Enforcement Layer that <strong>prevents</strong> &mdash;
-                    not detects.</span>
-            </div>
+            <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions <strong>before</strong> they run — across IDE, CI, and agents.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
-                <a href="#moats" class="btn btn-ghost">See three moats</a>
+                <a href="#pipeline" class="btn btn-ghost">See how it works</a>
             </div>
             <div class="hero-pip">
                 <code
                     onclick="navigator.clipboard.writeText('pip install codetrust');this.nextElementSibling.style.opacity='1';setTimeout(()=>this.nextElementSibling.style.opacity='0',1500)">$ pip install codetrust</code>
                 <span class="copied">copied</span>
+            </div>
+            <div class="scroll-indicator">
+                <span>Scroll</span>
+                <svg width="16" height="24" viewBox="0 0 16 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="4" y="1" width="8" height="14" rx="4" />
+                    <line x1="8" y1="5" x2="8" y2="8" />
+                    <path d="M4 18l4 4 4-4" />
+                </svg>
             </div>
         </div>
     </section>
@@ -2117,8 +2441,7 @@
     <section class="container" id="moats">
         <div class="section-tag section-center">Competitive Advantage</div>
         <h2 class="reveal">Three moats no other tool has</h2>
-        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file
-            dataflow. <strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong></p>
+        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file dataflow.<br><strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong></p>
 
         <div class="moats-grid reveal">
             <div class="moat-card">
@@ -2160,9 +2483,7 @@
     <section class="container" id="enforcement">
         <div class="section-tag section-center" style="color: var(--red);">Prevent, don't detect</div>
         <h2 class="reveal">The gateway blocks commands<br>before they execute</h2>
-        <p class="section-desc reveal" style="max-width: 700px;">Other tools scan your code after it's
-            written.<br>CodeTrust's Gateway sits between the AI model and your system, intercepting destructive commands
-            in real-time.</p>
+        <p class="section-desc reveal" style="max-width: 800px;">Other tools scan your code after it's written.<br>CodeTrust's Gateway sits between the AI model and your system,<br>intercepting destructive commands in real-time.</p>
 
         <div class="gateway-container reveal">
             <div class="gateway-flow">
@@ -2373,8 +2694,7 @@
     <section class="container" id="demo" style="max-width: 900px;">
         <div class="section-tag section-center">Proof</div>
         <h2 class="reveal">Real scan, real output</h2>
-        <p class="section-desc reveal">Hallucinated package caught. Anti-patterns flagged. Trust score calculated. All
-            in one command.</p>
+        <p class="section-desc reveal scan-highlights"><span style="color: var(--red);">Hallucinated package caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span style="color: var(--green);">Trust score calculated.</span> <span style="color: #a5b4fc;">All in one command.</span></p>
 
         <div class="terminal reveal">
             <div class="terminal-bar">
@@ -2499,9 +2819,8 @@
     <!-- ENTERPRISE SERVICES -->
     <section class="container" id="enterprise">
         <div class="section-tag section-center" style="color: var(--green);">Enterprise Services</div>
-        <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge for &mdash; free</h2>
-        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors. All included.
-            No upsell.</p>
+        <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge<span class="free-line">for free</span></h2>
+        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors.<span class="no-upsell">All included. No upsell.</span></p>
 
         <div class="moats-grid reveal" style="grid-template-columns: repeat(3, 1fr);">
             <div class="moat-card">
@@ -2767,9 +3086,8 @@
     <!-- BOTTOM CTA -->
     <section class="bottom-cta">
         <div class="reveal">
-            <h2>AI writes fast. CodeTrust enforces it's safe.</h2>
-            <p>133 rules. 10 enforcement layers. 42 API endpoints. Five enterprise services. Three moats no other tool
-                has.</p>
+            <h2>AI writes fast — CodeTrust enforces it's safe</h2>
+            <p>133 rules. 10 enforcement layers. 42 API endpoints.<br>Five enterprise services.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
@@ -2779,18 +3097,68 @@
         </div>
     </section>
 
+    <!-- FLOATING NAV -->
+    <div class="floating-nav" id="floatingNav">
+        <a href="#" class="float-btn float-btn-top" id="btnTop" title="Back to top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 15l-6-6-6 6" />
+            </svg>
+        </a>
+    </div>
+
     <!-- FOOTER -->
     <footer>
         <span>&copy; 2026 Said Borna. All rights reserved.</span>
-        <div class="footer-links">
-            <a href="https://pypi.org/project/codetrust/">PyPI</a>
-            <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a>
-            <a href="https://codetrust-api.saidborna.com/v1/status">API</a>
-            <a href="mailto:said@saidborna.com">Contact</a>
-        </div>
     </footer>
 
     <script>
+        // Portfolio-style polish: staggered hero entrance + scroll progress
+        window.addEventListener('load', () => {
+            document.body.classList.add('loaded');
+        });
+
+        const topbarEl = document.querySelector('.topbar');
+        const scrollProgressEl = document.getElementById('scrollProgress');
+        const orb1 = document.getElementById('orb1');
+        const orb2 = document.getElementById('orb2');
+        const orb3 = document.getElementById('orb3');
+
+        let scrollTicking = false;
+        function updateScrollPolish() {
+            const scrollTop = window.scrollY || 0;
+            const docHeight = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+            const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+
+            if (scrollProgressEl) {
+                const clamped = Math.max(0, Math.min(100, pct));
+                scrollProgressEl.style.width = `${clamped}%`;
+            }
+            if (topbarEl) {
+                topbarEl.classList.toggle('scrolled', scrollTop > 80);
+            }
+
+            // Floating nav buttons
+            const floatBtns = document.querySelectorAll('.float-btn');
+            floatBtns.forEach(btn => {
+                btn.classList.toggle('visible', scrollTop > 400);
+            });
+
+            // Subtle parallax to avoid "flat SaaS" feel.
+            const y = Math.min(scrollTop, 1200);
+            if (orb1) orb1.style.transform = `translate(${y * 0.02}px, ${y * -0.015}px)`;
+            if (orb2) orb2.style.transform = `translate(${y * -0.015}px, ${y * 0.02}px)`;
+            if (orb3) orb3.style.transform = `translate(${y * 0.01}px, ${y * -0.01}px)`;
+        }
+        window.addEventListener('scroll', () => {
+            if (scrollTicking) return;
+            scrollTicking = true;
+            requestAnimationFrame(() => {
+                updateScrollPolish();
+                scrollTicking = false;
+            });
+        }, { passive: true });
+        updateScrollPolish();
+
         // Scroll reveal
         const ro = new IntersectionObserver((entries) => {
             entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
@@ -2801,8 +3169,13 @@
         document.querySelectorAll('a[href^="#"]').forEach(a => {
             a.addEventListener('click', e => {
                 e.preventDefault();
-                const t = document.querySelector(a.getAttribute('href'));
-                if (t) t.scrollIntoView({ behavior: 'smooth' });
+                const href = a.getAttribute('href');
+                if (href === '#') {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    const t = document.querySelector(href);
+                    if (t) t.scrollIntoView({ behavior: 'smooth' });
+                }
                 document.querySelector('.topbar-nav').classList.remove('open');
             });
         });

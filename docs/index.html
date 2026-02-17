@@ -1870,6 +1870,37 @@
             color: #3b82f6;
         }
 
+        .hero-tagline {
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 400;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-3);
+            margin-top: 0.4rem;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+            width: 0;
+            margin-left: auto;
+            margin-right: auto;
+            border-right: 2px solid var(--text-3);
+        }
+
+        body.loaded .hero-tagline {
+            animation: tagline-type 1.8s cubic-bezier(0.22, 1, 0.36, 1) 1.6s forwards,
+                       tagline-blink 0.6s step-end 1.6s 6;
+        }
+
+        @keyframes tagline-type {
+            to { width: 100%; border-color: transparent; }
+        }
+
+        @keyframes tagline-blink {
+            50% { border-color: transparent; }
+        }
+
         /* SCROLL REVEAL */
         .reveal {
             opacity: 0;
@@ -2277,7 +2308,7 @@
                     <!-- Inner glow -->
                     <circle cx="60" cy="70" r="35" fill="url(#innerGlow)" opacity="0.6" />
                 </svg>
-                <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span></span>
+                <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
             <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 133 rules &mdash; 42
                 endpoints</span>

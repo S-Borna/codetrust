@@ -1913,8 +1913,15 @@
         }
 
         @keyframes bounce-scroll {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(8px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(8px);
+            }
         }
 
         /* FLOATING NAV BUTTONS */
@@ -1972,8 +1979,15 @@
         }
 
         @keyframes float-bob-up {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-4px);
+            }
         }
 
         /* ENTERPRISE FREE LINE */
@@ -1991,8 +2005,13 @@
         }
 
         @keyframes free-glow {
-            0% { filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.2)); }
-            100% { filter: drop-shadow(0 0 35px rgba(16, 185, 129, 0.5)); }
+            0% {
+                filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.2));
+            }
+
+            100% {
+                filter: drop-shadow(0 0 35px rgba(16, 185, 129, 0.5));
+            }
         }
 
         .no-upsell {
@@ -2264,7 +2283,9 @@
             <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 133 rules &mdash; 42
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
-            <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions <strong>before</strong> they run — across IDE, CI, and agents.</p>
+            <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
+                <strong>before</strong> they run — across IDE, CI, and agents.
+            </p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
@@ -2319,7 +2340,7 @@
                 <div class="dash-hero-num dash-red" data-key="threats_caught">0</div>
                 <div class="dash-hero-label">threats caught</div>
                 <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-red" data-key="gateway_blocked">0</strong>
+                    <span class="dash-detail"><strong class="dash-val-red" data-key="blocks_found">0</strong>
                         blocked</span>
                     <span class="dash-detail"><strong class="dash-val-red" data-key="hallucinations_caught">0</strong>
                         hallucinations</span>
@@ -2441,7 +2462,9 @@
     <section class="container" id="moats">
         <div class="section-tag section-center">Competitive Advantage</div>
         <h2 class="reveal">Three moats no other tool has</h2>
-        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file dataflow.<br><strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong></p>
+        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file
+            dataflow.<br><strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong>
+        </p>
 
         <div class="moats-grid reveal">
             <div class="moat-card">
@@ -2483,7 +2506,9 @@
     <section class="container" id="enforcement">
         <div class="section-tag section-center" style="color: var(--red);">Prevent, don't detect</div>
         <h2 class="reveal">The gateway blocks commands<br>before they execute</h2>
-        <p class="section-desc reveal" style="max-width: 800px;">Other tools scan your code after it's written.<br>CodeTrust's Gateway sits between the AI model and your system,<br>intercepting destructive commands in real-time.</p>
+        <p class="section-desc reveal" style="max-width: 800px;">Other tools scan your code after it's
+            written.<br>CodeTrust's Gateway sits between the AI model and your system,<br>intercepting destructive
+            commands in real-time.</p>
 
         <div class="gateway-container reveal">
             <div class="gateway-flow">
@@ -2694,7 +2719,10 @@
     <section class="container" id="demo" style="max-width: 900px;">
         <div class="section-tag section-center">Proof</div>
         <h2 class="reveal">Real scan, real output</h2>
-        <p class="section-desc reveal scan-highlights"><span style="color: var(--red);">Hallucinated package caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span style="color: var(--green);">Trust score calculated.</span> <span style="color: #a5b4fc;">All in one command.</span></p>
+        <p class="section-desc reveal scan-highlights"><span style="color: var(--red);">Hallucinated package
+                caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span
+                style="color: var(--green);">Trust score calculated.</span> <span style="color: #a5b4fc;">All in one
+                command.</span></p>
 
         <div class="terminal reveal">
             <div class="terminal-bar">
@@ -2820,7 +2848,8 @@
     <section class="container" id="enterprise">
         <div class="section-tag section-center" style="color: var(--green);">Enterprise Services</div>
         <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge<span class="free-line">for free</span></h2>
-        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors.<span class="no-upsell">All included. No upsell.</span></p>
+        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors.<span
+                class="no-upsell">All included. No upsell.</span></p>
 
         <div class="moats-grid reveal" style="grid-template-columns: repeat(3, 1fr);">
             <div class="moat-card">
@@ -3100,7 +3129,8 @@
     <!-- FLOATING NAV -->
     <div class="floating-nav" id="floatingNav">
         <a href="#" class="float-btn float-btn-top" id="btnTop" title="Back to top">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
                 <path d="M18 15l-6-6-6 6" />
             </svg>
         </a>
@@ -3215,6 +3245,7 @@
 
             const gateway_blocked = i.gateway_commands_blocked || payload.destructive_commands_blocked || 0;
             const hallucinations_caught = i.hallucinations_caught || payload.hallucinated_packages_prevented || 0;
+            const blocks_found = (s.usage && s.usage.findings_by_severity && s.usage.findings_by_severity.BLOCK) || 0;
             const pypi_total = pypi.downloads_last_3_months_ci || 0;
             const mkt_dl = mkt.downloads || payload.marketplace_downloads || 0;
             const ovsx_dl = ovsx.downloads || payload.openvsx_downloads || 0;
@@ -3225,9 +3256,10 @@
                 files_scanned: u.total_files_scanned || 0,
                 total_findings: u.total_findings || 0,
 
-                threats_caught: gateway_blocked + hallucinations_caught,
+                threats_caught: gateway_blocked + hallucinations_caught + blocks_found,
                 gateway_blocked: gateway_blocked,
                 hallucinations_caught: hallucinations_caught,
+                blocks_found: blocks_found,
                 imports_verified: i.imports_verified || 0,
 
                 total_downloads: pypi_total + mkt_dl + ovsx_dl,

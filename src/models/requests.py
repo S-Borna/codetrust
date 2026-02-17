@@ -92,6 +92,122 @@ class DeepScanRequest(BaseModel):
     requirements_content: str = Field(default="")
 
 
+# --- Vulnerability scanning ---
+
+
+class VulnScanRequest(BaseModel):
+    """Request to scan packages for known vulnerabilities (CVE/GHSA)."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    language: Language = Field(..., strict=False)
+    packages: list[str] = Field(..., min_length=1, max_length=200)
+    versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional package -> version mapping for precise matching",
+    )
+
+
+# --- License compliance ---
+
+
+class LicenseScanRequest(BaseModel):
+    """Request to check package licenses for compliance."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    language: Language = Field(..., strict=False)
+    packages: list[str] = Field(..., min_length=1, max_length=200)
+
+
+# --- Cross-file analysis ---
+
+
+class CrossFileScanRequest(BaseModel):
+    """Request for cross-file import graph analysis."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    files: dict[str, str] = Field(
+        ...,
+        min_length=1,
+        description="Map of filename -> file content",
+    )
+
+
+# --- Auto-fix ---
+
+
+class AutoFixRequest(BaseModel):
+    """Request to apply auto-fix recipes to code."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    files: dict[str, str] = Field(
+        ...,
+        min_length=1,
+        description="Map of filepath -> file content",
+    )
+    languages: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional map of filepath -> language (auto-detected if omitted)",
+    )
+    recipes: list[str] = Field(
+        default_factory=list,
+        description="Recipe names to apply (empty = all)",
+    )
+    create_pr: bool = Field(
+        default=False,
+        description="If True, create a GitHub PR with fixes",
+    )
+    github_owner: str = Field(default="")
+    github_repo: str = Field(default="")
+    github_base_branch: str = Field(default="main")
+
+
+# --- Team Management ---
+
+
+class CreateOrgRequest(BaseModel):
+    """Request to create a new organization."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    name: str = Field(..., min_length=1, max_length=200)
+
+
+class AddMemberRequest(BaseModel):
+    """Request to add a member to an organization."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    user_id: str = Field(..., min_length=1, max_length=32)
+    role: str = Field(default="member", pattern="^(owner|admin|member|viewer)$")
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    """Request to update a member's role."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    role: str = Field(..., pattern="^(owner|admin|member|viewer)$")
+
+
+class UpdateOrgPolicyRequest(BaseModel):
+    """Request to update organization policy settings."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    max_severity_allowed: str = Field(
+        default="BLOCK", pattern="^(INFO|WARN|BLOCK)$",
+    )
+    require_license_compliance: bool = Field(default=False)
+    blocked_licenses: list[str] = Field(default_factory=list)
+    require_vuln_scan: bool = Field(default=False)
+    max_critical_vulns: int = Field(default=0, ge=0)
+    max_high_vulns: int = Field(default=0, ge=0)
+
+
 # --- MCP-specific input models (for local server) ---
 
 

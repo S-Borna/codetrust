@@ -30,17 +30,25 @@ from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
+    AddMemberRequest,
     AstScanRequest,
+    AutoFixRequest,
     CheckoutRequest,
     CreateApiKeyRequest,
+    CreateOrgRequest,
+    CrossFileScanRequest,
     DeepScanRequest,
     GithubAuthRequest,
+    LicenseScanRequest,
     OIDCCallbackRequest,
     RefreshRequest,
     SandboxRequest,
     StaticScanRequest,
+    UpdateMemberRoleRequest,
+    UpdateOrgPolicyRequest,
     VerifyDockerRequest,
     VerifyImportsRequest,
+    VulnScanRequest,
 )
 from src.models.responses import (
     ApiKeyCreatedResponse,
@@ -225,6 +233,12 @@ async def _startup(app: FastAPI) -> None:
     app.state.billing = BillingService()
     app.state.auth = AuthService(http_client)
     app.state.rate_limiter = RateLimiter(db) if db is not None else None
+
+    # --- Team Service (RBAC) ---
+    app.state.team_service = None
+    if db is not None:
+        from src.services.team import TeamService
+        app.state.team_service = TeamService(db._session_factory)
 
     # --- Telemetry background services (best-effort) ---
     app.state.telemetry_stop = asyncio.Event()
@@ -1276,6 +1290,471 @@ def run() -> None:
         port=settings.port,
         reload=settings.debug,
     )
+
+
+# --- Vulnerability Scanning ---
+
+
+@app.post("/v1/vuln/scan")
+async def vuln_scan(
+    request: Request,
+    req: VulnScanRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> dict[str, object]:
+    """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info("api_vuln_scan", language=str(req.language), packages=len(req.packages))
+
+    from src.services.vulnerability import VulnerabilityService
+
+    cache: CacheService = request.app.state.cache
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    vuln_svc = VulnerabilityService(cache, http_client)
+
+    result = await vuln_svc.check_packages(
+        language=req.language,
+        packages=req.packages,
+        versions=req.versions if req.versions else None,
+    )
+
+    await _log_scan(
+        request, auth, "vuln", "BLOCK" if result.vulnerable_count > 0 else "PASS",
+        result.total_vulnerabilities, result.latency_ms,
+        str(req.language), "",
+    )
+
+    return {
+        "total_packages": result.total_packages,
+        "vulnerable_count": result.vulnerable_count,
+        "clean_count": result.clean_count,
+        "total_vulnerabilities": result.total_vulnerabilities,
+        "critical_count": result.critical_count,
+        "high_count": result.high_count,
+        "medium_count": result.medium_count,
+        "low_count": result.low_count,
+        "results": [
+            {
+                "package": r.package,
+                "ecosystem": r.ecosystem,
+                "version": r.version,
+                "is_vulnerable": r.is_vulnerable,
+                "vulnerabilities": [
+                    {
+                        "id": v.id,
+                        "summary": v.summary,
+                        "severity": v.severity,
+                        "fixed_version": v.fixed_version,
+                        "aliases": v.aliases,
+                        "reference_url": v.reference_url,
+                    }
+                    for v in r.vulnerabilities
+                ],
+                "error": r.error,
+            }
+            for r in result.results
+        ],
+        "latency_ms": result.latency_ms,
+    }
+
+
+# --- License Compliance ---
+
+
+@app.post("/v1/license/scan")
+async def license_scan(
+    request: Request,
+    req: LicenseScanRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> dict[str, object]:
+    """Check package licenses for compliance (copyleft detection)."""
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info("api_license_scan", language=str(req.language), packages=len(req.packages))
+
+    from src.services.license_checker import LicenseService
+
+    cache: CacheService = request.app.state.cache
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    license_svc = LicenseService(cache, http_client)
+
+    result = await license_svc.check_packages(
+        language=req.language,
+        packages=req.packages,
+    )
+
+    await _log_scan(
+        request, auth, "license", "PASS" if result.compliant else "BLOCK",
+        result.strong_copyleft_count + result.network_copyleft_count,
+        result.latency_ms, str(req.language), "",
+    )
+
+    return {
+        "total_packages": result.total_packages,
+        "permissive_count": result.permissive_count,
+        "weak_copyleft_count": result.weak_copyleft_count,
+        "strong_copyleft_count": result.strong_copyleft_count,
+        "network_copyleft_count": result.network_copyleft_count,
+        "unknown_count": result.unknown_count,
+        "compliant": result.compliant,
+        "risk_packages": [
+            {
+                "package": r.package,
+                "ecosystem": r.ecosystem,
+                "license_name": r.license_name,
+                "risk": r.risk.value,
+                "spdx_id": r.spdx_id,
+            }
+            for r in result.risk_packages
+        ],
+        "all_licenses": [
+            {
+                "package": r.package,
+                "ecosystem": r.ecosystem,
+                "license_name": r.license_name,
+                "risk": r.risk.value,
+                "spdx_id": r.spdx_id,
+            }
+            for r in result.all_licenses
+        ],
+        "latency_ms": result.latency_ms,
+    }
+
+
+# --- Cross-File Analysis ---
+
+
+@app.post("/v1/scan/cross-file")
+async def cross_file_scan(
+    request: Request,
+    req: CrossFileScanRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> dict[str, object]:
+    """Analyze import dependency graph across multiple files."""
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info("api_cross_file_scan", files=len(req.files))
+
+    from src.services.cross_file_analyzer import CrossFileAnalyzer
+
+    analyzer = CrossFileAnalyzer()
+    result = analyzer.analyze_project(file_contents=req.files)
+
+    await _log_scan(
+        request, auth, "cross-file", "WARN" if result.circular_dependencies else "PASS",
+        len(result.circular_dependencies) + len(result.orphan_files),
+        result.latency_ms, "", "",
+    )
+
+    return {
+        "total_files": result.total_files,
+        "total_edges": result.total_edges,
+        "circular_dependencies": result.circular_dependencies,
+        "orphan_files": result.orphan_files,
+        "hub_files": result.hub_files,
+        "latency_ms": result.latency_ms,
+    }
+
+
+# --- Auto-Fix ---
+
+
+@app.post("/v1/fix/apply")
+async def autofix_apply(
+    request: Request,
+    req: AutoFixRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> dict[str, object]:
+    """Apply auto-fix recipes to code. Optionally create a GitHub PR."""
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info("api_autofix", files=len(req.files), create_pr=req.create_pr)
+
+    from src.services.autofix import AutoFixService
+    from src.services.cross_file_analyzer import detect_language_from_extension
+
+    # Auto-detect languages if not provided.
+    languages: dict[str, str] = dict(req.languages) if req.languages else {}
+    for filepath in req.files:
+        if filepath not in languages:
+            lang = detect_language_from_extension(filepath)
+            if lang is not None:
+                languages[filepath] = lang.value
+
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    github_token = os.environ.get("CODETRUST_GITHUB_TOKEN", "")
+
+    fix_svc = AutoFixService(
+        http_client=http_client if req.create_pr else None,
+        github_token=github_token,
+    )
+
+    result = fix_svc.apply_fixes(
+        file_contents=req.files,
+        file_languages=languages,
+        recipes=req.recipes if req.recipes else None,
+    )
+
+    if req.create_pr and result.files_fixed:
+        result = await fix_svc.create_pr(
+            owner=req.github_owner,
+            repo=req.github_repo,
+            base_branch=req.github_base_branch,
+            fix_result=result,
+        )
+
+    await _log_scan(
+        request, auth, "autofix", "PASS",
+        result.total_fixes, 0, "", "",
+    )
+
+    return {
+        "files_fixed": [
+            {
+                "path": f.path,
+                "fixes_applied": f.fixes_applied,
+            }
+            for f in result.files_fixed
+        ],
+        "total_fixes": result.total_fixes,
+        "pr_url": result.pr_url,
+        "branch_name": result.branch_name,
+        "error": result.error,
+    }
+
+
+# --- Team Management / RBAC ---
+
+
+def _get_team_service(request: Request) -> object:
+    """Get team service from app state."""
+    return getattr(request.app.state, "team_service", None)
+
+
+@app.post("/v1/orgs")
+async def create_org(
+    request: Request,
+    req: CreateOrgRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Create a new organization."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    try:
+        org = await team_svc.create_org(name=req.name, owner_id=auth.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "id": org.id, "name": org.name, "slug": org.slug,
+        "plan": org.plan, "owner_id": org.owner_id,
+        "member_count": org.member_count, "created_at": org.created_at,
+    }
+
+
+@app.get("/v1/orgs")
+async def list_orgs(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[dict[str, object]]:
+    """List organizations the authenticated user belongs to."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    orgs = await team_svc.list_user_orgs(auth.user_id)
+    return [
+        {
+            "id": o.id, "name": o.name, "slug": o.slug,
+            "plan": o.plan, "owner_id": o.owner_id,
+            "member_count": o.member_count, "created_at": o.created_at,
+        }
+        for o in orgs
+    ]
+
+
+@app.get("/v1/orgs/{org_id}")
+async def get_org(
+    org_id: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Get organization details."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    org = await team_svc.get_org(org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    return {
+        "id": org.id, "name": org.name, "slug": org.slug,
+        "plan": org.plan, "owner_id": org.owner_id,
+        "member_count": org.member_count, "created_at": org.created_at,
+    }
+
+
+@app.delete("/v1/orgs/{org_id}")
+async def delete_org(
+    org_id: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Delete an organization. Only the owner can delete."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    deleted = await team_svc.delete_org(org_id, auth.user_id)
+    if not deleted:
+        raise HTTPException(status_code=403, detail="Not authorized or not found")
+
+    return {"deleted": True}
+
+
+@app.get("/v1/orgs/{org_id}/members")
+async def list_members(
+    org_id: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[dict[str, object]]:
+    """List members of an organization."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    members = await team_svc.list_members(org_id)
+    return [
+        {
+            "id": m.id, "user_id": m.user_id, "email": m.email,
+            "name": m.name, "role": m.role, "created_at": m.created_at,
+        }
+        for m in members
+    ]
+
+
+@app.post("/v1/orgs/{org_id}/members")
+async def add_member(
+    org_id: str,
+    request: Request,
+    req: AddMemberRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Add a member to an organization."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    member = await team_svc.add_member(
+        org_id=org_id,
+        user_id=req.user_id,
+        role=req.role,
+        invited_by=auth.user_id,
+    )
+    if member is None:
+        raise HTTPException(status_code=400, detail="User already a member or not found")
+
+    return {
+        "id": member.id, "user_id": member.user_id, "email": member.email,
+        "name": member.name, "role": member.role, "created_at": member.created_at,
+    }
+
+
+@app.delete("/v1/orgs/{org_id}/members/{user_id}")
+async def remove_member(
+    org_id: str,
+    user_id: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Remove a member from an organization."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    removed = await team_svc.remove_member(org_id, user_id, auth.user_id)
+    if not removed:
+        raise HTTPException(status_code=403, detail="Not authorized or member not found")
+
+    return {"removed": True}
+
+
+@app.put("/v1/orgs/{org_id}/members/{user_id}/role")
+async def update_role(
+    org_id: str,
+    user_id: str,
+    request: Request,
+    req: UpdateMemberRoleRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Update a member's role in an organization."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    updated = await team_svc.update_member_role(org_id, user_id, req.role, auth.user_id)
+    if not updated:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return {"updated": True}
+
+
+@app.get("/v1/orgs/{org_id}/policy")
+async def get_policy(
+    org_id: str,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Get organization policy settings."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    policy = await team_svc.get_org_policy(org_id)
+    if policy is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    return {
+        "max_severity_allowed": policy.max_severity_allowed,
+        "require_license_compliance": policy.require_license_compliance,
+        "blocked_licenses": policy.blocked_licenses,
+        "require_vuln_scan": policy.require_vuln_scan,
+        "max_critical_vulns": policy.max_critical_vulns,
+        "max_high_vulns": policy.max_high_vulns,
+    }
+
+
+@app.put("/v1/orgs/{org_id}/policy")
+async def update_policy(
+    org_id: str,
+    request: Request,
+    req: UpdateOrgPolicyRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Update organization policy settings."""
+    team_svc = _get_team_service(request)
+    if team_svc is None:
+        raise HTTPException(status_code=503, detail="Team service not available")
+
+    updated = await team_svc.update_org_policy(
+        org_id=org_id,
+        requester_id=auth.user_id,
+        policy={
+            "max_severity_allowed": req.max_severity_allowed,
+            "require_license_compliance": req.require_license_compliance,
+            "blocked_licenses": req.blocked_licenses,
+            "require_vuln_scan": req.require_vuln_scan,
+            "max_critical_vulns": req.max_critical_vulns,
+            "max_high_vulns": req.max_high_vulns,
+        },
+    )
+    if not updated:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return {"updated": True}
 
 
 # --- Dashboard: API Key management ---

@@ -64,6 +64,14 @@ Legend:
 - ✅ Secrets hygiene: detection exists across multiple layers
 - 🟡 Tenant boundary checks: some rules exist; expanding to framework-specific tenancy patterns is incremental
 
+## I) Enterprise Services (competitive parity)
+
+- ✅ CVE/vulnerability scanning via OSV database — `POST /v1/vuln/scan`, `codetrust vuln` (matches Snyk core)
+- ✅ License compliance checking — `POST /v1/license/scan`, `codetrust license` (matches FOSSA/WhiteSource)
+- ✅ Cross-file import analysis with cycle/orphan/hub detection — `POST /v1/scan/cross-file` (matches SonarQube/Semgrep)
+- ✅ Auto-fix PR generation via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr` (matches Snyk Auto-fix)
+- ✅ Team management & RBAC with org-level policies — 10 endpoints under `/v1/orgs/*` (matches Snyk Teams/SonarQube Enterprise)
+
 ---
 
 ## Notes

@@ -59,3 +59,11 @@ This roadmap is ordered by **ROI** (value delivered / engineering risk) and desi
 ✅ 6) Doctor as onboarding checklist + auto-fix (`--fix`)
 ✅ 4) Autofix recipes (safe deterministic subset)
 ✅ 5) Policy Wizard + schema autocomplete
+
+## Phase 7 — Enterprise Services (competitive parity)
+
+✅ 1) CVE/vulnerability scanning via OSV database (`/v1/vuln/scan`, `codetrust vuln`)
+✅ 2) License compliance checking (`/v1/license/scan`, `codetrust license`)
+✅ 3) Cross-file import analysis with cycle/orphan/hub detection (`/v1/scan/cross-file`)
+✅ 4) Auto-fix PR generation via GitHub API (`/v1/fix/apply`, `codetrust fix --pr`)
+✅ 5) Team management & RBAC with org-level policies (`/v1/orgs/*`, 10 endpoints)

@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for users, API keys, scan logs, and telemetry."""
+"""SQLAlchemy ORM models for users, API keys, scan logs, telemetry, and teams."""
 
 import datetime
 import uuid
@@ -200,3 +200,79 @@ class MetricsCounter(Base):
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
     )
+
+
+# --- Team Management / RBAC ---
+
+
+class Organization(Base):
+    """An organization that groups users and enforces shared policies."""
+
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=_new_id,
+    )
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    plan: Mapped[str] = mapped_column(String(20), default="free")
+    owner_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+
+    # Policy fields — org-wide defaults.
+    max_severity_allowed: Mapped[str] = mapped_column(
+        String(10), default="BLOCK",
+        comment="Max severity before scan fails: BLOCK, WARN, INFO",
+    )
+    require_license_compliance: Mapped[bool] = mapped_column(default=False)
+    blocked_licenses: Mapped[str] = mapped_column(
+        String(500), default="",
+        comment="Comma-separated license patterns to block, e.g. AGPL,GPL",
+    )
+    require_vuln_scan: Mapped[bool] = mapped_column(default=False)
+    max_critical_vulns: Mapped[int] = mapped_column(
+        Integer, default=0,
+        comment="Max critical vulns before scan fails (0 = no limit)",
+    )
+    max_high_vulns: Mapped[int] = mapped_column(
+        Integer, default=0,
+        comment="Max high vulns before scan fails (0 = no limit)",
+    )
+
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+    )
+
+    members: Mapped[list["TeamMember"]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan",
+    )
+
+
+class TeamMember(Base):
+    """A user's membership in an organization with an assigned role."""
+
+    __tablename__ = "team_members"
+
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=_new_id,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("organizations.id", ondelete="CASCADE"), index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+    role: Mapped[str] = mapped_column(
+        String(20), default="member",
+        comment="Role: owner, admin, member, viewer",
+    )
+    invited_by: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    organization: Mapped["Organization"] = relationship(back_populates="members")

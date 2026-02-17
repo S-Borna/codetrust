@@ -6,13 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust &mdash; AI Governance Enforcement Platform</title>
     <meta name="description"
-        content="AI governance enforcement platform &mdash; 133 rules across 10 enforcement layers, 17 MCP tools, 28 API endpoints. Prevents hallucinated packages, blocks destructive AI agent commands before execution, and tracks code safety over time.">
+        content="AI governance enforcement platform &mdash; 133 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team RBAC. Prevents hallucinated packages, blocks destructive AI agent commands before execution, and tracks code safety over time.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow">
 
     <meta property="og:title" content="CodeTrust &mdash; Prevent. Don't detect.">
     <meta property="og:description"
-        content="AI governance enforcement. 10 layers. 1360 tests. 133 rules. Three moats no other tool has.">
+        content="AI governance enforcement. 10 layers. 1,431 tests. 133 rules. 42 API endpoints. Three moats no other tool has.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.saidborna.com">
     <meta name="twitter:card" content="summary_large_image">
@@ -1885,6 +1885,7 @@
         <nav class="topbar-nav">
             <a href="#moats">Three Moats</a>
             <a href="#enforcement">Enforcement</a>
+            <a href="#enterprise">Enterprise</a>
             <a href="#pipeline">Layers</a>
             <a href="#demo">Proof</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
@@ -1938,7 +1939,8 @@
                 </svg>
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span></span>
             </div>
-            <span class="hero-version">v2.3.2 &mdash; 1360 tests &mdash; 10 layers &mdash; 133 rules</span>
+            <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 133 rules &mdash; 42
+                endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <div class="hero-strikes">
                 <span class="strike-line">Not a linter. Not a scanner.</span>
@@ -2102,11 +2104,11 @@
             <div class="stat-label">MCP Tools</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">28</div>
+            <div class="stat-num">42</div>
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">1367</div>
+            <div class="stat-num">1,431</div>
             <div class="stat-label">Tests Passing</div>
         </div>
     </div>
@@ -2115,9 +2117,8 @@
     <section class="container" id="moats">
         <div class="section-tag section-center">Competitive Advantage</div>
         <h2 class="reveal">Three moats no other tool has</h2>
-        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE.<br>Semgrep does cross-file
-            dataflow.</p>
-        <div class="moat-highlight reveal">None of them have any of these three capabilities.</div>
+        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file
+            dataflow. <strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong></p>
 
         <div class="moats-grid reveal">
             <div class="moat-card">
@@ -2444,7 +2445,8 @@
                 <div class="pipe-content">
                     <h4>AST Analysis <span class="pipe-type pipe-type-advisory">ADVISORY</span></h4>
                     <p>Tree-sitter structural parsing &mdash; complexity, unused variables, unreachable code</p>
-                    <div class="pipe-detail">Python &middot; JS &middot; TS &middot; Go &middot; Rust</div>
+                    <div class="pipe-detail">Python &middot; JS &middot; TS &middot; Go &middot; Rust &middot; Java
+                        &middot; C# &middot; C/C++ &middot; Shell &middot; Terraform &middot; HTML</div>
                 </div>
             </div>
             <div class="pipe-step">
@@ -2489,6 +2491,65 @@
                     <h4>AI Governance Gateway <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
                     <p>57 real-time interception rules &mdash; blocks destructive AI agent actions before execution</p>
                     <div class="pipe-detail">Moat 1 &mdash; pre-execution enforcement</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ENTERPRISE SERVICES -->
+    <section class="container" id="enterprise">
+        <div class="section-tag section-center" style="color: var(--green);">Enterprise Services</div>
+        <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge for &mdash; free</h2>
+        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors. All included.
+            No upsell.</p>
+
+        <div class="moats-grid reveal" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="moat-card">
+                <div class="moat-icon" style="background: var(--red-dim); color: var(--red);">&#x1F6E1;</div>
+                <h3>CVE / Vulnerability Scanning</h3>
+                <p>Checks every dependency against the OSV database. Returns CVE IDs, severity scores, affected
+                    versions, and recommended fixes.</p>
+                <div class="moat-stat">
+                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/vuln/scan</code>
+                </div>
+            </div>
+            <div class="moat-card">
+                <div class="moat-icon" style="background: var(--amber-dim); color: var(--amber);">&#x1F4DC;</div>
+                <h3>License Compliance</h3>
+                <p>Extracts licenses from PyPI and npm. Flags copyleft (GPL, AGPL) vs. permissive (MIT, Apache).
+                    Policy-driven allow/deny lists.</p>
+                <div class="moat-stat">
+                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/license/scan</code>
+                </div>
+            </div>
+            <div class="moat-card">
+                <div class="moat-icon" style="background: var(--cyan-dim); color: var(--cyan);">&#x1F517;</div>
+                <h3>Cross-File Analysis</h3>
+                <p>Builds the full import graph. Detects circular dependencies, orphan modules, and hub files.
+                    Identifies architectural risks before they ship.</p>
+                <div class="moat-stat">
+                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/scan/cross-file</code>
+                </div>
+            </div>
+        </div>
+        <div class="moats-grid reveal"
+            style="grid-template-columns: repeat(2, 1fr); margin-top: 1.5rem; max-width: 740px; margin-left: auto; margin-right: auto;">
+            <div class="moat-card">
+                <div class="moat-icon" style="background: var(--green-dim); color: var(--green);">&#x1F527;</div>
+                <h3>Auto-Fix PRs</h3>
+                <p>Generates fixes for findings and opens pull requests via GitHub API. One command to go from finding
+                    to fix.</p>
+                <div class="moat-stat">
+                    <code style="font-size: 0.72rem; color: var(--text-3);">codetrust fix --pr</code>
+                </div>
+            </div>
+            <div class="moat-card">
+                <div class="moat-icon" style="background: var(--indigo-dim); color: var(--indigo);">&#x1F465;</div>
+                <h3>Team Management &amp; RBAC</h3>
+                <p>Organization-level policies, role-based access control, team member management, and policy
+                    inheritance across repos.</p>
+                <div class="moat-stat">
+                    <code style="font-size: 0.72rem; color: var(--text-3);">10 endpoints under /v1/orgs/*</code>
                 </div>
             </div>
         </div>
@@ -2625,8 +2686,14 @@
                 <span class="lang-chip">TypeScript</span>
                 <span class="lang-chip">Go</span>
                 <span class="lang-chip">Rust</span>
+                <span class="lang-chip">Java</span>
+                <span class="lang-chip">C#</span>
+                <span class="lang-chip">C / C++</span>
+                <span class="lang-chip">Shell / Bash</span>
                 <span class="lang-chip">SQL</span>
                 <span class="lang-chip">Dockerfile</span>
+                <span class="lang-chip">Terraform / HCL</span>
+                <span class="lang-chip">HTML</span>
                 <span class="lang-chip">YAML / CI</span>
             </div>
         </div>
@@ -2667,7 +2734,7 @@
             </div>
             <div class="install-card">
                 <h4>Cloud API</h4>
-                <p>27 REST endpoints. No install needed.</p>
+                <p>42 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
                 <a href="https://codetrust-api.saidborna.com/v1/status" target="_blank" class="card-link">Check API
                     status &rarr;</a>
@@ -2680,7 +2747,7 @@
         <div class="reveal" style="text-align: center;">
             <div class="section-tag">Enterprise Ready</div>
             <h2>Compliance surface</h2>
-            <div class="lang-row" style="margin-top: 2rem; flex-wrap: nowrap; gap: 0.4rem;">
+            <div class="lang-row" style="margin-top: 2rem; flex-wrap: wrap; gap: 0.4rem;">
                 <span class="lang-chip">SSO / OIDC</span>
                 <span class="lang-chip">GDPR Art. 15 &amp; 17</span>
                 <span class="lang-chip">SIEM Export</span>
@@ -2688,6 +2755,11 @@
                 <span class="lang-chip">CycloneDX SBOM</span>
                 <span class="lang-chip">Audit Trail</span>
                 <span class="lang-chip">Prometheus Metrics</span>
+                <span class="lang-chip">CVE / Vulnerability Scan</span>
+                <span class="lang-chip">License Compliance</span>
+                <span class="lang-chip">Cross-File Analysis</span>
+                <span class="lang-chip">Auto-Fix PRs</span>
+                <span class="lang-chip">Team RBAC</span>
             </div>
         </div>
     </section>
@@ -2696,7 +2768,8 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast. CodeTrust enforces it's safe.</h2>
-            <p>133 rules. 10 enforcement layers. Three moats no other tool has.</p>
+            <p>133 rules. 10 enforcement layers. 42 API endpoints. Five enterprise services. Three moats no other tool
+                has.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>

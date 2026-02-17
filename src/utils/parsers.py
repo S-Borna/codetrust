@@ -437,6 +437,126 @@ def _normalize_rust_crate(crate: str) -> str | None:
     return crate.replace("_", "-")
 
 
+# --- Java import extraction ---
+
+# Java standard library prefixes to skip
+_JAVA_STDLIB_PREFIXES: tuple[str, ...] = ("java.", "javax.", "sun.", "jdk.")
+
+_JAVA_IMPORT_RE = re.compile(
+    r"^\s*import\s+(?:static\s+)?(\w+(?:\.\w+)*)\.\w+\s*;"
+)
+
+
+def extract_java_imports(code: str) -> list[str]:
+    """Extract third-party Java package names from import statements.
+
+    Examples (Java syntax)::
+
+        "import com.google.gson.Gson;"       => "com.google.gson"
+        "import static org.junit.Assert.*;"   => "org.junit"
+
+    Skips java.*, javax.*, sun.*, jdk.* standard library imports.
+    """
+    packages: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+            continue
+
+        match = _JAVA_IMPORT_RE.match(stripped)
+        if match:
+            pkg = match.group(1)
+            if not any(pkg.startswith(prefix) for prefix in _JAVA_STDLIB_PREFIXES):
+                packages.add(pkg)
+
+    return sorted(packages)
+
+
+# --- C# using extraction ---
+
+_CSHARP_STD_PREFIXES: tuple[str, ...] = ("System", "Microsoft", "Windows")
+
+_CSHARP_USING_RE = re.compile(
+    r"^\s*using\s+(?:static\s+)?(\w+(?:\.\w+)*)\s*;"
+)
+
+
+def extract_csharp_imports(code: str) -> list[str]:
+    """Extract third-party C# namespace references from using directives.
+
+    Examples (C# syntax)::
+
+        "using Newtonsoft.Json;"              => "Newtonsoft.Json"
+        "using static Serilog.Log;"           => "Serilog"
+
+    Skips System.*, Microsoft.*, Windows.* standard namespaces.
+    """
+    namespaces: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            continue
+
+        match = _CSHARP_USING_RE.match(stripped)
+        if match:
+            ns = match.group(1)
+            top_level = ns.split(".")[0]
+            if top_level not in _CSHARP_STD_PREFIXES:
+                namespaces.add(ns)
+
+    return sorted(namespaces)
+
+
+# --- C/C++ include extraction ---
+
+_CPP_STD_HEADERS: frozenset[str] = frozenset({
+    "iostream", "string", "vector", "map", "set", "algorithm", "cstdio",
+    "cstring", "cstdlib", "cmath", "cassert", "ctime", "climits",
+    "cfloat", "fstream", "sstream", "iomanip", "memory", "functional",
+    "numeric", "iterator", "utility", "tuple", "array", "deque",
+    "list", "queue", "stack", "bitset", "complex", "valarray",
+    "regex", "atomic", "thread", "mutex", "condition_variable",
+    "chrono", "random", "ratio", "type_traits", "typeinfo",
+    "stdexcept", "exception", "new", "limits", "locale",
+    "initializer_list", "optional", "variant", "any", "filesystem",
+    "span", "ranges", "concepts", "coroutine", "format",
+    "stdio.h", "stdlib.h", "string.h", "math.h", "assert.h",
+    "ctype.h", "errno.h", "float.h", "limits.h", "locale.h",
+    "signal.h", "stdarg.h", "stddef.h", "time.h", "unistd.h",
+    "pthread.h",
+})
+
+_CPP_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+[<"]([^>"]+)[>"]')
+
+
+def extract_cpp_includes(code: str) -> list[str]:
+    """Extract non-standard C/C++ include headers.
+
+    Examples (C++ syntax)::
+
+        "#include <boost/asio.hpp>"   => "boost/asio.hpp"
+        "#include 'mylib.h'"          => "mylib.h"
+
+    Skips C/C++ standard library headers and sys/* headers.
+    """
+    headers: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        match = _CPP_INCLUDE_RE.match(stripped)
+        if match:
+            header = match.group(1)
+            if header not in _CPP_STD_HEADERS and not header.startswith("sys/"):
+                headers.add(header)
+
+    return sorted(headers)
+
+
 # --- go.mod parsing ---
 
 

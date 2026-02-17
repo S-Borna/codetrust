@@ -1,6 +1,9 @@
 /**
  * Status bar component for the CodeTrust VS Code extension.
- * Shows the last scan verdict and provides quick access to scan commands.
+ *
+ * Design: consistent enterprise branding across all states.
+ * The shield icon and "CodeTrust" text remain constant.
+ * Scan results are communicated via tooltip and the VS Code Problems panel.
  */
 
 import * as vscode from "vscode";
@@ -13,43 +16,46 @@ interface VerdictDisplay {
     tooltip: string;
 }
 
-/** Verdict display presets. */
+/** Status bar text — always "CodeTrust" for brand consistency. */
+const BRAND_TEXT = "CodeTrust";
+
+/** Verdict display presets — enterprise-grade: consistent icon, neutral colors. */
 const VERDICT_DISPLAY: Record<string, VerdictDisplay> = {
     PASS: {
-        icon: "$(check)",
-        text: "PASS",
-        color: new vscode.ThemeColor("testing.iconPassed"),
-        tooltip: "CodeTrust: All checks passed",
+        icon: "$(shield)",
+        text: BRAND_TEXT,
+        color: new vscode.ThemeColor("statusBar.foreground"),
+        tooltip: "CodeTrust — All checks passed",
     },
     WARN: {
-        icon: "$(warning)",
-        text: "WARN",
-        color: new vscode.ThemeColor("editorWarning.foreground"),
-        tooltip: "CodeTrust: Warnings found — review suggested",
+        icon: "$(shield)",
+        text: BRAND_TEXT,
+        color: new vscode.ThemeColor("statusBar.foreground"),
+        tooltip: "CodeTrust — Warnings found, review suggested",
     },
     BLOCK: {
-        icon: "$(error)",
-        text: "BLOCK",
-        color: new vscode.ThemeColor("editorError.foreground"),
-        tooltip: "CodeTrust: Blocking issues found — action required",
+        icon: "$(shield)",
+        text: BRAND_TEXT,
+        color: new vscode.ThemeColor("statusBar.foreground"),
+        tooltip: "CodeTrust — Blocking issues found, action required",
     },
     SCANNING: {
-        icon: "$(sync~spin)",
-        text: "Scanning...",
+        icon: "$(loading~spin)",
+        text: BRAND_TEXT,
         color: new vscode.ThemeColor("statusBar.foreground"),
-        tooltip: "CodeTrust: Scan in progress",
+        tooltip: "CodeTrust — Scan in progress",
     },
     ERROR: {
-        icon: "$(alert)",
-        text: "Error",
-        color: new vscode.ThemeColor("errorForeground"),
-        tooltip: "CodeTrust: Scan failed",
+        icon: "$(shield)",
+        text: BRAND_TEXT,
+        color: new vscode.ThemeColor("statusBar.foreground"),
+        tooltip: "CodeTrust — Scan failed",
     },
     IDLE: {
         icon: "$(shield)",
-        text: "CodeTrust",
+        text: BRAND_TEXT,
         color: new vscode.ThemeColor("statusBar.foreground"),
-        tooltip: "CodeTrust: Click to scan current file",
+        tooltip: "CodeTrust — Click to scan current file",
     },
 };
 
@@ -84,24 +90,21 @@ export class StatusBarManager {
         const key = verdict.toUpperCase();
         const display = VERDICT_DISPLAY[key] ?? VERDICT_DISPLAY.IDLE;
 
-        const modeLabel = offline ? " (offline · 49 rules)" : " (online · full scan)";
+        const modeLabel = offline ? "Embedded scanner" : "Full scan";
         const countSuffix =
             findingsCount > 0
-                ? ` — ${findingsCount} finding${findingsCount !== 1 ? "s" : ""}`
+                ? ` · ${findingsCount} finding${findingsCount !== 1 ? "s" : ""}`
                 : "";
-        const tooltip = `${display.tooltip}${countSuffix}${modeLabel}`;
-        const text = offline
-            ? `${display.icon} ${display.text} (offline)`
-            : `${display.icon} ${display.text}`;
+        const tooltip = `${display.tooltip}${countSuffix} (${modeLabel})`;
 
-        this.applyDisplay({ ...display, text, tooltip });
+        this.applyDisplay({ ...display, tooltip });
     }
 
     /** Set status to error. */
     setError(message: string): void {
         this.applyDisplay({
             ...VERDICT_DISPLAY.ERROR,
-            tooltip: `CodeTrust: ${message}`,
+            tooltip: `CodeTrust — ${message}`,
         });
     }
 

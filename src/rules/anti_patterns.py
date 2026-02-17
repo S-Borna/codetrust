@@ -15,7 +15,7 @@ from src.models.enums import Severity
 # Extensions that have their own dedicated rule sets.
 # Generic rules will NOT fire on these file types.
 SQL_EXTENSIONS: set[str] = {".sql"}
-DEVOPS_EXTENSIONS: set[str] = {".dockerfile", ".toml", ".yml", ".yaml"}
+DEVOPS_EXTENSIONS: set[str] = {".dockerfile", ".toml", ".yml", ".yaml", ".tf", ".tfvars", ".hcl"}
 
 # File-name patterns that are treated as DevOps files regardless of extension.
 DEVOPS_FILENAMES: set[str] = {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile"}

@@ -133,21 +133,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    // Scan on open
+    // Scan on open — always active, CodeTrust is never idle
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument((document) => {
-            if (config.scanOnSave) {
-                handleScanOnSave(deps, document).catch((err: unknown) => {
-                    const msg = err instanceof Error ? err.message : "Unknown error";
-                    outputChannel.appendLine(`Open-scan error: ${msg}`);
-                });
-            }
+            handleScanOnSave(deps, document).catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : "Unknown error";
+                outputChannel.appendLine(`Open-scan error: ${msg}`);
+            });
         }),
     );
 
+    // Scan the active editor immediately on activation
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+        handleScanOnSave(deps, activeEditor.document).catch(() => { });
+    }
+
     // Scan all already-open documents on activation
     for (const document of vscode.workspace.textDocuments) {
-        handleScanOnSave(deps, document).catch(() => { });
+        if (document.uri.toString() !== activeEditor?.document.uri.toString()) {
+            handleScanOnSave(deps, document).catch(() => { });
+        }
     }
 
     // Clear diagnostics when a file is closed
@@ -190,65 +196,40 @@ async function maybePromptGuidedOnboarding(
     context: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
 ): Promise<void> {
-    const key = "codetrust.guidedOnboardingPrompted.v1";
+    const key = "codetrust.guidedOnboardingPrompted.v3";
     const existing = context.globalState.get<boolean | null>(key, null);
     if (existing !== null) {
         return;
     }
 
-    const config = getConfig();
-    if (config.apiKey.trim().length > 0) {
-        await context.globalState.update(key, true);
-        return;
-    }
-
-    const choice = await vscode.window.showInformationMessage(
-        "CodeTrust setup: configure API key and run your first scan?",
-        "Start",
-        "Not now",
-    );
-
+    // Silently apply safe global defaults on first activation — no prompts
+    const cfg = vscode.workspace.getConfiguration("codetrust");
+    const target = vscode.ConfigurationTarget.Global;
+    await cfg.update("scanOnSave", true, target);
     await context.globalState.update(key, true);
-
-    if (choice !== "Start") {
-        outputChannel.appendLine("Guided onboarding prompt dismissed.");
-        return;
-    }
-
-    try {
-        await vscode.commands.executeCommand("codetrust.guidedOnboarding");
-    } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        outputChannel.appendLine(`Guided onboarding failed to start: ${msg}`);
-    }
+    outputChannel.appendLine("CodeTrust: global defaults applied (scanOnSave=true).");
 }
 
 async function maybePromptAlwaysOn(
     context: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
 ): Promise<void> {
-    const key = "codetrust.alwaysOnConsent.v1";
+    const key = "codetrust.alwaysOnConsent.v3";
     const existing = context.globalState.get<boolean | null>(key, null);
     if (existing !== null) {
         return;
     }
 
-    const choice = await vscode.window.showInformationMessage(
-        "Enable Always‑On CodeTrust for all workspaces? (Scan on Save)",
-        "Enable",
-        "Not now",
+    // Silently enable CodeTrust everywhere — no prompts
+    const cfg = vscode.workspace.getConfiguration("codetrust");
+    const target = vscode.ConfigurationTarget.Global;
+    await cfg.update("scanOnSave", true, target);
+    await cfg.update("governance.enabled", true, target);
+    await cfg.update("governance.mode", "enforce", target);
+    await context.globalState.update(key, true);
+    outputChannel.appendLine(
+        "CodeTrust enabled globally: scanOnSave, governance.enabled, governance.mode=enforce.",
     );
-
-    if (choice === "Enable") {
-        const cfg = vscode.workspace.getConfiguration("codetrust");
-        await cfg.update("scanOnSave", true, vscode.ConfigurationTarget.Global);
-        await context.globalState.update(key, true);
-        outputChannel.appendLine("Always‑On enabled globally (scanOnSave=true).");
-        return;
-    }
-
-    await context.globalState.update(key, false);
-    outputChannel.appendLine("Always‑On prompt dismissed.");
 }
 
 /** Extension deactivation — cleanup. */

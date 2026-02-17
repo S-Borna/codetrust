@@ -542,8 +542,9 @@ const REACT_RULES: Rule[] = [
 ];
 
 /** File extensions considered DevOps files. */
-const DEVOPS_EXTS = new Set([".yml", ".yaml", ".toml"]);
+const DEVOPS_EXTS = new Set([".yml", ".yaml", ".toml", ".tf", ".tfvars", ".hcl"]);
 const SQL_EXTS = new Set([".sql"]);
+const HTML_EXTS = new Set([".html", ".htm"]);
 const DEVOPS_FILENAMES = new Set([
     "dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile",
 ]);
@@ -567,6 +568,9 @@ function getRulesForFile(filename: string): Rule[] {
     }
     if (DEVOPS_EXTS.has(ext) || DEVOPS_FILENAMES.has(basename)) {
         return DEVOPS_RULES;
+    }
+    if (HTML_EXTS.has(ext)) {
+        return GENERIC_RULES;
     }
     return GENERIC_RULES;
 }

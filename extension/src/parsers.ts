@@ -17,6 +17,18 @@ export function extractImports(code: string, language: Language): string[] {
             return extractGoImports(code);
         case "rust":
             return extractRustImports(code);
+        case "sql":
+        case "yaml":
+        case "shell":
+        case "html":
+        case "terraform":
+            return [];
+        case "java":
+            return extractJavaImports(code);
+        case "csharp":
+            return extractCsharpImports(code);
+        case "cpp":
+            return extractCppIncludes(code);
     }
 }
 
@@ -183,6 +195,92 @@ function extractRustImports(code: string): string[] {
     ]);
 
     return [...crates].filter((name) => !stdCrates.has(name));
+}
+
+/** Extract Java import package names (third-party only). */
+function extractJavaImports(code: string): string[] {
+    const imports = new Set<string>();
+    const lines = code.split("\n");
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // import com.google.gson.Gson; -> "com.google.gson"
+        // import static org.junit.Assert.*; -> "org.junit"
+        const match = trimmed.match(/^import\s+(?:static\s+)?(\w+(?:\.\w+)*)\.\w+;/);
+        if (match) {
+            const pkg = match[1];
+            // Skip java/javax standard library
+            if (!pkg.startsWith("java.") && !pkg.startsWith("javax.") && !pkg.startsWith("sun.")) {
+                // Use group ID (first 2-3 segments): com.google.gson -> com.google.gson
+                imports.add(pkg);
+            }
+        }
+    }
+
+    return [...imports];
+}
+
+/** Extract C# using directives (third-party namespaces). */
+function extractCsharpImports(code: string): string[] {
+    const imports = new Set<string>();
+    const lines = code.split("\n");
+
+    const stdNamespaces = new Set([
+        "System", "Microsoft", "Windows",
+    ]);
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // using Newtonsoft.Json;
+        // using static Newtonsoft.Json.JsonConvert;
+        const match = trimmed.match(/^using\s+(?:static\s+)?(\w+(?:\.\w+)*)\s*;/);
+        if (match) {
+            const ns = match[1];
+            const topLevel = ns.split(".")[0];
+            if (!stdNamespaces.has(topLevel)) {
+                imports.add(ns);
+            }
+        }
+    }
+
+    return [...imports];
+}
+
+/** Extract C/C++ include directives (non-standard headers). */
+function extractCppIncludes(code: string): string[] {
+    const includes = new Set<string>();
+    const lines = code.split("\n");
+
+    const stdHeaders = new Set([
+        "iostream", "string", "vector", "map", "set", "algorithm", "cstdio",
+        "cstring", "cstdlib", "cmath", "cassert", "ctime", "climits",
+        "cfloat", "fstream", "sstream", "iomanip", "memory", "functional",
+        "numeric", "iterator", "utility", "tuple", "array", "deque",
+        "list", "queue", "stack", "bitset", "complex", "valarray",
+        "regex", "atomic", "thread", "mutex", "condition_variable",
+        "chrono", "random", "ratio", "type_traits", "typeinfo",
+        "stdexcept", "exception", "new", "limits", "locale",
+        "initializer_list", "optional", "variant", "any", "filesystem",
+        "span", "ranges", "concepts", "coroutine", "format",
+        "stdio.h", "stdlib.h", "string.h", "math.h", "assert.h",
+        "ctype.h", "errno.h", "float.h", "limits.h", "locale.h",
+        "signal.h", "stdarg.h", "stddef.h", "time.h", "unistd.h",
+        "pthread.h", "sys/types.h", "sys/stat.h", "fcntl.h",
+    ]);
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // #include <boost/asio.hpp> or #include "mylib.h"
+        const match = trimmed.match(/^#\s*include\s+[<"]([^>"]+)[>"]/);
+        if (match) {
+            const header = match[1];
+            if (!stdHeaders.has(header) && !header.startsWith("sys/")) {
+                includes.add(header);
+            }
+        }
+    }
+
+    return [...includes];
 }
 
 /** Docker image reference parsed from a Dockerfile. */

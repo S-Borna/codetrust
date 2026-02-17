@@ -2,7 +2,10 @@
 
 
 from src.utils.parsers import (
+    extract_cpp_includes,
+    extract_csharp_imports,
     extract_go_imports,
+    extract_java_imports,
     extract_js_imports,
     extract_python_imports,
     extract_rust_imports,
@@ -260,3 +263,96 @@ def test_parse_cargo_toml_empty() -> None:
     """Empty Cargo.toml returns empty dict."""
     result = parse_cargo_toml("")
     assert result == {}
+
+
+# --- Java import extraction ---
+
+
+def test_extract_java_imports_basic() -> None:
+    """Extract third-party Java imports."""
+    code = "import com.google.gson.Gson;\nimport org.junit.Test;"
+    result = extract_java_imports(code)
+    assert "com.google.gson" in result
+    assert "org.junit" in result
+
+
+def test_extract_java_imports_skips_stdlib() -> None:
+    """Skip java.* and javax.* standard imports."""
+    code = "import java.util.List;\nimport javax.servlet.http.HttpServletRequest;\nimport com.fasterxml.jackson.databind.ObjectMapper;"
+    result = extract_java_imports(code)
+    assert not any(p.startswith("java.") for p in result)
+    assert not any(p.startswith("javax.") for p in result)
+    assert "com.fasterxml.jackson.databind" in result
+
+
+def test_extract_java_imports_static() -> None:
+    """Handle static imports."""
+    code = "import static org.junit.Assert.assertEquals;"
+    result = extract_java_imports(code)
+    assert "org.junit.Assert" in result
+
+
+def test_extract_java_imports_empty() -> None:
+    """Empty code returns empty list."""
+    result = extract_java_imports("")
+    assert result == []
+
+
+# --- C# import extraction ---
+
+
+def test_extract_csharp_imports_basic() -> None:
+    """Extract third-party C# using directives."""
+    code = "using Newtonsoft.Json;\nusing Serilog;"
+    result = extract_csharp_imports(code)
+    assert "Newtonsoft.Json" in result
+    assert "Serilog" in result
+
+
+def test_extract_csharp_imports_skips_system() -> None:
+    """Skip System.* and Microsoft.* namespaces."""
+    code = "using System;\nusing System.Collections.Generic;\nusing Microsoft.Extensions.Logging;\nusing Npgsql;"
+    result = extract_csharp_imports(code)
+    assert not any(ns.startswith("System") for ns in result)
+    assert not any(ns.startswith("Microsoft") for ns in result)
+    assert "Npgsql" in result
+
+
+def test_extract_csharp_imports_empty() -> None:
+    """Empty code returns empty list."""
+    result = extract_csharp_imports("")
+    assert result == []
+
+
+# --- C/C++ include extraction ---
+
+
+def test_extract_cpp_includes_basic() -> None:
+    """Extract third-party C++ include headers."""
+    code = '#include <boost/asio.hpp>\n#include "mylib.h"'
+    result = extract_cpp_includes(code)
+    assert "boost/asio.hpp" in result
+    assert "mylib.h" in result
+
+
+def test_extract_cpp_includes_skips_stdlib() -> None:
+    """Skip standard library headers."""
+    code = '#include <iostream>\n#include <vector>\n#include <boost/json.hpp>'
+    result = extract_cpp_includes(code)
+    assert "iostream" not in result
+    assert "vector" not in result
+    assert "boost/json.hpp" in result
+
+
+def test_extract_cpp_includes_skips_sys() -> None:
+    """Skip sys/ headers."""
+    code = '#include <sys/types.h>\n#include <sys/stat.h>\n#include "curl/curl.h"'
+    result = extract_cpp_includes(code)
+    assert not any(h.startswith("sys/") for h in result)
+    assert "curl/curl.h" in result
+
+
+def test_extract_cpp_includes_empty() -> None:
+    """Empty code returns empty list."""
+    result = extract_cpp_includes("")
+    assert result == []

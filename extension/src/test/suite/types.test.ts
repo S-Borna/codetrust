@@ -36,8 +36,36 @@ suite("Types Tests", () => {
         });
 
         test("returns undefined for unknown languages", () => {
-            assert.strictEqual(LANGUAGE_MAP["java"], undefined);
-            assert.strictEqual(LANGUAGE_MAP["cpp"], undefined);
+            assert.strictEqual(LANGUAGE_MAP["fortran"], undefined);
+            assert.strictEqual(LANGUAGE_MAP["pascal"], undefined);
+        });
+
+        test("maps java", () => {
+            assert.strictEqual(LANGUAGE_MAP["java"], "java");
+        });
+
+        test("maps csharp", () => {
+            assert.strictEqual(LANGUAGE_MAP["csharp"], "csharp");
+        });
+
+        test("maps cpp", () => {
+            assert.strictEqual(LANGUAGE_MAP["cpp"], "cpp");
+        });
+
+        test("maps c to cpp", () => {
+            assert.strictEqual(LANGUAGE_MAP["c"], "cpp");
+        });
+
+        test("maps shellscript to shell", () => {
+            assert.strictEqual(LANGUAGE_MAP["shellscript"], "shell");
+        });
+
+        test("maps html", () => {
+            assert.strictEqual(LANGUAGE_MAP["html"], "html");
+        });
+
+        test("maps terraform", () => {
+            assert.strictEqual(LANGUAGE_MAP["terraform"], "terraform");
         });
     });
 

@@ -76,7 +76,10 @@ from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.static_analyzer import StaticAnalyzer
 from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
 from src.utils.parsers import (
+    extract_cpp_includes,
+    extract_csharp_imports,
     extract_go_imports,
+    extract_java_imports,
     extract_js_imports,
     extract_python_imports,
     extract_rust_imports,
@@ -1095,6 +1098,12 @@ async def _verify_imports_from_code(
         imports = extract_go_imports(code)
     elif language == Language.RUST:
         imports = extract_rust_imports(code)
+    elif language == Language.JAVA:
+        imports = extract_java_imports(code)
+    elif language == Language.CSHARP:
+        imports = extract_csharp_imports(code)
+    elif language == Language.CPP:
+        imports = extract_cpp_includes(code)
     else:
         imports = []
 

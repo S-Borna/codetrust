@@ -9,7 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform (+ SQL/YAML already present in backend, now enabled in extension). Total: **13 languages** (up from 6)
+
+- Backend — Language enum:
+  - `JAVA`, `CSHARP`, `CPP`, `SHELL`, `HTML`, `TERRAFORM` added to `Language(StrEnum)`
+
+- Backend — Import parsers (`src/utils/parsers.py`):
+  - `extract_java_imports()` — handles `import`/`import static`, skips `java.*`/`javax.*`/`sun.*`/`jdk.*`
+  - `extract_csharp_imports()` — handles `using`/`using static`, skips `System.*`/`Microsoft.*`/`Windows.*`
+  - `extract_cpp_includes()` — handles `#include <...>` / `#include "..."`, skips C/C++ stdlib + `sys/*` headers
+
+- Backend — AST analysis (`src/services/ast_analyzer.py`):
+  - Tree-sitter `LanguageNodes` configurations for Java, C#, C++ (function types, branch types, nesting types)
+  - Language loader functions: `_load_java_language()`, `_load_csharp_language()`, `_load_cpp_language()`
+  - Dependencies: `tree-sitter-java`, `tree-sitter-c-sharp`, `tree-sitter-cpp` (all `>=0.23.0`)
+
+- Backend — API routing (`src/api.py`):
+  - Import verification routing for `Language.JAVA`, `Language.CSHARP`, `Language.CPP`
+
+- Backend — Anti-patterns (`src/rules/anti_patterns.py`):
+  - `DEVOPS_EXTENSIONS` now includes `.tf`, `.tfvars`, `.hcl` for Terraform/HCL scanning
+
+- VS Code extension:
+  - `Language` type expanded to 13 values (python, javascript, typescript, go, rust, sql, yaml, java, csharp, cpp, shell, html, terraform)
+  - `LANGUAGE_MAP` includes `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
+  - 7 new `onLanguage:` activation events (java, csharp, cpp, c, shellscript, html, terraform)
+  - Import parsers: `extractJavaImports()`, `extractCsharpImports()`, `extractCppIncludes()` (client-side verification)
+  - Embedded scanner: Terraform/HCL files routed to DevOps rules; HTML files scanned with generic rules
+  - `enabledLanguages` enum expanded from 6 to 13 entries (settings UI + defaults)
+
+### Changed
+
+- VS Code extension — Status bar (enterprise branding):
+  - All verdict states (PASS/WARN/BLOCK/ERROR/IDLE/SCANNING) now show `$(shield) CodeTrust` consistently
+  - Color is always `statusBar.foreground` — no more yellow/red/green variance
+  - Scan results communicated via tooltip and Problems panel instead of status bar color changes
+  - Offline scans no longer append "(offline)" to the status bar text
+
+- VS Code extension — Silent activation:
+  - Onboarding prompt removed — `scanOnSave=true` applied as a global default silently on first activation
+  - "Always-On" consent dialog removed — governance enabled globally without user interaction
+  - `onStartupFinished` activation event added — extension activates in every workspace
+  - Scan-on-open always fires (no longer gated behind `config.scanOnSave`)
+  - Active editor scanned immediately on activation; all open documents scanned on startup
+
 ### Fixed
+
+- `handleScanOnSave` now skips non-file URI schemes (output panels, git diffs) to prevent spurious scans
+
+### Tests
+
+- 11 new parser tests for Java/C#/C++ import extraction (all passing)
+- 7 new `LANGUAGE_MAP` tests in `types.test.ts` for new language mappings
+- Updated "unknown languages" test to use fortran/pascal instead of java/cpp
 
 ---
 

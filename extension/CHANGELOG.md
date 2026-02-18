@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Auto-fix PR generation** via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr`
 - **Team management & RBAC** with org policies — 10 new endpoints under `/v1/orgs/*`
 - 13 new API endpoints (41 total, up from 28)
-- 53 new tests (1431 total, up from 1367)
+- 53 new tests (1454 total, up from 1367)
 
 ### Changed
 

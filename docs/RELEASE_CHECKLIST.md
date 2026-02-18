@@ -175,7 +175,7 @@ After push and deploy:
 | Mistake | Which step catches it |
 |---|---|
 | metrics.json says 28 endpoints but code has 42 | Step 2 (generate_metrics) |
-| README says "1367 tests" but there are 1431 | Step 4 (validate_readme_metrics) |
+| README says "1367 tests" but there are 1454 | Step 4 (validate_readme_metrics) |
 | New CLI command added but not in README | Step 8 |
 | New API endpoint but OpenAPI spec not updated | Step 3 + Step 9 |
 | pyproject.toml description has old numbers | Step 5 |

@@ -2,7 +2,6 @@
 User-agent: *
 Allow: /
 Allow: /llms.txt
-Allow: /llms-full.txt
 Allow: /openapi.json
 Allow: /sitemap.xml
 
@@ -60,4 +59,3 @@ Sitemap: https://codetrust.ai/sitemap.xml
 
 # LLMs.txt for AI model discovery
 # See: https://codetrust.ai/llms.txt
-# Full: https://codetrust.ai/llms-full.txt

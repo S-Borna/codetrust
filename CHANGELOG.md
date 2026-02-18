@@ -9,114 +9,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **CVE / Vulnerability Scanning** — new `VulnerabilityService` queries Google's OSV database for known CVEs/GHSAs across all supported ecosystems (PyPI, npm, crates.io, Go, Maven, NuGet)
+- **CVE / Vulnerability Scanning** — check dependencies against Google's OSV database for known CVEs/GHSAs across all supported ecosystems (PyPI, npm, crates.io, Go, Maven, NuGet)
   - `POST /v1/vuln/scan` — batch check up to 200 packages per request
   - `codetrust vuln` CLI command with `--language` and `--json` flags
   - Cache-first pattern with configurable TTLs (1h vulnerable, 6h clean)
-  - Concurrent checking with `asyncio.Semaphore(20)` for throughput
 
-- **License Compliance** — new `LicenseService` extracts and classifies dependency licenses from PyPI and npm registries
+- **License Compliance** — extract and classify dependency licenses with risk assessment
   - `POST /v1/license/scan` — batch license check with risk classification
   - `codetrust license` CLI command with `--language` and `--json` flags
   - Classification: permissive, weak copyleft (LGPL/MPL), strong copyleft (GPL), network copyleft (AGPL/SSPL)
-  - LGPL correctly classified as weak (not strong) copyleft
 
-- **Cross-File Import Analysis** — new `CrossFileAnalyzer` builds import dependency graphs across project files
+- **Cross-File Import Analysis** — build import dependency graphs across project files
   - `POST /v1/scan/cross-file` — analyze up to 500 files
-  - Language-specific import extractors for Python, JS/TS, Go, Java, C#
-  - Circular dependency detection via DFS
-  - Orphan file detection (never imported) and hub file detection (imported by 5+)
+  - Language-specific import extraction for Python, JS/TS, Go, Java, C#
+  - Circular dependency detection, orphan file detection, hub file detection (imported by 5+)
   - Finding propagation through reverse import graph
 
-- **Auto-Fix PR Generation** — new `AutoFixService` applies safe fix recipes and optionally creates GitHub PRs
+- **Auto-Fix PR Generation** — apply safe fix recipes and optionally create GitHub PRs
   - `POST /v1/fix/apply` — apply fixes with optional PR creation via GitHub API
   - `codetrust fix --pr` with `--github-owner`, `--github-repo`, `--github-branch` flags
   - Fix recipes: `print_to_logging`, `bare_except`, `hardcoded_secrets`
-  - Detailed PR body generation with per-file fix descriptions
 
-- **Team Management & RBAC** — new `TeamService` with organization CRUD, membership management, and policy enforcement
+- **Team Management & RBAC** — organization management, membership, and policy enforcement
   - 10 API endpoints under `/v1/orgs/*`: create/list/get/delete orgs, add/remove/update members, get/update policies
-  - `Organization` and `TeamMember` SQLAlchemy models with full relationship mapping
   - Role hierarchy: Owner → Admin → Member → Viewer with cumulative permissions
   - Org-level policy enforcement: max severity gates, vulnerability thresholds, blocked licenses
-
-- **Database models** — `Organization` and `TeamMember` added to `src/models/database.py`
-  - Organization: name, slug, plan, owner, policy fields (max_severity, license compliance, vuln gates)
-  - TeamMember: org/user relationship, role, invited_by tracking
-
-- **53 new tests** covering all 5 enterprise features (vulnerability, license, cross-file, autofix, team/RBAC, API endpoints, database models)
 
 - **AI Agent Enforcement Rules** — 21 new rules across all enforcement layers to block AI agents from bypassing safe file-write tools
   - **10 gateway terminal rules**: `gateway_tee_write`, `gateway_echo_to_file`, `gateway_printf_to_file`, `gateway_cat_redirect_write`, `gateway_sed_inline`, `gateway_awk_redirect`, `gateway_bash_c_write`, `gateway_python_write_file`, `gateway_perl_inline`, `gateway_dd_write_file`
   - **5 gateway content rules**: `gateway_content_heredoc`, `gateway_content_bash_heredoc`, `gateway_content_tee_write`, `gateway_content_subprocess_heredoc`, `gateway_content_os_system_heredoc`
   - **6 static scan rules**: `agent_tee_heredoc`, `agent_echo_multiline_redirect`, `agent_cat_heredoc`, `agent_subprocess_shell_true`, `agent_os_system`, `agent_os_popen`
   - All 21 rules enforce `BLOCK` severity — code cannot ship with these patterns
-  - Gateway category 9 (AI Agent Enforcement) added; old category 9 (Resource Abuse) renumbered to 10
-  - 23 new tests in `test_gateway.py` and `test_static.py` for full coverage
 
-- **Domain migration** — All API URLs, telemetry endpoints, config defaults, docs, CI workflows, extension defaults, and Helm charts migrated from `saidborna.com` / `codetrust.dev` to `codetrust.ai` / `api.codetrust.ai` (~60 references across ~30 files)
+- **Domain migration** — All API URLs, docs, and extension defaults migrated to `codetrust.ai` / `api.codetrust.ai`
 
 - **SEO & AI Model Discoverability** — Search engine and AI model optimization for codetrust.ai
-  - `llms.txt` for AI model discovery (Claude, ChatGPT, Perplexity, Gemini) — marketing-level only, no implementation details
-  - JSON-LD structured data: `SoftwareApplication`, `Organization`, `WebSite`, `FAQPage` (6 FAQ entries)
-  - `sitemap.xml` for search engine crawling
-  - `robots.txt` allowing search engine and AI model crawlers
-  - `.well-known/security.txt` for security contact disclosure
+  - `llms.txt` for AI model discovery (Claude, ChatGPT, Perplexity, Gemini)
+  - JSON-LD structured data, `sitemap.xml`, `robots.txt`, `.well-known/security.txt`
   - Canonical URL, keywords, OG/Twitter card meta tags
 
-- **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform (+ SQL/YAML already present in backend, now enabled in extension). Total: **13 languages** (up from 6)
-
-- Backend — Language enum:
-  - `JAVA`, `CSHARP`, `CPP`, `SHELL`, `HTML`, `TERRAFORM` added to `Language(StrEnum)`
-
-- Backend — Import parsers (`src/utils/parsers.py`):
-  - `extract_java_imports()` — handles `import`/`import static`, skips `java.*`/`javax.*`/`sun.*`/`jdk.*`
-  - `extract_csharp_imports()` — handles `using`/`using static`, skips `System.*`/`Microsoft.*`/`Windows.*`
-  - `extract_cpp_includes()` — handles `#include <...>` / `#include "..."`, skips C/C++ stdlib + `sys/*` headers
-
-- Backend — AST analysis (`src/services/ast_analyzer.py`):
-  - Tree-sitter `LanguageNodes` configurations for Java, C#, C++ (function types, branch types, nesting types)
-  - Language loader functions: `_load_java_language()`, `_load_csharp_language()`, `_load_cpp_language()`
-  - Dependencies: `tree-sitter-java`, `tree-sitter-c-sharp`, `tree-sitter-cpp` (all `>=0.23.0`)
-
-- Backend — API routing (`src/api.py`):
-  - Import verification routing for `Language.JAVA`, `Language.CSHARP`, `Language.CPP`
-
-- Backend — Anti-patterns (`src/rules/anti_patterns.py`):
-  - `DEVOPS_EXTENSIONS` now includes `.tf`, `.tfvars`, `.hcl` for Terraform/HCL scanning
+- **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform. Total: **13 languages** (up from 6)
+  - Full import extraction for Java (`import`/`import static`), C# (`using`/`using static`), C++ (`#include`)
+  - AST analysis support for Java, C#, C++ (cyclomatic complexity, nesting, unused variables)
+  - Terraform/HCL files scanned with DevOps rules (`.tf`, `.tfvars`, `.hcl`)
 
 - VS Code extension:
-  - `Language` type expanded to 13 values (python, javascript, typescript, go, rust, sql, yaml, java, csharp, cpp, shell, html, terraform)
-  - `LANGUAGE_MAP` includes `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
-  - 7 new `onLanguage:` activation events (java, csharp, cpp, c, shellscript, html, terraform)
-  - Import parsers: `extractJavaImports()`, `extractCsharpImports()`, `extractCppIncludes()` (client-side verification)
-  - Embedded scanner: Terraform/HCL files routed to DevOps rules; HTML files scanned with generic rules
-  - `enabledLanguages` enum expanded from 6 to 13 entries (settings UI + defaults)
+  - 13 language support (python, javascript, typescript, go, rust, sql, yaml, java, csharp, cpp, shell, html, terraform)
+  - Import verification for all 13 languages
+  - Terraform/HCL and HTML scanning with appropriate rule sets
 
 ### Changed
 
 - VS Code extension — Status bar (enterprise branding):
-  - All verdict states (PASS/WARN/BLOCK/ERROR/IDLE/SCANNING) now show `$(shield) CodeTrust` consistently
-  - Color is always `statusBar.foreground` — no more yellow/red/green variance
+  - All verdict states now show `$(shield) CodeTrust` consistently
   - Scan results communicated via tooltip and Problems panel instead of status bar color changes
-  - Offline scans no longer append "(offline)" to the status bar text
 
 - VS Code extension — Silent activation:
-  - Onboarding prompt removed — `scanOnSave=true` applied as a global default silently on first activation
-  - "Always-On" consent dialog removed — governance enabled globally without user interaction
-  - `onStartupFinished` activation event added — extension activates in every workspace
-  - Scan-on-open always fires (no longer gated behind `config.scanOnSave`)
+  - Extension activates in every workspace — scan-on-save enabled by default
   - Active editor scanned immediately on activation; all open documents scanned on startup
 
 ### Fixed
 
-- `handleScanOnSave` now skips non-file URI schemes (output panels, git diffs) to prevent spurious scans
+- Scan-on-save now skips non-file URI schemes (output panels, git diffs) to prevent spurious scans
 
-### Tests
+### Infrastructure
 
-- 11 new parser tests for Java/C#/C++ import extraction (all passing)
-- 7 new `LANGUAGE_MAP` tests in `types.test.ts` for new language mappings
-- Updated "unknown languages" test to use fortran/pascal instead of java/cpp
+- **Zero self-scan findings** — All 369 static analysis findings eliminated (was 2 BLOCK, 250 WARN, 117 INFO)
+  - CI self-scan now enforces zero-tolerance: any finding fails the pipeline
+
+- **11 new philosophy rules** — Enforceable engineering laws AI agents cannot bypass (89 scan rules + 76 gateway rules = 165 total)
+  - **Law 3 — Root Cause**: `symptom_fix_marker` (BLOCK) — detects comments admitting workarounds
+  - **Law 4 — Determinism**: `datetime_utcnow` (BLOCK), `datetime_naive` (WARN) — timezone-aware datetime enforcement
+  - **Law 5 — Explicit Configuration**: `hardcoded_temp_path` (WARN), `env_var_no_default` (INFO)
+  - **Law 6 — Safe Data Handling**: `string_concat_sql` (BLOCK) — SQL via string concatenation
+  - **Law 7 — Code Hygiene**: `commented_out_code` (INFO) — dead code in comments
+  - **Gateway**: `gateway_content_symptom_fix` (BLOCK), `gateway_content_datetime_naive` (WARN), `gateway_npm_audit_force` (WARN), `gateway_pip_force_reinstall` (WARN)
 
 ---
 
@@ -132,24 +99,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `database_url_credentials` rule — catches database URLs with embedded passwords
-  (e.g. `postgresql+asyncpg://user:pass@host/db`). Handles `+asyncpg`, `+pymysql`, etc.
-- Path alias test (`test_path_alias_skipped`) for `@/`, `~/`, `#/` aliases
+- Path alias support — `@/`, `~/`, `#/` prefixes no longer flagged as hallucinated imports
 
 - VS Code extension:
   - Profile support commands: Create/Apply CodeTrust Profile
   - Scan-on-type (opt-in, debounced, offline)
   - Expanded Quick Fix coverage (deterministic transforms)
   - Guided onboarding: configure API URL/key + run first scan
-  - API key now stored in VS Code Secret Storage (migrated from settings)
+  - API key now stored in VS Code Secret Storage
   - Onboarding success confirmation message
 - GitHub Action:
   - PR-mode default (auto on pull_request): scans changed files and gates on new findings only
   - New input `pr-mode: auto|always|never` to override behavior
-  - Markdown report + GitHub Actions step summary output (for PR review workflows)
+  - Markdown report + GitHub Actions step summary output
   - PR comment posted/updated automatically (requires `pull-requests: write`)
-  - Hard gate: new-findings-only baseline vs HEAD (fails PR if baseline cannot be computed)
-  - PR comment is idempotent (start/end markers), machine-readable, and includes actionable CLI commands
-  - Added a real-runner selftest workflow to verify action behavior on PRs (PASS/BLOCK + idempotent comment)
+  - Baseline-aware gating: new-findings-only comparison vs HEAD
+  - Self-test workflow to verify action behavior on PRs
 - CLI:
   - `codetrust add` stack presets for `.vscode/settings.json` (`--stack auto|nextjs|node|python|go|generic`)
   - Noise-control flags: `--dedupe`, `--changed-only`, `--suppress-lint-noise` (opt-in)
@@ -157,35 +122,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Baseline-aware gating: `codetrust scan --baseline <ref> --fail-on-new BLOCK` (new findings only)
   - Doctor onboarding: `codetrust doctor --fix` installs missing enforcement layers
   - Safe autofix: `codetrust fix` (preview by default, `--apply` to write)
-  - Policy Wizard: `codetrust policy wizard` generates governance presets + installs `.taplo.toml` + `.codetrust.schema.json` for autocomplete
+  - Policy Wizard: `codetrust policy wizard` generates governance presets with schema-based autocomplete
 
 ### Fixed
 
-- `hardcoded_secret` rule now handles Python type annotations (`secret_key: str = "change-me"`)
-  and compound names (`secret_key`, `secret_token`, etc.)
-- `api_key_in_config` rule scoped to config file types (`.yml/.yaml/.toml/.ini/.cfg/.conf`) to avoid false BLOCK findings in Python runtime code
-- CI self-scan (`fail-on: block`) stabilized by removing false-positive BLOCK on `settings.stripe_secret_key` assignment in Python service code
+- `hardcoded_secret` rule now handles type annotations and compound names (`secret_key`, `secret_token`)
+- `api_key_in_config` rule scoped to config file types only (`.yml/.yaml/.toml/.ini/.cfg/.conf`)
+- CI self-scan false positives eliminated
 - JS/TS import verification no longer flags `@/components`, `@/lib`, `~/config`, `#/db`
-  as hallucinated packages — these are Next.js/Vite/TypeScript path aliases
-- Rule count updated: 76 scan + 57 gateway = 133 total
-- Test count: 1360
-
-- Pre-commit and CLI interoperability:
-  - Deterministic `codetrust scan --json` output (pure JSON on stdout)
-  - Hook/template JSON parsing made robust (accurate warn/info counts)
+  as hallucinated packages — Next.js/Vite/TypeScript path aliases are recognized
+- Pre-commit hook no longer crashes on fresh repos without virtual environments
+- Pre-commit subprocess failures/timeouts gracefully fall back instead of blocking commits
+- API optional-auth: headers ignored when auth is not configured (no surprising 401)
 - Extension tests now compile before running to ensure TS tests are executed
-
-- Pre-commit hook reliability:
-  - Hook/template no longer crashes when `.venv/bin/python` is missing (new repo onboarding)
-  - Subprocess failures/timeouts now gracefully fall back instead of blocking commits
-
-- API optional-auth semantics:
-  - When auth is not configured, `X-API-Key` / Bearer headers are ignored (no surprising 401)
-  - When auth is configured, invalid keys still return 401 with actionable guidance
-
-- VS Code extension verification hardening:
-  - Added VS Code test-harness integration coverage for activation + `codetrust.scanFile` → diagnostics
-  - Added regression coverage for settings → SecretStorage API key migration
 
 ---
 
@@ -213,14 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- VS Code extension lint blockers resolved:
-  - removed unnecessary regex escape in embedded scanner rules
-  - added explicit return types for registered command handlers
-  - removed unused status bar variable
-- Dashboard build blockers resolved:
-  - added missing dependency `@next-auth/prisma-adapter`
-  - updated Stripe API version typing in webhook route
-  - deferred Stripe client initialization to request-time with env validation to avoid build-time failure
+- VS Code extension lint blockers resolved
+- Dashboard build blockers resolved
 
 ### Released
 
@@ -315,8 +258,6 @@ file writes, and package installs are validated in real-time.
 - **11 content rules**: secrets, private keys, AWS keys, SSL bypass, CORS wildcards,
   obfuscated exec, pickle deserialization, subprocess shell, debug mode,
   webhook exfiltration, eval/exec in files
-- `check_file_write()` now returns highest severity match (was first match)
-- Git push false positive fixed (force push vs regular push ordering)
 
 ### Moat 2: Live Import Verification (Hallucination Detection)
 
@@ -324,13 +265,8 @@ Every `codetrust scan` now extracts imports from Python/JS files and verifies th
 against **live PyPI/npm registries**. Hallucinated packages produce BLOCK findings
 with exact file and line number.
 
-- **`src/services/import_verifier.py`** — bridge between static analysis and
-  registry verification. Extracts imports, verifies against live APIs, produces
-  findings with line-level precision
-- **CLI integration** — `cmd_scan()` runs import verification by default.
-  `--no-verify-imports` to skip. Shows progress and results inline
-- **GitHub Action integration** — `scan_runner.py` runs `verify_imports()` step
-  after static scan; hallucinated packages appear as PR annotations
+- Import verification runs by default (`--no-verify-imports` to skip)
+- GitHub Action integration — hallucinated packages appear as PR annotations
 - **13 AI-specific static rules** (was 5): `hallucinated_import_nonexistent`,
   `hallucinated_import_misspelled`, `hallucinated_method_chain`,
   `hallucinated_config_option`, `hallucinated_cli_flag`, `hallucinated_version`,
@@ -345,37 +281,24 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 - **Baseline storage** — `.codetrust/drift_baseline.json` persists between runs
 - **Delta tracking** — shows improvement/regression from baseline
 - **Trend analysis** — improving/degrading/stable based on history
-- **History cap** — 100 data points retained
 
 ### Summary
 
 - **132 total rules** — 75 scan rules + 57 gateway rules (was 82)
 - **1312 tests** — 0 failures, 2 skipped (was 1168)
-- **29 new import verification tests** — line detection, collection,
-  async/sync wrappers, 3 end-to-end scenarios
-- **115 moat tests** — gateway categories, hallucination detection,
-  drift score trending, real-world scenarios
-
-### Changed
-
-- Version bumped to 2.1.0 across pyproject.toml, extension, CLI SARIF output
-- README repositioned around three moats
-- Architecture diagram updated with import verification flow
-- Rule count references updated: 82 → 132
 
 ## [2.0.0] - 2026-02-13
 
 ### Added
 
 - **AI Governance Gateway** — pre-execution interception layer for AI agent actions
-  - `src/gateway/interceptor.py` — `CommandInterceptor` with 13 terminal rules + 2 content rules
+  - 13 terminal interception rules + 2 content rules at launch
   - Blocks: heredoc, eval, curl|sh, rm -rf /, chmod 777, sudo su, dd of=, git push,
     git force push, pip unverified, env secret export, mkfs, fork bomb
   - Content scanning: eval/exec in file writes, hardcoded secrets in file writes
-  - `src/gateway/policies.py` — `PolicyEngine` with configurable governance modes
-    (enforce/audit/off), loads from `.codetrust.toml` or `pyproject.toml`
-  - `src/gateway/audit.py` — JSONL append-only audit logger with filtering and stats
-  - `src/gateway/server.py` — MCP gateway server ("codetrust-gateway") with 7 tools:
+  - Configurable governance modes (enforce/audit/off) via `.codetrust.toml` or `pyproject.toml`
+  - JSONL append-only audit log with filtering and stats
+  - MCP gateway server with 7 tools:
     `codetrust_validate_command`, `codetrust_validate_file_write`,
     `codetrust_validate_file_delete`, `codetrust_validate_package`,
     `codetrust_governance_status`, `codetrust_audit_history`, `codetrust_list_gateway_rules`
@@ -383,48 +306,37 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 - **CLI `codetrust audit`** — `--hours`, `--verdict`, `--stats` subcommands
 - **CLI `codetrust init`** — now installs `.codetrust.toml` + `.codetrust/` audit directory
 - **Extension governance settings** — 7 new VS Code settings for governance configuration
-- **77 rules** — expanded from 49 to 77 (62 scan rules + 15 gateway rules)
-- **67 scan rules** — expanded from 62 with 5 new config hallucination detectors:
+- **82 total rules** — 67 scan rules + 15 gateway rules
+- **5 new config hallucination detectors**:
   `hallucinated_localhost_port` (WARN), `hallucinated_api_endpoint` (WARN),
   `hallucinated_env_var` (INFO), `placeholder_url` (WARN), `fake_api_key_format` (BLOCK)
-- **82 total rules** — 67 scan rules + 15 gateway rules
-- **CI governance enforcement** — GitHub Action `scan_runner.py` now runs gateway
+- **CI governance enforcement** — GitHub Action now runs gateway
   content rules on PR files, merging governance findings with scan findings
 - **Multi-agent audit correlation** — auto-detects Claude, Copilot, Cursor, Windsurf,
-  and GitHub Actions via environment variables; logs `agent_id` on every audit entry
-- **Dashboard governance view** — Next.js page at `/dashboard/governance` with
-  `GovernanceAuditView` component: stats cards, verdict badges, filterable audit table
+  and GitHub Actions via environment variables; logs agent identity on every audit entry
+- **Dashboard governance view** — real-time governance audit page with
+  stats cards, verdict badges, and filterable audit table
 - **`/v1/governance/audit` API endpoint** — query audit log with `hours`, `verdict`,
-  and `limit` parameters; returns entries + stats JSON for dashboard consumption
-- **62 rules** — expanded from 49 to 62 rules (51 regex + 11 file-level)
+  and `limit` parameters
 - **React/JSX rules** (7 new) — `dangerouslySetInnerHTML` (BLOCK), `innerHTML` string
   (BLOCK), missing `key` in list, `document.getElementById` usage, `useEffect` without
   deps array, `setState` in render, `index` as key prop
 - **Kubernetes YAML rules** (6 new) — `privileged: true` (BLOCK), `hostNetwork`,
   `hostPID`, `runAsUser: 0`, missing resource limits, `latest` image tag
 - **CLI `--sarif` / `--sarif-file`** — emit SARIF v2.1.0 output for CI integration
-  (e.g. GitHub Code Scanning upload)
 - **CLI config file support** — reads `.codetrust.toml` or `pyproject.toml
   [tool.codetrust]` for `exclude_paths`, `ignore_rules`, and `severity_overrides`
-- **CLI special handlers** — implemented 7 new file-level checks: `except_swallow`,
-  `sleep_no_context`, `long_function` (>40 lines), `connection_no_timeout`,
-  `compose_no_healthcheck`, `ci_no_timeout`, `dockerfile_no_healthcheck`
+- **7 file-level checks**: `except_swallow`, `sleep_no_context`, `long_function` (>40 lines),
+  `connection_no_timeout`, `compose_no_healthcheck`, `ci_no_timeout`, `dockerfile_no_healthcheck`
 - **GitHub Action inputs** — `fail-on` (block/warn/never), `scan-type` (static/deep),
-  `language`, `sarif` (true/false); `sarif-file` output; expanded file detection to
-  `.tsx`, `.jsx`, `.sql`, `.yml`, `.yaml`
+  `language`, `sarif` (true/false); expanded file detection to `.tsx`, `.jsx`, `.sql`, `.yml`, `.yaml`
 - **Extension "Scan Workspace"** command — scans up to 500 files with progress UI,
-  cancel support, and summary notification with block count
-- **Extension embedded scanner** — extended with React and Kubernetes rule arrays
-  and `.jsx`/`.tsx` file routing
+  cancel support, and summary notification
 
 ### Changed
 
-- **CLAUDE.md** — added Layer A (Gateway) enforcement protocol: AI agents must call
-  `codetrust_validate_command` before every terminal command
 - **Total rules** — 82 (67 scan rules + 15 gateway rules)
 - **Total MCP tools** — 15 (8 scanner + 7 gateway)
-- **Parity test counts** updated to 67 total / 56 regex / 11 special handlers
-- **845 tests** at release (expanded to 1168 in subsequent sessions)
 
 ## [1.9.0] - 2026-02-12
 
@@ -432,21 +344,16 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 
 - **Offline Mode documentation** — extension README now documents offline scanning
   capabilities, verification cache, and online/offline feature comparison table
-- **CI extension build job** — new `extension-build` job in GitHub Actions validates
-  TypeScript compilation (`tsc --noEmit`) and npm build on every push
+- **CI extension build job** — validates TypeScript compilation and npm build on every push
 - **CI Python matrix** — tests now run against Python 3.12 and 3.13 in parallel
-- **CI pip caching** — pip dependencies cached via `actions/cache@v4` for faster builds
+- **CI pip caching** — faster builds via dependency caching
 - **CI timeouts** — all jobs have `timeout-minutes` to prevent stuck workflows
 
 ### Fixed
 
-- **API URL consistency** — GitHub Action `scan_runner.py` default URL updated from
-  `api.codetrust.dev` to `codetrust-api-production.up.railway.app` matching all other
-  entry points
-- **Self-scan noise** — CLI entry points (`cli.py`, `scan_runner.py`, `scan.py`) now
-  exempt from `print_debug` rule since `print()` is correct user output for CLI tools
-- **Test fixture false positives** — self-scan now skips `.test.` and `.spec.` files
-  and `test`/`__tests__` directories that contain intentional anti-patterns
+- **API URL consistency** — all entry points now use the same API base URL
+- **Self-scan noise** — CLI entry points exempt from `print_debug` rule since `print()` is correct for CLI tools
+- **Test fixture false positives** — self-scan now skips test files that contain intentional anti-patterns
 
 ## [1.8.1] - 2026-02-11
 
@@ -456,22 +363,15 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
   - Layer 02: Root Cause Analysis (4 symptom-fix rules) — NEW
   - Layer 05: Container Hardening (10 rules) — NEW
   - Layer 06: IaC & Config (7 rules) — NEW
-- **Website Trust color** reverted from `#38d8fd` (cyan) to `var(--green)` matching logo
-- **PyPI description** updated with 9-layer table
-- **Extension README** updated with 9-layer table
-- **PRODUCT.md** layers rewritten from 7 to 9
+- **Website Trust color** reverted to `var(--green)` matching logo
+- **PyPI and extension descriptions** updated with 9-layer table
 
 ### Fixed
 
-- **Procfile** — removed `alembic upgrade head &&` that blocked server start; migration now handled by `preDeployCommand`
-- **railway.toml** — removed `preDeployCommand` (alembic migration was hanging on DB lock)
-- **blocking_prestart self-scan** — split regex string with concatenation to prevent rule definitions from self-matching in `cli.py`, `anti_patterns.py`, `pre-commit`, `templates/pre-commit`
-- **GitHub Action heredoc** — replaced a fixed heredoc delimiter with a dynamic delimiter in `.github/workflows/codetrust-scan.yml`
-- **4 except_swallow BLOCK violations** in production code:
-  - `src/cli.py:522` — `except: pass` → `hooks_path_set = False`
-  - `src/services/registry.py:539` — `except: pass` → `logger.debug()`
-  - `src/services/sandbox.py:251` — `except: pass` → `return` with comment
-  - `action/scan_runner.py:118` — `except: continue` → print warning + continue
+- **Procfile** — removed migration command that blocked server start
+- **Self-scan reliability** — split regex strings with concatenation to prevent rule definitions from self-matching
+- **GitHub Action** — fixed heredoc delimiter issue in CI workflow
+- **4 `except_swallow` BLOCK violations** resolved in production code — bare `except: pass` replaced with proper error handling
 
 ## [1.8.0] - 2026-02-11
 
@@ -524,26 +424,25 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 
 ### Added
 
-- **DevOps anti-pattern rules** — 7 new rules, 18 tests (35 total rules)
-  - `connection_no_timeout` — flags Redis/httpx/SQLAlchemy connections without timeout
+- **DevOps anti-pattern rules** — 7 new rules (35 total rules)
+  - `connection_no_timeout` — flags connections without timeout
   - `unbounded_retry` — flags retry counts >= 5 without total deadline
   - `retry_exponential_unbounded` — flags exponential backoff without timeout cap
-  - `blocking_prestart` — flags migrations blocking server startup (alembic && uvicorn)
+  - `blocking_prestart` — flags migrations blocking server startup
   - `dockerfile_no_healthcheck` — flags Dockerfile CMD without HEALTHCHECK
   - `compose_no_healthcheck` — flags Docker Compose services without healthcheck
   - `healthcheck_timeout_low` — flags healthcheck timeouts under 30s
-- **Offline local scanning** — CLI scan engine (`codetrust scan`) now includes
-  DevOps, SQL, and all generic rules with file-type routing. No API dependency.
-- **Pre-commit local fallback** — hook tries full CLI engine first (`python -m src.cli scan`),
+- **Offline local scanning** — `codetrust scan` now includes DevOps, SQL, and all
+  generic rules with file-type routing. No API dependency.
+- **Pre-commit local fallback** — hook tries full CLI engine first,
   falls back to embedded regex if CLI unavailable. Zero network dependency.
 - **CI local fallback** — GitHub Actions workflows check API health before scanning;
-  if API is unreachable, runs local scan automatically instead of silently failing.
+  if API is unreachable, runs local scan automatically.
 - SQL and DevOps file types added to scan coverage (`.sql`, `.yml`, `.yaml`, `.toml`)
 
 ### Fixed
 
-- **Railway deployment** — restored clean `preDeployCommand` with timeout guard,
-  reverted unnecessary retry logic and env var fallback complexity
+- **Deployment reliability** — clean startup command with timeout guard
 
 ## [1.6.0] - 2026-02-11
 
@@ -560,9 +459,8 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 - **Published to PyPI** — `pip install codetrust` — [pypi.org/project/codetrust](https://pypi.org/project/codetrust/)
 - **Published to VS Code Marketplace** — [SaidBorna.codetrust](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
 - **CLI tool** (`codetrust init/scan/status/doctor`) — install enforcement layers into any project
-- **Enforcement templates** — CLAUDE.md, .cursorrules, pre-commit hook, GitHub Action (in `src/templates/`)
-- **VS Code / Cursor Extension** (Phase 10) — editor extension for inline code verification
-  - `extension/` TypeScript project with full VS Code extension scaffolding
+- **Enforcement templates** — CLAUDE.md, .cursorrules, pre-commit hook, GitHub Action
+- **VS Code / Cursor Extension** — editor extension for inline code verification
   - Scan on save — automatic static analysis when saving supported files
   - Command palette: Scan File, Deep Scan, Verify Imports, Verify Dockerfile, Clear Diagnostics
   - Inline diagnostics — findings shown as squiggly lines (error/warning/info severity)
@@ -571,104 +469,84 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
   - Import verification — extracts imports from Python, JS/TS, Go, Rust and verifies against registries
   - Docker verification — parses FROM directives and validates images/tags
   - Configurable settings: API URL, API key, scan type, severity threshold, language filter, timeout
-  - API client using Node.js native http/https (zero runtime dependencies)
-  - Parser utilities for Python, JavaScript/TypeScript, Go, Rust imports and Dockerfile images
-  - 3 test suites (parser tests, API client tests, type tests)
-  - ESLint, TypeScript strict mode, source maps
+  - Zero runtime dependencies
 
 ## [1.4.0] - 2026-02-11
 
 ### Added
 
-- **Dashboard (Next.js 14+)** (Phase 9) — web dashboard for API key management and usage analytics
+- **Dashboard (Next.js 14+)** — web dashboard for API key management and usage analytics
   - Landing page with hero section and feature cards
   - Pricing page with Free / Pro / Enterprise tier comparison
-  - GitHub OAuth login via NextAuth.js with Prisma adapter
+  - GitHub OAuth login with session management
   - Dashboard overview with stats cards, usage chart, and scan history table
-  - API key management — create, list, revoke keys (`ct_live_` format, SHA-256 hashed)
+  - API key management — create, list, revoke keys
   - Account settings page with profile, subscription, and danger zone
   - Tailwind CSS styling with dark-mode-ready custom palette
-- **Stripe Billing** — subscription management with checkout, portal, and webhooks
-  - `src/services/billing.py` — `BillingService` wrapping Stripe SDK
-  - Checkout sessions, customer portal, subscription status, plan limits
-  - Webhook handler for `checkout.session.completed` and `customer.subscription.deleted`
+- **Billing** — subscription management with checkout, portal, and webhooks
   - Plan limits: FREE=100, PRO=10,000, ENTERPRISE=100,000 scans/day
-- **Database layer (SQLAlchemy 2.0 async)** — persistent storage for users, keys, scans
-  - `src/models/database.py` — `User`, `ApiKeyRecord`, `ScanLog`, `UsageDay` ORM models
-  - `src/services/database.py` — async CRUD service (~280 lines)
-  - PostgreSQL (asyncpg) for production, SQLite (aiosqlite) for tests
+- **Database layer** — persistent storage for users, API keys, scan history, and usage tracking
+  - PostgreSQL for production, SQLite for tests
 - **8 new API endpoints** — dashboard backend
   - `POST /v1/api-keys`, `GET /v1/api-keys`, `DELETE /v1/api-keys/{key_id}`
   - `GET /v1/scans/history`, `GET /v1/usage`
-  - `POST /v1/billing/checkout`, `POST /v1/billing/portal`, `POST /v1/webhooks/stripe`
+  - `POST /v1/billing/checkout`, `POST /v1/billing/portal`
 - CORS middleware for dashboard cross-origin requests
 - Docker Compose: added PostgreSQL 16 service with health checks
-- 66 new tests (30 database + 22 billing + 15 dashboard API) — **476 tests total**
 
 ### Changed
 
-- `PlanTier` and `ScanType` enums added to `src/models/enums.py`
-- Config expanded: database, Stripe, OAuth, JWT, dashboard settings
-- `pyproject.toml`: added sqlalchemy, asyncpg, stripe, aiosqlite dependencies
+- Config expanded: database, billing, OAuth, JWT, dashboard settings
 
 ## [1.3.0] - 2026-02-11
 
 ### Added
 
-- **GitHub Action for CI/CD** (Phase 8) — reusable composite action for PR scanning
-  - `action.yml` with configurable inputs: scan-type, fail-on threshold, language, SARIF output
-  - `action/entrypoint.sh` entry script and `action/scan_runner.py` Python runner
-  - Language-aware file discovery with exclusion patterns (.git, .venv, node_modules, etc.)
+- **GitHub Action for CI/CD** — reusable composite action for PR scanning
+  - Configurable inputs: scan-type, fail-on threshold, language, SARIF output
+  - Language-aware file discovery with exclusion patterns
   - GitHub workflow annotations (`::error::`, `::warning::`) for inline PR feedback
 - **SARIF v2.1.0 output** — standard format for GitHub Security tab integration
-  - `src/formatters/sarif.py` — converts Finding objects to SARIF JSON
   - `POST /v1/scan/static/sarif` and `POST /v1/scan/deep/sarif` API endpoints
   - `codetrust_sarif_export` MCP tool
   - Security-severity mapping (BLOCK→high, WARN→medium, INFO→low)
-- **CI pipeline** — `.github/workflows/ci.yml` with lint, test, and self-scan jobs
-- 77 new tests (45 GitHub Action + 32 SARIF) — **410 tests total**
+- **CI pipeline** — lint, test, and self-scan jobs
 
 ## [1.2.0] - 2026-02-10
 
 ### Added
 
-- **Sandbox Execution** (Phase 7) — isolated Docker container code execution (Layer 4)
-  - `src/services/sandbox.py` — `SandboxService` with inline and file execution strategies
+- **Sandbox Execution** — isolated Docker container code execution
+  - Inline and file execution strategies
   - Security: `--network=none`, `--read-only`, `--memory=256m`, `--pids-limit=64`
   - Supported languages: Python, JavaScript, TypeScript, Go, Rust
-  - `sandbox/` directory with 4 Dockerfiles (python, node, go, rust)
   - `POST /v1/sandbox/run` API endpoint
   - `codetrust_sandbox_run` MCP tool
-  - Sandbox layer integrated into deep scan (optional `sandbox_run` field)
-- 63 new sandbox tests — **333 tests total**
+  - Sandbox layer integrated into deep scan
 
 ## [1.0.1] - 2026-02-10
 
 ### Added
 
-- **Go & Rust Registry Support** (Phase 5) — extended registry verification to two new ecosystems
-  - `verify_go_module()` — verification against proxy.golang.org with version check
-  - `verify_crates_package()` — verification against crates.io with version check
-  - `extract_go_imports()` — regex parser for `import "..."` and `import (...)` blocks, skips stdlib
-  - `extract_rust_imports()` — regex parser for `use crate::` and `extern crate`, skips std/core/alloc
-  - `parse_go_mod()` — parses `require (...)` blocks to module→version mapping
-  - `parse_cargo_toml()` — parses `[dependencies]` to crate→version mapping
-  - Fuzzy matching suggestions for Go modules and Rust crates (top 200+ each)
-  - crates.io User-Agent header (`CodeTrust/1.0.0`)
-  - Language routing: `Language.GO` → Go proxy, `Language.RUST` → crates.io
-  - Comprehensive tests for Go/Rust verification, import extraction, manifest parsing
+- **Go & Rust Registry Support** — extended registry verification to two new ecosystems
+  - Go module verification against proxy.golang.org with version check
+  - Rust crate verification against crates.io with version check
+  - Go import extraction from `import "..."` and `import (...)` blocks (stdlib excluded)
+  - Rust import extraction from `use crate::` and `extern crate` (std/core/alloc excluded)
+  - Go mod and Cargo.toml manifest parsing for version mapping
+  - Fuzzy matching suggestions for Go modules and Rust crates
+  - Language routing: Go → Go proxy, Rust → crates.io
 
 ## [1.1.0] - 2026-02-10
 
 ### Added
 
-- **AST Parsing with tree-sitter** (Phase 6) — deep code analysis via Abstract Syntax Trees (Layer 3)
-  - `src/services/ast_analyzer.py` — cyclomatic complexity, unused variables, unreachable code, deep nesting
-  - Supports Python, JavaScript, TypeScript, Go, Rust via tree-sitter grammars
+- **AST Parsing** — deep code analysis via Abstract Syntax Trees
+  - Cyclomatic complexity, unused variables, unreachable code, deep nesting detection
+  - Supports Python, JavaScript, TypeScript, Go, Rust
   - `POST /v1/scan/ast` API endpoint
   - `codetrust_ast_scan` MCP tool
   - AST layer integrated into deep scan
-- 270 tests total after Phase 6
 
 ## [1.0.0] - 2026-02-10
 
@@ -703,6 +581,5 @@ Not just a snapshot — a real metric that tracks how your codebase is evolving.
 - **X-API-Key authentication** (optional — skipped in local dev)
 - **Pre-commit hook** with BLOCK/WARN pattern scanning
 - **Docker Compose** stack for API + Redis
-- **Railway deployment** configuration (railway.toml + Procfile)
 - **Multi-stage Dockerfile** with non-root user
-- **structlog** JSON logging throughout
+- **Structured JSON logging** throughout

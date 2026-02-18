@@ -90,7 +90,7 @@
     "/v1/governance/audit": {
       "get": {
         "summary": "Governance Audit",
-        "description": "Query the governance audit log.\n\nReturns recent audit entries and aggregate statistics.\nReads from .codetrust/audit.jsonl in the workspace.\n\nArgs:\n    hours: How many hours back to search (default: 24).\n    verdict: Filter by verdict: ALLOW, WARN, BLOCK.\n    limit: Maximum entries to return (default: 100).\n\nReturns:\n    Dict with entries list and stats summary.",
+        "description": "Query the governance audit log. Returns recent audit entries and aggregate statistics.",
         "operationId": "governance_audit_v1_governance_audit_get",
         "parameters": [
           {
@@ -291,7 +291,7 @@
     "/v1/scan/ast": {
       "post": {
         "summary": "Ast Scan",
-        "description": "Run AST-based code analysis using tree-sitter.",
+        "description": "Run AST-based code analysis.",
         "operationId": "ast_scan_v1_scan_ast_post",
         "requestBody": {
           "content": {
@@ -1432,7 +1432,7 @@
     "/v1/billing/checkout": {
       "post": {
         "summary": "Billing Checkout",
-        "description": "Create a Stripe checkout session for upgrading plans.",
+        "description": "Create a checkout session for upgrading plans.",
         "operationId": "billing_checkout_v1_billing_checkout_post",
         "requestBody": {
           "content": {
@@ -1476,7 +1476,7 @@
     "/v1/billing/portal": {
       "post": {
         "summary": "Billing Portal",
-        "description": "Create a Stripe customer portal session.",
+        "description": "Create a customer portal session.",
         "operationId": "billing_portal_v1_billing_portal_post",
         "responses": {
           "200": {
@@ -1495,25 +1495,6 @@
             "APIKeyHeader": []
           }
         ]
-      }
-    },
-    "/v1/webhooks/stripe": {
-      "post": {
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events for subscription changes.",
-        "operationId": "stripe_webhook_v1_webhooks_stripe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v1/auth/github": {
@@ -1664,7 +1645,7 @@
     "/v1/auth/oidc/callback": {
       "post": {
         "summary": "Oidc Callback",
-        "description": "Exchange an OIDC authorization code for a CodeTrust JWT.\n\nThe OIDC IdP redirects back with a code; this endpoint:\n1. Exchanges the code for tokens at the IdP\n2. Extracts user info from the ID token\n3. Creates or updates the user in the database\n4. Returns a CodeTrust JWT for dashboard sessions",
+        "description": "Exchange an OIDC authorization code for an access token.\n\nCompletes the OIDC authentication flow and returns a session token.",
         "operationId": "oidc_callback_v1_auth_oidc_callback_post",
         "requestBody": {
           "content": {
@@ -1996,7 +1977,7 @@
           "plan"
         ],
         "title": "CheckoutRequest",
-        "description": "Request to create a Stripe checkout session."
+        "description": "Request to create a checkout session."
       },
       "CreateApiKeyRequest": {
         "properties": {
@@ -2325,16 +2306,11 @@
           "version": {
             "type": "string",
             "title": "Version"
-          },
-          "cache_connected": {
-            "type": "boolean",
-            "title": "Cache Connected"
           }
         },
         "type": "object",
         "required": [
-          "version",
-          "cache_connected"
+          "version"
         ],
         "title": "HealthResponse",
         "description": "Response for health check endpoint."
@@ -2779,7 +2755,7 @@
           "expires_in_minutes"
         ],
         "title": "TokenResponse",
-        "description": "Response containing JWT token and user info."
+        "description": "Authentication response containing access token and user info."
       },
       "UpdateMemberRoleRequest": {
         "properties": {

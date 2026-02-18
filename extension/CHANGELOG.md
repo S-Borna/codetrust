@@ -10,21 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **7 new languages**: Java, C#, C++, Shell/Bash, HTML, Terraform, YAML — total now **13** (up from 6)
-- `onLanguage:` activation events for java, csharp, cpp, c, shellscript, html, terraform
-- Import parsers: `extractJavaImports()`, `extractCsharpImports()`, `extractCppIncludes()`
-- `LANGUAGE_MAP` entries: `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
+- Activation events for all 13 languages
+- Import verification for Java, C#, C++ added
+- Language mapping: `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
 - Embedded scanner routes Terraform/HCL (`.tf`, `.tfvars`, `.hcl`) to DevOps rules
 - `enabledLanguages` setting expanded from 6 to 13 entries
 
-### Backend (platform-level, benefits all surfaces)
+### Platform (benefits all surfaces)
 
 - **CVE/vulnerability scanning** via OSV database — `POST /v1/vuln/scan`, `codetrust vuln`
 - **License compliance** checking — `POST /v1/license/scan`, `codetrust license`
 - **Cross-file import analysis** with cycle/orphan/hub detection — `POST /v1/scan/cross-file`
 - **Auto-fix PR generation** via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr`
 - **Team management & RBAC** with org policies — 10 new endpoints under `/v1/orgs/*`
-- 13 new API endpoints (41 total, up from 28)
-- 53 new tests (1454 total, up from 1367)
+- 14 new API endpoints (42 total, up from 28)
+- **11 new philosophy rules** — root-cause enforcement, determinism, configuration, safe data handling, code hygiene (165 total rules, up from 154)
 
 ### Changed
 

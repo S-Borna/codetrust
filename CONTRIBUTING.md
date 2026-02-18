@@ -87,15 +87,15 @@ npm run compile
 - **Docstrings:** Google style for public functions
 
 ```python
-def scan_file(path: str, *, language: str | None = None) -> list[Finding]:
-    """Scan a file for anti-patterns.
+def process_results(items: list[str], *, verbose: bool = False) -> list[dict[str, str]]:
+    """Process scan results and return formatted output.
 
     Args:
-        path: Absolute path to the file.
-        language: Override language detection. If None, detected from extension.
+        items: List of items to process.
+        verbose: If True, include additional detail in output.
 
     Returns:
-        List of findings sorted by severity.
+        List of processed results with metadata.
     """
 ```
 
@@ -118,34 +118,23 @@ chore: bump tree-sitter to 0.24.0
 
 ## Project Structure
 
-```
-src/                    # Python backend
-├── api.py              # FastAPI REST API
-├── cli.py              # CLI entry point
-├── server.py           # MCP server
-├── gateway/            # AI Governance Gateway
-│   ├── interceptor.py  # Command/content interception
-│   ├── policies.py     # Policy engine (TOML config)
-│   ├── audit.py        # JSONL audit logger
-│   └── server.py       # MCP gateway server
-├── rules/              # Anti-pattern rule definitions
-├── services/           # Business logic
-├── models/             # Pydantic request/response models
-├── formatters/         # Output formatters (SARIF, etc.)
-└── middleware/          # API middleware
+The codebase is organized into four main components:
 
-extension/              # VS Code extension (TypeScript)
-dashboard/              # Next.js web dashboard
-action/                 # GitHub Action
-tests/                  # Python test suite
-```
+- **Backend** — Python scanning engine, API, CLI, and MCP server
+- **Extension** — VS Code extension (TypeScript)
+- **Dashboard** — Next.js web dashboard
+- **Action** — GitHub Action for CI/CD
+
+Contributors with repository access can explore the source layout directly.
 
 ## Adding a New Rule
 
-1. Add the rule to `src/rules/anti_patterns.py`
-2. Add the matching TypeScript rule to `extension/src/embedded-scanner.ts`
-3. Add tests in `tests/test_parity.py`
-4. Update rule counts in README.md, extension/README.md, and CHANGELOG.md
+Detailed instructions for adding rules are available in the internal development guide. At a high level:
+
+1. Add the rule definition in the backend scanning engine
+2. Add the matching rule in the VS Code extension scanner
+3. Add tests to maintain parity between backend and extension
+4. Update rule counts across documentation
 
 ## License
 

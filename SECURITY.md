@@ -44,7 +44,7 @@ The following are in scope:
 - **CodeTrust API** (api.codetrust.ai)
 - **CodeTrust VS Code Extension** (SaidBorna.codetrust)
 - **CodeTrust MCP Server** (codetrust-mcp)
-- **AI Governance Gateway** (src/gateway/)
+- **AI Governance Gateway** (real-time command interception)
 - **GitHub Action** (S-Borna/codetrust)
 
 ### Out of Scope

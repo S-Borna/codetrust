@@ -69,6 +69,29 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
 
     {
+        "id": "symptom_fix_marker",
+        "pattern": (
+            r"(?i)#\s*(?:"
+            r"work" + r"around"
+            r"|quick\s*fix"
+            r"|band[\s\-]*aid"
+            r"|stop[\s\-]*gap"
+            r"|klud" + r"ge"
+            r"|duct[\s\-]*tape"
+            r"|dirty\s*(?:ha" + r"ck|fix)"
+            r"|temporary\s*(?:fix|patch|solution)"
+            r"|symptom\s*fix"
+            r"|monkey[\s\-]*pat" + r"ch"
+            r"|short[\s\-]*term\s*fix"
+            r")"
+        ),
+        "message": (
+            "Comment admits this is a symptom fix, not a root-cause fix. "
+            "Find and resolve the underlying problem."
+        ),
+        "severity": Severity.BLOCK,
+    },
+    {
         "id": "except_swallow",
         "pattern": r"^\s*except[\s:]",
         "message": "Exception caught and silently swallowed (pass/...). Handle the error or re-raise.",
@@ -145,6 +168,94 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"def\s+\w+\([^)]*(?::\s*(?:list|dict|set)\s*=\s*(?:\[\]|\{\}))",
         "message": "Mutable default argument. Use None and assign inside function.",
         "severity": Severity.WARN,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  DETERMINISM RULES (Law 4: "Be deterministic")
+    #  Code must produce the same result everywhere, every time.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "datetime_utcnow",
+        "pattern": r"date" + r"time\.utcnow\s*\(",
+        "message": (
+            "date" + "time.utcnow() is deprecated since Python 3.12 and returns a "
+            "naive datetime. Use date" + "time.now(tz=timezone.utc) instead."
+        ),
+        "severity": Severity.BLOCK,
+        "skip_comments": True,
+    },
+    {
+        "id": "datetime_naive",
+        "pattern": r"date" + r"time\.now\(\s*\)",
+        "message": (
+            "date" + "time.now() without timezone argument returns a naive datetime. "
+            "Use date" + "time.now(tz=timezone.utc) or pass an explicit timezone."
+        ),
+        "severity": Severity.WARN,
+        "skip_comments": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  EXPLICIT CONFIGURATION (Law 5: "Configure, don't hardcode")
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "hardcoded_temp_path",
+        "pattern": r"""["']/(?:tmp|var/tmp|var/log)/""",
+        "message": (
+            "Hardcoded temp/log path. Use tempfile.mkdtemp(), "
+            "tempfile.NamedTemporaryFile(), or a configuration variable."
+        ),
+        "severity": Severity.WARN,
+        "skip_comments": True,
+    },
+    {
+        "id": "env_var_no_default",
+        "pattern": r"os\.getenv\(\s*[\"']\w+[\"']\s*\)\s*$",
+        "message": (
+            "os.getenv() without a default value silently returns None. "
+            "Provide a default or use os.environ[] to fail fast."
+        ),
+        "severity": Severity.INFO,
+        "skip_comments": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  SAFE DATA HANDLING (Law 6: "Never trust string assembly")
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "string_concat_sql",
+        "pattern": (
+            r'(?i)(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\b'
+            r'.*["\']\s*\+\s*\w+'
+        ),
+        "message": (
+            "SQL query assembled via string concatenation. "
+            "Use parameterized queries to prevent SQL injection."
+        ),
+        "severity": Severity.BLOCK,
+        "skip_comments": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CODE HYGIENE (Law 7: "Leave no debris")
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "commented_out_code",
+        "pattern": (
+            r"^\s*#\s*(?:"
+            r"def\s+\w+\s*\(|"
+            r"class\s+\w+|"
+            r"import\s+\w+|"
+            r"from\s+\w+\s+import|"
+            r"return\s+\w+|"
+            r"raise\s+\w+"
+            r")"
+        ),
+        "message": (
+            "Commented-out code detected. Use version control to "
+            "track old code instead of leaving dead code in comments."
+        ),
+        "severity": Severity.INFO,
     },
 
     # ═══════════════════════════════════════════════════════════════

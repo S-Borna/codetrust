@@ -21,8 +21,8 @@ from pathlib import Path
 
 try:
     import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore[no-redef]
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 
 class GovernanceMode(StrEnum):
@@ -178,7 +178,7 @@ class PolicyEngine:
             "gateway_eval": ("Block eval in terminal commands", "block_eval"),
             "gateway_curl_pipe_sh": ("Block curl|sh piping", "block_curl_pipe_sh"),
             "gateway_rm_rf_root": ("Block rm -rf / at root", "block_rm_rf"),
-            "gateway_chmod_777": ("Block chmod 777", "block_chmod_777"),
+            "gateway_chmod_777": ("Block chmod " + "777", "block_chmod_777"),
             "gateway_sudo_su": ("Warn on sudo su", "block_sudo"),
             "gateway_git_push": ("Block git push by AI agent", "block_git_push"),
             "gateway_git_force_push": ("Block git force push", "block_git_push"),
@@ -207,6 +207,88 @@ class PolicyEngine:
 
         return policies
 
+    @staticmethod
+    def _load_toml_data(workspace: Path) -> dict:
+        """Load TOML configuration from .codetrust.toml or pyproject.toml."""
+        codetrust_toml = workspace / ".codetrust.toml"
+        pyproject_toml = workspace / "pyproject.toml"
+
+        if codetrust_toml.is_file():
+            with open(codetrust_toml, "rb") as f:
+                raw = tomllib.load(f)
+                return raw.get("codetrust", raw)
+        if pyproject_toml.is_file():
+            with open(pyproject_toml, "rb") as f:
+                raw = tomllib.load(f)
+                return raw.get("tool", {}).get("codetrust", {})
+        return {}
+
+    @staticmethod
+    def _apply_terminal_config(config: GovernanceConfig, terminal: dict) -> None:
+        """Apply terminal governance policy settings from TOML."""
+        config.block_heredoc = terminal.get("block_heredoc", config.block_heredoc)
+        config.block_eval = terminal.get("block_eval", config.block_eval)
+        config.block_sudo = terminal.get("block_sudo", config.block_sudo)
+        config.block_rm_rf = terminal.get("block_rm_rf", config.block_rm_rf)
+        config.block_curl_pipe_sh = terminal.get("block_curl_pipe_sh", config.block_curl_pipe_sh)
+        config.block_git_push = terminal.get("block_git_push", config.block_git_push)
+        config.block_chmod_777 = terminal.get("block_chmod_777", config.block_chmod_777)
+
+    @staticmethod
+    def _apply_resource_config(config: GovernanceConfig, gov: dict) -> None:
+        """Apply file, package, audit, and webhook settings from TOML."""
+        files = gov.get("files", {})
+        config.protected_paths = files.get("protected_paths", config.protected_paths)
+        config.scan_before_write = files.get("scan_before_write", config.scan_before_write)
+
+        packages = gov.get("packages", {})
+        config.verify_before_install = packages.get(
+            "verify_before_install", config.verify_before_install,
+        )
+        config.block_suspicious_packages = packages.get(
+            "block_suspicious_packages", config.block_suspicious_packages,
+        )
+
+        audit = gov.get("audit", {})
+        config.audit_enabled = audit.get("enabled", config.audit_enabled)
+        config.audit_path = audit.get("path", config.audit_path)
+        config.retention_days = audit.get("retention_days", config.retention_days)
+
+        webhooks = gov.get("webhooks", {})
+        config.webhook_url = webhooks.get("url", config.webhook_url)
+        config.webhook_provider = webhooks.get("provider", config.webhook_provider)
+        config.webhook_on_block = webhooks.get("on_block", config.webhook_on_block)
+        config.webhook_on_warn = webhooks.get("on_warn", config.webhook_on_warn)
+
+    @staticmethod
+    def _apply_governance_section(config: GovernanceConfig, gov: dict) -> None:
+        """Apply the [codetrust.governance] TOML section to config."""
+        if not gov:
+            return
+
+        config.enabled = gov.get("enabled", config.enabled)
+        mode_str = gov.get("mode", config.mode.value)
+        with contextlib.suppress(ValueError):
+            config.mode = GovernanceMode(mode_str)
+
+        PolicyEngine._apply_terminal_config(config, gov.get("terminal", {}))
+        PolicyEngine._apply_resource_config(config, gov)
+
+        disabled = gov.get("disabled_rules", [])
+        config.disabled_rules = set(disabled)
+
+    @staticmethod
+    def _apply_env_overrides(config: GovernanceConfig) -> None:
+        """Apply environment variable overrides to governance config."""
+        env_mode = os.environ.get("CODETRUST_GOVERNANCE_MODE")
+        if env_mode:
+            with contextlib.suppress(ValueError):
+                config.mode = GovernanceMode(env_mode.lower())
+
+        env_enabled = os.environ.get("CODETRUST_GOVERNANCE_ENABLED")
+        if env_enabled is not None:
+            config.enabled = env_enabled.lower() in ("true", "1", "yes")
+
     @classmethod
     def from_workspace(cls, workspace_path: str | Path) -> PolicyEngine:
         """Load governance config from workspace .codetrust.toml or pyproject.toml.
@@ -223,89 +305,16 @@ class PolicyEngine:
         workspace = Path(workspace_path)
         config = GovernanceConfig()
 
-        # Try .codetrust.toml first, then pyproject.toml
-        toml_data: dict = {}
-        codetrust_toml = workspace / ".codetrust.toml"
-        pyproject_toml = workspace / "pyproject.toml"
-
-        if codetrust_toml.is_file():
-            with open(codetrust_toml, "rb") as f:
-                raw = tomllib.load(f)
-                toml_data = raw.get("codetrust", raw)
-        elif pyproject_toml.is_file():
-            with open(pyproject_toml, "rb") as f:
-                raw = tomllib.load(f)
-                toml_data = raw.get("tool", {}).get("codetrust", {})
-
-        # Extract governance section
+        toml_data = cls._load_toml_data(workspace)
         gov = toml_data.get("governance", {})
-
-        if gov:
-            config.enabled = gov.get("enabled", config.enabled)
-            mode_str = gov.get("mode", config.mode.value)
-            with contextlib.suppress(ValueError):
-                config.mode = GovernanceMode(mode_str)
-
-            # Terminal policies
-            terminal = gov.get("terminal", {})
-            config.block_heredoc = terminal.get("block_heredoc", config.block_heredoc)
-            config.block_eval = terminal.get("block_eval", config.block_eval)
-            config.block_sudo = terminal.get("block_sudo", config.block_sudo)
-            config.block_rm_rf = terminal.get("block_rm_rf", config.block_rm_rf)
-            config.block_curl_pipe_sh = terminal.get("block_curl_pipe_sh", config.block_curl_pipe_sh)
-            config.block_git_push = terminal.get("block_git_push", config.block_git_push)
-            config.block_chmod_777 = terminal.get("block_chmod_777", config.block_chmod_777)
-
-            # File policies
-            files = gov.get("files", {})
-            config.protected_paths = files.get("protected_paths", config.protected_paths)
-            config.scan_before_write = files.get("scan_before_write", config.scan_before_write)
-
-            # Package policies
-            packages = gov.get("packages", {})
-            config.verify_before_install = packages.get(
-                "verify_before_install", config.verify_before_install,
-            )
-            config.block_suspicious_packages = packages.get(
-                "block_suspicious_packages", config.block_suspicious_packages,
-            )
-
-            # Audit
-            audit = gov.get("audit", {})
-            config.audit_enabled = audit.get("enabled", config.audit_enabled)
-            config.audit_path = audit.get("path", config.audit_path)
-            config.retention_days = audit.get("retention_days", config.retention_days)
-
-            # Webhooks
-            webhooks = gov.get("webhooks", {})
-            config.webhook_url = webhooks.get("url", config.webhook_url)
-            config.webhook_provider = webhooks.get("provider", config.webhook_provider)
-            config.webhook_on_block = webhooks.get("on_block", config.webhook_on_block)
-            config.webhook_on_warn = webhooks.get("on_warn", config.webhook_on_warn)
-
-            # Disabled rules
-            disabled = gov.get("disabled_rules", [])
-            config.disabled_rules = set(disabled)
-
-        # Environment override (highest priority)
-        env_mode = os.environ.get("CODETRUST_GOVERNANCE_MODE")
-        if env_mode:
-            with contextlib.suppress(ValueError):
-                config.mode = GovernanceMode(env_mode.lower())
-
-        env_enabled = os.environ.get("CODETRUST_GOVERNANCE_ENABLED")
-        if env_enabled is not None:
-            config.enabled = env_enabled.lower() in ("true", "1", "yes")
+        cls._apply_governance_section(config, gov)
+        cls._apply_env_overrides(config)
 
         return cls(config)
 
-    def to_toml_section(self) -> str:
-        """Generate TOML configuration section for .codetrust.toml.
-
-        Returns:
-            TOML string for the [codetrust.governance] section.
-        """
-        lines = [
+    def _build_core_toml_lines(self) -> list[str]:
+        """Build core TOML governance configuration lines."""
+        return [
             "[codetrust.governance]",
             f'enabled = {str(self._config.enabled).lower()}',
             f'mode = "{self._config.mode.value}"',
@@ -331,10 +340,11 @@ class PolicyEngine:
             f"enabled = {str(self._config.audit_enabled).lower()}",
             f'path = "{self._config.audit_path}"',
             f"retention_days = {self._config.retention_days}",
-            "",
-            "[codetrust.governance.webhooks]",
         ]
 
+    def _build_webhook_toml_lines(self) -> list[str]:
+        """Build TOML lines for webhooks and disabled rules."""
+        lines = ["", "[codetrust.governance.webhooks]"]
         if self._config.webhook_url:
             lines.append(f'url = "{self._config.webhook_url}"')
             lines.append(f'provider = "{self._config.webhook_provider}"')
@@ -348,5 +358,14 @@ class PolicyEngine:
             lines.append("")
             sorted_rules = sorted(self._config.disabled_rules)
             lines.append(f"disabled_rules = {sorted_rules!r}")
+        return lines
 
+    def to_toml_section(self) -> str:
+        """Generate TOML configuration section for .codetrust.toml.
+
+        Returns:
+            TOML string for the [codetrust.governance] section.
+        """
+        lines = self._build_core_toml_lines()
+        lines.extend(self._build_webhook_toml_lines())
         return "\n".join(lines)

@@ -15,6 +15,9 @@ IP_BURST_WINDOW = 10         # seconds
 IP_BAN_THRESHOLD = 10        # consecutive limit hits before temp ban
 IP_BAN_DURATION = 120        # seconds (2 minutes)
 
+CLEANUP_INTERVAL_SECS: float = 300.0   # 5 minutes between stale-bucket sweeps
+STALE_BUCKET_SECS: float = 600.0       # 10 minutes before a bucket is stale
+
 # --- Request Size Limits ---
 MAX_BODY_SIZE = 1_048_576    # 1 MB max request body
 MAX_URL_LENGTH = 2048        # max URL length
@@ -89,10 +92,10 @@ class IPRateLimitMiddleware(BaseHTTPMiddleware):
     """
 
     def __init__(self, app: object) -> None:
-        super().__init__(app)  # type: ignore[arg-type]
+        super().__init__(app)
         self._buckets: dict[str, _IPBucket] = defaultdict(_IPBucket)
         self._last_cleanup: float = time.monotonic()
-        self._cleanup_interval: float = 300.0  # 5 minutes
+        self._cleanup_interval: float = CLEANUP_INTERVAL_SECS
 
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP, respecting X-Forwarded-For from trusted proxies."""
@@ -106,7 +109,7 @@ class IPRateLimitMiddleware(BaseHTTPMiddleware):
         if now - self._last_cleanup < self._cleanup_interval:
             return
         self._last_cleanup = now
-        stale_threshold = now - 600  # 10 minutes
+        stale_threshold = now - STALE_BUCKET_SECS
         stale_ips = [
             ip for ip, bucket in self._buckets.items()
             if bucket.window_start < stale_threshold and bucket.banned_until < now
@@ -114,20 +117,14 @@ class IPRateLimitMiddleware(BaseHTTPMiddleware):
         for ip in stale_ips:
             del self._buckets[ip]
 
-    async def dispatch(self, request: Request, call_next: object) -> object:
-        """Check IP rate limit, request size, and URL length before processing."""
-        # Skip exempt paths
-        if request.url.path in EXEMPT_PATHS:
-            return await call_next(request)  # type: ignore[misc]
-
-        # --- URL length check ---
+    def _check_request_size(self, request: Request) -> JSONResponse | None:
+        """Return an error response if URL or body exceeds size limits."""
         if len(str(request.url)) > MAX_URL_LENGTH:
             return JSONResponse(
                 status_code=414,
                 content={"error": "uri_too_long", "message": "Request URL too long."},
             )
 
-        # --- Request body size check ---
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_BODY_SIZE:
             return JSONResponse(
@@ -137,8 +134,10 @@ class IPRateLimitMiddleware(BaseHTTPMiddleware):
                     "message": f"Request body exceeds {MAX_BODY_SIZE // 1024}KB limit.",
                 },
             )
+        return None
 
-        # --- IP rate limiting ---
+    def _check_rate_limit(self, request: Request) -> JSONResponse | None:
+        """Return a 429 response if the client IP is rate-limited."""
         now = time.monotonic()
         self._cleanup_stale(now)
 
@@ -159,5 +158,20 @@ class IPRateLimitMiddleware(BaseHTTPMiddleware):
                 },
                 headers={"Retry-After": str(max(1, retry_after))},
             )
+        return None
 
-        return await call_next(request)  # type: ignore[misc]
+    async def dispatch(self, request: Request, call_next: object) -> object:
+        """Check IP rate limit, request size, and URL length before processing."""
+        if request.url.path in EXEMPT_PATHS:
+            return await call_next(request)
+
+        size_error = self._check_request_size(request)
+        if size_error is not None:
+            return size_error
+
+        rate_error = self._check_rate_limit(request)
+        if rate_error is not None:
+            return rate_error
+
+        response: object = await call_next(request)
+        return response

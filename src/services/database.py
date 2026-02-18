@@ -42,14 +42,28 @@ def _generate_api_key() -> str:
     return f"{API_KEY_PREFIX}{token}"
 
 
+POOL_TIMEOUT_SECS: int = 30
+
+
+def _build_db_engine(database_url: str, echo: bool) -> AsyncEngine:
+    """Create an async engine with pool timeout for production databases."""
+    if "sqlite" in database_url:
+        # SQLite/StaticPool: pool_timeout not supported
+        return create_async_engine(
+            database_url, echo=echo, pool_pre_ping=True,
+        )
+    return create_async_engine(
+        database_url, echo=echo, pool_pre_ping=True,
+        pool_timeout=POOL_TIMEOUT_SECS,
+    )
+
+
 class DatabaseService:
     """Async CRUD operations for CodeTrust database."""
 
     def __init__(self, database_url: str, echo: bool = False) -> None:
-        """Initialize with database URL."""
-        self._engine: AsyncEngine = create_async_engine(
-            database_url, echo=echo, pool_pre_ping=True,
-        )
+        """Initialize with database URL. Includes pool_timeout for non-SQLite."""
+        self._engine = _build_db_engine(database_url, echo)
         self._session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
             self._engine, expire_on_commit=False,
         )
@@ -425,53 +439,57 @@ class DatabaseService:
             session.add(event)
             await session.commit()
 
+    @staticmethod
+    async def _sum_telemetry_column(
+        session: AsyncSession,
+        column: object,
+    ) -> int:
+        """Execute a coalesce(sum(column), 0) query."""
+        result = (
+            await session.execute(
+                select(func.coalesce(func.sum(column), 0))
+            )
+        ).scalar_one() or 0
+        return int(result)
+
+    @staticmethod
+    async def _query_telemetry_aggregates(
+        session: AsyncSession,
+    ) -> dict[str, int]:
+        """Execute telemetry aggregate queries within a session."""
+        events_total = (
+            await session.execute(select(func.count()).select_from(TelemetryEvent))
+        ).scalar_one() or 0
+
+        unique_instances = (
+            await session.execute(
+                select(func.count(func.distinct(TelemetryEvent.instance_id)))
+            )
+        ).scalar_one() or 0
+
+        _sum = DatabaseService._sum_telemetry_column
+        scans = await _sum(session, TelemetryEvent.delta_scans)
+        findings = await _sum(session, TelemetryEvent.delta_findings_total)
+        hallucinated = await _sum(session, TelemetryEvent.delta_hallucinated_packages_prevented)
+        blocked = await _sum(session, TelemetryEvent.delta_destructive_commands_blocked)
+
+        return {
+            "telemetry_events_total": int(events_total),
+            "telemetry_unique_instances": int(unique_instances),
+            "telemetry_scans_total": scans,
+            "telemetry_findings_total": findings,
+            "telemetry_hallucinated_packages_prevented": hallucinated,
+            "telemetry_destructive_commands_blocked": blocked,
+        }
+
     async def get_public_telemetry_stats(self) -> dict[str, int]:
         """Return anonymous telemetry aggregates for public display.
 
         If the telemetry table doesn't exist (older deployments), callers should
         catch database errors and fall back to zeros.
         """
-
         async with self._session_factory() as session:
-            events_total_stmt = select(func.count()).select_from(TelemetryEvent)
-            events_total = (await session.execute(events_total_stmt)).scalar_one() or 0
-
-            unique_instances_stmt = select(func.count(func.distinct(TelemetryEvent.instance_id)))
-            unique_instances = (
-                await session.execute(unique_instances_stmt)
-            ).scalar_one() or 0
-
-            scans_total_stmt = select(func.coalesce(func.sum(TelemetryEvent.delta_scans), 0))
-            scans_total = (await session.execute(scans_total_stmt)).scalar_one() or 0
-
-            findings_total_stmt = select(
-                func.coalesce(func.sum(TelemetryEvent.delta_findings_total), 0)
-            )
-            findings_total = (
-                await session.execute(findings_total_stmt)
-            ).scalar_one() or 0
-
-            hallucinated_stmt = select(
-                func.coalesce(
-                    func.sum(TelemetryEvent.delta_hallucinated_packages_prevented),
-                    0,
-                )
-            )
-            hallucinated = (await session.execute(hallucinated_stmt)).scalar_one() or 0
-
-            blocked_stmt = select(
-                func.coalesce(func.sum(TelemetryEvent.delta_destructive_commands_blocked), 0)
-            )
-            blocked = (await session.execute(blocked_stmt)).scalar_one() or 0
-
-            return {
-                "telemetry_events_total": int(events_total),
-                "telemetry_unique_instances": int(unique_instances),
-                "telemetry_scans_total": int(scans_total),
-                "telemetry_findings_total": int(findings_total),
-                "telemetry_hallucinated_packages_prevented": int(hallucinated),
-                "telemetry_destructive_commands_blocked": int(blocked),
-            }
+            return await self._query_telemetry_aggregates(session)
 
     async def insert_telemetry_raw_batch(self, events: list[dict[str, object]]) -> None:
         """Bulk insert raw telemetry events.

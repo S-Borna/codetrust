@@ -17,7 +17,7 @@ import httpx
 import structlog
 
 from src.models.enums import Language, Severity
-from src.services.cache import CacheService  # noqa: TC001 — used at runtime
+from src.services.cache import CacheService
 
 logger = structlog.get_logger()
 
@@ -26,7 +26,7 @@ _SEMAPHORE_LIMIT = 20
 _REQUEST_TIMEOUT = 10.0
 
 
-class LicenseRisk(str, Enum):  # noqa: UP042 — StrEnum requires Python 3.11+
+class LicenseRisk(str, Enum):
     """License risk classification."""
 
     PERMISSIVE = "permissive"
@@ -130,6 +130,27 @@ class LicenseScanResponse:
     latency_ms: int = 0
 
 
+def _match_license_category(normalized: str) -> tuple[LicenseRisk, str]:
+    """Match a normalized license string against known categories."""
+    for pattern in NETWORK_COPYLEFT_LICENSES:
+        if pattern in normalized:
+            return LicenseRisk.NETWORK_COPYLEFT, normalized
+    for pattern in STRONG_COPYLEFT_LICENSES:
+        if pattern in normalized:
+            if "LGPL" in normalized or "LESSER" in normalized:
+                continue
+            return LicenseRisk.STRONG_COPYLEFT, normalized
+    for pattern in WEAK_COPYLEFT_LICENSES:
+        if pattern in normalized:
+            return LicenseRisk.WEAK_COPYLEFT, normalized
+    for pattern in PERMISSIVE_LICENSES:
+        if pattern in normalized:
+            return LicenseRisk.PERMISSIVE, normalized
+    if "GPL" in normalized and "LGPL" not in normalized:
+        return LicenseRisk.STRONG_COPYLEFT, normalized
+    return LicenseRisk.UNKNOWN, normalized
+
+
 def classify_license(raw_license: str) -> tuple[LicenseRisk, str]:
     """Classify a license string into a risk category.
 
@@ -143,35 +164,8 @@ def classify_license(raw_license: str) -> tuple[LicenseRisk, str]:
         return LicenseRisk.UNKNOWN, ""
 
     normalized = raw_license.strip().upper()
-
-    # Check network copyleft first (most restrictive).
-    for pattern in NETWORK_COPYLEFT_LICENSES:
-        if pattern in normalized:
-            return LicenseRisk.NETWORK_COPYLEFT, raw_license.strip()
-
-    # Check strong copyleft (but exclude LGPL which is weak).
-    for pattern in STRONG_COPYLEFT_LICENSES:
-        if pattern in normalized:
-            # Make sure it's not LGPL.
-            if "LGPL" in normalized or "LESSER" in normalized:
-                continue
-            return LicenseRisk.STRONG_COPYLEFT, raw_license.strip()
-
-    # Check weak copyleft.
-    for pattern in WEAK_COPYLEFT_LICENSES:
-        if pattern in normalized:
-            return LicenseRisk.WEAK_COPYLEFT, raw_license.strip()
-
-    # Check permissive.
-    for pattern in PERMISSIVE_LICENSES:
-        if pattern in normalized:
-            return LicenseRisk.PERMISSIVE, raw_license.strip()
-
-    # Check for "GPL" alone (without L prefix) — strong copyleft.
-    if "GPL" in normalized and "LGPL" not in normalized:
-        return LicenseRisk.STRONG_COPYLEFT, raw_license.strip()
-
-    return LicenseRisk.UNKNOWN, raw_license.strip()
+    risk, _ = _match_license_category(normalized)
+    return risk, raw_license.strip()
 
 
 class LicenseService:
@@ -214,6 +208,31 @@ class LicenseService:
         async with self._semaphore:
             return await self._fetch_license(package, ecosystem, cache_key)
 
+    async def _process_license_results(
+        self,
+        packages: list[str],
+        ecosystem: str,
+        results: list[LicenseInfo | Exception],
+    ) -> list[LicenseInfo]:
+        """Process gather results, replacing exceptions with unknown entries."""
+        processed: list[LicenseInfo] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "license_check_error",
+                    package=packages[i],
+                    error=str(result),
+                )
+                processed.append(LicenseInfo(
+                    package=packages[i],
+                    ecosystem=ecosystem,
+                    license_name="",
+                    risk=LicenseRisk.UNKNOWN,
+                ))
+            else:
+                processed.append(result)
+        return processed
+
     async def check_packages(
         self,
         language: Language,
@@ -238,26 +257,37 @@ class LicenseService:
 
         tasks = [self.check_package(pkg, ecosystem) for pkg in packages]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        processed: list[LicenseInfo] = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.warning(
-                    "license_check_error",
-                    package=packages[i],
-                    error=str(result),
-                )
-                processed.append(LicenseInfo(
-                    package=packages[i],
-                    ecosystem=ecosystem,
-                    license_name="",
-                    risk=LicenseRisk.UNKNOWN,
-                ))
-            else:
-                processed.append(result)
+        processed = await self._process_license_results(
+            packages, ecosystem, results,
+        )
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
         return self._build_response(processed, elapsed_ms)
+
+    async def _fetch_registry_data(
+        self,
+        package: str,
+        ecosystem: str,
+    ) -> dict[str, object] | None:
+        """Fetch and parse registry response for a package."""
+        url_template = ECOSYSTEM_URLS.get(ecosystem)
+        if not url_template:
+            return None
+
+        url = url_template.format(package=package)
+        try:
+            response = await self._http.get(url, timeout=_REQUEST_TIMEOUT)
+            if response.status_code != 200:
+                return None
+            return response.json()
+        except (httpx.TimeoutException, httpx.HTTPError) as exc:
+            logger.warning(
+                "license_fetch_error",
+                package=package,
+                ecosystem=ecosystem,
+                error=str(exc),
+            )
+            return None
 
     async def _fetch_license(
         self,
@@ -266,68 +296,31 @@ class LicenseService:
         cache_key: str,
     ) -> LicenseInfo:
         """Fetch license from the package registry."""
-        url_template = ECOSYSTEM_URLS.get(ecosystem)
-        if not url_template:
+        data = await self._fetch_registry_data(package, ecosystem)
+        if data is None:
             return LicenseInfo(
-                package=package,
-                ecosystem=ecosystem,
-                license_name="",
-                risk=LicenseRisk.UNKNOWN,
-            )
-
-        url = url_template.format(package=package)
-        try:
-            response = await self._http.get(url, timeout=_REQUEST_TIMEOUT)
-            if response.status_code != 200:
-                return LicenseInfo(
-                    package=package,
-                    ecosystem=ecosystem,
-                    license_name="",
-                    risk=LicenseRisk.UNKNOWN,
-                )
-            data = response.json()
-        except (httpx.TimeoutException, httpx.HTTPError) as exc:
-            logger.warning(
-                "license_fetch_error",
-                package=package,
-                ecosystem=ecosystem,
-                error=str(exc),
-            )
-            return LicenseInfo(
-                package=package,
-                ecosystem=ecosystem,
-                license_name="",
-                risk=LicenseRisk.UNKNOWN,
+                package=package, ecosystem=ecosystem,
+                license_name="", risk=LicenseRisk.UNKNOWN,
             )
 
         raw_license = self._extract_license(data, ecosystem)
         risk, spdx_id = classify_license(raw_license)
 
         result = LicenseInfo(
-            package=package,
-            ecosystem=ecosystem,
-            license_name=raw_license,
-            risk=risk,
-            spdx_id=spdx_id,
+            package=package, ecosystem=ecosystem,
+            license_name=raw_license, risk=risk, spdx_id=spdx_id,
         )
 
-        # Cache the result.
         await self._cache.set_json(
             cache_key,
-            {
-                "license_name": raw_license,
-                "risk": risk.value,
-                "spdx_id": spdx_id,
-            },
+            {"license_name": raw_license, "risk": risk.value, "spdx_id": spdx_id},
             CACHE_TTL_LICENSE,
         )
 
         if risk in (LicenseRisk.STRONG_COPYLEFT, LicenseRisk.NETWORK_COPYLEFT):
             logger.info(
-                "license_risk_found",
-                package=package,
-                license=raw_license,
-                risk=risk.value,
+                "license_risk_found", package=package,
+                license=raw_license, risk=risk.value,
             )
 
         return result
@@ -424,12 +417,11 @@ class LicenseService:
         }
         return mapping.get(language, "")
 
-    def _build_response(
-        self,
+    @staticmethod
+    def _count_license_risks(
         results: list[LicenseInfo],
-        latency_ms: int,
-    ) -> LicenseScanResponse:
-        """Build aggregated license scan response."""
+    ) -> tuple[int, int, int, int, int, list[LicenseInfo]]:
+        """Count license risk categories and collect risk packages."""
         permissive = 0
         weak_copyleft = 0
         strong_copyleft = 0
@@ -453,6 +445,16 @@ class LicenseService:
                 unknown += 1
                 risk_packages.append(r)
 
+        return permissive, weak_copyleft, strong_copyleft, network_copyleft, unknown, risk_packages
+
+    def _build_response(
+        self,
+        results: list[LicenseInfo],
+        latency_ms: int,
+    ) -> LicenseScanResponse:
+        """Build aggregated license scan response."""
+        counts = self._count_license_risks(results)
+        permissive, weak_copyleft, strong_copyleft, network_copyleft, unknown, risk_packages = counts
         compliant = strong_copyleft == 0 and network_copyleft == 0
 
         return LicenseScanResponse(

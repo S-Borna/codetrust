@@ -263,7 +263,7 @@ def _load_language(language: Language) -> ts.Language | None:
     if loader is None:
         return None
     try:
-        return loader()  # type: ignore[operator]
+        return loader()
     except (ImportError, AttributeError, OSError) as exc:
         logger.warning(
             "tree_sitter_load_failed",

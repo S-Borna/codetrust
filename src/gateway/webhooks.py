@@ -68,54 +68,65 @@ def _verdict_color(verdict: str) -> str:
     )
 
 
-def _build_slack_payload(entry: AuditEntry) -> dict:
-    """Build Slack Block Kit message."""
+MAX_ACTION_DISPLAY_LEN: int = 200
+MAX_ORIGINAL_ACTION_LEN: int = 500
+_HTTP_REDIRECT_START: int = 300
+
+
+def _build_slack_blocks(entry: AuditEntry, action: str) -> list[dict]:
+    """Build Slack Block Kit blocks for a governance event."""
     emoji = _verdict_emoji(entry.verdict)
-    color = _verdict_color(entry.verdict)
     rule = entry.rule_id or "none"
     agent = entry.agent_id or "unknown"
+    workspace = entry.workspace or "unknown"
+    return [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{emoji} CodeTrust {entry.verdict}",
+            },
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Rule:*\n`{rule}`"},
+                {"type": "mrkdwn", "text": f"*Agent:*\n{agent}"},
+                {"type": "mrkdwn", "text": f"*Action:*\n{entry.action_type}"},
+                {"type": "mrkdwn", "text": f"*Workspace:*\n{workspace}"},
+            ],
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"```{action}```",
+            },
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"_{entry.message}_",
+                }
+            ],
+        },
+    ]
+
+
+def _build_slack_payload(entry: AuditEntry) -> dict:
+    """Build Slack Block Kit message."""
+    color = _verdict_color(entry.verdict)
     action = entry.original_action
-    if len(action) > 200:
-        action = action[:200] + "..."
+    if len(action) > MAX_ACTION_DISPLAY_LEN:
+        action = action[:MAX_ACTION_DISPLAY_LEN] + "..."
 
     return {
         "attachments": [
             {
                 "color": color,
-                "blocks": [
-                    {
-                        "type": "header",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"{emoji} CodeTrust {entry.verdict}",
-                        },
-                    },
-                    {
-                        "type": "section",
-                        "fields": [
-                            {"type": "mrkdwn", "text": f"*Rule:*\n`{rule}`"},
-                            {"type": "mrkdwn", "text": f"*Agent:*\n{agent}"},
-                            {"type": "mrkdwn", "text": f"*Action:*\n{entry.action_type}"},
-                            {"type": "mrkdwn", "text": f"*Workspace:*\n{entry.workspace or 'unknown'}"},
-                        ],
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"```{action}```",
-                        },
-                    },
-                    {
-                        "type": "context",
-                        "elements": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"_{entry.message}_",
-                            }
-                        ],
-                    },
-                ],
+                "blocks": _build_slack_blocks(entry, action),
             }
         ]
     }
@@ -128,8 +139,8 @@ def _build_teams_payload(entry: AuditEntry) -> dict:
     rule = entry.rule_id or "none"
     agent = entry.agent_id or "unknown"
     action = entry.original_action
-    if len(action) > 200:
-        action = action[:200] + "..."
+    if len(action) > MAX_ACTION_DISPLAY_LEN:
+        action = action[:MAX_ACTION_DISPLAY_LEN] + "..."
 
     return {
         "@type": "MessageCard",
@@ -171,7 +182,7 @@ def _build_pagerduty_payload(entry: AuditEntry) -> dict:
             "custom_details": {
                 "rule_id": entry.rule_id,
                 "agent": entry.agent_id or "unknown",
-                "original_action": entry.original_action[:500],
+                "original_action": entry.original_action[:MAX_ORIGINAL_ACTION_LEN],
                 "suggestion": entry.suggestion,
                 "session_id": entry.session_id or "unknown",
             },
@@ -187,7 +198,7 @@ def _build_generic_payload(entry: AuditEntry) -> dict:
         "rule_id": entry.rule_id,
         "action_type": entry.action_type,
         "message": entry.message,
-        "original_action": entry.original_action[:500],
+        "original_action": entry.original_action[:MAX_ORIGINAL_ACTION_LEN],
         "suggestion": entry.suggestion,
         "agent_id": entry.agent_id or "unknown",
         "session_id": entry.session_id or "unknown",
@@ -271,7 +282,7 @@ class WebhookNotifier:
         try:
             with urllib.request.urlopen(req, timeout=self._config.timeout) as resp:
                 status = resp.status
-                if status < 300:
+                if status < _HTTP_REDIRECT_START:
                     logger.info("Webhook sent: %s → %d", url[:60], status)
                     return True
                 logger.warning("Webhook non-2xx: %s → %d", url[:60], status)

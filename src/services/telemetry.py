@@ -8,6 +8,8 @@ This module is intentionally privacy-preserving:
 from __future__ import annotations
 
 import asyncio
+
+SECONDS_PER_HOUR: int = 3_600
 import datetime
 import json
 import time
@@ -148,15 +150,38 @@ async def _increment_active_sessions(
         logger.warning("telemetry_active_sessions_failed", error=str(exc))
 
 
+def _parse_scan_payload(
+    payload: dict[str, object],
+) -> tuple[dict[str, int], list[int], list[str], int | None, str]:
+    """Parse scan payload into language, layer, rule, trust and trend data."""
+    raw_langs = payload.get("languages") if isinstance(payload.get("languages"), dict) else {}
+    languages: dict[str, int] = {}
+    for lang, count in list(raw_langs.items())[:32]:
+        languages[_safe_str(lang, max_length=32)] = _safe_int(count, max_value=10_000_000)
+
+    raw_layers = payload.get("layers_hit") if isinstance(payload.get("layers_hit"), list) else []
+    layers = [_safe_int(layer, min_value=1, max_value=10) for layer in raw_layers[:20]]
+
+    raw_rules = payload.get("rules_triggered") if isinstance(payload.get("rules_triggered"), list) else []
+    rules = [_safe_str(rule, max_length=80) for rule in raw_rules[:50] if _safe_str(rule, max_length=80)]
+
+    trust_raw = payload.get("trust_score")
+    trust_score: int | None = _safe_int(trust_raw, max_value=1000) if trust_raw is not None else None
+
+    trend = _safe_str(payload.get("trend"), max_length=16)
+    return languages, layers, rules, trust_score, trend
+
+
 async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) -> None:
+    """Handle scan_completed event by updating Redis counters."""
     p = event.payload
     files_scanned = _safe_int(p.get("files_scanned"), max_value=1_000_000)
     total_findings = _safe_int(p.get("total_findings"), max_value=10_000_000)
     hallucinations = _safe_int(p.get("hallucinations_found"), max_value=1_000_000)
     severity = p.get("findings_by_severity") if isinstance(p.get("findings_by_severity"), dict) else {}
     blocks = _safe_int(getattr(severity, "get", lambda _k, _d=0: 0)("BLOCK", 0), max_value=10_000_000)
-
     scan_type = _safe_str(p.get("scan_type"), max_length=32)
+    languages, layers, rules, trust_score, trend = _parse_scan_payload(p)
 
     pipe = r.pipeline()
     pipe.incr("ct:total_scans")
@@ -167,37 +192,20 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
     pipe.incrby("ct:hallucinations_caught", hallucinations)
     pipe.incr(SCANS_TODAY_KEY)
     pipe.expire(SCANS_TODAY_KEY, _end_of_day_ttl_seconds())
-
-    # Last-hour activity
     pipe.zadd(SCANS_LAST_HOUR_KEY, {uuid.uuid4().hex: _now_unix()})
-
     if scan_type:
         pipe.incr(f"ct:scan_type:{scan_type}")
-
-    languages = p.get("languages") if isinstance(p.get("languages"), dict) else {}
-    for lang, count in list(languages.items())[:32]:
-        pipe.incrby(f"ct:lang:{_safe_str(lang, max_length=32)}", _safe_int(count, max_value=10_000_000))
-
-    layers_hit = p.get("layers_hit") if isinstance(p.get("layers_hit"), list) else []
-    for layer in layers_hit[:20]:
-        layer_num = _safe_int(layer, min_value=1, max_value=10)
+    for lang, count in languages.items():
+        pipe.incrby(f"ct:lang:{lang}", count)
+    for layer_num in layers:
         pipe.incr(f"ct:layer:{layer_num}")
-
-    rules_triggered = p.get("rules_triggered") if isinstance(p.get("rules_triggered"), list) else []
-    for rule in rules_triggered[:50]:
-        rule_name = _safe_str(rule, max_length=80)
-        if rule_name:
-            pipe.incr(f"ct:rule:{rule_name}")
-
-    trust_score = p.get("trust_score")
+    for rule_name in rules:
+        pipe.incr(f"ct:rule:{rule_name}")
     if trust_score is not None:
-        pipe.incrby("ct:trust_score_sum", _safe_int(trust_score, max_value=1000))
+        pipe.incrby("ct:trust_score_sum", trust_score)
         pipe.incr("ct:trust_score_count")
-
-    trend = _safe_str(p.get("trend"), max_length=16)
     if trend in {"improving", "stable", "degrading"}:
         pipe.incr(f"ct:trend:{trend}")
-
     await pipe.execute()
 
 
@@ -347,10 +355,10 @@ async def prune_last_hour(r: redis.Redis) -> None:
         logger.warning("telemetry_prune_failed", error=str(exc))
 
 
-async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -> None:
-    """Fetch external distribution stats and cache in Redis."""
-
-    # PyPI downloads
+async def _fetch_pypi_external(
+    r: redis.Redis, http_client: httpx.AsyncClient,
+) -> None:
+    """Fetch PyPI download stats and cache in Redis."""
     try:
         res = await http_client.get(PYPI_RECENT_URL)
         res.raise_for_status()
@@ -362,27 +370,49 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_pypi_failed", error=str(exc))
 
-    # Pepy (total PyPI downloads via authenticated API)
-    if settings.pepy_api_key:
-        try:
-            url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
-            headers = {"X-Api-Key": settings.pepy_api_key}
-            res = await http_client.get(url, headers=headers)
-            res.raise_for_status()
-            payload = res.json()
-            total_downloads = _safe_int(
-                payload.get("total_downloads") if isinstance(payload, dict) else 0,
-                max_value=100_000_000,
-            )
-            await r.set(
-                "ct:ext:pepy_3m_ci_downloads",
-                str(total_downloads),
-                ex=EXT_STATS_TTL_SECONDS,
-            )
-        except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
-            logger.warning("ext_stats_pepy_failed", error=str(exc))
 
-    # VS Code Marketplace
+async def _fetch_pepy_external(
+    r: redis.Redis, http_client: httpx.AsyncClient,
+) -> None:
+    """Fetch Pepy total PyPI downloads via authenticated API."""
+    if not settings.pepy_api_key:
+        return
+    try:
+        url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
+        headers = {"X-Api-Key": settings.pepy_api_key}
+        res = await http_client.get(url, headers=headers)
+        res.raise_for_status()
+        payload = res.json()
+        total_downloads = _safe_int(
+            payload.get("total_downloads") if isinstance(payload, dict) else 0,
+            max_value=100_000_000,
+        )
+        await r.set("ct:ext:pepy_3m_ci_downloads", str(total_downloads), ex=EXT_STATS_TTL_SECONDS)
+    except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
+        logger.warning("ext_stats_pepy_failed", error=str(exc))
+
+
+def _parse_marketplace_response(payload: object) -> dict[str, int]:
+    """Extract statistics map from marketplace API JSON response."""
+    results = payload.get("results", []) if isinstance(payload, dict) else []
+    extensions = results[0].get("extensions", []) if results else []
+    ext = extensions[0] if extensions else {}
+    stats_list = ext.get("statistics", []) if isinstance(ext, dict) else []
+    stats_map: dict[str, int] = {}
+    for item in stats_list:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("statisticName")
+        val = item.get("value")
+        if isinstance(name, str):
+            stats_map[name] = _safe_int(val)
+    return stats_map
+
+
+async def _fetch_marketplace_external(
+    r: redis.Redis, http_client: httpx.AsyncClient,
+) -> None:
+    """Fetch VS Code Marketplace stats and cache in Redis."""
     body = {
         "filters": [{"criteria": [{"filterType": 7, "value": MARKETPLACE_EXTENSION_ID}]}],
         "flags": MARKETPLACE_FLAGS,
@@ -394,36 +424,22 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
     try:
         res = await http_client.post(MARKETPLACE_EXTENSION_QUERY_URL, json=body, headers=headers)
         res.raise_for_status()
-        payload = res.json()
-        results = payload.get("results", []) if isinstance(payload, dict) else []
-        extensions = results[0].get("extensions", []) if results else []
-        ext = extensions[0] if extensions else {}
-        stats_list = ext.get("statistics", []) if isinstance(ext, dict) else []
-        stats_map: dict[str, int] = {}
-        for item in stats_list:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("statisticName")
-            val = item.get("value")
-            if isinstance(name, str):
-                stats_map[name] = _safe_int(val)
+        stats_map = _parse_marketplace_response(res.json())
         await r.set("ct:ext:marketplace_installs", str(_safe_int(stats_map.get("install"))), ex=EXT_STATS_TTL_SECONDS)
-        await r.set(
-            "ct:ext:marketplace_downloads",
-            str(_safe_int(stats_map.get("downloadCount"))),
-            ex=EXT_STATS_TTL_SECONDS,
-        )
-        await r.set(
-            "ct:ext:marketplace_updates",
-            str(_safe_int(stats_map.get("updateCount"))),
-            ex=EXT_STATS_TTL_SECONDS,
-        )
+        await r.set("ct:ext:marketplace_downloads", str(_safe_int(stats_map.get("downloadCount"))), ex=EXT_STATS_TTL_SECONDS)
+        await r.set("ct:ext:marketplace_updates", str(_safe_int(stats_map.get("updateCount"))), ex=EXT_STATS_TTL_SECONDS)
     except (httpx.HTTPError, ValueError, TypeError, IndexError, KeyError, redis.RedisError) as exc:
         logger.warning("ext_stats_marketplace_failed", error=str(exc))
 
-    # Open VSX (for VSCodium/Cursor distributions)
+
+async def _fetch_openvsx_external(
+    r: redis.Redis, http_client: httpx.AsyncClient,
+) -> None:
+    """Fetch Open VSX download stats and cache in Redis."""
     try:
-        url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME)
+        url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(
+            namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME,
+        )
         res = await http_client.get(url)
         res.raise_for_status()
         payload = res.json()
@@ -437,6 +453,14 @@ async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -
             logger.warning("ext_stats_openvsx_failed", error=str(exc), status_code=status)
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_openvsx_failed", error=str(exc))
+
+
+async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -> None:
+    """Fetch external distribution stats and cache in Redis."""
+    await _fetch_pypi_external(r, http_client)
+    await _fetch_pepy_external(r, http_client)
+    await _fetch_marketplace_external(r, http_client)
+    await _fetch_openvsx_external(r, http_client)
 
 
 async def stats_worker(*, r: redis.Redis, http_client: httpx.AsyncClient, stop: asyncio.Event) -> None:
@@ -459,200 +483,231 @@ async def stats_worker(*, r: redis.Redis, http_client: httpx.AsyncClient, stop: 
             continue
 
 
+_COUNTER_KEYS: tuple[str, ...] = (
+    "ct:total_scans",
+    "ct:total_findings",
+    "ct:total_blocks",
+    "ct:hallucinations_caught",
+    "ct:gateway_blocks",
+    "ct:gateway_allowed",
+    "ct:gateway_warned",
+    "ct:imports_verified",
+    "ct:docker_verified",
+    "ct:fixes_applied",
+    "ct:fix_files_changed",
+    "ct:fix_lines_changed",
+    "ct:pr_gates_passed",
+    "ct:pr_gates_failed",
+    "ct:files_scanned",
+    "ct:trust_score_sum",
+    "ct:trust_score_count",
+    "ct:trend:improving",
+    "ct:trend:stable",
+    "ct:trend:degrading",
+    SCANS_TODAY_KEY,
+    "ct:scans_by_source:cli",
+    "ct:scans_by_source:vscode",
+    "ct:scans_by_source:mcp",
+    "ct:scans_by_source:github_action",
+    "ct:scans_by_source:cloud_api",
+    "ct:ci_runs_total",
+    "ct:ci_gates_passed",
+    "ct:ci_gates_failed",
+    "ct:ext:pypi_last_day",
+    "ct:ext:pypi_last_week",
+    "ct:ext:pypi_last_month",
+    "ct:ext:pepy_3m_ci_downloads",
+    "ct:ext:marketplace_installs",
+    "ct:ext:marketplace_downloads",
+    "ct:ext:marketplace_updates",
+    "ct:ext:openvsx_downloads",
+)
+
+_LANG_KEYS: tuple[str, ...] = (
+    "python", "javascript", "typescript", "go",
+    "rust", "dockerfile", "sql", "yaml",
+)
+_LAYER_RANGE: range = range(1, 11)
+_MAX_RULE_KEYS: int = 500
+_TOP_RULES_LIMIT: int = 15
+
+
+async def _fetch_redis_counters(
+    r: redis.Redis,
+) -> tuple[dict[str, int], int, int, int]:
+    """Fetch all primary counters, HLL counts, and last-hour scans."""
+    pipe = r.pipeline()
+    for k in _COUNTER_KEYS:
+        pipe.get(k)
+    values = await pipe.execute()
+    kv: dict[str, int] = {k: _safe_int(v) for k, v in zip(_COUNTER_KEYS, values, strict=True)}
+    active_total = _safe_int(await r.pfcount(ACTIVE_SESSIONS_KEY))
+    active_today = _safe_int(await r.pfcount(ACTIVE_SESSIONS_TODAY_KEY))
+    scans_last_hour = _safe_int(
+        await r.zcount(SCANS_LAST_HOUR_KEY, _now_unix() - SECONDS_PER_HOUR, float("inf")),
+    )
+    return kv, active_total, active_today, scans_last_hour
+
+
+async def _fetch_language_distribution(r: redis.Redis) -> dict[str, int]:
+    """Fetch language scan counts from Redis."""
+    pipe = r.pipeline()
+    for lang in _LANG_KEYS:
+        pipe.get(f"ct:lang:{lang}")
+    values = await pipe.execute()
+    return {lang: _safe_int(val) for lang, val in zip(_LANG_KEYS, values, strict=True)}
+
+
+async def _fetch_layer_distribution(r: redis.Redis) -> dict[str, int]:
+    """Fetch layer scan counts from Redis."""
+    pipe = r.pipeline()
+    for i in _LAYER_RANGE:
+        pipe.get(f"ct:layer:{i}")
+    values = await pipe.execute()
+    return {f"layer_{i}": _safe_int(val) for i, val in zip(_LAYER_RANGE, values, strict=True)}
+
+
+async def _fetch_top_rules(r: redis.Redis) -> list[dict[str, object]]:
+    """Scan for triggered rules and return sorted top rules."""
+    try:
+        rule_keys: list[str] = []
+        async for key in r.scan_iter(match="ct:rule:*"):
+            if isinstance(key, str):
+                rule_keys.append(key)
+            if len(rule_keys) >= _MAX_RULE_KEYS:
+                break
+        if not rule_keys:
+            return []
+        pipe = r.pipeline()
+        for rk in rule_keys:
+            pipe.get(rk)
+        rule_vals = await pipe.execute()
+        rule_counts = [
+            (rk.replace("ct:rule:", "", 1), _safe_int(rv))
+            for rk, rv in zip(rule_keys, rule_vals, strict=True)
+        ]
+        rule_counts.sort(key=lambda x: x[1], reverse=True)
+        return [{"rule": name, "count": count} for name, count in rule_counts[:_TOP_RULES_LIMIT]]
+    except (redis.RedisError, TypeError):
+        return []
+
+
+def _build_distribution_stats(kv: dict[str, int]) -> dict[str, object]:
+    """Build distribution section of stats payload."""
+    return {
+        "pypi": {
+            "downloads_today": kv.get("ct:ext:pypi_last_day", 0),
+            "downloads_this_week": kv.get("ct:ext:pypi_last_week", 0),
+            "downloads_this_month": kv.get("ct:ext:pypi_last_month", 0),
+            "downloads_last_3_months_ci": kv.get("ct:ext:pepy_3m_ci_downloads", 0),
+        },
+        "marketplace": {
+            "installs": kv.get("ct:ext:marketplace_installs", 0),
+            "downloads": kv.get("ct:ext:marketplace_downloads", 0),
+            "updates": kv.get("ct:ext:marketplace_updates", 0),
+        },
+        "open_vsx": {
+            "downloads": kv.get("ct:ext:openvsx_downloads", 0),
+        },
+    }
+
+
+def _build_usage_stats(
+    kv: dict[str, int],
+    active_total: int,
+    active_today: int,
+    scans_last_hour: int,
+) -> dict[str, object]:
+    """Build usage section of stats payload."""
+    total_findings = kv.get("ct:total_findings", 0)
+    total_blocks = kv.get("ct:total_blocks", 0)
+    return {
+        "total_scans": kv.get("ct:total_scans", 0),
+        "scans_today": kv.get(SCANS_TODAY_KEY, 0),
+        "scans_last_hour": scans_last_hour,
+        "scans_by_source": {
+            "cli": kv.get("ct:scans_by_source:cli", 0),
+            "vscode": kv.get("ct:scans_by_source:vscode", 0),
+            "mcp": kv.get("ct:scans_by_source:mcp", 0),
+            "github_action": kv.get("ct:scans_by_source:github_action", 0),
+            "cloud_api": kv.get("ct:scans_by_source:cloud_api", 0),
+        },
+        "total_files_scanned": kv.get("ct:files_scanned", 0),
+        "total_findings": total_findings,
+        "findings_by_severity": {
+            "BLOCK": total_blocks,
+            "WARN": max(0, total_findings - total_blocks),
+            "INFO": 0,
+        },
+        "unique_installations_total": active_total,
+        "unique_installations_today": active_today,
+    }
+
+
+def _build_impact_stats(kv: dict[str, int]) -> dict[str, object]:
+    """Build impact section of stats payload."""
+    return {
+        "hallucinations_caught": kv.get("ct:hallucinations_caught", 0),
+        "gateway_commands_blocked": kv.get("ct:gateway_blocks", 0),
+        "gateway_commands_allowed": kv.get("ct:gateway_allowed", 0),
+        "gateway_commands_warned": kv.get("ct:gateway_warned", 0),
+        "imports_verified": kv.get("ct:imports_verified", 0),
+        "docker_images_verified": kv.get("ct:docker_verified", 0),
+        "fixes_applied": kv.get("ct:fixes_applied", 0),
+        "fix_files_changed": kv.get("ct:fix_files_changed", 0),
+        "fix_lines_changed": kv.get("ct:fix_lines_changed", 0),
+        "pr_gates_passed": kv.get("ct:pr_gates_passed", 0),
+        "pr_gates_failed": kv.get("ct:pr_gates_failed", 0),
+        "ci_runs_total": kv.get("ct:ci_runs_total", 0),
+        "ci_gates_passed": kv.get("ct:ci_gates_passed", 0),
+        "ci_gates_failed": kv.get("ct:ci_gates_failed", 0),
+    }
+
+
+def _build_quality_stats(
+    kv: dict[str, int],
+    top_rules: list[dict[str, object]],
+) -> dict[str, object]:
+    """Build quality section of stats payload."""
+    ts_sum = kv.get("ct:trust_score_sum", 0)
+    ts_count = kv.get("ct:trust_score_count", 0)
+    avg_score = round(ts_sum / ts_count) if ts_count > 0 else 0
+    return {
+        "average_trust_score": avg_score,
+        "trend_distribution": {
+            "improving": kv.get("ct:trend:improving", 0),
+            "stable": kv.get("ct:trend:stable", 0),
+            "degrading": kv.get("ct:trend:degrading", 0),
+        },
+        "top_rules_triggered": top_rules,
+    }
+
+
 async def build_public_stats(
     *,
     r: redis.Redis,
     use_cache: bool,
 ) -> dict[str, object]:
     """Build full public stats payload from Redis counters."""
-
     if use_cache:
         cached = await r.get(STATS_CACHE_KEY)
         if cached:
             try:
                 return json.loads(cached)
             except (json.JSONDecodeError, TypeError) as exc:
-                logger.debug(
-                    "stats_cache_decode_failed",
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
+                logger.debug("stats_cache_decode_failed", error=str(exc), error_type=type(exc).__name__)
 
-    keys = [
-        "ct:total_scans",
-        "ct:total_findings",
-        "ct:total_blocks",
-        "ct:hallucinations_caught",
-        "ct:gateway_blocks",
-        "ct:gateway_allowed",
-        "ct:gateway_warned",
-        "ct:imports_verified",
-        "ct:docker_verified",
-        "ct:fixes_applied",
-        "ct:fix_files_changed",
-        "ct:fix_lines_changed",
-        "ct:pr_gates_passed",
-        "ct:pr_gates_failed",
-        "ct:files_scanned",
-        "ct:trust_score_sum",
-        "ct:trust_score_count",
-        "ct:trend:improving",
-        "ct:trend:stable",
-        "ct:trend:degrading",
-        SCANS_TODAY_KEY,
-        "ct:scans_by_source:cli",
-        "ct:scans_by_source:vscode",
-        "ct:scans_by_source:mcp",
-        "ct:scans_by_source:github_action",
-        "ct:scans_by_source:cloud_api",
-        "ct:ci_runs_total",
-        "ct:ci_gates_passed",
-        "ct:ci_gates_failed",
-        "ct:ext:pypi_last_day",
-        "ct:ext:pypi_last_week",
-        "ct:ext:pypi_last_month",
-        "ct:ext:pepy_3m_ci_downloads",
-        "ct:ext:marketplace_installs",
-        "ct:ext:marketplace_downloads",
-        "ct:ext:marketplace_updates",
-        "ct:ext:openvsx_downloads",
-    ]
-    pipe = r.pipeline()
-    for k in keys:
-        pipe.get(k)
-    values = await pipe.execute()
-    kv: dict[str, int] = {k: _safe_int(v) for k, v in zip(keys, values, strict=True)}
-
-    active_total = _safe_int(await r.pfcount(ACTIVE_SESSIONS_KEY))
-    active_today = _safe_int(await r.pfcount(ACTIVE_SESSIONS_TODAY_KEY))
-    scans_last_hour = _safe_int(
-        await r.zcount(SCANS_LAST_HOUR_KEY, _now_unix() - 3600, float("inf"))
-    )
-
-    ts_sum = kv.get("ct:trust_score_sum", 0)
-    ts_count = kv.get("ct:trust_score_count", 0)
-    avg_score = round(ts_sum / ts_count) if ts_count > 0 else 0
-
-    total_findings = kv.get("ct:total_findings", 0)
-    total_blocks = kv.get("ct:total_blocks", 0)
-    total_warn = max(0, total_findings - total_blocks)
-
-    # Language distribution (bounded key list)
-    lang_keys = [
-        "python",
-        "javascript",
-        "typescript",
-        "go",
-        "rust",
-        "dockerfile",
-        "sql",
-        "yaml",
-    ]
-    lang_pipe = r.pipeline()
-    for lang in lang_keys:
-        lang_pipe.get(f"ct:lang:{lang}")
-    lang_values = await lang_pipe.execute()
-    languages: dict[str, int] = {
-        lang: _safe_int(val) for lang, val in zip(lang_keys, lang_values, strict=True)
-    }
-
-    # Layers distribution (1..10)
-    layer_pipe = r.pipeline()
-    for i in range(1, 11):
-        layer_pipe.get(f"ct:layer:{i}")
-    layer_values = await layer_pipe.execute()
-    layers: dict[str, int] = {
-        f"layer_{i}": _safe_int(val) for i, val in zip(range(1, 11), layer_values, strict=True)
-    }
-
-    # Top rules triggered
-    top_rules: list[dict[str, object]] = []
-    try:
-        rule_keys: list[str] = []
-        async for key in r.scan_iter(match="ct:rule:*"):
-            if isinstance(key, str):
-                rule_keys.append(key)
-            if len(rule_keys) >= 500:
-                break
-
-        if rule_keys:
-            rule_pipe = r.pipeline()
-            for rk in rule_keys:
-                rule_pipe.get(rk)
-            rule_vals = await rule_pipe.execute()
-            rule_counts: list[tuple[str, int]] = []
-            for rk, rv in zip(rule_keys, rule_vals, strict=True):
-                rule_name = rk.replace("ct:rule:", "", 1)
-                rule_counts.append((rule_name, _safe_int(rv)))
-            rule_counts.sort(key=lambda x: x[1], reverse=True)
-            top_rules = [{"rule": name, "count": count} for name, count in rule_counts[:15]]
-    except (redis.RedisError, TypeError):
-        top_rules = []
+    kv, active_total, active_today, scans_last_hour = await _fetch_redis_counters(r)
+    languages = await _fetch_language_distribution(r)
+    layers = await _fetch_layer_distribution(r)
+    top_rules = await _fetch_top_rules(r)
 
     stats: dict[str, object] = {
         "updated_at": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
-        "distribution": {
-            "pypi": {
-                "downloads_today": kv.get("ct:ext:pypi_last_day", 0),
-                "downloads_this_week": kv.get("ct:ext:pypi_last_week", 0),
-                "downloads_this_month": kv.get("ct:ext:pypi_last_month", 0),
-                "downloads_last_3_months_ci": kv.get("ct:ext:pepy_3m_ci_downloads", 0),
-            },
-            "marketplace": {
-                "installs": kv.get("ct:ext:marketplace_installs", 0),
-                "downloads": kv.get("ct:ext:marketplace_downloads", 0),
-                "updates": kv.get("ct:ext:marketplace_updates", 0),
-            },
-            "open_vsx": {
-                "downloads": kv.get("ct:ext:openvsx_downloads", 0),
-            },
-        },
-        "usage": {
-            "total_scans": kv.get("ct:total_scans", 0),
-            "scans_today": kv.get(SCANS_TODAY_KEY, 0),
-            "scans_last_hour": scans_last_hour,
-            "scans_by_source": {
-                "cli": kv.get("ct:scans_by_source:cli", 0),
-                "vscode": kv.get("ct:scans_by_source:vscode", 0),
-                "mcp": kv.get("ct:scans_by_source:mcp", 0),
-                "github_action": kv.get("ct:scans_by_source:github_action", 0),
-                "cloud_api": kv.get("ct:scans_by_source:cloud_api", 0),
-            },
-            "total_files_scanned": kv.get("ct:files_scanned", 0),
-            "total_findings": total_findings,
-            "findings_by_severity": {
-                "BLOCK": total_blocks,
-                "WARN": total_warn,
-                "INFO": 0,
-            },
-            "unique_installations_total": active_total,
-            "unique_installations_today": active_today,
-        },
-        "impact": {
-            "hallucinations_caught": kv.get("ct:hallucinations_caught", 0),
-            "gateway_commands_blocked": kv.get("ct:gateway_blocks", 0),
-            "gateway_commands_allowed": kv.get("ct:gateway_allowed", 0),
-            "gateway_commands_warned": kv.get("ct:gateway_warned", 0),
-            "imports_verified": kv.get("ct:imports_verified", 0),
-            "docker_images_verified": kv.get("ct:docker_verified", 0),
-            "fixes_applied": kv.get("ct:fixes_applied", 0),
-            "fix_files_changed": kv.get("ct:fix_files_changed", 0),
-            "fix_lines_changed": kv.get("ct:fix_lines_changed", 0),
-            "pr_gates_passed": kv.get("ct:pr_gates_passed", 0),
-            "pr_gates_failed": kv.get("ct:pr_gates_failed", 0),
-            "ci_runs_total": kv.get("ct:ci_runs_total", 0),
-            "ci_gates_passed": kv.get("ct:ci_gates_passed", 0),
-            "ci_gates_failed": kv.get("ct:ci_gates_failed", 0),
-        },
-        "quality": {
-            "average_trust_score": avg_score,
-            "trend_distribution": {
-                "improving": kv.get("ct:trend:improving", 0),
-                "stable": kv.get("ct:trend:stable", 0),
-                "degrading": kv.get("ct:trend:degrading", 0),
-            },
-            "top_rules_triggered": top_rules,
-        },
+        "distribution": _build_distribution_stats(kv),
+        "usage": _build_usage_stats(kv, active_total, active_today, scans_last_hour),
+        "impact": _build_impact_stats(kv),
+        "quality": _build_quality_stats(kv, top_rules),
         "languages": languages,
         "layers": layers,
     }

@@ -15,6 +15,10 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+SECONDS_PER_DAY: int = 86_400
+
+from src.gateway.interceptor import InterceptResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,7 +96,7 @@ class AuditLogger:
 
     def log_intercept(
         self,
-        result: InterceptResult,  # noqa: F821
+        result: InterceptResult,
         *,
         workspace: str = "",
         session_id: str = "",
@@ -127,6 +131,22 @@ class AuditLogger:
         )
         self.log(entry)
 
+    def _parse_all_entries(self) -> list[AuditEntry]:
+        """Read and parse all entries from the audit log file."""
+        if not self._path.is_file():
+            return []
+        entries: list[AuditEntry] = []
+        with open(self._path, encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    entries.append(AuditEntry.from_json(stripped))
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.debug("Skipping malformed audit entry: %s", exc)
+        return entries
+
     def get_entries(
         self,
         *,
@@ -144,31 +164,17 @@ class AuditLogger:
         Returns:
             List of matching AuditEntry objects, newest first.
         """
-        if not self._path.is_file():
-            return []
+        entries = self._parse_all_entries()
+        filtered: list[AuditEntry] = []
+        for entry in entries:
+            if since and entry.timestamp < since:
+                continue
+            if verdict and entry.verdict != verdict:
+                continue
+            filtered.append(entry)
 
-        entries: list[AuditEntry] = []
-        with open(self._path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError) as exc:
-                    logger.debug("Skipping malformed audit entry: %s", exc)
-                    continue
-
-                if since and entry.timestamp < since:
-                    continue
-                if verdict and entry.verdict != verdict:
-                    continue
-
-                entries.append(entry)
-
-        # Return newest first, limited
-        entries.reverse()
-        return entries[:limit]
+        filtered.reverse()
+        return filtered[:limit]
 
     def get_violations(
         self,
@@ -210,13 +216,31 @@ class AuditLogger:
         entries.reverse()
         return entries[:limit]
 
+    def _accumulate_stats(
+        self,
+        entries: list[AuditEntry],
+    ) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+        """Accumulate verdict, action_type, and rule counts from entries."""
+        by_verdict: dict[str, int] = {}
+        by_action_type: dict[str, int] = {}
+        by_rule: dict[str, int] = {}
+        for entry in entries:
+            by_verdict[entry.verdict] = by_verdict.get(entry.verdict, 0) + 1
+            by_action_type[entry.action_type] = (
+                by_action_type.get(entry.action_type, 0) + 1
+            )
+            if entry.rule_id:
+                by_rule[entry.rule_id] = by_rule.get(entry.rule_id, 0) + 1
+        return by_verdict, by_action_type, by_rule
+
     def get_stats(self) -> dict:
         """Get aggregate statistics from the audit log.
 
         Returns:
             Dict with counts by verdict, action_type, and top violated rules.
         """
-        if not self._path.is_file():
+        entries = self._parse_all_entries()
+        if not entries:
             return {
                 "total": 0,
                 "by_verdict": {},
@@ -224,34 +248,11 @@ class AuditLogger:
                 "top_rules": [],
             }
 
-        by_verdict: dict[str, int] = {}
-        by_action_type: dict[str, int] = {}
-        by_rule: dict[str, int] = {}
-        total = 0
-
-        with open(self._path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError) as exc:
-                    logger.debug("Skipping malformed audit entry: %s", exc)
-                    continue
-
-                total += 1
-                by_verdict[entry.verdict] = by_verdict.get(entry.verdict, 0) + 1
-                by_action_type[entry.action_type] = (
-                    by_action_type.get(entry.action_type, 0) + 1
-                )
-                if entry.rule_id:
-                    by_rule[entry.rule_id] = by_rule.get(entry.rule_id, 0) + 1
-
+        by_verdict, by_action_type, by_rule = self._accumulate_stats(entries)
         top_rules = sorted(by_rule.items(), key=lambda x: x[1], reverse=True)[:10]
 
         return {
-            "total": total,
+            "total": len(entries),
             "by_verdict": by_verdict,
             "by_action_type": by_action_type,
             "top_rules": [{"rule_id": r, "count": c} for r, c in top_rules],
@@ -261,6 +262,14 @@ class AuditLogger:
         """Remove the audit log file. Use with caution."""
         if self._path.is_file():
             self._path.unlink()
+
+    def _atomic_rewrite(self, lines: list[str]) -> None:
+        """Atomically rewrite the audit log with the given JSON lines."""
+        tmp_path = self._path.with_suffix(".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            for json_line in lines:
+                f.write(json_line + "\n")
+        tmp_path.replace(self._path)
 
     def purge(self, *, older_than_days: int = 90) -> int:
         """Remove audit entries older than the specified number of days.
@@ -277,33 +286,18 @@ class AuditLogger:
         if not self._path.is_file():
             return 0
 
-        cutoff = time.time() - (older_than_days * 86400)
+        cutoff = time.time() - (older_than_days * SECONDS_PER_DAY)
+        entries = self._parse_all_entries()
         kept: list[str] = []
         purged = 0
 
-        with open(self._path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = AuditEntry.from_json(line)
-                except (json.JSONDecodeError, TypeError) as exc:
-                    logger.debug("Skipping malformed audit entry: %s", exc)
-                    continue
+        for entry in entries:
+            if entry.timestamp < cutoff:
+                purged += 1
+            else:
+                kept.append(entry.to_json())
 
-                if entry.timestamp < cutoff:
-                    purged += 1
-                else:
-                    kept.append(entry.to_json())
-
-        # Atomic rewrite
-        tmp_path = self._path.with_suffix(".tmp")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            for line in kept:
-                f.write(line + "\n")
-        tmp_path.replace(self._path)
-
+        self._atomic_rewrite(kept)
         return purged
 
     def entry_count(self) -> int:

@@ -127,6 +127,48 @@ async def _verify_packages(
         return await registry.verify_packages(language, packages)
 
 
+def _make_finding(
+    rule_id: str, severity: str, message: str,
+    filepath: str, line: int,
+) -> dict[str, str | int]:
+    """Create a single finding dict."""
+    return {
+        "rule_id": rule_id,
+        "severity": severity,
+        "message": message,
+        "file": filepath,
+        "line": line,
+    }
+
+
+def _finding_for_status(
+    result: PackageResult,
+    package_map: dict[str, list[tuple[str, int]]],
+) -> list[dict[str, str | int]]:
+    """Generate findings for a single package result based on its status."""
+    locations = package_map.get(result.package, [])
+    if not locations:
+        return []
+
+    if result.status == VerifyStatus.NOT_FOUND:
+        suggestion = f" Did you mean '{result.suggestion}'?" if result.suggestion else ""
+        msg = (
+            f"Package '{result.package}' not found on "
+            f"{result.registry.value} — possible AI hallucination.{suggestion}"
+        )
+        return [_make_finding("import_not_found", "BLOCK", msg, fp, ln) for fp, ln in locations]
+
+    if result.status == VerifyStatus.DEPRECATED:
+        msg = f"Package '{result.package}' is deprecated on {result.registry.value}."
+        return [_make_finding("import_deprecated", "WARN", msg, fp, ln) for fp, ln in locations]
+
+    if result.status == VerifyStatus.VERSION_MISMATCH:
+        msg = f"Package '{result.package}': {result.message}"
+        return [_make_finding("import_version_mismatch", "WARN", msg, fp, ln) for fp, ln in locations]
+
+    return []
+
+
 def _results_to_findings(
     results: list[PackageResult],
     package_map: dict[str, list[tuple[str, int]]],
@@ -134,51 +176,25 @@ def _results_to_findings(
 ) -> list[dict[str, str | int]]:
     """Convert PackageResult objects to CLI-style finding dicts."""
     findings: list[dict[str, str | int]] = []
-
     for result in results:
-        if result.status == VerifyStatus.NOT_FOUND:
-            suggestion_text = ""
-            if result.suggestion:
-                suggestion_text = f" Did you mean '{result.suggestion}'?"
-            for filepath, line in package_map.get(result.package, []):
-                findings.append({
-                    "rule_id": "import_not_found",
-                    "severity": "BLOCK",
-                    "message": (
-                        f"Package '{result.package}' not found on "
-                        f"{result.registry.value} — possible AI hallucination."
-                        f"{suggestion_text}"
-                    ),
-                    "file": filepath,
-                    "line": line,
-                })
-
-        elif result.status == VerifyStatus.DEPRECATED:
-            for filepath, line in package_map.get(result.package, []):
-                findings.append({
-                    "rule_id": "import_deprecated",
-                    "severity": "WARN",
-                    "message": (
-                        f"Package '{result.package}' is deprecated on "
-                        f"{result.registry.value}."
-                    ),
-                    "file": filepath,
-                    "line": line,
-                })
-
-        elif result.status == VerifyStatus.VERSION_MISMATCH:
-            for filepath, line in package_map.get(result.package, []):
-                findings.append({
-                    "rule_id": "import_version_mismatch",
-                    "severity": "WARN",
-                    "message": (
-                        f"Package '{result.package}': {result.message}"
-                    ),
-                    "file": filepath,
-                    "line": line,
-                })
-
+        findings.extend(_finding_for_status(result, package_map))
     return findings
+
+
+async def _verify_and_collect(
+    language: Language,
+    package_map: dict[str, list[tuple[str, int]]],
+    language_label: str,
+) -> list[dict[str, str | int]]:
+    """Verify packages for a single language and return findings."""
+    if not package_map:
+        return []
+    try:
+        results = await _verify_packages(language, list(package_map.keys()))
+        return _results_to_findings(results, package_map, language_label)
+    except Exception as exc:
+        logger.warning(f"import_verify_{language_label.lower()}_error", error=str(exc))
+        return []
 
 
 async def async_verify_file_imports(
@@ -196,33 +212,17 @@ async def async_verify_file_imports(
     """
     all_findings: list[dict[str, str | int]] = []
 
-    # Python imports
     if py_files:
         python_map = _collect_python_imports(py_files)
-        if python_map:
-            try:
-                results = await _verify_packages(
-                    Language.PYTHON, list(python_map.keys()),
-                )
-                all_findings.extend(
-                    _results_to_findings(results, python_map, "Python"),
-                )
-            except Exception as exc:
-                logger.warning("import_verify_python_error", error=str(exc))
+        all_findings.extend(
+            await _verify_and_collect(Language.PYTHON, python_map, "Python"),
+        )
 
-    # JS/TS imports
     if js_files:
         js_map = _collect_js_imports(js_files)
-        if js_map:
-            try:
-                results = await _verify_packages(
-                    Language.JAVASCRIPT, list(js_map.keys()),
-                )
-                all_findings.extend(
-                    _results_to_findings(results, js_map, "JavaScript"),
-                )
-            except Exception as exc:
-                logger.warning("import_verify_js_error", error=str(exc))
+        all_findings.extend(
+            await _verify_and_collect(Language.JAVASCRIPT, js_map, "JavaScript"),
+        )
 
     return all_findings
 

@@ -3,6 +3,8 @@
 import asyncio
 import os
 import time
+
+SECONDS_PER_HOUR: int = 3_600
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -83,6 +85,11 @@ from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.static_analyzer import StaticAnalyzer
 from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
+from src.gateway.audit import AuditEntry
+from src.services.autofix import AutoFixResult
+from src.services.license_checker import LicenseScanResponse
+from src.services.sso import OIDCConfig, OIDCService
+from src.services.vulnerability import VulnScanResponse
 from src.utils.parsers import (
     extract_cpp_includes,
     extract_csharp_imports,
@@ -148,6 +155,32 @@ async def _resolve_auth_from_bearer(
     )
 
 
+def _is_auth_configured(
+    db: DatabaseService | None, auth_svc: AuthService | None,
+) -> bool:
+    """Check if any authentication mechanism is configured."""
+    return (
+        bool(settings.api_key)
+        or (db is not None)
+        or (auth_svc is not None and auth_svc.jwt_configured())
+    )
+
+
+async def _resolve_api_key_auth(
+    key: str, db: DatabaseService | None, auth_configured: bool,
+) -> AuthContext:
+    """Resolve auth from an API key, raising 401 if invalid and auth is configured."""
+    if not auth_configured:
+        return AuthContext()
+    ctx = await _resolve_auth_from_key(key, db)
+    if ctx.user_id != "local":
+        return ctx
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid API key. Omit X-API-Key to use unauthenticated mode.",
+    )
+
+
 async def get_auth_context(
     request: Request,
     key: str | None = Security(api_key_header),
@@ -158,30 +191,15 @@ async def get_auth_context(
     """
     db = getattr(request.app.state, "db", None)
     auth_svc = getattr(request.app.state, "auth", None)
-
-    auth_is_configured = (
-        bool(settings.api_key)
-        or (db is not None)
-        or (auth_svc is not None and auth_svc.jwt_configured())
-    )
+    auth_configured = _is_auth_configured(db, auth_svc)
 
     if key:
-        if not auth_is_configured:
-            # Unauthenticated mode: ignore any provided API key to avoid surprising 401s.
-            return AuthContext()
-        ctx = await _resolve_auth_from_key(key, db)
-        if ctx.user_id != "local":
-            return ctx
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key. Omit X-API-Key to use unauthenticated mode.",
-        )
+        return await _resolve_api_key_auth(key, db, auth_configured)
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
-        if not auth_is_configured:
-            # Unauthenticated mode: ignore bearer tokens.
+        if not auth_configured:
             return AuthContext()
         ctx = await _resolve_auth_from_bearer(token, auth_svc)
         if ctx is not None:
@@ -197,12 +215,9 @@ async def get_auth_context(
 
 
 
-async def _startup(app: FastAPI) -> None:
-    """Create and attach shared resources to app state."""
-    cache = CacheService(settings.redis_url)
-    await cache.connect()
-
-    http_client = httpx.AsyncClient(
+async def _init_http_client() -> httpx.AsyncClient:
+    """Create the shared HTTP client."""
+    return httpx.AsyncClient(
         timeout=settings.http_timeout,
         limits=httpx.Limits(
             max_connections=settings.http_max_connections,
@@ -210,18 +225,27 @@ async def _startup(app: FastAPI) -> None:
         ),
     )
 
-    db: DatabaseService | None
+
+async def _init_database() -> DatabaseService | None:
+    """Initialize the database, returning None if unavailable."""
     try:
         db = DatabaseService(settings.database_url, echo=settings.database_echo)
         await db.create_tables()
+        return db
     except Exception as exc:
         logger.warning(
             "database_init_skipped",
             error=str(exc),
             error_type=type(exc).__name__,
         )
-        db = None
+        return None
 
+
+def _attach_core_services(
+    app: FastAPI, cache: CacheService,
+    http_client: httpx.AsyncClient, db: DatabaseService | None,
+) -> None:
+    """Attach core services to app state."""
     app.state.cache = cache
     app.state.http_client = http_client
     app.state.registry = RegistryService(cache, http_client)
@@ -234,13 +258,21 @@ async def _startup(app: FastAPI) -> None:
     app.state.auth = AuthService(http_client)
     app.state.rate_limiter = RateLimiter(db) if db is not None else None
 
-    # --- Team Service (RBAC) ---
+
+def _init_team_service(app: FastAPI, db: DatabaseService | None) -> None:
+    """Initialize the team service for RBAC."""
     app.state.team_service = None
     if db is not None:
         from src.services.team import TeamService
+
         app.state.team_service = TeamService(db._session_factory)
 
-    # --- Telemetry background services (best-effort) ---
+
+async def _init_telemetry_tasks(
+    app: FastAPI, cache: CacheService,
+    http_client: httpx.AsyncClient, db: DatabaseService | None,
+) -> None:
+    """Start telemetry background tasks."""
     app.state.telemetry_stop = asyncio.Event()
     app.state.telemetry_queue = asyncio.Queue(maxsize=10_000)
     app.state.ws_clients = set()
@@ -259,6 +291,17 @@ async def _startup(app: FastAPI) -> None:
     app.state.telemetry_writer_task = None
     if db is not None:
         app.state.telemetry_writer_task = asyncio.create_task(_telemetry_batch_writer(app))
+
+
+async def _startup(app: FastAPI) -> None:
+    """Create and attach shared resources to app state."""
+    cache = CacheService(settings.redis_url)
+    await cache.connect()
+    http_client = await _init_http_client()
+    db = await _init_database()
+    _attach_core_services(app, cache, http_client, db)
+    _init_team_service(app, db)
+    await _init_telemetry_tasks(app, cache, http_client, db)
 
 
 async def _shutdown(app: FastAPI) -> None:
@@ -321,6 +364,51 @@ API_TELEMETRY_SKIP_PATHS: set[str] = {
 }
 
 
+def _build_request_telemetry_event(
+    method: str, path: str, status_code: int, duration_ms: int,
+) -> TelemetryIngestEvent:
+    """Build a telemetry event for an API request."""
+    return TelemetryIngestEvent(
+        event_type="api_request_completed",
+        source="cloud_api",
+        installation_id=None,
+        version=settings.version,
+        payload={
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+
+
+def _schedule_telemetry_emit(
+    request: Request, event: TelemetryIngestEvent,
+    redis_client: object | None, queue: asyncio.Queue[object] | None,
+) -> None:
+    """Schedule telemetry emission as a background task."""
+    async def _emit() -> None:
+        try:
+            await process_telemetry_event(r=redis_client, queue=queue, event=event)
+        except Exception:
+            return
+
+    try:
+        task = asyncio.create_task(_emit())
+        tasks: set[asyncio.Task[None]] = getattr(
+            request.app.state, "telemetry_bg_tasks", set(),
+        )
+        tasks.add(task)
+        request.app.state.telemetry_bg_tasks = tasks
+
+        def _cleanup(done: asyncio.Task[None]) -> None:
+            tasks.discard(done)
+
+        task.add_done_callback(_cleanup)
+    except Exception:
+        return
+
+
 @app.middleware("http")
 async def api_request_telemetry(
     request: Request,
@@ -330,7 +418,6 @@ async def api_request_telemetry(
 
     Never blocks the request path; skips endpoints that would cause recursion or noise.
     """
-
     path = request.url.path
     if request.method == "OPTIONS" or path in API_TELEMETRY_SKIP_PATHS:
         return await call_next(request)
@@ -349,39 +436,13 @@ async def api_request_telemetry(
         queue = getattr(request.app.state, "telemetry_queue", None)
 
         try:
-            event = TelemetryIngestEvent(
-                event_type="api_request_completed",
-                source="cloud_api",
-                installation_id=None,
-                version=settings.version,
-                payload={
-                    "method": request.method,
-                    "path": path,
-                    "status_code": int(status_code),
-                    "duration_ms": int(duration_ms),
-                },
+            event = _build_request_telemetry_event(
+                request.method, path, status_code, duration_ms,
             )
         except Exception:
             return
 
-        async def _emit() -> None:
-            try:
-                await process_telemetry_event(r=redis_client, queue=queue, event=event)
-            except Exception:
-                return
-
-        try:
-            task = asyncio.create_task(_emit())
-            tasks: set[asyncio.Task[None]] = getattr(request.app.state, "telemetry_bg_tasks", set())
-            tasks.add(task)
-            request.app.state.telemetry_bg_tasks = tasks
-
-            def _cleanup(done: asyncio.Task[None]) -> None:
-                tasks.discard(done)
-
-            task.add_done_callback(_cleanup)
-        except Exception:
-            return
+        _schedule_telemetry_emit(request, event, redis_client, queue)
 
 
 def _get_registry(request: Request) -> RegistryService:
@@ -460,6 +521,66 @@ async def _enforce_rate_limit(
         )
 
 
+async def _log_scan_to_db(
+    db: DatabaseService,
+    auth: AuthContext,
+    scan_type: str,
+    verdict: str,
+    findings_count: int,
+    latency_ms: int,
+    language: str,
+    filename: str,
+    rate_limiter: RateLimiter | None,
+) -> None:
+    """Write scan record to database and increment rate limit counters."""
+    try:
+        await db.log_scan(
+            user_id=auth.user_id,
+            scan_type=scan_type,
+            verdict=verdict,
+            findings_count=findings_count,
+            latency_ms=latency_ms,
+            language=language,
+            filename=filename,
+            api_key_id=auth.api_key_id,
+        )
+        if rate_limiter is not None:
+            await rate_limiter.increment(
+                auth.user_id, findings_count, latency_ms,
+            )
+    except Exception as exc:
+        logger.warning("scan_logging_failed", error=str(exc))
+
+
+async def _emit_scan_telemetry(
+    redis_client: object,
+    queue: asyncio.Queue[object] | None,
+    scan_type: str,
+    findings_count: int,
+    verdict: str,
+    latency_ms: int,
+) -> None:
+    """Emit scan completion telemetry event via Redis."""
+    blocks_count = findings_count if verdict == "BLOCK" else 0
+    try:
+        event = TelemetryIngestEvent(
+            event_type="scan_completed",
+            source="cloud_api",
+            installation_id=None,
+            version=settings.version,
+            payload={
+                "scan_type": scan_type,
+                "files_scanned": 1,
+                "total_findings": findings_count,
+                "findings_by_severity": {"BLOCK": blocks_count},
+                "scan_duration_ms": latency_ms,
+            },
+        )
+        await process_telemetry_event(r=redis_client, queue=queue, event=event)
+    except Exception as exc:
+        logger.debug("scan_telemetry_emit_failed", error=str(exc))
+
+
 async def _log_scan(
     request: Request,
     auth: AuthContext,
@@ -478,47 +599,18 @@ async def _log_scan(
     db = getattr(request.app.state, "db", None)
     rate_limiter = getattr(request.app.state, "rate_limiter", None)
     if db is not None:
-        try:
-            await db.log_scan(
-                user_id=auth.user_id,
-                scan_type=scan_type,
-                verdict=verdict,
-                findings_count=findings_count,
-                latency_ms=latency_ms,
-                language=language,
-                filename=filename,
-                api_key_id=auth.api_key_id,
-            )
-            if rate_limiter is not None:
-                await rate_limiter.increment(
-                    auth.user_id, findings_count, latency_ms,
-                )
-        except Exception as exc:
-            logger.warning("scan_logging_failed", error=str(exc))
+        await _log_scan_to_db(
+            db, auth, scan_type, verdict, findings_count,
+            latency_ms, language, filename, rate_limiter,
+        )
 
-    # Emit telemetry so every API scan shows up in live public stats
     cache = getattr(request.app.state, "cache", None)
     redis_client = cache.raw_client() if cache is not None else None
     queue = getattr(request.app.state, "telemetry_queue", None)
     if redis_client is not None:
-        blocks_count = findings_count if verdict == "BLOCK" else 0
-        try:
-            event = TelemetryIngestEvent(
-                event_type="scan_completed",
-                source="cloud_api",
-                installation_id=None,
-                version=settings.version,
-                payload={
-                    "scan_type": scan_type,
-                    "files_scanned": 1,
-                    "total_findings": findings_count,
-                    "findings_by_severity": {"BLOCK": blocks_count},
-                    "scan_duration_ms": latency_ms,
-                },
-            )
-            await process_telemetry_event(r=redis_client, queue=queue, event=event)
-        except Exception as exc:
-            logger.debug("scan_telemetry_emit_failed", error=str(exc))
+        await _emit_scan_telemetry(
+            redis_client, queue, scan_type, findings_count, verdict, latency_ms,
+        )
 
 
 # --- Endpoints ---
@@ -537,43 +629,59 @@ async def health_check(
     )
 
 
-@app.get("/v1/stats/public")
-async def public_stats(request: Request) -> dict:
-    """Public aggregate stats for landing page — no auth required."""
-    db = getattr(request.app.state, "db", None)
-    cache = getattr(request.app.state, "cache", None)
-    http_client = getattr(request.app.state, "http_client", None)
+_FALLBACK_STATS_BASE: dict[str, int] = {
+    "total_scans": 0,
+    "hallucinated_packages_prevented": 0,
+    "destructive_commands_blocked": 0,
+    "pypi_downloads_last_day": 0,
+    "pypi_downloads_last_week": 0,
+    "pypi_downloads_last_month": 0,
+    "pypi_downloads_last_3_months_ci": 0,
+    "marketplace_installs": 0,
+    "marketplace_downloads": 0,
+    "marketplace_updates": 0,
+    "openvsx_downloads": 0,
+}
 
-    redis_client = cache.raw_client() if cache is not None else None
-    if redis_client is not None:
-        from src.services.telemetry import build_public_stats
 
-        stats = await build_public_stats(r=redis_client, use_cache=True)
+async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
+    """Build public stats from Redis with backwards-compatible flat keys."""
+    from src.services.telemetry import build_public_stats
 
-        # Backwards-compatible flat keys for existing website counters.
-        legacy: dict[str, int] = {
-            "total_scans": int(stats.get("usage", {}).get("total_scans", 0)),
-            "hallucinated_packages_prevented": int(stats.get("impact", {}).get("hallucinations_caught", 0)),
-            "destructive_commands_blocked": int(stats.get("impact", {}).get("gateway_commands_blocked", 0)),
-            "pypi_downloads_last_week": int(
-                stats.get("distribution", {}).get("pypi", {}).get("downloads_this_week", 0)
-            ),
-            "pypi_downloads_last_3_months_ci": int(
-                stats.get("distribution", {}).get("pypi", {}).get("downloads_last_3_months_ci", 0)
-            ),
-            "marketplace_installs": int(
-                stats.get("distribution", {}).get("marketplace", {}).get("installs", 0)
-            ),
-            "marketplace_downloads": int(
-                stats.get("distribution", {}).get("marketplace", {}).get("downloads", 0)
-            ),
-            "openvsx_downloads": int(
-                stats.get("distribution", {}).get("open_vsx", {}).get("downloads", 0)
-            ),
-        }
-        return {**legacy, "stats": stats}
+    stats = await build_public_stats(r=redis_client, use_cache=True)
+    legacy: dict[str, int] = {
+        "total_scans": int(stats.get("usage", {}).get("total_scans", 0)),
+        "hallucinated_packages_prevented": int(
+            stats.get("impact", {}).get("hallucinations_caught", 0),
+        ),
+        "destructive_commands_blocked": int(
+            stats.get("impact", {}).get("gateway_commands_blocked", 0),
+        ),
+        "pypi_downloads_last_week": int(
+            stats.get("distribution", {}).get("pypi", {}).get("downloads_this_week", 0),
+        ),
+        "pypi_downloads_last_3_months_ci": int(
+            stats.get("distribution", {}).get("pypi", {}).get("downloads_last_3_months_ci", 0),
+        ),
+        "marketplace_installs": int(
+            stats.get("distribution", {}).get("marketplace", {}).get("installs", 0),
+        ),
+        "marketplace_downloads": int(
+            stats.get("distribution", {}).get("marketplace", {}).get("downloads", 0),
+        ),
+        "openvsx_downloads": int(
+            stats.get("distribution", {}).get("open_vsx", {}).get("downloads", 0),
+        ),
+    }
+    return {**legacy, "stats": stats}
 
-    # Fallback for deployments without Redis.
+
+async def _build_fallback_public_stats(
+    db: DatabaseService | None,
+    cache: CacheService | None,
+    http_client: httpx.AsyncClient | None,
+) -> dict[str, int]:
+    """Build public stats from database and external APIs."""
     from src.services.public_stats import (
         get_marketplace_stats,
         get_open_vsx_stats,
@@ -581,28 +689,13 @@ async def public_stats(request: Request) -> dict:
         get_pypi_download_stats,
     )
 
-    base: dict[str, int] = {
-        "total_scans": 0,
-        "hallucinated_packages_prevented": 0,
-        "destructive_commands_blocked": 0,
-        "pypi_downloads_last_day": 0,
-        "pypi_downloads_last_week": 0,
-        "pypi_downloads_last_month": 0,
-        "pypi_downloads_last_3_months_ci": 0,
-        "marketplace_installs": 0,
-        "marketplace_downloads": 0,
-        "marketplace_updates": 0,
-        "openvsx_downloads": 0,
-    }
+    base: dict[str, int] = dict(_FALLBACK_STATS_BASE)
 
     if db is not None:
         try:
             base.update(await db.get_public_stats())
         except Exception as exc:
             logger.warning("public_stats_failed", error=str(exc))
-
-    if cache is None or http_client is None:
-        return base
 
     if cache is None or http_client is None:
         return base
@@ -614,16 +707,75 @@ async def public_stats(request: Request) -> dict:
     return {**base, **pypi, **pepy, **marketplace, **openvsx}
 
 
+@app.get("/v1/stats/public")
+async def public_stats(request: Request) -> dict:
+    """Public aggregate stats for landing page — no auth required."""
+    db = getattr(request.app.state, "db", None)
+    cache = getattr(request.app.state, "cache", None)
+    http_client = getattr(request.app.state, "http_client", None)
+
+    redis_client = cache.raw_client() if cache is not None else None
+    if redis_client is not None:
+        return await _build_redis_public_stats(redis_client)
+
+    return await _build_fallback_public_stats(db, cache, http_client)
+
+
+async def _collect_telemetry_batch(
+    queue: asyncio.Queue[object],
+    batch_size: int,
+    flush_interval: float,
+) -> list[object]:
+    """Collect a batch of items from the telemetry queue."""
+    batch: list[object] = []
+    try:
+        while len(batch) < batch_size:
+            item = await asyncio.wait_for(queue.get(), timeout=flush_interval)
+            batch.append(item)
+    except TimeoutError:
+        logger.debug("telemetry_batch_timeout", collected=len(batch))
+    except Exception as exc:
+        logger.warning(
+            "telemetry_queue_read_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    return batch
+
+
+async def _flush_telemetry_batch(
+    db: DatabaseService, batch: list[object],
+) -> None:
+    """Write a batch of telemetry items to the database."""
+    try:
+        await db.insert_telemetry_raw_batch(
+            [
+                {
+                    "event_type": getattr(b, "event_type", ""),
+                    "source": getattr(b, "source", ""),
+                    "installation_id": getattr(b, "installation_id", "") or "",
+                    "version": getattr(b, "version", "") or "",
+                    "payload": getattr(b, "payload", {}),
+                }
+                for b in batch
+            ]
+        )
+    except Exception as exc:
+        logger.warning(
+            "telemetry_db_batch_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+
+
 async def _telemetry_batch_writer(app: FastAPI) -> None:
     """Flush telemetry write queue into the database in batches."""
-
     from src.services.telemetry import (
         TELEMETRY_BATCH_SIZE,
         TELEMETRY_FLUSH_INTERVAL_SECONDS,
-        TelemetryWriteItem,
     )
 
-    queue: asyncio.Queue[TelemetryWriteItem] | None = getattr(app.state, "telemetry_queue", None)
+    queue: asyncio.Queue[object] | None = getattr(app.state, "telemetry_queue", None)
     stop: asyncio.Event | None = getattr(app.state, "telemetry_stop", None)
     db: DatabaseService | None = getattr(app.state, "db", None)
 
@@ -631,35 +783,12 @@ async def _telemetry_batch_writer(app: FastAPI) -> None:
         return
 
     while not stop.is_set():
-        batch: list[TelemetryWriteItem] = []
-        try:
-            while len(batch) < TELEMETRY_BATCH_SIZE:
-                item = await asyncio.wait_for(queue.get(), timeout=TELEMETRY_FLUSH_INTERVAL_SECONDS)
-                batch.append(item)
-        except TimeoutError:
-            if not batch:
-                continue
-        except Exception as exc:
-            logger.warning("telemetry_queue_read_failed", error=str(exc), error_type=type(exc).__name__)
-
+        batch = await _collect_telemetry_batch(
+            queue, TELEMETRY_BATCH_SIZE, TELEMETRY_FLUSH_INTERVAL_SECONDS,
+        )
         if not batch:
             continue
-
-        try:
-            await db.insert_telemetry_raw_batch(
-                [
-                    {
-                        "event_type": b.event_type,
-                        "source": b.source,
-                        "installation_id": b.installation_id or "",
-                        "version": b.version or "",
-                        "payload": b.payload,
-                    }
-                    for b in batch
-                ]
-            )
-        except Exception as exc:
-            logger.warning("telemetry_db_batch_failed", error=str(exc), error_type=type(exc).__name__)
+        await _flush_telemetry_batch(db, batch)
 
 
 @app.post("/v1/telemetry", status_code=202, response_model=StatusResponse)
@@ -734,6 +863,23 @@ async def stats_websocket(websocket: WebSocket) -> None:
         ws_clients.discard(websocket)
 
 
+def _format_audit_entries(entries: list[AuditEntry]) -> list[dict[str, object]]:
+    """Format audit log entries for API response."""
+    return [
+        {
+            "timestamp": e.timestamp,
+            "action_type": e.action_type,
+            "verdict": e.verdict,
+            "rule_id": e.rule_id,
+            "original_action": e.original_action,
+            "message": e.message,
+            "agent_id": e.agent_id,
+            "session_id": e.session_id,
+        }
+        for e in entries
+    ]
+
+
 @app.get("/v1/governance/audit")
 async def governance_audit(
     hours: int = 24,
@@ -758,7 +904,7 @@ async def governance_audit(
     audit_path = os.path.join(os.getcwd(), ".codetrust", "audit.jsonl")
     logger_instance = AuditLogger(audit_path)
 
-    since = time.time() - (hours * 3600)
+    since = time.time() - (hours * SECONDS_PER_HOUR)
     entries = logger_instance.get_entries(
         since=since,
         verdict=verdict,
@@ -767,19 +913,7 @@ async def governance_audit(
     stats = logger_instance.get_stats()
 
     return {
-        "entries": [
-            {
-                "timestamp": e.timestamp,
-                "action_type": e.action_type,
-                "verdict": e.verdict,
-                "rule_id": e.rule_id,
-                "original_action": e.original_action,
-                "message": e.message,
-                "agent_id": e.agent_id,
-                "session_id": e.session_id,
-            }
-            for e in entries
-        ],
+        "entries": _format_audit_entries(entries),
         "stats": stats,
     }
 
@@ -1295,35 +1429,8 @@ def run() -> None:
 # --- Vulnerability Scanning ---
 
 
-@app.post("/v1/vuln/scan")
-async def vuln_scan(
-    request: Request,
-    req: VulnScanRequest,
-    auth: AuthContext = Depends(get_auth_context),
-    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
-) -> dict[str, object]:
-    """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
-    await _enforce_rate_limit(auth, rate_limiter)
-    logger.info("api_vuln_scan", language=str(req.language), packages=len(req.packages))
-
-    from src.services.vulnerability import VulnerabilityService
-
-    cache: CacheService = request.app.state.cache
-    http_client: httpx.AsyncClient = request.app.state.http_client
-    vuln_svc = VulnerabilityService(cache, http_client)
-
-    result = await vuln_svc.check_packages(
-        language=req.language,
-        packages=req.packages,
-        versions=req.versions if req.versions else None,
-    )
-
-    await _log_scan(
-        request, auth, "vuln", "BLOCK" if result.vulnerable_count > 0 else "PASS",
-        result.total_vulnerabilities, result.latency_ms,
-        str(req.language), "",
-    )
-
+def _build_vuln_scan_response(result: VulnScanResponse) -> dict[str, object]:
+    """Build the API response dict from a vulnerability scan result."""
     return {
         "total_packages": result.total_packages,
         "vulnerable_count": result.vulnerable_count,
@@ -1358,37 +1465,43 @@ async def vuln_scan(
     }
 
 
-# --- License Compliance ---
-
-
-@app.post("/v1/license/scan")
-async def license_scan(
+@app.post("/v1/vuln/scan")
+async def vuln_scan(
     request: Request,
-    req: LicenseScanRequest,
+    req: VulnScanRequest,
     auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
-    """Check package licenses for compliance (copyleft detection)."""
+    """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
     await _enforce_rate_limit(auth, rate_limiter)
-    logger.info("api_license_scan", language=str(req.language), packages=len(req.packages))
+    logger.info("api_vuln_scan", language=str(req.language), packages=len(req.packages))
 
-    from src.services.license_checker import LicenseService
+    from src.services.vulnerability import VulnerabilityService
 
     cache: CacheService = request.app.state.cache
     http_client: httpx.AsyncClient = request.app.state.http_client
-    license_svc = LicenseService(cache, http_client)
+    vuln_svc = VulnerabilityService(cache, http_client)
 
-    result = await license_svc.check_packages(
+    result = await vuln_svc.check_packages(
         language=req.language,
         packages=req.packages,
+        versions=req.versions if req.versions else None,
     )
 
     await _log_scan(
-        request, auth, "license", "PASS" if result.compliant else "BLOCK",
-        result.strong_copyleft_count + result.network_copyleft_count,
-        result.latency_ms, str(req.language), "",
+        request, auth, "vuln", "BLOCK" if result.vulnerable_count > 0 else "PASS",
+        result.total_vulnerabilities, result.latency_ms,
+        str(req.language), "",
     )
 
+    return _build_vuln_scan_response(result)
+
+
+# --- License Compliance ---
+
+
+def _build_license_scan_response(result: LicenseScanResponse) -> dict[str, object]:
+    """Build the API response dict from a license scan result."""
     return {
         "total_packages": result.total_packages,
         "permissive_count": result.permissive_count,
@@ -1419,6 +1532,37 @@ async def license_scan(
         ],
         "latency_ms": result.latency_ms,
     }
+
+
+@app.post("/v1/license/scan")
+async def license_scan(
+    request: Request,
+    req: LicenseScanRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> dict[str, object]:
+    """Check package licenses for compliance (copyleft detection)."""
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info("api_license_scan", language=str(req.language), packages=len(req.packages))
+
+    from src.services.license_checker import LicenseService
+
+    cache: CacheService = request.app.state.cache
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    license_svc = LicenseService(cache, http_client)
+
+    result = await license_svc.check_packages(
+        language=req.language,
+        packages=req.packages,
+    )
+
+    await _log_scan(
+        request, auth, "license", "PASS" if result.compliant else "BLOCK",
+        result.strong_copyleft_count + result.network_copyleft_count,
+        result.latency_ms, str(req.language), "",
+    )
+
+    return _build_license_scan_response(result)
 
 
 # --- Cross-File Analysis ---
@@ -1459,6 +1603,35 @@ async def cross_file_scan(
 # --- Auto-Fix ---
 
 
+def _detect_file_languages(
+    files: dict[str, str], languages: dict[str, str] | None,
+) -> dict[str, str]:
+    """Auto-detect languages for files that don't have one specified."""
+    from src.services.cross_file_analyzer import detect_language_from_extension
+
+    result: dict[str, str] = dict(languages) if languages else {}
+    for filepath in files:
+        if filepath not in result:
+            lang = detect_language_from_extension(filepath)
+            if lang is not None:
+                result[filepath] = lang.value
+    return result
+
+
+def _build_autofix_response(result: AutoFixResult) -> dict[str, object]:
+    """Build the API response dict from an auto-fix result."""
+    return {
+        "files_fixed": [
+            {"path": f.path, "fixes_applied": f.fixes_applied}
+            for f in result.files_fixed
+        ],
+        "total_fixes": result.total_fixes,
+        "pr_url": result.pr_url,
+        "branch_name": result.branch_name,
+        "error": result.error,
+    }
+
+
 @app.post("/v1/fix/apply")
 async def autofix_apply(
     request: Request,
@@ -1471,16 +1644,8 @@ async def autofix_apply(
     logger.info("api_autofix", files=len(req.files), create_pr=req.create_pr)
 
     from src.services.autofix import AutoFixService
-    from src.services.cross_file_analyzer import detect_language_from_extension
 
-    # Auto-detect languages if not provided.
-    languages: dict[str, str] = dict(req.languages) if req.languages else {}
-    for filepath in req.files:
-        if filepath not in languages:
-            lang = detect_language_from_extension(filepath)
-            if lang is not None:
-                languages[filepath] = lang.value
-
+    languages = _detect_file_languages(req.files, req.languages)
     http_client: httpx.AsyncClient = request.app.state.http_client
     github_token = os.environ.get("CODETRUST_GITHUB_TOKEN", "")
 
@@ -1503,24 +1668,9 @@ async def autofix_apply(
             fix_result=result,
         )
 
-    await _log_scan(
-        request, auth, "autofix", "PASS",
-        result.total_fixes, 0, "", "",
-    )
+    await _log_scan(request, auth, "autofix", "PASS", result.total_fixes, 0, "", "")
 
-    return {
-        "files_fixed": [
-            {
-                "path": f.path,
-                "fixes_applied": f.fixes_applied,
-            }
-            for f in result.files_fixed
-        ],
-        "total_fixes": result.total_fixes,
-        "pr_url": result.pr_url,
-        "branch_name": result.branch_name,
-        "error": result.error,
-    }
+    return _build_autofix_response(result)
 
 
 # --- Team Management / RBAC ---
@@ -2064,23 +2214,9 @@ if __name__ == "__main__":
 # --- SSO / OIDC ---
 
 
-@app.get("/v1/auth/oidc/login")
-async def oidc_login(
-    request: Request,
-    state: str = Query(default=""),
-) -> dict:
-    """Redirect URL for OIDC/SSO login.
-
-    Returns the authorization URL to redirect the browser to the IdP.
-    Requires OIDC to be configured via CODETRUST_OIDC_* env vars.
-    """
-    from src.services.sso import OIDCConfig, OIDCService
-
-    if not settings.oidc_enabled:
-        raise HTTPException(status_code=503, detail="OIDC not configured")
-
-    http_client = request.app.state.http_client
-    config = OIDCConfig(
+def _build_oidc_config() -> OIDCConfig:
+    """Build OIDC configuration from application settings."""
+    return OIDCConfig(
         enabled=True,
         issuer=settings.oidc_issuer,
         client_id=settings.oidc_client_id,
@@ -2094,10 +2230,59 @@ async def oidc_login(
         ),
         role_claim=settings.oidc_role_claim,
     )
+
+
+async def _init_oidc_service(
+    http_client: httpx.AsyncClient,
+) -> OIDCService:
+    """Create an OIDCService and perform discovery."""
+    config = _build_oidc_config()
     svc = OIDCService(config, http_client)
     discovered = await svc.discover()
     if not discovered:
         raise HTTPException(status_code=502, detail="OIDC discovery failed")
+    return svc
+
+
+async def _create_oidc_token(
+    request: Request,
+    db: DatabaseService,
+    user_info: object,
+) -> TokenResponse:
+    """Create or update OIDC user and return a JWT token."""
+    oidc_id = f"oidc:{user_info.provider}:{user_info.sub}"
+    user = await db.get_or_create_user(
+        github_id=oidc_id,
+        email=user_info.email,
+        name=user_info.name,
+        avatar_url=user_info.picture,
+    )
+
+    auth_svc = request.app.state.auth
+    token = auth_svc.create_jwt(user.id, user.plan)
+    return TokenResponse(
+        token=token,
+        user_id=user.id,
+        plan=user.plan,
+        expires_in_minutes=settings.jwt_expire_minutes,
+    )
+
+
+@app.get("/v1/auth/oidc/login")
+async def oidc_login(
+    request: Request,
+    state: str = Query(default=""),
+) -> dict:
+    """Redirect URL for OIDC/SSO login.
+
+    Returns the authorization URL to redirect the browser to the IdP.
+    Requires OIDC to be configured via CODETRUST_OIDC_* env vars.
+    """
+    if not settings.oidc_enabled:
+        raise HTTPException(status_code=503, detail="OIDC not configured")
+
+    http_client = request.app.state.http_client
+    svc = await _init_oidc_service(http_client)
 
     import secrets as _secrets
 
@@ -2120,30 +2305,11 @@ async def oidc_callback(
     3. Creates or updates the user in the database
     4. Returns a CodeTrust JWT for dashboard sessions
     """
-    from src.services.sso import OIDCConfig, OIDCService
-
     if not settings.oidc_enabled:
         raise HTTPException(status_code=503, detail="OIDC not configured")
 
     http_client = request.app.state.http_client
-    config = OIDCConfig(
-        enabled=True,
-        issuer=settings.oidc_issuer,
-        client_id=settings.oidc_client_id,
-        client_secret=settings.oidc_client_secret,
-        redirect_uri=settings.oidc_redirect_uri,
-        scopes=settings.oidc_scopes.split(","),
-        allowed_domains=(
-            settings.oidc_allowed_domains.split(",")
-            if settings.oidc_allowed_domains
-            else []
-        ),
-        role_claim=settings.oidc_role_claim,
-    )
-    svc = OIDCService(config, http_client)
-    discovered = await svc.discover()
-    if not discovered:
-        raise HTTPException(status_code=502, detail="OIDC discovery failed")
+    svc = await _init_oidc_service(http_client)
 
     user_info = await svc.exchange_code(req.code)
     if user_info is None:
@@ -2155,23 +2321,7 @@ async def oidc_callback(
             detail=f"Email domain not allowed: {user_info.email}",
         )
 
-    # Use OIDC sub as github_id placeholder for OIDC users
-    oidc_id = f"oidc:{user_info.provider}:{user_info.sub}"
-    user = await db.get_or_create_user(
-        github_id=oidc_id,
-        email=user_info.email,
-        name=user_info.name,
-        avatar_url=user_info.picture,
-    )
-
-    auth_svc = request.app.state.auth
-    token = auth_svc.create_jwt(user.id, user.plan)
-    return TokenResponse(
-        token=token,
-        user_id=user.id,
-        plan=user.plan,
-        expires_in_minutes=settings.jwt_expire_minutes,
-    )
+    return await _create_oidc_token(request, db, user_info)
 
 
 # --- GDPR Data Export / Delete ---

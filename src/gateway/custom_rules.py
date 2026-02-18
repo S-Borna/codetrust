@@ -32,16 +32,16 @@ try:
     import yaml
 
     _HAS_YAML = True
-except ModuleNotFoundError:  # pragma: no cover
+except ModuleNotFoundError:
     _HAS_YAML = False
 
 try:
     import tomllib
-except ModuleNotFoundError:  # pragma: no cover
+except ModuleNotFoundError:
     try:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
     except ModuleNotFoundError:
-        tomllib = None  # type: ignore[assignment]
+        tomllib = None
 
 
 _VALID_SEVERITIES = {"BLOCK", "WARN"}
@@ -77,6 +77,18 @@ def _normalize_rule(raw: dict) -> dict:
     }
 
 
+def _collect_valid_rules(raw_rules: list[dict], rule_type: str) -> list[dict]:
+    """Validate and normalize a list of raw rule dicts."""
+    result: list[dict] = []
+    for raw in raw_rules:
+        err = _validate_rule(raw, rule_type)
+        if err:
+            logger.warning("Skipping invalid custom rule: %s", err)
+            continue
+        result.append(_normalize_rule(raw))
+    return result
+
+
 def load_custom_rules_yaml(path: Path) -> tuple[list[dict], list[dict]]:
     """Load custom rules from a YAML file.
 
@@ -100,22 +112,8 @@ def load_custom_rules_yaml(path: Path) -> tuple[list[dict], list[dict]]:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    terminal = []
-    content = []
-
-    for raw in data.get("terminal_rules", []):
-        err = _validate_rule(raw, "terminal")
-        if err:
-            logger.warning("Skipping invalid custom rule: %s", err)
-            continue
-        terminal.append(_normalize_rule(raw))
-
-    for raw in data.get("content_rules", []):
-        err = _validate_rule(raw, "content")
-        if err:
-            logger.warning("Skipping invalid custom rule: %s", err)
-            continue
-        content.append(_normalize_rule(raw))
+    terminal = _collect_valid_rules(data.get("terminal_rules", []), "terminal")
+    content = _collect_valid_rules(data.get("content_rules", []), "content")
 
     logger.info(
         "Loaded %d terminal + %d content custom rules from %s",
@@ -163,6 +161,18 @@ def load_custom_rules_toml(data: dict) -> tuple[list[dict], list[dict]]:
     return terminal, content
 
 
+def _merge_rules(
+    target: list[dict],
+    source: list[dict],
+    seen_ids: set[str],
+) -> None:
+    """Append rules from source to target, skipping duplicate IDs."""
+    for rule in source:
+        if rule["id"] not in seen_ids:
+            target.append(rule)
+            seen_ids.add(rule["id"])
+
+
 def load_custom_rules(workspace: str | Path) -> tuple[list[dict], list[dict]]:
     """Load custom rules from workspace, trying YAML then TOML.
 
@@ -188,14 +198,8 @@ def load_custom_rules(workspace: str | Path) -> tuple[list[dict], list[dict]]:
     for name in ("custom_rules.yaml", "custom_rules.yml"):
         yaml_path = ws / ".codetrust" / name
         terminal, content = load_custom_rules_yaml(yaml_path)
-        for rule in terminal:
-            if rule["id"] not in seen_ids:
-                terminal_all.append(rule)
-                seen_ids.add(rule["id"])
-        for rule in content:
-            if rule["id"] not in seen_ids:
-                content_all.append(rule)
-                seen_ids.add(rule["id"])
+        _merge_rules(terminal_all, terminal, seen_ids)
+        _merge_rules(content_all, content, seen_ids)
 
     # Try TOML
     toml_path = ws / ".codetrust.toml"
@@ -203,13 +207,7 @@ def load_custom_rules(workspace: str | Path) -> tuple[list[dict], list[dict]]:
         with open(toml_path, "rb") as f:
             toml_data = tomllib.load(f)
         terminal, content = load_custom_rules_toml(toml_data)
-        for rule in terminal:
-            if rule["id"] not in seen_ids:
-                terminal_all.append(rule)
-                seen_ids.add(rule["id"])
-        for rule in content:
-            if rule["id"] not in seen_ids:
-                content_all.append(rule)
-                seen_ids.add(rule["id"])
+        _merge_rules(terminal_all, terminal, seen_ids)
+        _merge_rules(content_all, content, seen_ids)
 
     return terminal_all, content_all

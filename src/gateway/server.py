@@ -31,13 +31,15 @@ import json
 import os
 import time
 
+SECONDS_PER_HOUR: int = 3_600
+
 import structlog
 from mcp.server.fastmcp import FastMCP
 
 from src.config import settings
-from src.gateway.audit import AuditLogger
+from src.gateway.audit import AuditEntry, AuditLogger
 from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
-from src.gateway.policies import PolicyEngine
+from src.gateway.policies import GovernancePolicy, PolicyEngine
 from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
@@ -244,6 +246,51 @@ async def validate_package(
     return json.dumps(result.to_dict(), indent=2)
 
 
+def _build_governance_policy_lines(
+    policies: list[GovernancePolicy],
+) -> list[str]:
+    """Build the policy table rows for the governance status report."""
+    lines = [
+        "",
+        "## Active Policies",
+        "",
+        "| Policy | Status | Description |",
+        "|--------|--------|-------------|",
+    ]
+    for policy in policies:
+        status = "Active" if policy.enabled else "Disabled"
+        lines.append(f"| `{policy.id}` | {status} | {policy.description} |")
+    return lines
+
+
+def _build_governance_extras(
+    protected_paths: list[str],
+    stats: dict,
+) -> list[str]:
+    """Build protected files and audit statistics sections."""
+    lines: list[str] = []
+    if protected_paths:
+        lines.extend(["", "## Protected Files", ""])
+        for path in protected_paths:
+            lines.append(f"- `{path}`")
+
+    if stats["total"] > 0:
+        lines.extend([
+            "",
+            "## Audit Statistics",
+            "",
+            f"- Total actions logged: {stats['total']}",
+        ])
+        for verdict, count in stats.get("by_verdict", {}).items():
+            lines.append(f"- {verdict}: {count}")
+
+        if stats.get("top_rules"):
+            lines.extend(["", "### Most Triggered Rules", ""])
+            for rule in stats["top_rules"][:5]:
+                lines.append(f"- `{rule['rule_id']}`: {rule['count']} times")
+    return lines
+
+
 @gateway.tool(name="codetrust_governance_status")
 async def governance_status() -> str:
     """Show current governance configuration and policy status.
@@ -270,42 +317,25 @@ async def governance_status() -> str:
         f"**Session:** {_session_id}",
         f"**Policies:** {enabled_count} active, {disabled_count} disabled",
         f"**Audit log:** {_audit.path}",
-        "",
-        "## Active Policies",
-        "",
-        "| Policy | Status | Description |",
-        "|--------|--------|-------------|",
     ]
 
-    for policy in policies:
-        status = "Active" if policy.enabled else "Disabled"
-        lines.append(f"| `{policy.id}` | {status} | {policy.description} |")
-
-    if config.protected_paths:
-        lines.extend([
-            "",
-            "## Protected Files",
-            "",
-        ])
-        for path in config.protected_paths:
-            lines.append(f"- `{path}`")
-
-    if stats["total"] > 0:
-        lines.extend([
-            "",
-            "## Audit Statistics",
-            "",
-            f"- Total actions logged: {stats['total']}",
-        ])
-        for verdict, count in stats.get("by_verdict", {}).items():
-            lines.append(f"- {verdict}: {count}")
-
-        if stats.get("top_rules"):
-            lines.extend(["", "### Most Triggered Rules", ""])
-            for rule in stats["top_rules"][:5]:
-                lines.append(f"- `{rule['rule_id']}`: {rule['count']} times")
+    lines.extend(_build_governance_policy_lines(policies))
+    lines.extend(_build_governance_extras(config.protected_paths, stats))
 
     return "\n".join(lines)
+
+
+MAX_AUDIT_ACTION_LEN: int = 50
+
+
+def _format_audit_entry_row(entry: AuditEntry) -> str:
+    """Format a single audit entry as a markdown table row."""
+    ts = time.strftime("%H:%M:%S", time.localtime(entry.timestamp))
+    action = entry.original_action[:MAX_AUDIT_ACTION_LEN]
+    if len(entry.original_action) > MAX_AUDIT_ACTION_LEN:
+        action += "..."
+    agent = entry.agent_id or "—"
+    return f"| {ts} | {agent} | {entry.verdict} | `{entry.rule_id}` | {action} |"
 
 
 @gateway.tool(name="codetrust_audit_history")
@@ -326,12 +356,8 @@ async def audit_history(
     Returns:
         Markdown table of recent audit entries.
     """
-    since = time.time() - (hours * 3600)
-    entries = _audit.get_entries(
-        since=since,
-        verdict=verdict if verdict else None,
-        limit=limit,
-    )
+    since = time.time() - (hours * SECONDS_PER_HOUR)
+    entries = _audit.get_entries(since=since, verdict=verdict or None, limit=limit)
 
     if not entries:
         return f"No audit entries found in the last {hours} hours."
@@ -346,12 +372,7 @@ async def audit_history(
     ]
 
     for entry in entries:
-        ts = time.strftime("%H:%M:%S", time.localtime(entry.timestamp))
-        action = entry.original_action[:50]
-        if len(entry.original_action) > 50:
-            action += "..."
-        agent = entry.agent_id or "—"
-        lines.append(f"| {ts} | {agent} | {entry.verdict} | `{entry.rule_id}` | {action} |")
+        lines.append(_format_audit_entry_row(entry))
 
     return "\n".join(lines)
 

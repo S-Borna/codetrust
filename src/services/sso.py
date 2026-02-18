@@ -181,6 +181,30 @@ class OIDCService:
 
         return f"{self._config.authorization_endpoint}?{urlencode(params)}"
 
+    async def _request_tokens(
+        self, code: str,
+    ) -> dict[str, str] | None:
+        """Exchange authorization code for token response data."""
+        resp = await self._http.post(
+            self._config.token_endpoint,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": self._config.redirect_uri,
+                "client_id": self._config.client_id,
+                "client_secret": self._config.client_secret,
+            },
+            headers={"Accept": "application/json"},
+        )
+        if resp.status_code != 200:
+            logger.error(
+                "oidc_token_exchange_failed",
+                status=resp.status_code,
+                body=resp.text[:200],
+            )
+            return None
+        return resp.json()
+
     async def exchange_code(self, code: str) -> OIDCUser | None:
         """Exchange authorization code for tokens and return user info.
 
@@ -195,39 +219,20 @@ class OIDCService:
             return None
 
         try:
-            resp = await self._http.post(
-                self._config.token_endpoint,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": self._config.redirect_uri,
-                    "client_id": self._config.client_id,
-                    "client_secret": self._config.client_secret,
-                },
-                headers={"Accept": "application/json"},
-            )
-
-            if resp.status_code != 200:
-                logger.error(
-                    "oidc_token_exchange_failed",
-                    status=resp.status_code,
-                    body=resp.text[:200],
-                )
+            data = await self._request_tokens(code)
+            if data is None:
                 return None
 
-            data = resp.json()
             id_token = data.get("id_token", "")
             access_token = data.get("access_token", "")
 
             if id_token:
                 return self._parse_id_token(id_token)
-
             if access_token:
                 return await self._fetch_userinfo(access_token)
 
             logger.error("oidc_no_tokens")
             return None
-
         except Exception:
             logger.exception("oidc_exchange_error")
             return None

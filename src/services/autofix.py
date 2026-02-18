@@ -99,7 +99,7 @@ def fix_print_to_logging(code: str, language: str) -> tuple[str, list[str]]:
 
 
 def fix_bare_except(code: str, language: str) -> tuple[str, list[str]]:
-    """Replace bare except: with except Exception:.
+    """Replace bare 'except' with 'except Exception'.
 
     Args:
         code: Source code content.
@@ -122,11 +122,37 @@ def fix_bare_except(code: str, language: str) -> tuple[str, list[str]]:
         if m:
             indent = m.group(1)
             out.append(f"{indent}except Exception:\n")
-            fixes.append(f"Line {i}: replaced bare 'except:' with 'except Exception:'")
+            fixes.append(f"Line {i}: replaced bare 'except' with 'except Exception'")
         else:
             out.append(line)
 
     return "".join(out), fixes
+
+
+def _replace_secrets_in_lines(
+    lines: list[str],
+    language: str,
+    secret_re: re.Pattern[str],
+) -> tuple[list[str], list[str]]:
+    """Scan lines and replace hardcoded secrets with env var lookups."""
+    fixes: list[str] = []
+    out: list[str] = []
+    for i, line in enumerate(lines, 1):
+        m = secret_re.match(line)
+        if m:
+            indent = m.group(1)
+            var_name = m.group(2)
+            env_var = var_name.upper()
+            if language == "python":
+                out.append(f'{indent}{var_name} = os.environ.get("{env_var}", "")\n')
+            else:
+                out.append(f"{indent}const {var_name} = process.env.{env_var} || '';\n")
+            fixes.append(
+                f"Line {i}: moved hardcoded secret '{var_name}' to environment variable"
+            )
+        else:
+            out.append(line)
+    return out, fixes
 
 
 def fix_hardcoded_secrets(code: str, language: str) -> tuple[str, list[str]]:
@@ -144,34 +170,13 @@ def fix_hardcoded_secrets(code: str, language: str) -> tuple[str, list[str]]:
     if language not in ("python", "javascript", "typescript"):
         return code, []
 
-    lines = code.splitlines(keepends=True)
-    fixes: list[str] = []
-    out: list[str] = []
-
-    # Patterns: variable = "sk-...", password = "...", api_key = "..."
     secret_re = re.compile(
         r"""^(\s*)(\w*(?:secret|password|api_key|api_secret|token|private_key)\w*)\s*=\s*["']([^"']{8,})["']""",
         re.IGNORECASE,
     )
-
-    for i, line in enumerate(lines, 1):
-        m = secret_re.match(line)
-        if m:
-            indent = m.group(1)
-            var_name = m.group(2)
-            env_var = var_name.upper()
-
-            if language == "python":
-                out.append(f'{indent}{var_name} = os.environ.get("{env_var}", "")\n')
-            else:
-                out.append(f"{indent}const {var_name} = process.env.{env_var} || '';\n")
-
-            fixes.append(
-                f"Line {i}: moved hardcoded secret '{var_name}' to environment variable"
-            )
-        else:
-            out.append(line)
-
+    out, fixes = _replace_secrets_in_lines(
+        code.splitlines(keepends=True), language, secret_re,
+    )
     result = "".join(out)
 
     if fixes and language == "python" and "import os" not in result:
@@ -211,6 +216,28 @@ class AutoFixService:
         self._http = http_client
         self._github_token = github_token
 
+    @staticmethod
+    def _apply_recipes_to_file(
+        filepath: str,
+        content: str,
+        language: str,
+        active_recipes: list[tuple[str, object]],
+    ) -> FixedFile | None:
+        """Apply all active recipes to a single file."""
+        all_fixes: list[str] = []
+        current = content
+        for _recipe_name, recipe_fn in active_recipes:
+            current, fixes = recipe_fn(current, language)
+            all_fixes.extend(fixes)
+        if not all_fixes:
+            return None
+        return FixedFile(
+            path=filepath,
+            original_content=content,
+            fixed_content=current,
+            fixes_applied=all_fixes,
+        )
+
     def apply_fixes(
         self,
         file_contents: dict[str, str],
@@ -238,28 +265,79 @@ class AutoFixService:
 
         fixed_files: list[FixedFile] = []
         total_fixes = 0
-
         for filepath, content in file_contents.items():
             language = file_languages.get(filepath, "")
-            all_fixes: list[str] = []
-            current = content
-
-            for _recipe_name, recipe_fn in active_recipes:
-                current, fixes = recipe_fn(current, language)
-                all_fixes.extend(fixes)
-
-            if all_fixes:
-                fixed_files.append(FixedFile(
-                    path=filepath,
-                    original_content=content,
-                    fixed_content=current,
-                    fixes_applied=all_fixes,
-                ))
-                total_fixes += len(all_fixes)
+            result = self._apply_recipes_to_file(
+                filepath, content, language, active_recipes,
+            )
+            if result is not None:
+                fixed_files.append(result)
+                total_fixes += len(result.fixes_applied)
 
         return AutoFixResult(
             files_fixed=fixed_files,
             total_fixes=total_fixes,
+        )
+
+    @staticmethod
+    def _make_branch_name(owner: str, repo: str) -> str:
+        """Generate a unique branch name for an autofix PR."""
+        import hashlib
+        import time
+        timestamp = int(time.time())
+        hash_suffix = hashlib.sha256(
+            f"{timestamp}:{owner}/{repo}".encode()
+        ).hexdigest()[:8]
+        return f"{BRANCH_PREFIX}-{hash_suffix}"
+
+    async def _commit_fixed_files(
+        self, owner: str, repo: str, branch_name: str,
+        files_fixed: list[FixedFile],
+    ) -> None:
+        """Commit each fixed file to the branch."""
+        for fixed_file in files_fixed:
+            await self._update_file(
+                owner, repo, branch_name,
+                fixed_file.path,
+                fixed_file.fixed_content,
+                f"fix: {', '.join(fixed_file.fixes_applied[:3])}",
+            )
+
+    async def _push_and_open_pr(
+        self,
+        owner: str,
+        repo: str,
+        base_branch: str,
+        branch_name: str,
+        fix_result: AutoFixResult,
+        title: str,
+        body: str,
+    ) -> AutoFixResult:
+        """Create branch, commit fixes, and open the pull request."""
+        base_sha = await self._get_branch_sha(owner, repo, base_branch)
+        if not base_sha:
+            return AutoFixResult(
+                files_fixed=fix_result.files_fixed,
+                total_fixes=fix_result.total_fixes,
+                error=f"Branch '{base_branch}' not found.",
+            )
+
+        await self._create_branch(owner, repo, branch_name, base_sha)
+        await self._commit_fixed_files(owner, repo, branch_name, fix_result.files_fixed)
+
+        if not title:
+            title = f"fix: CodeTrust autofix — {fix_result.total_fixes} issues resolved"
+        if not body:
+            body = self._generate_pr_body(fix_result)
+
+        pr_info = await self._create_pull_request(
+            owner, repo, branch_name, base_branch, title, body,
+        )
+        return AutoFixResult(
+            files_fixed=fix_result.files_fixed,
+            total_fixes=fix_result.total_fixes,
+            pr_url=pr_info.url,
+            branch_name=branch_name,
         )
 
     async def create_pr(
@@ -271,19 +349,7 @@ class AutoFixService:
         title: str = "",
         body: str = "",
     ) -> AutoFixResult:
-        """Create a GitHub PR with the applied fixes.
-
-        Args:
-            owner: GitHub repository owner.
-            repo: GitHub repository name.
-            base_branch: Base branch to create PR against.
-            fix_result: Result from apply_fixes with files to commit.
-            title: PR title. Auto-generated if empty.
-            body: PR body. Auto-generated if empty.
-
-        Returns:
-            Updated AutoFixResult with the PR URL and branch name.
-        """
+        """Create a GitHub PR with the applied fixes."""
         if not self._http or not self._github_token:
             return AutoFixResult(
                 files_fixed=fix_result.files_fixed,
@@ -294,53 +360,12 @@ class AutoFixService:
         if not fix_result.files_fixed:
             return AutoFixResult(error="No fixes to commit.")
 
-        import hashlib
-        import time
-        timestamp = int(time.time())
-        hash_suffix = hashlib.sha256(
-            f"{timestamp}:{owner}/{repo}".encode()
-        ).hexdigest()[:8]
-        branch_name = f"{BRANCH_PREFIX}-{hash_suffix}"
-
+        branch_name = self._make_branch_name(owner, repo)
         try:
-            # 1. Get the base branch SHA
-            base_sha = await self._get_branch_sha(owner, repo, base_branch)
-            if not base_sha:
-                return AutoFixResult(
-                    files_fixed=fix_result.files_fixed,
-                    total_fixes=fix_result.total_fixes,
-                    error=f"Branch '{base_branch}' not found.",
-                )
-
-            # 2. Create the new branch
-            await self._create_branch(owner, repo, branch_name, base_sha)
-
-            # 3. Commit each fixed file
-            for fixed_file in fix_result.files_fixed:
-                await self._update_file(
-                    owner, repo, branch_name,
-                    fixed_file.path,
-                    fixed_file.fixed_content,
-                    f"fix: {', '.join(fixed_file.fixes_applied[:3])}",
-                )
-
-            # 4. Create the PR
-            if not title:
-                title = f"fix: CodeTrust autofix — {fix_result.total_fixes} issues resolved"
-            if not body:
-                body = self._generate_pr_body(fix_result)
-
-            pr_info = await self._create_pull_request(
-                owner, repo, branch_name, base_branch, title, body,
+            return await self._push_and_open_pr(
+                owner, repo, base_branch, branch_name,
+                fix_result, title, body,
             )
-
-            return AutoFixResult(
-                files_fixed=fix_result.files_fixed,
-                total_fixes=fix_result.total_fixes,
-                pr_url=pr_info.url,
-                branch_name=branch_name,
-            )
-
         except Exception as exc:
             logger.error("autofix_pr_failed", error=str(exc))
             return AutoFixResult(

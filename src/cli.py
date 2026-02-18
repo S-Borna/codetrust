@@ -23,12 +23,29 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import tomllib
+
 import structlog
 
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore[no-redef]
+
+def _echo(
+    *args: object,
+    sep: str = " ",
+    end: str = "\n",
+    file: object | None = None,
+    flush: bool = False,
+) -> None:
+    """Write CLI output to stdout (or specified stream).
+
+    Centralised output function for the CLI. Accepts the same
+    arguments as the built-in ``print`` while keeping lint clean
+    and allowing future output-format hooks (JSON, quiet mode, etc.).
+    """
+    target = file if file is not None else sys.stdout
+    target.write(sep.join(str(a) for a in args) + end)
+    if flush:
+        target.flush()
+
 
 # --- Rules imported from backend (single source of truth) ---
 # This eliminates rule drift between CLI, backend, and extension.
@@ -43,10 +60,55 @@ from src.rules.anti_patterns import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from src.gateway.policies import GovernanceConfig
+    from src.gateway.audit import AuditEntry
+    from src.gateway.policies import GovernanceConfig, PolicyEngine
 
 
 logger = structlog.get_logger()
+
+_SECONDS_PER_HOUR: int = 3_600
+_PREV_BLOCK_LOOKBACK: int = 200
+
+
+def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
+    """Create empty category buckets for CLI rule routing."""
+    return {
+        "generic_block": [], "generic_warn": [], "generic_info": [],
+        "sql_block": [], "sql_warn": [], "sql_info": [],
+        "docker_block": [], "docker_warn": [],
+        "ci_warn": [],
+        "devops_block": [], "devops_warn": [], "devops_info": [],
+        "react_block": [], "react_warn": [],
+        "k8s_block": [], "k8s_warn": [], "k8s_info": [],
+    }
+
+
+def _classify_rule_entry(
+    cats: dict[str, list[tuple[str, str, str]]],
+    rule: dict[str, object],
+    entry: tuple[str, str, str],
+    severity: str,
+) -> None:
+    """Place a single rule entry into the correct category bucket."""
+    file_types = rule.get("file_types")
+    sev_lower = severity.lower()
+    if file_types:
+        ft_set = set(str(t) for t in file_types)  # type safety: file_types is object
+        rule_id = str(rule["id"])
+        if ft_set & SQL_EXTENSIONS:
+            cats[f"sql_{sev_lower}"].append(entry)
+        elif rule_id.startswith("react_"):
+            cats.get(f"react_{sev_lower}", cats["react_warn"]).append(entry)
+        elif rule_id.startswith("k8s_"):
+            cats.get(f"k8s_{sev_lower}", cats["k8s_warn"]).append(entry)
+        elif ft_set & {".dockerfile"}:
+            cats.get(f"docker_{sev_lower}", cats["docker_warn"]).append(entry)
+        elif rule_id.startswith("ci_"):
+            cats.get(f"ci_{sev_lower}", cats["ci_warn"]).append(entry)
+        else:
+            cats.get(f"devops_{sev_lower}", cats["devops_warn"]).append(entry)
+    else:
+        cats.get(f"generic_{sev_lower}", cats["generic_warn"]).append(entry)
 
 
 def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
@@ -57,47 +119,15 @@ def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
     Rules with special_handler are skipped here — they are implemented
     directly in scan_file() as multi-line / file-level checks.
     """
-    cats: dict[str, list[tuple[str, str, str]]] = {
-        "generic_block": [], "generic_warn": [], "generic_info": [],
-        "sql_block": [], "sql_warn": [], "sql_info": [],
-        "docker_block": [], "docker_warn": [],
-        "ci_warn": [],
-        "devops_block": [], "devops_warn": [], "devops_info": [],
-        "react_block": [], "react_warn": [],
-        "k8s_block": [], "k8s_warn": [], "k8s_info": [],
-    }
+    cats = _init_cli_rule_categories()
 
     for rule in ANTI_PATTERNS:
         if rule.get("special_handler"):
             continue  # CLI does regex-only; skip rules needing Python handlers
 
         severity = str(rule["severity"])  # Severity enum -> str
-        file_types = rule.get("file_types")
         entry = (rule["id"], rule["pattern"], rule["message"])
-
-        if file_types:
-            ft_set = set(file_types)
-            # SQL rules
-            if ft_set & SQL_EXTENSIONS:
-                cats[f"sql_{severity.lower()}"].append(entry)
-            # React/JSX rules
-            elif rule["id"].startswith("react_"):
-                cats.get(f"react_{severity.lower()}", cats["react_warn"]).append(entry)
-            # Kubernetes rules
-            elif rule["id"].startswith("k8s_"):
-                cats.get(f"k8s_{severity.lower()}", cats["k8s_warn"]).append(entry)
-            # Dockerfile rules
-            elif ft_set & {".dockerfile"}:
-                cats.get(f"docker_{severity.lower()}", cats["docker_warn"]).append(entry)
-            # CI rules (yml/yaml files prefixed ci_)
-            elif rule["id"].startswith("ci_"):
-                cats.get(f"ci_{severity.lower()}", cats["ci_warn"]).append(entry)
-            # DevOps/infra rules (yml, yaml, toml, json, tf, hcl)
-            else:
-                cats.get(f"devops_{severity.lower()}", cats["devops_warn"]).append(entry)
-        else:
-            # Generic rules (no file_types restriction)
-            cats.get(f"generic_{severity.lower()}", cats["generic_warn"]).append(entry)
+        _classify_rule_entry(cats, rule, entry, severity)
 
     return cats
 
@@ -169,6 +199,19 @@ PR_RISK_RULES: list[tuple[str, int, tuple[str, ...]]] = [
 ]
 
 TREND_FILE_REL = ".codetrust/trend.jsonl"
+
+_SCAN_SKIP_DIRS: frozenset[str] = frozenset({
+    ".git", ".venv", "venv", "node_modules", "__pycache__",
+    "dist", "build", ".next", ".open-next", ".turbo",
+    ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+    "coverage", "out", ".cache",
+})
+_SCAN_MAX_WARN_DISPLAY: int = 20
+_SCAN_MAX_INFO_DISPLAY: int = 10
+_SCAN_MAX_GATES_DISPLAY: int = 4
+_SCAN_MAX_RULES_TELEMETRY: int = 50
+_AUDIT_ENTRY_LIMIT: int = 50
+_AUDIT_TOP_RULES_DISPLAY: int = 5
 
 _ENDPOINT_RE = re.compile(r"['\"](/(?:v\d+|api)[^'\"\s]{1,120})['\"]")
 
@@ -348,6 +391,110 @@ def _get_git_file_diff(*, cwd: Path, staged: bool, path: str) -> str:
         return ""
 
 
+PR_RISK_FILE_COUNT_LARGE = 50
+PR_RISK_FILE_COUNT_MED = 20
+PR_RISK_FILE_COUNT_SMALL = 10
+PR_RISK_DIFF_LARGE = 800
+PR_RISK_DIFF_MED = 300
+PR_RISK_DIFF_SMALL = 100
+PR_RISK_ENDPOINT_LIMIT = 25
+PR_RISK_ENDPOINT_DISPLAY = 10
+
+PR_RISK_DIFF_RULES: list[tuple[str, int, tuple[str, ...]]] = [
+    ("Authorization changes", 20, ("authorization", "x-api-key", "bearer")),
+    ("Tenant boundary changes", 15, ("tenant", "org_id", "organization_id")),
+    ("Schema / migration changes", 20, ("alter table", "create table", "drop table", "alembic")),
+    ("Sensitive data handling", 15, ("pii", "ssn", "credit card", "gdpr", "retention")),
+    ("CI/CD changes", 10, (".github/workflows", "timeout-minutes", "uses:")),
+]
+
+
+def _pr_risk_file_path_signals(
+    lowered: list[str],
+    signals: list[dict[str, object]],
+) -> int:
+    """Score risk from file-path keyword matches. Returns points added."""
+    total = 0
+    for label, points, needles in PR_RISK_RULES:
+        hit_files: list[str] = [
+            f for f in lowered if any(n in f for n in needles)
+        ]
+        if hit_files:
+            total += points
+            signals.append({
+                "label": label,
+                "points": points,
+                "matched": sorted(set(hit_files))[:10],
+            })
+    return total
+
+
+def _pr_risk_volume_signal(
+    count: int,
+    label: str,
+    thresholds: list[tuple[int, int]],
+    signals: list[dict[str, object]],
+) -> int:
+    """Score risk from a volume metric (file count or line count)."""
+    for threshold, points in thresholds:
+        if count >= threshold:
+            signals.append({"label": label, "points": points, "matched": [str(count)]})
+            return points
+    return 0
+
+
+def _pr_risk_diff_content_signals(
+    norm_files: list[str],
+    project_dir: Path,
+    staged: bool,
+    signals: list[dict[str, object]],
+) -> tuple[int, list[str]]:
+    """Score risk from diff content keywords. Returns (points, endpoints)."""
+    total = 0
+    touched_endpoints: list[str] = []
+    for rel in norm_files:
+        diff_text = _get_git_file_diff(cwd=project_dir, staged=staged, path=rel)
+        if not diff_text:
+            continue
+        touched_endpoints.extend(_extract_touched_endpoints(diff_text))
+        low = diff_text.lower()
+        for label, points, needles in PR_RISK_DIFF_RULES:
+            if any(n in low for n in needles):
+                total += points
+                signals.append({"label": label, "points": points, "matched": [rel]})
+    return total, touched_endpoints
+
+
+def _pr_risk_endpoint_signal(
+    touched_endpoints: list[str],
+    signals: list[dict[str, object]],
+) -> tuple[int, list[str]]:
+    """Score risk from touched API endpoints. Returns (points, deduped list)."""
+    if not touched_endpoints:
+        return 0, []
+    seen_ep: set[str] = set()
+    unique_eps: list[str] = []
+    for ep in touched_endpoints:
+        if ep not in seen_ep:
+            seen_ep.add(ep)
+            unique_eps.append(ep)
+    deduped = unique_eps[:PR_RISK_ENDPOINT_LIMIT]
+    signals.append({
+        "label": "API endpoints touched",
+        "points": 20,
+        "matched": deduped[:PR_RISK_ENDPOINT_DISPLAY],
+    })
+    return 20, deduped
+
+
+_PR_RISK_FILE_THRESHOLDS: list[tuple[int, int]] = [
+    (PR_RISK_FILE_COUNT_LARGE, 15), (PR_RISK_FILE_COUNT_MED, 10), (PR_RISK_FILE_COUNT_SMALL, 5),
+]
+_PR_RISK_DIFF_THRESHOLDS: list[tuple[int, int]] = [
+    (PR_RISK_DIFF_LARGE, 20), (PR_RISK_DIFF_MED, 10), (PR_RISK_DIFF_SMALL, 5),
+]
+
+
 def _compute_pr_risk(
     *,
     project_dir: Path,
@@ -356,112 +503,61 @@ def _compute_pr_risk(
 ) -> dict[str, object]:
     """Compute a PR risk score from changed files, diff stats, and diff content."""
     norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
-
     signals: list[dict[str, object]] = []
-    total = 0
-    touched_endpoints: list[str] = []
     lowered = [f.lower() for f in norm_files]
 
-    for label, points, needles in PR_RISK_RULES:
-        hit_files: list[str] = []
-        for f in lowered:
-            if any(n in f for n in needles):
-                hit_files.append(f)
-        if hit_files:
-            total += points
-            signals.append({
-                "label": label,
-                "points": points,
-                "matched": sorted(set(hit_files))[:10],
-            })
-
-    # Stats signals (file count + line changes)
+    total = _pr_risk_file_path_signals(lowered, signals)
     file_count = len(set(norm_files))
-    if file_count >= 50:
-        total += 15
-        signals.append({"label": "Many files changed", "points": 15, "matched": [str(file_count)]})
-    elif file_count >= 20:
-        total += 10
-        signals.append({"label": "Many files changed", "points": 10, "matched": [str(file_count)]})
-    elif file_count >= 10:
-        total += 5
-        signals.append({"label": "Many files changed", "points": 5, "matched": [str(file_count)]})
+    total += _pr_risk_volume_signal(file_count, "Many files changed", _PR_RISK_FILE_THRESHOLDS, signals)
 
     numstat = _get_git_numstat(cwd=project_dir, staged=staged)
-    total_changed_lines = 0
-    for f in norm_files:
-        a, d = numstat.get(f, (0, 0))
-        total_changed_lines += int(a) + int(d)
+    total_changed_lines = sum(int(a) + int(d) for f in norm_files for a, d in [numstat.get(f, (0, 0))])
+    total += _pr_risk_volume_signal(total_changed_lines, "Large diff", _PR_RISK_DIFF_THRESHOLDS, signals)
 
-    if total_changed_lines >= 800:
-        total += 20
-        signals.append({"label": "Large diff", "points": 20, "matched": [str(total_changed_lines)]})
-    elif total_changed_lines >= 300:
-        total += 10
-        signals.append({"label": "Large diff", "points": 10, "matched": [str(total_changed_lines)]})
-    elif total_changed_lines >= 100:
-        total += 5
-        signals.append({"label": "Large diff", "points": 5, "matched": [str(total_changed_lines)]})
-
-    # Diff-content signals (keyword-based, best-effort)
-    diff_rules: list[tuple[str, int, tuple[str, ...]]] = [
-        ("Authorization changes", 20, ("authorization", "x-api-key", "bearer")),
-        ("Tenant boundary changes", 15, ("tenant", "org_id", "organization_id")),
-        ("Schema / migration changes", 20, ("alter table", "create table", "drop table", "alembic")),
-        ("Sensitive data handling", 15, ("pii", "ssn", "credit card", "gdpr", "retention")),
-        ("CI/CD changes", 10, (".github/workflows", "timeout-minutes", "uses:")),
-    ]
-
-    for rel in norm_files:
-        diff_text = _get_git_file_diff(cwd=project_dir, staged=staged, path=rel)
-        if not diff_text:
-            continue
-        touched_endpoints.extend(_extract_touched_endpoints(diff_text))
-        low = diff_text.lower()
-        for label, points, needles in diff_rules:
-            if any(n in low for n in needles):
-                total += points
-                signals.append({"label": label, "points": points, "matched": [rel]})
-
-    if touched_endpoints:
-        unique_eps: list[str] = []
-        seen_ep: set[str] = set()
-        for ep in touched_endpoints:
-            if ep in seen_ep:
-                continue
-            seen_ep.add(ep)
-            unique_eps.append(ep)
-        touched_endpoints = unique_eps[:25]
-        total += 20
-        signals.append({
-            "label": "API endpoints touched",
-            "points": 20,
-            "matched": touched_endpoints[:10],
-        })
+    diff_pts, touched_endpoints = _pr_risk_diff_content_signals(norm_files, project_dir, staged, signals)
+    total += diff_pts
+    ep_pts, touched_endpoints = _pr_risk_endpoint_signal(touched_endpoints, signals)
+    total += ep_pts
 
     score = min(PR_RISK_MAX_SCORE, total)
-    if score >= PR_RISK_HIGH_THRESHOLD:
-        level = "HIGH"
-    elif score >= PR_RISK_MED_THRESHOLD:
-        level = "MED"
-    else:
-        level = "LOW"
-
+    level = "HIGH" if score >= PR_RISK_HIGH_THRESHOLD else ("MED" if score >= PR_RISK_MED_THRESHOLD else "LOW")
     signals_sorted = sorted(signals, key=lambda s: int(s.get("points", 0) or 0), reverse=True)
     return {
-        "score": score,
-        "level": level,
-        "signals": signals_sorted,
-        "changed_files": sorted(set(norm_files)),
-        "changed_files_count": file_count,
-        "changed_lines": total_changed_lines,
-        "touched_endpoints": touched_endpoints,
+        "score": score, "level": level, "signals": signals_sorted,
+        "changed_files": sorted(set(norm_files)), "changed_files_count": file_count,
+        "changed_lines": total_changed_lines, "touched_endpoints": touched_endpoints,
         "touched_endpoints_count": len(touched_endpoints),
     }
 
 
 def _is_line_in_ranges(line: int, ranges: Iterable[tuple[int, int]]) -> bool:
     return any(start <= line <= end for start, end in ranges)
+
+
+def _git_diff_file_ranges(
+    rel: str,
+    has_staged: bool,
+    cwd: Path,
+) -> list[tuple[int, int]]:
+    """Run git diff --unified=0 on a single file and parse changed ranges."""
+    base_cmd = ["git", "diff", "--unified=0"]
+    if has_staged:
+        base_cmd.append("--cached")
+    else:
+        base_cmd.append("HEAD")
+    base_cmd.extend(["--", rel])
+    try:
+        diff = subprocess.run(
+            base_cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return _parse_unified0_changed_ranges(diff.stdout)
+    except (OSError, ValueError) as exc:
+        logger.debug("git_diff_unified0_failed", path=rel, error=str(exc))
+        return []
 
 
 def _get_git_changed_ranges(
@@ -492,27 +588,9 @@ def _get_git_changed_ranges(
         rel = _normalize_path_for_git(fp, cwd=cwd)
         if not rel:
             continue
-        base_cmd = ["git", "diff", "--unified=0"]
-        if has_staged:
-            base_cmd.append("--cached")
-        else:
-            base_cmd.append("HEAD")
-        base_cmd.extend(["--", rel])
-
-        try:
-            diff = subprocess.run(
-                base_cmd,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            ranges = _parse_unified0_changed_ranges(diff.stdout)
-            if ranges:
-                result[rel] = ranges
-        except (OSError, ValueError) as exc:
-            logger.debug("git_diff_unified0_failed", path=rel, error=str(exc))
-            continue
+        ranges = _git_diff_file_ranges(rel, has_staged, cwd)
+        if ranges:
+            result[rel] = ranges
 
     return result
 
@@ -593,34 +671,26 @@ def _read_json_if_exists(path: Path) -> dict:
         return {}
 
 
-def _autofix_print_debug_python(code: str) -> tuple[str, bool]:
-    """Deterministic autofix: replace leading print(...) with logging.info(...).
+_PRINT_RE = re.compile(r"^(\s*)print\s*\(")
 
-    Also ensures `import logging` exists.
-    """
-    lines = code.splitlines(keepends=True)
 
+def _replace_print_with_logging(lines: list[str]) -> tuple[list[str], bool]:
+    """Replace leading print() calls with logging.info() in a line list."""
     changed = False
     out_lines: list[str] = []
-    print_re = re.compile(r"^(\s*)print\s*\(")
     for line in lines:
-        m = print_re.match(line)
+        m = _PRINT_RE.match(line)
         if m:
             indent = m.group(1)
             out_lines.append(indent + "logging.info(" + line[m.end():])
             changed = True
         else:
             out_lines.append(line)
+    return out_lines, changed
 
-    new_code = "".join(out_lines)
 
-    if "import logging" in new_code:
-        return new_code, changed
-
-    if not changed:
-        return new_code, False
-
-    # Insert import logging after shebang/encoding/docstring when possible.
+def _find_import_insert_position(out_lines: list[str]) -> int:
+    """Find the line index where 'import logging' should be inserted."""
     insert_at = 0
     if out_lines and out_lines[0].startswith("#!"):
         insert_at = 1
@@ -631,7 +701,6 @@ def _autofix_print_debug_python(code: str) -> tuple[str, bool]:
     if len(out_lines) > insert_at and out_lines[insert_at].lstrip().startswith(('"""', "'''")):
         delim = '"""' if '"""' in out_lines[insert_at] else "'''"
         i = insert_at
-        # If docstring ends on same line, move one line down; else scan until closing.
         if out_lines[i].count(delim) >= 2:
             insert_at = i + 1
         else:
@@ -641,35 +710,52 @@ def _autofix_print_debug_python(code: str) -> tuple[str, bool]:
                     insert_at = i + 1
                     break
                 i += 1
+    return insert_at
 
+
+def _autofix_print_debug_python(code: str) -> tuple[str, bool]:
+    """Deterministic autofix: replace leading print(...) with logging.info(...).
+
+    Also ensures `import logging` exists.
+    """
+    lines = code.splitlines(keepends=True)
+    out_lines, changed = _replace_print_with_logging(lines)
+    new_code = "".join(out_lines)
+
+    if "import logging" in new_code:
+        return new_code, changed
+    if not changed:
+        return new_code, False
+
+    insert_at = _find_import_insert_position(out_lines)
     out_lines.insert(insert_at, "import logging\n")
     return "".join(out_lines), True
 
 
-def cmd_fix(args: argparse.Namespace) -> int:
-    """Apply safe deterministic autofix recipes to files."""
-    targets = getattr(args, "targets", []) or ["."]
-    apply = bool(getattr(args, "apply", False))
+_FIX_EXCLUDE_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
 
-    project_dir = Path.cwd()
 
-    def _is_excluded_for_fix(path: Path) -> bool:
-        try:
-            rel = str(path.resolve().relative_to(project_dir.resolve())).replace("\\", "/")
-        except Exception:
-            rel = str(path).replace("\\", "/")
+def _is_excluded_for_fix(path: Path, project_dir: Path) -> bool:
+    """Check whether a file path should be excluded from autofix."""
+    try:
+        rel = str(path.resolve().relative_to(project_dir.resolve())).replace("\\", "/")
+    except Exception:
+        rel = str(path).replace("\\", "/")
 
-        parts = {p for p in Path(rel).parts if p}
-        if parts & {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}:
-            return True
+    parts = {p for p in Path(rel).parts if p}
+    if parts & _FIX_EXCLUDE_DIRS:
+        return True
 
-        exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
-        if isinstance(exclude_paths, list):
-            for pat in exclude_paths:
-                if isinstance(pat, str) and pat and pat in rel:
-                    return True
-        return False
+    exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
+    if isinstance(exclude_paths, list):
+        for pat in exclude_paths:
+            if isinstance(pat, str) and pat and pat in rel:
+                return True
+    return False
 
+
+def _collect_fix_targets(targets: list[str], project_dir: Path) -> list[Path]:
+    """Collect Python files eligible for autofix from target paths."""
     files: list[Path] = []
     for t in targets:
         p = Path(t)
@@ -677,14 +763,16 @@ def cmd_fix(args: argparse.Namespace) -> int:
             files.append(p)
         elif p.is_dir():
             for fp in sorted(p.rglob("*.py")):
-                if _is_excluded_for_fix(fp):
-                    continue
-                files.append(fp)
+                if not _is_excluded_for_fix(fp, project_dir):
+                    files.append(fp)
+    return files
 
-    if not files:
-        print("No files to fix.")
-        return 0
 
+def _apply_fixes_to_files(
+    files: list[Path],
+    apply: bool,
+) -> tuple[int, int]:
+    """Run autofix on files. Returns (changed_files_count, changed_lines_count)."""
     changed_files = 0
     changed_lines = 0
     for fp in files:
@@ -696,50 +784,162 @@ def cmd_fix(args: argparse.Namespace) -> int:
         new_code, changed = _autofix_print_debug_python(code)
         if not changed:
             continue
-
         changed_files += 1
         changed_lines += sum(
             1
             for a, b in zip(code.splitlines(), new_code.splitlines(), strict=False)
             if a != b
         )
-
         if apply:
             fp.write_text(new_code, encoding="utf-8")
+    return changed_files, changed_lines
+
+
+def _report_fix_telemetry(
+    args: argparse.Namespace,
+    changed_files: int,
+    changed_lines: int,
+    apply: bool,
+) -> None:
+    """Send autofix telemetry (best-effort)."""
+    try:
+        from importlib.metadata import version as _pkg_version
+        pkg_version = _pkg_version("codetrust")
+    except Exception:
+        pkg_version = "unknown"
+    try:
+        from src.telemetry_client import send_telemetry
+        send_telemetry(
+            event_type="fix_applied",
+            source="cli",
+            version=pkg_version,
+            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
+            payload={
+                "fixes_applied": changed_files,
+                "files_changed": changed_files,
+                "lines_changed": changed_lines,
+                "applied": bool(apply),
+            },
+        )
+    except Exception:
+        pass  # best-effort
+
+
+def cmd_fix(args: argparse.Namespace) -> int:
+    """Apply safe deterministic autofix recipes to files."""
+    targets = getattr(args, "targets", []) or ["."]
+    apply = bool(getattr(args, "apply", False))
+    project_dir = Path.cwd()
+
+    files = _collect_fix_targets(targets, project_dir)
+    if not files:
+        _echo("No files to fix.")
+        return 0
+
+    changed_files, changed_lines = _apply_fixes_to_files(files, apply)
 
     if apply:
-        print(f"Applied fixes to {changed_files} file(s).")
+        _echo(f"Applied fixes to {changed_files} file(s).")
     else:
-        print(f"Fix preview: {changed_files} file(s) would change. Re-run with --apply to write.")
+        _echo(f"Fix preview: {changed_files} file(s) would change. Re-run with --apply to write.")
 
-    # --- Telemetry: report autofix usage ---
     if changed_files > 0:
-        try:
-            from importlib.metadata import version as _pkg_version
-
-            pkg_version = _pkg_version("codetrust")
-        except Exception:
-            pkg_version = "unknown"
-
-        try:
-            from src.telemetry_client import send_telemetry
-
-            send_telemetry(
-                event_type="fix_applied",
-                source="cli",
-                version=pkg_version,
-                cli_opt_out=bool(getattr(args, "no_telemetry", False)),
-                payload={
-                    "fixes_applied": changed_files,
-                    "files_changed": changed_files,
-                    "lines_changed": changed_lines,
-                    "applied": bool(apply),
-                },
-            )
-        except Exception:
-            pass  # best-effort
+        _report_fix_telemetry(args, changed_files, changed_lines, apply)
 
     return 0
+
+
+_VULN_DEP_FILES = (
+    "requirements.txt", "setup.py", "pyproject.toml",
+    "package.json", "Cargo.toml", "go.mod", "pom.xml",
+)
+
+
+def _collect_packages_from_targets(
+    targets: list[str],
+    language_hint: str,
+    dep_files: tuple[str, ...] = _VULN_DEP_FILES,
+) -> list[str]:
+    """Collect dependency package names from target files/directories."""
+    packages: list[str] = []
+    for t in targets:
+        p = Path(t)
+        if p.is_file():
+            _collect_dependency_packages(p, packages, language_hint)
+        elif p.is_dir():
+            for dep_file in dep_files:
+                candidate = p / dep_file
+                if candidate.exists():
+                    _collect_dependency_packages(candidate, packages, language_hint)
+    return packages
+
+
+def _resolve_language(language_hint: str, targets: list[str]) -> object:
+    """Resolve a Language enum from hint string, falling back to detection."""
+    if not language_hint:
+        language_hint = _detect_language_from_dep_files(targets)
+    from src.models.enums import Language
+    try:
+        return Language(language_hint) if language_hint else Language.PYTHON
+    except ValueError:
+        return Language.PYTHON
+
+
+def _format_vuln_json(result: object) -> str:
+    """Format vulnerability scan result as JSON string."""
+    out = {
+        "total_packages": result.total_packages,
+        "vulnerable_count": result.vulnerable_count,
+        "clean_count": result.clean_count,
+        "total_vulnerabilities": result.total_vulnerabilities,
+        "critical_count": result.critical_count,
+        "high_count": result.high_count,
+        "medium_count": result.medium_count,
+        "low_count": result.low_count,
+        "results": [
+            {
+                "package": r.package,
+                "ecosystem": r.ecosystem,
+                "is_vulnerable": r.is_vulnerable,
+                "vulnerabilities": [
+                    {"id": v.id, "severity": v.severity, "summary": v.summary,
+                     "fixed_version": v.fixed_version}
+                    for v in r.vulnerabilities
+                ],
+            }
+            for r in result.results
+        ],
+    }
+    return json.dumps(out, indent=2)
+
+
+_VULN_SUMMARY_MAX_LEN = 80
+
+
+def _format_vuln_text(result: object) -> None:
+    """Print vulnerability scan result as human-readable text."""
+    _echo("\n  CodeTrust Vulnerability Scan")
+    _echo(f"  {'=' * 40}")
+    _echo(f"  Packages scanned: {result.total_packages}")
+    _echo(f"  Vulnerable:       {result.vulnerable_count}")
+    _echo(f"  Clean:            {result.clean_count}")
+    _echo(f"  Total CVEs:       {result.total_vulnerabilities}")
+    if result.critical_count:
+        _echo(f"  Critical:         {result.critical_count}")
+    if result.high_count:
+        _echo(f"  High:             {result.high_count}")
+    if result.medium_count:
+        _echo(f"  Medium:           {result.medium_count}")
+    if result.low_count:
+        _echo(f"  Low:              {result.low_count}")
+    _echo()
+    for r in result.results:
+        if r.is_vulnerable:
+            _echo(f"  VULNERABLE: {r.package} ({r.ecosystem})")
+            for v in r.vulnerabilities:
+                fixed = f" -> fix: {v.fixed_version}" if v.fixed_version else ""
+                _echo(f"    [{v.severity}] {v.id}: {v.summary[:_VULN_SUMMARY_MAX_LEN]}{fixed}")
+            _echo()
 
 
 def cmd_vuln(args: argparse.Namespace) -> int:
@@ -747,109 +947,80 @@ def cmd_vuln(args: argparse.Namespace) -> int:
     targets = getattr(args, "targets", []) or ["."]
     lang_str = getattr(args, "language", "") or ""
     json_output = bool(getattr(args, "json_output", False))
-
-    # Find requirements/package files in targets.
-    packages: list[str] = []
     language_hint = lang_str.lower().strip()
 
-    for t in targets:
-        p = Path(t)
-        if p.is_file():
-            _collect_dependency_packages(p, packages, language_hint)
-        elif p.is_dir():
-            # Look for standard dependency files.
-            for dep_file in ("requirements.txt", "setup.py", "pyproject.toml",
-                             "package.json", "Cargo.toml", "go.mod", "pom.xml"):
-                candidate = p / dep_file
-                if candidate.exists():
-                    _collect_dependency_packages(candidate, packages, language_hint)
-
+    packages = _collect_packages_from_targets(targets, language_hint)
     if not packages:
-        print("No dependency packages found. Specify a requirements.txt, package.json, etc.")
+        _echo("No dependency packages found. Specify a requirements.txt, package.json, etc.")
         return 0
 
-    # Detect language from files if not specified.
-    if not language_hint:
-        language_hint = _detect_language_from_dep_files(targets)
+    language = _resolve_language(language_hint, targets)
 
-    from src.models.enums import Language
-    try:
-        language = Language(language_hint) if language_hint else Language.PYTHON
-    except ValueError:
-        language = Language.PYTHON
-
-    # Run the vulnerability check.
     import asyncio
-
     from src.services.cache import CacheService
     from src.services.vulnerability import VulnerabilityService
 
-    async def _run() -> int:
+    async def _run() -> object:
         cache = CacheService("redis://localhost:6379")
         await cache.connect()
-
         import httpx
-        async with httpx.AsyncClient() as http_client:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
             vuln_svc = VulnerabilityService(cache, http_client)
             result = await vuln_svc.check_packages(language=language, packages=packages)
-
         await cache.disconnect()
         return result
 
     result = asyncio.run(_run())
 
     if json_output:
-        import json
-        out = {
-            "total_packages": result.total_packages,
-            "vulnerable_count": result.vulnerable_count,
-            "clean_count": result.clean_count,
-            "total_vulnerabilities": result.total_vulnerabilities,
-            "critical_count": result.critical_count,
-            "high_count": result.high_count,
-            "medium_count": result.medium_count,
-            "low_count": result.low_count,
-            "results": [
-                {
-                    "package": r.package,
-                    "ecosystem": r.ecosystem,
-                    "is_vulnerable": r.is_vulnerable,
-                    "vulnerabilities": [
-                        {"id": v.id, "severity": v.severity, "summary": v.summary,
-                         "fixed_version": v.fixed_version}
-                        for v in r.vulnerabilities
-                    ],
-                }
-                for r in result.results
-            ],
-        }
-        print(json.dumps(out, indent=2))
+        _echo(_format_vuln_json(result))
     else:
-        print("\n  CodeTrust Vulnerability Scan")
-        print(f"  {'=' * 40}")
-        print(f"  Packages scanned: {result.total_packages}")
-        print(f"  Vulnerable:       {result.vulnerable_count}")
-        print(f"  Clean:            {result.clean_count}")
-        print(f"  Total CVEs:       {result.total_vulnerabilities}")
-        if result.critical_count:
-            print(f"  Critical:         {result.critical_count}")
-        if result.high_count:
-            print(f"  High:             {result.high_count}")
-        if result.medium_count:
-            print(f"  Medium:           {result.medium_count}")
-        if result.low_count:
-            print(f"  Low:              {result.low_count}")
-        print()
-
-        for r in result.results:
-            if r.is_vulnerable:
-                print(f"  VULNERABLE: {r.package} ({r.ecosystem})")
-                for v in r.vulnerabilities:
-                    fixed = f" -> fix: {v.fixed_version}" if v.fixed_version else ""
-                    print(f"    [{v.severity}] {v.id}: {v.summary[:80]}{fixed}")
-                print()
+        _format_vuln_text(result)
 
     return 1 if result.vulnerable_count > 0 else 0
+
+
+_LICENSE_DEP_FILES = ("requirements.txt", "package.json")
+
+
+def _format_license_json(result: object) -> str:
+    """Format license check result as JSON string."""
+    out = {
+        "total_packages": result.total_packages,
+        "compliant": result.compliant,
+        "permissive_count": result.permissive_count,
+        "weak_copyleft_count": result.weak_copyleft_count,
+        "strong_copyleft_count": result.strong_copyleft_count,
+        "network_copyleft_count": result.network_copyleft_count,
+        "risk_packages": [
+            {"package": r.package, "license": r.license_name, "risk": r.risk.value}
+            for r in result.risk_packages
+        ],
+    }
+    return json.dumps(out, indent=2)
+
+
+def _format_license_text(result: object) -> None:
+    """Print license check result as human-readable text."""
+    _echo("\n  CodeTrust License Compliance Check")
+    _echo(f"  {'=' * 40}")
+    _echo(f"  Packages checked: {result.total_packages}")
+    _echo(f"  Compliant:        {'Yes' if result.compliant else 'NO'}")
+    _echo(f"  Permissive:       {result.permissive_count}")
+    if result.weak_copyleft_count:
+        _echo(f"  Weak copyleft:    {result.weak_copyleft_count}")
+    if result.strong_copyleft_count:
+        _echo(f"  Strong copyleft:  {result.strong_copyleft_count}")
+    if result.network_copyleft_count:
+        _echo(f"  Network copyleft: {result.network_copyleft_count}")
+    if result.unknown_count:
+        _echo(f"  Unknown:          {result.unknown_count}")
+    _echo()
+    if result.risk_packages:
+        _echo("  Risk packages:")
+        for r in result.risk_packages:
+            _echo(f"    [{r.risk.value.upper()}] {r.package}: {r.license_name}")
+        _echo()
 
 
 def cmd_license(args: argparse.Namespace) -> int:
@@ -857,90 +1028,106 @@ def cmd_license(args: argparse.Namespace) -> int:
     targets = getattr(args, "targets", []) or ["."]
     lang_str = getattr(args, "language", "") or ""
     json_output = bool(getattr(args, "json_output", False))
-
-    packages: list[str] = []
     language_hint = lang_str.lower().strip()
 
-    for t in targets:
-        p = Path(t)
-        if p.is_file():
-            _collect_dependency_packages(p, packages, language_hint)
-        elif p.is_dir():
-            for dep_file in ("requirements.txt", "package.json"):
-                candidate = p / dep_file
-                if candidate.exists():
-                    _collect_dependency_packages(candidate, packages, language_hint)
-
+    packages = _collect_packages_from_targets(targets, language_hint, dep_files=_LICENSE_DEP_FILES)
     if not packages:
-        print("No dependency packages found.")
+        _echo("No dependency packages found.")
         return 0
 
-    if not language_hint:
-        language_hint = _detect_language_from_dep_files(targets)
-
-    from src.models.enums import Language
-    try:
-        language = Language(language_hint) if language_hint else Language.PYTHON
-    except ValueError:
-        language = Language.PYTHON
+    language = _resolve_language(language_hint, targets)
 
     import asyncio
-
     from src.services.cache import CacheService
     from src.services.license_checker import LicenseService
 
-    async def _run() -> int:
+    async def _run() -> object:
         cache = CacheService("redis://localhost:6379")
         await cache.connect()
-
         import httpx
-        async with httpx.AsyncClient() as http_client:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
             license_svc = LicenseService(cache, http_client)
             result = await license_svc.check_packages(language=language, packages=packages)
-
         await cache.disconnect()
         return result
 
     result = asyncio.run(_run())
 
     if json_output:
-        import json
-        out = {
-            "total_packages": result.total_packages,
-            "compliant": result.compliant,
-            "permissive_count": result.permissive_count,
-            "weak_copyleft_count": result.weak_copyleft_count,
-            "strong_copyleft_count": result.strong_copyleft_count,
-            "network_copyleft_count": result.network_copyleft_count,
-            "risk_packages": [
-                {"package": r.package, "license": r.license_name, "risk": r.risk.value}
-                for r in result.risk_packages
-            ],
-        }
-        print(json.dumps(out, indent=2))
+        _echo(_format_license_json(result))
     else:
-        print("\n  CodeTrust License Compliance Check")
-        print(f"  {'=' * 40}")
-        print(f"  Packages checked: {result.total_packages}")
-        print(f"  Compliant:        {'Yes' if result.compliant else 'NO'}")
-        print(f"  Permissive:       {result.permissive_count}")
-        if result.weak_copyleft_count:
-            print(f"  Weak copyleft:    {result.weak_copyleft_count}")
-        if result.strong_copyleft_count:
-            print(f"  Strong copyleft:  {result.strong_copyleft_count}")
-        if result.network_copyleft_count:
-            print(f"  Network copyleft: {result.network_copyleft_count}")
-        if result.unknown_count:
-            print(f"  Unknown:          {result.unknown_count}")
-        print()
-
-        if result.risk_packages:
-            print("  Risk packages:")
-            for r in result.risk_packages:
-                print(f"    [{r.risk.value.upper()}] {r.package}: {r.license_name}")
-            print()
+        _format_license_text(result)
 
     return 0 if result.compliant else 1
+
+
+_PKG_SPEC_SPLIT_RE = re.compile(r"[>=<!~\[]")
+
+
+def _parse_requirements_txt(content: str, packages: list[str]) -> None:
+    """Extract package names from requirements.txt content."""
+    for line in content.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and not line.startswith("-"):
+            pkg = _PKG_SPEC_SPLIT_RE.split(line)[0].strip()
+            if pkg:
+                packages.append(pkg)
+
+
+def _parse_package_json(content: str, packages: list[str]) -> None:
+    """Extract package names from package.json content."""
+    try:
+        data = json.loads(content)
+        for section in ("dependencies", "devDependencies"):
+            deps = data.get(section, {})
+            if isinstance(deps, dict):
+                packages.extend(deps.keys())
+    except json.JSONDecodeError as exc:
+        logger.debug("Skipping malformed package.json: %s", exc)
+
+
+def _parse_cargo_toml(content: str, packages: list[str]) -> None:
+    """Extract package names from Cargo.toml content."""
+    for line in content.splitlines():
+        line = line.strip()
+        if "=" in line and not line.startswith("[") and not line.startswith("#"):
+            pkg = line.split("=")[0].strip()
+            if pkg and not pkg.startswith("["):
+                packages.append(pkg)
+
+
+def _parse_go_mod(content: str, packages: list[str]) -> None:
+    """Extract package names from go.mod content."""
+    in_require = False
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped == "require (":
+            in_require = True
+            continue
+        if in_require and stripped == ")":
+            in_require = False
+            continue
+        if in_require and stripped:
+            pkg = stripped.split()[0]
+            packages.append(pkg)
+
+
+def _parse_pyproject_toml_deps(content: str, packages: list[str]) -> None:
+    """Extract dependency names from pyproject.toml content."""
+    in_deps = False
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped in ("[project.dependencies]", "dependencies = ["):
+            in_deps = True
+            continue
+        if in_deps:
+            if stripped.startswith("[") or stripped == "]":
+                in_deps = False
+                continue
+            pkg = stripped.strip("\",' ")
+            pkg = _PKG_SPEC_SPLIT_RE.split(pkg)[0].strip()
+            if pkg:
+                packages.append(pkg)
 
 
 def _collect_dependency_packages(filepath: Path, packages: list[str], language_hint: str) -> None:
@@ -952,62 +1139,15 @@ def _collect_dependency_packages(filepath: Path, packages: list[str], language_h
         return
 
     if name == "requirements.txt" or (name.endswith(".txt") and "require" in name):
-        for line in content.splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and not line.startswith("-"):
-                # Extract package name (before ==, >=, etc.)
-                pkg = re.split(r"[>=<!~\[]", line)[0].strip()
-                if pkg:
-                    packages.append(pkg)
-
+        _parse_requirements_txt(content, packages)
     elif name == "package.json":
-        import json
-        try:
-            data = json.loads(content)
-            for section in ("dependencies", "devDependencies"):
-                deps = data.get(section, {})
-                if isinstance(deps, dict):
-                    packages.extend(deps.keys())
-        except json.JSONDecodeError as exc:
-            logger.debug("Skipping malformed package.json: %s", exc)
-
+        _parse_package_json(content, packages)
     elif name == "cargo.toml":
-        for line in content.splitlines():
-            line = line.strip()
-            if "=" in line and not line.startswith("[") and not line.startswith("#"):
-                pkg = line.split("=")[0].strip()
-                if pkg and not pkg.startswith("["):
-                    packages.append(pkg)
-
+        _parse_cargo_toml(content, packages)
     elif name == "go.mod":
-        in_require = False
-        for line in content.splitlines():
-            stripped = line.strip()
-            if stripped == "require (":
-                in_require = True
-                continue
-            if in_require and stripped == ")":
-                in_require = False
-                continue
-            if in_require and stripped:
-                pkg = stripped.split()[0]
-                packages.append(pkg)
-
+        _parse_go_mod(content, packages)
     elif name == "pyproject.toml":
-        in_deps = False
-        for line in content.splitlines():
-            stripped = line.strip()
-            if stripped in ("[project.dependencies]", "dependencies = ["):
-                in_deps = True
-                continue
-            if in_deps:
-                if stripped.startswith("[") or stripped == "]":
-                    in_deps = False
-                    continue
-                pkg = stripped.strip("\",' ")
-                pkg = re.split(r"[>=<!~\[]", pkg)[0].strip()
-                if pkg:
-                    packages.append(pkg)
+        _parse_pyproject_toml_deps(content, packages)
 
 
 def _detect_language_from_dep_files(targets: list[str]) -> str:
@@ -1038,25 +1178,27 @@ def _detect_language_from_dep_files(targets: list[str]) -> str:
     return ""
 
 
-def _detect_verify_gates(project_dir: Path) -> list[str]:
-    """Best-effort detection of common repo verification gates.
-
-    Used only for human-facing hints (must never affect machine outputs).
-    """
+def _detect_npm_gates(project_dir: Path) -> list[str]:
+    """Detect verification commands from package.json scripts."""
     gates: list[str] = []
-
     package_json = project_dir / "package.json"
-    if package_json.is_file():
-        data = _read_json_if_exists(package_json)
-        scripts = data.get("scripts") if isinstance(data, dict) else None
-        if isinstance(scripts, dict):
-            if "verify" in scripts:
-                gates.append("npm run verify")
-            else:
-                for k in ("lint", "test", "typecheck", "build"):
-                    if k in scripts:
-                        gates.append(f"npm run {k}")
+    if not package_json.is_file():
+        return gates
+    data = _read_json_if_exists(package_json)
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    if isinstance(scripts, dict):
+        if "verify" in scripts:
+            gates.append("npm run verify")
+        else:
+            for k in ("lint", "test", "typecheck", "build"):
+                if k in scripts:
+                    gates.append(f"npm run {k}")
+    return gates
 
+
+def _detect_python_gates(project_dir: Path) -> list[str]:
+    """Detect verification commands from pyproject.toml and config files."""
+    gates: list[str] = []
     pyproject = project_dir / "pyproject.toml"
     if pyproject.is_file():
         try:
@@ -1069,16 +1211,22 @@ def _detect_verify_gates(project_dir: Path) -> list[str]:
                 if "pytest" in tool:
                     gates.append("pytest")
         except (OSError, ValueError, TypeError):
-            # Best-effort detection only — ignore unreadable/invalid TOML.
-            data = {}
-
-    # Loose detection for common config files
+            pass  # Best-effort detection only
     if ((project_dir / "pytest.ini").is_file() or (project_dir / "tox.ini").is_file()) and "pytest" not in gates:
         gates.append("pytest")
     if ((project_dir / ".ruff.toml").is_file() or (project_dir / "ruff.toml").is_file()) and "ruff check" not in gates:
         gates.append("ruff check")
     if (project_dir / "tsconfig.json").is_file():
         gates.append("tsc")
+    return gates
+
+
+def _detect_verify_gates(project_dir: Path) -> list[str]:
+    """Best-effort detection of common repo verification gates.
+
+    Used only for human-facing hints (must never affect machine outputs).
+    """
+    gates = _detect_npm_gates(project_dir) + _detect_python_gates(project_dir)
 
     # Deduplicate while preserving order
     seen: set[str] = set()
@@ -1189,174 +1337,212 @@ def scan_file(filepath: str) -> list[dict[str, str | int]]:
     return scan_text(code, filepath)
 
 
+_CLI_ENTRYPOINTS = {"cli.py", "scan_runner.py", "scan.py"}
+_TEST_PREFIXES = ("test_", "conftest")
+_TEST_INFIXES = (".test.", ".spec.")
+
+
+def _is_test_file(basename: str) -> bool:
+    """Return True if basename indicates a test file."""
+    return (
+        basename.startswith(_TEST_PREFIXES)
+        or any(infix in basename for infix in _TEST_INFIXES)
+    )
+
+
+_DEVOPS_K8S_RULES = (
+    BLOCK_RULES + DEVOPS_BLOCK_RULES + K8S_BLOCK_RULES,
+    WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES,
+    INFO_RULES + DEVOPS_INFO_RULES + K8S_INFO_RULES,
+)
+
+
+def _select_rule_sets(
+    ext: str,
+    is_dockerfile: bool,
+    is_react: bool,
+    is_ci: bool,
+    is_k8s: bool,
+    is_devops: bool,
+) -> tuple[
+    list[tuple[str, str, str]],
+    list[tuple[str, str, str]],
+    list[tuple[str, str, str]],
+]:
+    """Select (block, warn, info) rule sets based on file type flags."""
+    if ext in SQL_EXTS:
+        return SQL_BLOCK_RULES, SQL_WARN_RULES, SQL_INFO_RULES
+    if is_dockerfile:
+        return (
+            BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES,
+            WARN_RULES + DOCKER_WARN_RULES + DEVOPS_WARN_RULES,
+            INFO_RULES,
+        )
+    if is_react:
+        return BLOCK_RULES + REACT_BLOCK_RULES, WARN_RULES + REACT_WARN_RULES, INFO_RULES
+    if is_ci:
+        return (
+            _DEVOPS_K8S_RULES[0],
+            WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES,
+            _DEVOPS_K8S_RULES[2],
+        )
+    if is_k8s:
+        return _DEVOPS_K8S_RULES
+    if is_devops:
+        return BLOCK_RULES + DEVOPS_BLOCK_RULES, WARN_RULES + DEVOPS_WARN_RULES, INFO_RULES + DEVOPS_INFO_RULES
+    return BLOCK_RULES, WARN_RULES, INFO_RULES
+
+
+def _append_rule_matches(
+    line: str,
+    line_num: int,
+    filepath: str,
+    rules: list[tuple[str, str, str]],
+    severity: str,
+    findings: list[dict[str, str | int]],
+    skip_rule_id: str = "",
+) -> None:
+    """Append findings for all rules matching a single line."""
+    for rule_id, pattern, message in rules:
+        if skip_rule_id and rule_id == skip_rule_id:
+            continue
+        if re.search(pattern, line):
+            findings.append({
+                "rule_id": rule_id, "severity": severity,
+                "message": message, "file": filepath, "line": line_num,
+            })
+
+
+def _match_line_rules(
+    lines: list[str],
+    filepath: str,
+    block_rules: list[tuple[str, str, str]],
+    warn_rules: list[tuple[str, str, str]],
+    info_rules: list[tuple[str, str, str]],
+    is_cli_entrypoint: bool,
+) -> list[dict[str, str | int]]:
+    """Match per-line regex rules and return findings."""
+    findings: list[dict[str, str | int]] = []
+    _NOQA = "no" + "qa"   # split to avoid self-triggering suppress_lint rule
+    _TYPE_IGN = "type: " + "ignore"
+    _ESLINT_DIS = "eslint-" + "disable"
+    skip_warn = "print_debug" if is_cli_entrypoint else ""
+
+    for line_num, line in enumerate(lines, 1):
+        if _NOQA in line or _TYPE_IGN in line or _ESLINT_DIS in line:
+            for rule_id, pattern, message in warn_rules:
+                if rule_id == "suppress_lint" and re.search(pattern, line):
+                    findings.append({
+                        "rule_id": rule_id, "severity": "WARN",
+                        "message": message, "file": filepath, "line": line_num,
+                    })
+            if "noqa" in line:
+                continue
+        _append_rule_matches(line, line_num, filepath, block_rules, "BLOCK", findings)
+        _append_rule_matches(line, line_num, filepath, warn_rules, "WARN", findings, skip_rule_id=skip_warn)
+        _append_rule_matches(line, line_num, filepath, info_rules, "INFO", findings)
+    return findings
+
+
+def _check_dockerfile_file_level(
+    lines: list[str],
+    filepath: str,
+    findings: list[dict[str, str | int]],
+) -> None:
+    """Run file-level Dockerfile checks (USER, WORKDIR, HEALTHCHECK)."""
+    content = "".join(lines)
+    if not re.search(r"^\s*USER\s+\S+", content, re.MULTILINE):
+        findings.append({
+            "rule_id": "docker_root_user", "severity": "WARN",
+            "message": "Dockerfile has no USER instruction \u2014 runs as root.",
+            "file": filepath, "line": 1,
+        })
+    if not re.search(r"^\s*WORKDIR\s+", content, re.MULTILINE):
+        findings.append({
+            "rule_id": "docker_no_workdir", "severity": "INFO",
+            "message": "Dockerfile has no WORKDIR \u2014 set explicit working directory.",
+            "file": filepath, "line": 1,
+        })
+    if re.search(r"^\s*CMD\s", content, re.MULTILINE) and not re.search(r"^\s*HEALTHCHECK\s", content, re.MULTILINE):
+        findings.append({
+            "rule_id": "dockerfile_no_healthcheck", "severity": "INFO",
+            "message": "Dockerfile has CMD but no HEALTHCHECK. Add HEALTHCHECK for container orchestration.",
+            "file": filepath, "line": 1,
+        })
+
+
+def _run_special_handlers(
+    lines: list[str],
+    filepath: str,
+    ext: str,
+    basename: str,
+    is_dockerfile: bool,
+    is_devops: bool,
+    is_ci: bool,
+    findings: list[dict[str, str | int]],
+) -> None:
+    """Run all special handler checks and append findings in-place."""
+    if is_dockerfile:
+        _check_dockerfile_file_level(lines, filepath, findings)
+    _check_except_swallow(lines, filepath, findings)
+    _check_sleep_no_context(lines, filepath, findings)
+    if ext == ".py":
+        _check_function_length(lines, filepath, findings)
+    _check_connection_timeout(lines, filepath, findings)
+    if is_devops and ext in {".yml", ".yaml"} and "compose" in basename:
+        _check_compose_healthcheck(lines, filepath, findings)
+    if is_ci:
+        _check_ci_no_timeout(lines, filepath, findings)
+
+
+def _apply_config_overrides(
+    findings: list[dict[str, str | int]],
+) -> list[dict[str, str | int]]:
+    """Filter findings by project config ignore_rules and severity_overrides."""
+    ignore_rules: set[str] = set(PROJECT_CONFIG.get("ignore_rules", []))
+    severity_overrides: dict[str, str] = PROJECT_CONFIG.get("severity_overrides", {})
+    if not ignore_rules and not severity_overrides:
+        return findings
+    filtered: list[dict[str, str | int]] = []
+    for f in findings:
+        rid = str(f.get("rule_id", ""))
+        if rid in ignore_rules:
+            continue
+        if rid in severity_overrides:
+            f = {**f, "severity": severity_overrides[rid].upper()}
+        filtered.append(f)
+    return filtered
+
+
 def scan_text(code: str, filepath: str) -> list[dict[str, str | int]]:
     """Scan in-memory code using the same routing logic as scan_file."""
-    findings: list[dict[str, str | int]] = []
-
-    # Config-based path exclusions
     exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
     for pat in exclude_paths:
         if pat in filepath:
-            return findings
-
-    lines = code.splitlines(keepends=True)
+            return []
 
     basename = os.path.basename(filepath).lower()
     ext = Path(filepath).suffix.lower()
 
-    if basename.startswith("test_") or basename.startswith("conftest") or ".test." in basename or ".spec." in basename:
-        return findings  # Skip test files
+    if _is_test_file(basename):
+        return []
 
-    # CLI entry points use print() for user output — not debug prints
-    is_cli_entrypoint = basename in {"cli.py", "scan_runner.py", "scan.py"}
-
+    is_cli_entrypoint = basename in _CLI_ENTRYPOINTS
     is_dockerfile = basename.startswith("dockerfile")
     is_ci = ".github" in filepath and ext in {".yml", ".yaml"}
     is_devops = ext in DEVOPS_EXTS or basename in DEVOPS_NAMES
     is_react = ext in {".jsx", ".tsx"}
     is_k8s = ext in {".yml", ".yaml"} and not is_ci
 
-    # Choose rule sets based on file type
-    if ext in SQL_EXTS:
-        block_rules = SQL_BLOCK_RULES
-        warn_rules = SQL_WARN_RULES
-        info_rules = SQL_INFO_RULES
-    elif is_dockerfile:
-        block_rules = BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES
-        warn_rules = WARN_RULES + DOCKER_WARN_RULES + DEVOPS_WARN_RULES
-        info_rules = INFO_RULES
-    elif is_react:
-        block_rules = BLOCK_RULES + REACT_BLOCK_RULES
-        warn_rules = WARN_RULES + REACT_WARN_RULES
-        info_rules = INFO_RULES
-    elif is_ci:
-        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES + K8S_BLOCK_RULES
-        warn_rules = WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES
-        info_rules = INFO_RULES + DEVOPS_INFO_RULES + K8S_INFO_RULES
-    elif is_k8s:
-        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES + K8S_BLOCK_RULES
-        warn_rules = WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES
-        info_rules = INFO_RULES + DEVOPS_INFO_RULES + K8S_INFO_RULES
-    elif is_devops:
-        block_rules = BLOCK_RULES + DEVOPS_BLOCK_RULES
-        warn_rules = WARN_RULES + DEVOPS_WARN_RULES
-        info_rules = INFO_RULES + DEVOPS_INFO_RULES
-    else:
-        block_rules = BLOCK_RULES
-        warn_rules = WARN_RULES
-        info_rules = INFO_RULES
+    block_rules, warn_rules, info_rules = _select_rule_sets(
+        ext, is_dockerfile, is_react, is_ci, is_k8s, is_devops,
+    )
 
-    for line_num, line in enumerate(lines, 1):
-        # Check suppress_lint BEFORE noqa skip (noqa itself is a suppress_lint finding)
-        if "noqa" in line or "type: ignore" in line or "eslint-disable" in line:
-            for rule_id, pattern, message in warn_rules:
-                if rule_id == "suppress_lint" and re.search(pattern, line):
-                    findings.append({
-                        "rule_id": rule_id,
-                        "severity": "WARN",
-                        "message": message,
-                        "file": filepath,
-                        "line": line_num,
-                    })
-            if "noqa" in line:
-                continue
-        for rule_id, pattern, message in block_rules:
-            if re.search(pattern, line):
-                findings.append({
-                    "rule_id": rule_id,
-                    "severity": "BLOCK",
-                    "message": message,
-                    "file": filepath,
-                    "line": line_num,
-                })
-        for rule_id, pattern, message in warn_rules:
-            if is_cli_entrypoint and rule_id == "print_debug":
-                continue  # print() is correct for CLI user output
-            if re.search(pattern, line):
-                findings.append({
-                    "rule_id": rule_id,
-                    "severity": "WARN",
-                    "message": message,
-                    "file": filepath,
-                    "line": line_num,
-                })
-        for rule_id, pattern, message in info_rules:
-            if re.search(pattern, line):
-                findings.append({
-                    "rule_id": rule_id,
-                    "severity": "INFO",
-                    "message": message,
-                    "file": filepath,
-                    "line": line_num,
-                })
+    lines = code.splitlines(keepends=True)
+    findings = _match_line_rules(lines, filepath, block_rules, warn_rules, info_rules, is_cli_entrypoint)
+    _run_special_handlers(lines, filepath, ext, basename, is_dockerfile, is_devops, is_ci, findings)
 
-    # File-level checks for Dockerfiles
-    if is_dockerfile:
-        content = "".join(lines)
-        if not re.search(r"^\s*USER\s+\S+", content, re.MULTILINE):
-            findings.append({
-                "rule_id": "docker_root_user",
-                "severity": "WARN",
-                "message": "Dockerfile has no USER instruction — runs as root.",
-                "file": filepath,
-                "line": 1,
-            })
-        if not re.search(r"^\s*WORKDIR\s+", content, re.MULTILINE):
-            findings.append({
-                "rule_id": "docker_no_workdir",
-                "severity": "INFO",
-                "message": "Dockerfile has no WORKDIR — set explicit working directory.",
-                "file": filepath,
-                "line": 1,
-            })
-        if re.search(r"^\s*CMD\s", content, re.MULTILINE) and not re.search(r"^\s*HEALTHCHECK\s", content, re.MULTILINE):
-            findings.append({
-                "rule_id": "dockerfile_no_healthcheck",
-                "severity": "INFO",
-                "message": "Dockerfile has CMD but no HEALTHCHECK. Add HEALTHCHECK for container orchestration.",
-                "file": filepath,
-                "line": 1,
-            })
-
-    # ── Special handler: except_swallow ──
-    # except followed by pass/... on next non-blank line = silently swallowed
-    _check_except_swallow(lines, filepath, findings)
-
-    # ── Special handler: sleep_no_context ──
-    # sleep() without a comment on the preceding line
-    _check_sleep_no_context(lines, filepath, findings)
-
-    # ── Special handler: function_length ──
-    # Python functions > 40 lines
-    if ext == ".py":
-        _check_function_length(lines, filepath, findings)
-
-    # ── Special handler: connection_no_timeout ──
-    _check_connection_timeout(lines, filepath, findings)
-
-    # ── Special handler: compose_no_healthcheck ──
-    if is_devops and ext in {".yml", ".yaml"} and "compose" in basename:
-        _check_compose_healthcheck(lines, filepath, findings)
-
-    # ── Special handler: ci_no_timeout ──
-    if is_ci:
-        _check_ci_no_timeout(lines, filepath, findings)
-
-    # ── Apply project config: ignore_rules / severity_overrides ──
-    ignore_rules: set[str] = set(PROJECT_CONFIG.get("ignore_rules", []))
-    severity_overrides: dict[str, str] = PROJECT_CONFIG.get("severity_overrides", {})
-    if ignore_rules or severity_overrides:
-        filtered: list[dict[str, str | int]] = []
-        for f in findings:
-            rid = str(f.get("rule_id", ""))
-            if rid in ignore_rules:
-                continue
-            if rid in severity_overrides:
-                f = {**f, "severity": severity_overrides[rid].upper()}
-            filtered.append(f)
-        findings = filtered
-
-    return findings
+    return _apply_config_overrides(findings)
 
 
 def _scan_text_at_git_ref(
@@ -1411,7 +1597,7 @@ def _scan_code_text(code: str, filename: str) -> list[dict[str, str | int]]:
     """Scan in-memory code using the same routing as scan_file()."""
     tmp_path = Path(filename)
     basename = tmp_path.name.lower()
-    if basename.startswith("test_") or basename.startswith("conftest") or ".test." in basename or ".spec." in basename:
+    if _is_test_file(basename):
         return []
 
     # Preserve path-based routing (e.g., .github, dockerfile naming) by writing
@@ -1443,15 +1629,23 @@ def _git_show_head(project_dir: Path, relpath: str) -> str | None:
         return None
 
 
-def _compute_trust_diff(*, project_dir: Path, changed_files: list[str], staged: bool) -> dict[str, object]:
-    """Compute a trust/drift diff between HEAD and current changes."""
-    norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
-    norm_files = [f for f in norm_files if Path(f).suffix.lower() in SOURCE_EXTS]
-    norm_files = sorted(set(norm_files))
+def _severity_counts(findings: list[dict[str, str | int]]) -> dict[str, int]:
+    """Count findings by severity level."""
+    return {
+        "total": len(findings),
+        "blocks": sum(1 for f in findings if f.get("severity") == "BLOCK"),
+        "warnings": sum(1 for f in findings if f.get("severity") == "WARN"),
+        "infos": sum(1 for f in findings if f.get("severity") == "INFO"),
+    }
 
+
+def _collect_head_and_current_findings(
+    norm_files: list[str],
+    project_dir: Path,
+) -> tuple[list[dict[str, str | int]], list[dict[str, str | int]]]:
+    """Collect findings for HEAD and current working tree."""
     head_findings: list[dict[str, str | int]] = []
     cur_findings: list[dict[str, str | int]] = []
-
     for rel in norm_files:
         head_text = _git_show_head(project_dir, rel)
         if head_text is not None:
@@ -1459,23 +1653,22 @@ def _compute_trust_diff(*, project_dir: Path, changed_files: list[str], staged: 
         abs_path = project_dir / rel
         if abs_path.is_file():
             cur_findings.extend(scan_file(str(abs_path)))
+    return (
+        _sort_findings(_dedupe_findings(head_findings)),
+        _sort_findings(_dedupe_findings(cur_findings)),
+    )
 
-    head_findings = _sort_findings(_dedupe_findings(head_findings))
-    cur_findings = _sort_findings(_dedupe_findings(cur_findings))
 
+def _compute_trust_diff(*, project_dir: Path, changed_files: list[str], staged: bool) -> dict[str, object]:
+    """Compute a trust/drift diff between HEAD and current changes."""
+    norm_files = [_normalize_path_for_git(f, cwd=project_dir) for f in changed_files]
+    norm_files = sorted({f for f in norm_files if Path(f).suffix.lower() in SOURCE_EXTS})
+
+    head_findings, cur_findings = _collect_head_and_current_findings(norm_files, project_dir)
     head_drift = _calculate_drift_score(head_findings)
     cur_drift = _calculate_drift_score(cur_findings)
-
-    def _counts(findings: list[dict[str, str | int]]) -> dict[str, int]:
-        return {
-            "total": len(findings),
-            "blocks": sum(1 for f in findings if f.get("severity") == "BLOCK"),
-            "warnings": sum(1 for f in findings if f.get("severity") == "WARN"),
-            "infos": sum(1 for f in findings if f.get("severity") == "INFO"),
-        }
-
-    head_counts = _counts(head_findings)
-    cur_counts = _counts(cur_findings)
+    head_counts = _severity_counts(head_findings)
+    cur_counts = _severity_counts(cur_findings)
 
     return {
         "scope": "staged" if staged else "working_tree",
@@ -1499,7 +1692,7 @@ def cmd_trust_diff(args: argparse.Namespace) -> int:
     report = _compute_trust_diff(project_dir=project_dir, changed_files=changed_files, staged=staged)
 
     if getattr(args, "json", False):
-        print(json.dumps(report, indent=2, default=str))
+        _echo(json.dumps(report, indent=2, default=str))
         return 0
 
     delta = report.get("delta", {})
@@ -1507,11 +1700,11 @@ def cmd_trust_diff(args: argparse.Namespace) -> int:
     cur = report.get("current", {})
     head_drift = head.get("drift", {}) if isinstance(head, dict) else {}
     cur_drift = cur.get("drift", {}) if isinstance(cur, dict) else {}
-    print(f"\n{color('📈 CodeTrust Trust Diff', BOLD)}")
-    print(f"   Scope: {report.get('scope', '-')}")
-    print(f"   Files compared: {len(report.get('files', []) if isinstance(report.get('files', []), list) else [])}")
-    print(f"   Drift score: {head_drift.get('score', 0)}/100 → {cur_drift.get('score', 0)}/100 (Δ {delta.get('drift_score', 0)})\n")
-    print(f"   Findings Δ: total {delta.get('total_findings', 0)}, blocks {delta.get('blocks', 0)}, warns {delta.get('warnings', 0)}, infos {delta.get('infos', 0)}")
+    _echo(f"\n{color('📈 CodeTrust Trust Diff', BOLD)}")
+    _echo(f"   Scope: {report.get('scope', '-')}")
+    _echo(f"   Files compared: {len(report.get('files', []) if isinstance(report.get('files', []), list) else [])}")
+    _echo(f"   Drift score: {head_drift.get('score', 0)}/100 → {cur_drift.get('score', 0)}/100 (Δ {delta.get('drift_score', 0)})\n")
+    _echo(f"   Findings Δ: total {delta.get('total_findings', 0)}, blocks {delta.get('blocks', 0)}, warns {delta.get('warnings', 0)}, infos {delta.get('infos', 0)}")
     return 0
 
 
@@ -1605,36 +1798,35 @@ def _trend_snapshot(project_dir: Path, targets: list[str]) -> dict[str, object]:
     }
 
 
-def cmd_trend(args: argparse.Namespace) -> int:
-    project_dir = Path.cwd()
-    sub = str(getattr(args, "subcommand", "show"))
-    limit = int(getattr(args, "limit", 20) or 20)
-    if limit < 1:
-        limit = 1
+_TREND_DEFAULT_LIMIT = 20
 
-    if sub == "record":
-        targets = list(getattr(args, "targets", []) or ["."])
-        entry = _trend_snapshot(project_dir, targets)
-        _trend_write(project_dir, entry)
-        if getattr(args, "json", False):
-            print(json.dumps(entry, indent=2, default=str))
-            return 0
-        print(f"\n{color('📌 CodeTrust Trend — Recorded', BOLD)}")
-        print(f"   {entry['ts']} | {entry['verdict']} | drift {entry['drift_score'].get('score', 0)}/100")
-        print(f"   Findings: {entry['total_findings']} (BLOCK {entry['blocks']}, WARN {entry['warnings']}, INFO {entry['infos']})")
-        print(f"   Stored: {TREND_FILE_REL}\n")
+
+def _cmd_trend_record(args: argparse.Namespace, project_dir: Path) -> int:
+    """Handle 'codetrust trend record' subcommand."""
+    targets = list(getattr(args, "targets", []) or ["."])
+    entry = _trend_snapshot(project_dir, targets)
+    _trend_write(project_dir, entry)
+    if getattr(args, "json", False):
+        _echo(json.dumps(entry, indent=2, default=str))
         return 0
+    _echo(f"\n{color('\U0001f4cc CodeTrust Trend \u2014 Recorded', BOLD)}")
+    _echo(f"   {entry['ts']} | {entry['verdict']} | drift {entry['drift_score'].get('score', 0)}/100")
+    _echo(f"   Findings: {entry['total_findings']} (BLOCK {entry['blocks']}, WARN {entry['warnings']}, INFO {entry['infos']})")
+    _echo(f"   Stored: {TREND_FILE_REL}\n")
+    return 0
 
-    # show (default)
+
+def _cmd_trend_show(args: argparse.Namespace, project_dir: Path, limit: int) -> int:
+    """Handle 'codetrust trend show' subcommand."""
     entries = _trend_read(project_dir)
     entries = entries[-limit:]
     if getattr(args, "json", False):
-        print(json.dumps({"entries": entries}, indent=2, default=str))
+        _echo(json.dumps({"entries": entries}, indent=2, default=str))
         return 0
 
-    print(f"\n{color('📈 CodeTrust Trend', BOLD)}")
+    _echo(f"\n{color('\U0001f4c8 CodeTrust Trend', BOLD)}")
     if not entries:
-        print("   No trend data yet. Run: codetrust trend record\n")
+        _echo("   No trend data yet. Run: codetrust trend record\n")
         return 0
 
     for e in entries:
@@ -1645,9 +1837,22 @@ def cmd_trend(args: argparse.Namespace) -> int:
         total = int(e.get("total_findings", 0) or 0)
         blocks = int(e.get("blocks", 0) or 0)
         warns = int(e.get("warnings", 0) or 0)
-        print(f"   {ts} | {verdict} | drift {score}/100 | {total} findings (B{blocks} W{warns})")
-    print()
+        _echo(f"   {ts} | {verdict} | drift {score}/100 | {total} findings (B{blocks} W{warns})")
+    _echo()
     return 0
+
+
+def cmd_trend(args: argparse.Namespace) -> int:
+    project_dir = Path.cwd()
+    sub = str(getattr(args, "subcommand", "show"))
+    limit = int(getattr(args, "limit", _TREND_DEFAULT_LIMIT) or _TREND_DEFAULT_LIMIT)
+    if limit < 1:
+        limit = 1
+
+    if sub == "record":
+        return _cmd_trend_record(args, project_dir)
+
+    return _cmd_trend_show(args, project_dir, limit)
 
 
 # ── Special handler implementations ──────────────────────────────
@@ -1679,7 +1884,7 @@ def _check_except_swallow(
 def _check_sleep_no_context(
     lines: list[str], filepath: str, findings: list[dict],
 ) -> None:
-    """Flag sleep() calls without a preceding comment explaining why."""
+    """Flag sleep calls without a preceding comment explaining why."""
     sleep_re = re.compile(r"(?:time\.)?sleep\s*\(")
     for i, line in enumerate(lines):
         stripped = line.strip()
@@ -1692,7 +1897,7 @@ def _check_sleep_no_context(
                 findings.append({
                     "rule_id": "sleep_no_context",
                     "severity": "INFO",
-                    "message": "sleep() without explanation. Why is a delay needed? Document or fix root cause.",
+                    "message": "sleep call without explanation. Why is a delay needed? Document or fix root cause.",
                     "file": filepath,
                     "line": i + 1,
                 })
@@ -1795,7 +2000,7 @@ def _check_ci_no_timeout(
         job_block = content[m.start():nxt.start() if nxt else len(content)]
         if "timeout-minutes:" not in job_block:
             # Also check a few lines above (job-level timeout)
-            prev_block = before[max(0, len(before) - 200):]
+            prev_block = before[max(0, len(before) - _PREV_BLOCK_LOOKBACK):]
             if "timeout-minutes:" not in prev_block:
                 line_num = before.count("\n") + 1
                 findings.append({
@@ -1959,16 +2164,9 @@ def _governance_config_for_profile(profile: str) -> GovernanceConfig:
     return cfg
 
 
-def _render_governance_sections(*, root: str, cfg: GovernanceConfig) -> str:
-    """Render governance TOML sections under the given root table.
-
-    root examples:
-      - codetrust
-      - tool.codetrust
-    """
-    lines: list[str] = []
-
-    lines.extend([
+def _render_governance_terminal_lines(root: str, cfg: GovernanceConfig) -> list[str]:
+    """Render governance core and terminal TOML lines."""
+    return [
         f"[{root}.governance]",
         f"enabled = {str(bool(cfg.enabled)).lower()}",
         f'mode = "{cfg.mode.value}"',
@@ -1981,6 +2179,12 @@ def _render_governance_sections(*, root: str, cfg: GovernanceConfig) -> str:
         f"block_curl_pipe_sh = {str(bool(cfg.block_curl_pipe_sh)).lower()}",
         f"block_git_push = {str(bool(cfg.block_git_push)).lower()}",
         f"block_chmod_777 = {str(bool(cfg.block_chmod_777)).lower()}",
+    ]
+
+
+def _render_governance_extra_lines(root: str, cfg: GovernanceConfig) -> list[str]:
+    """Render governance files, packages, audit, and webhook TOML lines."""
+    lines: list[str] = [
         "",
         f"[{root}.governance.files]",
         f"protected_paths = {_toml_string_array(list(cfg.protected_paths))}",
@@ -2000,13 +2204,18 @@ def _render_governance_sections(*, root: str, cfg: GovernanceConfig) -> str:
         f'provider = "{_toml_escape_string(cfg.webhook_provider)}"',
         f"on_block = {str(bool(cfg.webhook_on_block)).lower()}",
         f"on_warn = {str(bool(cfg.webhook_on_warn)).lower()}",
-    ])
-
+    ]
     disabled_rules = sorted(cfg.disabled_rules)
     if disabled_rules:
         lines.append("")
         lines.append(f"disabled_rules = {_toml_string_array(disabled_rules)}")
+    return lines
 
+
+def _render_governance_sections(*, root: str, cfg: GovernanceConfig) -> str:
+    """Render governance TOML sections under the given root table."""
+    lines = _render_governance_terminal_lines(root, cfg)
+    lines.extend(_render_governance_extra_lines(root, cfg))
     return "\n".join(lines) + "\n"
 
 
@@ -2056,79 +2265,88 @@ def _upsert_marked_block(
     return (appended, True)
 
 
+def _policy_write_config_files(
+    *, project_dir: Path, profile: str, yes: bool,
+) -> None:
+    """Write .codetrust.toml, .taplo.toml, and schema files."""
+    ct_toml_path = project_dir / ".codetrust.toml"
+    ct_content = _render_codetrust_toml_for_profile(profile)
+    wrote_ct = _write_text_file_safe(ct_toml_path, ct_content, yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote_ct else color('↪', BLUE)} {ct_toml_path}")
+
+    taplo_path = project_dir / ".taplo.toml"
+    wrote_taplo = _write_text_file_safe(taplo_path, _load_template("taplo.toml"), yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote_taplo else color('↪', BLUE)} {taplo_path}")
+
+    schema_path = project_dir / ".codetrust.schema.json"
+    wrote_schema = _write_text_file_safe(schema_path, _load_template("codetrust.schema.json"), yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote_schema else color('↪', BLUE)} {schema_path}")
+
+
+def _policy_sync_pyproject(
+    *, project_dir: Path, profile: str, py_mode: str, yes: bool,
+) -> None:
+    """Sync policy config into pyproject.toml if applicable."""
+    if py_mode not in {"auto", "skip", "force"}:
+        py_mode = "auto"
+
+    pyproject = project_dir / "pyproject.toml"
+    if py_mode == "skip" or not pyproject.is_file():
+        return
+
+    existing = pyproject.read_text(encoding="utf-8", errors="ignore")
+    has_tool_section = "[tool.codetrust]" in existing or "[tool.codetrust." in existing
+
+    if has_tool_section and PYPROJECT_POLICY_BEGIN not in existing and py_mode != "force":
+        _echo(f"  {color('↪', BLUE)} {pyproject} (existing [tool.codetrust] found; skipping sync)")
+        return
+
+    inner = _render_pyproject_codetrust_for_profile(profile)
+    updated, changed = _upsert_marked_block(
+        existing,
+        begin_marker=PYPROJECT_POLICY_BEGIN,
+        end_marker=PYPROJECT_POLICY_END,
+        inner_block=inner,
+    )
+    if changed:
+        wrote_py = _write_text_file_safe(pyproject, updated, yes=yes)
+        _echo(f"  {color('✅', GREEN) if wrote_py else color('↪', BLUE)} {pyproject} ({'synced' if wrote_py else 'no change'})")
+    else:
+        _echo(f"  {color('↪', BLUE)} {pyproject} (no change)")
+
+
 def cmd_policy(args: argparse.Namespace) -> int:
     """Policy wizard for generating governance config presets."""
     project_dir = Path.cwd()
 
     sub = str(getattr(args, "subcommand", ""))
     if sub != "wizard":
-        print("Run: codetrust policy wizard")
+        _echo("Run: codetrust policy wizard")
         return 1
 
     yes = bool(getattr(args, "yes", False))
     profile = str(getattr(args, "profile", POLICY_DEFAULT_PROFILE))
     if profile not in POLICY_PROFILE_CHOICES:
-        print(f"Invalid --profile. Choose one of: {', '.join(POLICY_PROFILE_CHOICES)}")
+        _echo(f"Invalid --profile. Choose one of: {', '.join(POLICY_PROFILE_CHOICES)}")
         return 2
 
-    print(f"\n{color('🧭 CodeTrust Policy Wizard', BOLD)}\n")
-    print(f"  Profile: {profile}")
+    _echo(f"\n{color('🧭 CodeTrust Policy Wizard', BOLD)}\n")
+    _echo(f"  Profile: {profile}")
 
-    # 1) .codetrust.toml
-    ct_toml_path = project_dir / ".codetrust.toml"
-    ct_content = _render_codetrust_toml_for_profile(profile)
-    wrote_ct = _write_text_file_safe(ct_toml_path, ct_content, yes=yes)
-    print(f"  {color('✅', GREEN) if wrote_ct else color('↪', BLUE)} {ct_toml_path}")
+    _policy_write_config_files(project_dir=project_dir, profile=profile, yes=yes)
 
-    # 2) Schema autocomplete helpers (.taplo.toml + .codetrust.schema.json)
-    taplo_path = project_dir / ".taplo.toml"
-    wrote_taplo = _write_text_file_safe(taplo_path, _load_template("taplo.toml"), yes=yes)
-    print(f"  {color('✅', GREEN) if wrote_taplo else color('↪', BLUE)} {taplo_path}")
-
-    schema_path = project_dir / ".codetrust.schema.json"
-    wrote_schema = _write_text_file_safe(schema_path, _load_template("codetrust.schema.json"), yes=yes)
-    print(f"  {color('✅', GREEN) if wrote_schema else color('↪', BLUE)} {schema_path}")
-
-    # 3) Optional pyproject.toml sync
     py_mode = str(getattr(args, "pyproject", "auto"))
-    if py_mode not in {"auto", "skip", "force"}:
-        py_mode = "auto"
+    _policy_sync_pyproject(
+        project_dir=project_dir, profile=profile, py_mode=py_mode, yes=yes,
+    )
 
-    pyproject = project_dir / "pyproject.toml"
-    if py_mode != "skip" and pyproject.is_file():
-        existing = pyproject.read_text(encoding="utf-8", errors="ignore")
-        has_tool_section = "[tool.codetrust]" in existing or "[tool.codetrust." in existing
-
-        if has_tool_section and PYPROJECT_POLICY_BEGIN not in existing and py_mode != "force":
-            print(f"  {color('↪', BLUE)} {pyproject} (existing [tool.codetrust] found; skipping sync)")
-        else:
-            inner = _render_pyproject_codetrust_for_profile(profile)
-            updated, changed = _upsert_marked_block(
-                existing,
-                begin_marker=PYPROJECT_POLICY_BEGIN,
-                end_marker=PYPROJECT_POLICY_END,
-                inner_block=inner,
-            )
-            if changed:
-                wrote_py = _write_text_file_safe(pyproject, updated, yes=yes)
-                print(f"  {color('✅', GREEN) if wrote_py else color('↪', BLUE)} {pyproject} ({'synced' if wrote_py else 'no change'})")
-            else:
-                print(f"  {color('↪', BLUE)} {pyproject} (no change)")
-
-    print("\nDone.\n")
+    _echo("\nDone.\n")
     return 0
 
 
-def cmd_add(args: argparse.Namespace) -> int:
-    """Add CodeTrust bootstrap files to the current repo (VS Code/DevContainer/docs)."""
-    project_dir = Path.cwd()
-    yes = bool(getattr(args, "yes", False))
-
-    print(f"\n{color('🧩 CodeTrust — Adding repo bootstrap files', BOLD)}\n")
-
-    # 1) .vscode/extensions.json
-    vscode_dir = project_dir / ".vscode"
-    ext_file = vscode_dir / "extensions.json"
+def _add_vscode_extensions(project_dir: Path, *, yes: bool) -> None:
+    """Add CodeTrust to .vscode/extensions.json recommendations."""
+    ext_file = project_dir / ".vscode" / "extensions.json"
     ext_data: dict = _read_json(ext_file) if ext_file.exists() else {}
     recs = ext_data.get("recommendations")
     if not isinstance(recs, list):
@@ -2139,146 +2357,173 @@ def cmd_add(args: argparse.Namespace) -> int:
     if "unwantedRecommendations" not in ext_data:
         ext_data["unwantedRecommendations"] = []
     wrote_ext = _write_json_file_safe(ext_file, ext_data, yes=yes)
-    print(f"  {color('✅', GREEN) if wrote_ext else color('↪', BLUE)} {ext_file}")
+    _echo(f"  {color('✅', GREEN) if wrote_ext else color('↪', BLUE)} {ext_file}")
 
-    # 2) .vscode/settings.json (only add missing keys; never override)
+
+def _add_vscode_settings(project_dir: Path, *, stack_arg: str, yes: bool) -> None:
+    """Write .vscode/settings.json defaults (only missing keys)."""
+    settings_file = project_dir / ".vscode" / "settings.json"
+    settings: dict = _read_json(settings_file) if settings_file.exists() else {}
+    if not isinstance(settings, dict):
+        settings = {}
+    defaults: dict[str, object] = {
+        "codetrust.scanOnSave": True,
+        "codetrust.scanType": "static",
+        "codetrust.severityThreshold": "INFO",
+        "codetrust.verifyImportsOnSave": False,
+        "codetrust.governance.enabled": True,
+        "codetrust.governance.mode": "enforce",
+    }
+    stack = _detect_stack(project_dir) if stack_arg == "auto" else stack_arg
+    defaults.update(_stack_settings_presets(stack))
+    for k, v in defaults.items():
+        if k not in settings:
+            settings[k] = v
+    wrote_settings = _write_json_file_safe(settings_file, settings, yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote_settings else color('↪', BLUE)} {settings_file}")
+
+
+def _add_devcontainer(project_dir: Path, *, yes: bool) -> None:
+    """Write/merge .devcontainer/devcontainer.json."""
+    dc_file = project_dir / ".devcontainer" / "devcontainer.json"
+    dc: dict = _read_json(dc_file) if dc_file.exists() else {}
+    if not isinstance(dc, dict):
+        dc = {}
+    custom = dc.get("customizations")
+    if not isinstance(custom, dict):
+        custom = {}
+    vscode_custom = custom.get("vscode")
+    if not isinstance(vscode_custom, dict):
+        vscode_custom = {}
+    exts = vscode_custom.get("extensions")
+    if not isinstance(exts, list):
+        exts = []
+    if "SaidBorna.codetrust" not in exts:
+        exts.append("SaidBorna.codetrust")
+    vscode_custom["extensions"] = exts
+    custom["vscode"] = vscode_custom
+    dc["customizations"] = custom
+    if "name" not in dc:
+        dc["name"] = "CodeTrust DevContainer"
+    wrote_dc = _write_json_file_safe(dc_file, dc, yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote_dc else color('↪', BLUE)} {dc_file}")
+
+
+def _add_contributing(project_dir: Path, *, yes: bool) -> None:
+    """Append CodeTrust section to CONTRIBUTING.md if not present."""
+    contrib_file = project_dir / "CONTRIBUTING.md"
+    if not contrib_file.exists():
+        _echo(f"  {color('⚠️', YELLOW)}  CONTRIBUTING.md not found — skipping")
+        return
+    text = contrib_file.read_text(encoding="utf-8", errors="ignore")
+    marker = "## CodeTrust"
+    if marker in text:
+        _echo(f"  {color('↪', BLUE)} {contrib_file} (already has CodeTrust section)")
+        return
+    snippet = (
+        "\n\n## CodeTrust\n\n"
+        "This repo uses CodeTrust as a quality gate for AI-assisted development.\n\n"
+        "- Local: run `codetrust scan .` before opening a PR\n"
+        "- Pre-commit: commits may be blocked until BLOCK findings are resolved\n"
+        "- CI: PRs can fail the CodeTrust Quality Gate (SARIF uploaded to Security)\n"
+    )
+    wrote = _write_text_file_safe(contrib_file, text + snippet, yes=yes)
+    _echo(f"  {color('✅', GREEN) if wrote else color('↪', BLUE)} {contrib_file}")
+
+
+def cmd_add(args: argparse.Namespace) -> int:
+    """Add CodeTrust bootstrap files to the current repo (VS Code/DevContainer/docs)."""
+    project_dir = Path.cwd()
+    yes = bool(getattr(args, "yes", False))
+
+    _echo(f"\n{color('🧩 CodeTrust — Adding repo bootstrap files', BOLD)}\n")
+
+    _add_vscode_extensions(project_dir, yes=yes)
+
     if args.settings:
-        settings_file = vscode_dir / "settings.json"
-        settings: dict = _read_json(settings_file) if settings_file.exists() else {}
-        if not isinstance(settings, dict):
-            settings = {}
-        defaults: dict[str, object] = {
-            "codetrust.scanOnSave": True,
-            "codetrust.scanType": "static",
-            "codetrust.severityThreshold": "INFO",
-            "codetrust.verifyImportsOnSave": False,
-            "codetrust.governance.enabled": True,
-            "codetrust.governance.mode": "enforce",
-        }
-
         stack_arg = str(getattr(args, "stack", "auto"))
-        stack = _detect_stack(project_dir) if stack_arg == "auto" else stack_arg
-        defaults.update(_stack_settings_presets(stack))
-        for k, v in defaults.items():
-            if k not in settings:
-                settings[k] = v
-        wrote_settings = _write_json_file_safe(settings_file, settings, yes=yes)
-        print(f"  {color('✅', GREEN) if wrote_settings else color('↪', BLUE)} {settings_file}")
+        _add_vscode_settings(project_dir, stack_arg=stack_arg, yes=yes)
 
-    # 3) .devcontainer/devcontainer.json
     if args.devcontainer:
-        dc_file = project_dir / ".devcontainer" / "devcontainer.json"
-        dc: dict = _read_json(dc_file) if dc_file.exists() else {}
-        if not isinstance(dc, dict):
-            dc = {}
-        custom = dc.get("customizations")
-        if not isinstance(custom, dict):
-            custom = {}
-        vscode_custom = custom.get("vscode")
-        if not isinstance(vscode_custom, dict):
-            vscode_custom = {}
-        exts = vscode_custom.get("extensions")
-        if not isinstance(exts, list):
-            exts = []
-        if "SaidBorna.codetrust" not in exts:
-            exts.append("SaidBorna.codetrust")
-        vscode_custom["extensions"] = exts
-        custom["vscode"] = vscode_custom
-        dc["customizations"] = custom
-        if "name" not in dc:
-            dc["name"] = "CodeTrust DevContainer"
-        wrote_dc = _write_json_file_safe(dc_file, dc, yes=yes)
-        print(f"  {color('✅', GREEN) if wrote_dc else color('↪', BLUE)} {dc_file}")
+        _add_devcontainer(project_dir, yes=yes)
 
-    # 4) CONTRIBUTING.md snippet
     if args.contributing:
-        contrib_file = project_dir / "CONTRIBUTING.md"
-        if contrib_file.exists():
-            text = contrib_file.read_text(encoding="utf-8", errors="ignore")
-            marker = "## CodeTrust"
-            if marker not in text:
-                snippet = (
-                    "\n\n## CodeTrust\n\n"
-                    "This repo uses CodeTrust as a quality gate for AI-assisted development.\n\n"
-                    "- Local: run `codetrust scan .` before opening a PR\n"
-                    "- Pre-commit: commits may be blocked until BLOCK findings are resolved\n"
-                    "- CI: PRs can fail the CodeTrust Quality Gate (SARIF uploaded to Security)\n"
-                )
-                wrote = _write_text_file_safe(contrib_file, text + snippet, yes=yes)
-                print(f"  {color('✅', GREEN) if wrote else color('↪', BLUE)} {contrib_file}")
-            else:
-                print(f"  {color('↪', BLUE)} {contrib_file} (already has CodeTrust section)")
-        else:
-            print(f"  {color('⚠️', YELLOW)}  CONTRIBUTING.md not found — skipping")
+        _add_contributing(project_dir, yes=yes)
 
-    print("\nDone.\n")
+    _echo("\nDone.\n")
     return 0
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    """Install CodeTrust enforcement layers into current project."""
-    project_dir = Path.cwd()
+def _init_advisory_files(project_dir: Path, *, force: bool) -> list[str]:
+    """Install CLAUDE.md and .cursorrules advisory files."""
     installed: list[str] = []
-
-    print(f"\n{color('🛡️  CodeTrust — Installing enforcement layers', BOLD)}\n")
-
-    # 1. CLAUDE.md
     claude_md = project_dir / "CLAUDE.md"
-    if claude_md.exists() and not args.force:
-        print(f"  {color('⚠️', YELLOW)}  CLAUDE.md exists (use --force to overwrite)")
+    if claude_md.exists() and not force:
+        _echo(f"  {color('⚠️', YELLOW)}  CLAUDE.md exists (use --force to overwrite)")
     else:
         if claude_md.exists():
             shutil.copy2(claude_md, claude_md.with_suffix(".md.bak"))
         claude_md.write_text(_load_template("CLAUDE.md"))
         installed.append("CLAUDE.md")
-        print(f"  {color('✅', GREEN)} CLAUDE.md installed")
+        _echo(f"  {color('✅', GREEN)} CLAUDE.md installed")
 
-    # 2. .cursorrules
     cursorrules = project_dir / ".cursorrules"
     cursorrules.write_text(_load_template("cursorrules"))
     installed.append(".cursorrules")
-    print(f"  {color('✅', GREEN)} .cursorrules installed")
+    _echo(f"  {color('✅', GREEN)} .cursorrules installed")
+    return installed
 
-    # 3. Pre-commit hook
+
+def _init_precommit_hook(project_dir: Path) -> list[str]:
+    """Install pre-commit hook via core.hooksPath."""
+    installed: list[str] = []
     git_dir = project_dir / ".git"
-    if git_dir.is_dir():
-        # Create hooks/ in project root (version-controlled)
-        hooks_dir = project_dir / "hooks"
-        hooks_dir.mkdir(exist_ok=True)
-        hook_file = hooks_dir / "pre-commit"
-        hook_file.write_text(_load_template("pre-commit"))
-        hook_file.chmod(0o755)
+    if not git_dir.is_dir():
+        _echo(f"  {color('⚠️', YELLOW)}  Not a git repo — skipping hooks")
+        return installed
 
-        # Set core.hooksPath
-        subprocess.run(
-            ["git", "config", "core.hooksPath", "hooks"],
-            cwd=project_dir,
-            capture_output=True,
-        )
+    hooks_dir = project_dir / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+    hook_file = hooks_dir / "pre-commit"
+    hook_file.write_text(_load_template("pre-commit"))
+    hook_file.chmod(0o755)
 
-        # Also install in .git/hooks as fallback
-        git_hook = git_dir / "hooks" / "pre-commit"
-        git_hook.parent.mkdir(exist_ok=True)
-        git_hook.write_text(_load_template("pre-commit"))
-        git_hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", "hooks"],
+        cwd=project_dir,
+        capture_output=True,
+    )
 
-        installed.append("pre-commit hook (core.hooksPath)")
-        print(f"  {color('✅', GREEN)} Pre-commit hook installed via core.hooksPath")
-    else:
-        print(f"  {color('⚠️', YELLOW)}  Not a git repo — skipping hooks")
+    git_hook = git_dir / "hooks" / "pre-commit"
+    git_hook.parent.mkdir(exist_ok=True)
+    git_hook.write_text(_load_template("pre-commit"))
+    git_hook.chmod(0o755)
 
-    # 4. GitHub Action
+    installed.append("pre-commit hook (core.hooksPath)")
+    _echo(f"  {color('✅', GREEN)} Pre-commit hook installed via core.hooksPath")
+    return installed
+
+
+def _init_github_action(project_dir: Path, *, force: bool) -> list[str]:
+    """Install GitHub Action workflow."""
+    installed: list[str] = []
     workflows_dir = project_dir / ".github" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
     action_file = workflows_dir / "codetrust-scan.yml"
-    if action_file.exists() and not args.force:
-        print(f"  {color('⚠️', YELLOW)}  GitHub Action exists (use --force to overwrite)")
+    if action_file.exists() and not force:
+        _echo(f"  {color('⚠️', YELLOW)}  GitHub Action exists (use --force to overwrite)")
     else:
         action_file.write_text(_load_template("codetrust-scan.yml"))
         installed.append("GitHub Action")
-        print(f"  {color('✅', GREEN)} GitHub Action installed")
+        _echo(f"  {color('✅', GREEN)} GitHub Action installed")
+    return installed
 
-    # 5. .gitignore additions
+
+def _init_gitignore_and_governance(
+    project_dir: Path, *, force: bool,
+) -> list[str]:
+    """Add .gitignore patterns and governance config + audit directory."""
+    installed: list[str] = []
     gitignore = project_dir / ".gitignore"
     patterns_to_add = ["codetrust-report.md", ".codetrust/"]
     if gitignore.exists():
@@ -2290,44 +2535,58 @@ def cmd_init(args: argparse.Namespace) -> int:
                 for p in new_patterns:
                     f.write(f"{p}\n")
 
-    # 6. Governance config (.codetrust.toml)
     governance_toml = project_dir / ".codetrust.toml"
-    if governance_toml.exists() and not args.force:
-        print(f"  {color('⚠️', YELLOW)}  .codetrust.toml exists (use --force to overwrite)")
+    if governance_toml.exists() and not force:
+        _echo(f"  {color('⚠️', YELLOW)}  .codetrust.toml exists (use --force to overwrite)")
     else:
         if governance_toml.exists():
             shutil.copy2(governance_toml, governance_toml.with_suffix(".toml.bak"))
         governance_toml.write_text(_load_template("codetrust.toml"))
         installed.append(".codetrust.toml")
-        print(f"  {color('✅', GREEN)} Governance config (.codetrust.toml) installed")
+        _echo(f"  {color('✅', GREEN)} Governance config (.codetrust.toml) installed")
 
-    # 7. Audit directory
     audit_dir = project_dir / ".codetrust"
     audit_dir.mkdir(exist_ok=True)
     installed.append(".codetrust/ audit directory")
-    print(f"  {color('✅', GREEN)} Audit directory created")
+    _echo(f"  {color('✅', GREEN)} Audit directory created")
+    return installed
 
-    # Summary
-    print(f"\n{'━' * 48}")
-    print(f"\n  {color('✅ CodeTrust installed!', GREEN)}\n")
-    print("  Enforcement stack:")
-    print(f"    Layer 1: CLAUDE.md / .cursorrules  {color('(advisory)', BLUE)}")
-    print(f"    Layer 2: VS Code extension         {color('(passive)', BLUE)}")
-    print(f"    Layer 3: Pre-commit hook            {color('(blocking)', GREEN)}")
-    print(f"    Layer 4: GitHub Action              {color('(absolute)', RED)}")
-    print(f"    Layer 5: Gateway governance         {color('(interceptor)', RED)}")
-    print()
-    print("  Governance:")
-    print(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
-    print("    Audit log: .codetrust/audit.jsonl")
-    print("    Mode:      enforce (block violations)")
-    print()
-    print("  Next steps:")
-    print("    1. Push to GitHub")
-    print("    2. Settings → Branches → Require 'CodeTrust Quality Gate' to pass")
-    print("    3. Install VS Code extension: code --install-extension SaidBorna.codetrust")
-    print("    4. Add gateway to Claude/Cursor config (see: codetrust governance --setup)")
-    print()
+
+def _init_print_summary() -> None:
+    """Print the post-init enforcement stack summary."""
+    _echo(f"\n{'━' * 48}")
+    _echo(f"\n  {color('✅ CodeTrust installed!', GREEN)}\n")
+    _echo("  Enforcement stack:")
+    _echo(f"    Layer 1: CLAUDE.md / .cursorrules  {color('(advisory)', BLUE)}")
+    _echo(f"    Layer 2: VS Code extension         {color('(passive)', BLUE)}")
+    _echo(f"    Layer 3: Pre-commit hook            {color('(blocking)', GREEN)}")
+    _echo(f"    Layer 4: GitHub Action              {color('(absolute)', RED)}")
+    _echo(f"    Layer 5: Gateway governance         {color('(interceptor)', RED)}")
+    _echo()
+    _echo("  Governance:")
+    _echo(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
+    _echo("    Audit log: .codetrust/audit.jsonl")
+    _echo("    Mode:      enforce (block violations)")
+    _echo()
+    _echo("  Next steps:")
+    _echo("    1. Push to GitHub")
+    _echo("    2. Settings → Branches → Require 'CodeTrust Quality Gate' to pass")
+    _echo("    3. Install VS Code extension: code --install-extension SaidBorna.codetrust")
+    _echo("    4. Add gateway to Claude/Cursor config (see: codetrust governance --setup)")
+    _echo()
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Install CodeTrust enforcement layers into current project."""
+    project_dir = Path.cwd()
+
+    _echo(f"\n{color('🛡️  CodeTrust — Installing enforcement layers', BOLD)}\n")
+
+    _init_advisory_files(project_dir, force=args.force)
+    _init_precommit_hook(project_dir)
+    _init_github_action(project_dir, force=args.force)
+    _init_gitignore_and_governance(project_dir, force=args.force)
+    _init_print_summary()
 
     return 0
 
@@ -2356,8 +2615,10 @@ def _calculate_drift_score(findings: list[dict]) -> dict:
 _SARIF_SEVERITY: dict[str, str] = {"BLOCK": "error", "WARN": "warning", "INFO": "note"}
 
 
-def _findings_to_sarif(findings: list[dict]) -> dict:
-    """Convert CLI findings to a SARIF v2.1.0 document."""
+def _sarif_collect_rules_and_results(
+    findings: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    """Collect unique SARIF rules and result entries from findings."""
     seen_rules: set[str] = set()
     rules: list[dict] = []
     results: list[dict] = []
@@ -2385,6 +2646,12 @@ def _findings_to_sarif(findings: list[dict]) -> dict:
             }],
         })
 
+    return rules, results
+
+
+def _findings_to_sarif(findings: list[dict]) -> dict:
+    """Convert CLI findings to a SARIF v2.1.0 document."""
+    rules, results = _sarif_collect_rules_and_results(findings)
     return {
         "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
         "version": "2.1.0",
@@ -2402,195 +2669,234 @@ def _findings_to_sarif(findings: list[dict]) -> dict:
     }
 
 
-def cmd_scan(args: argparse.Namespace) -> int:
-    """Scan files for anti-patterns."""
-    start_time = time.monotonic()
-    targets = args.targets
-    if not targets:
-        targets = ["."]
+def _scan_baseline_changed_files(
+    cwd: Path, targets: list[str], baseline_ref: str,
+) -> list[str]:
+    """Identify source files changed relative to baseline ref."""
+    try:
+        diff = subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=ACM", baseline_ref, "--"],
+            cwd=cwd, capture_output=True, text=True, check=False,
+        )
+        changed_files = [ln.strip() for ln in diff.stdout.splitlines() if ln.strip()]
+    except Exception:
+        changed_files = []
 
+    allowed: set[str] = set()
+    for t in targets:
+        p = Path(t)
+        if p.is_file():
+            allowed.add(_normalize_path_for_git(str(p), cwd=cwd) or str(p))
+
+    scan_files: list[str] = []
+    for rel in changed_files:
+        if Path(rel).suffix.lower() not in SOURCE_EXTS:
+            continue
+        if allowed and rel not in allowed:
+            continue
+        if not Path(rel).exists():
+            continue
+        scan_files.append(rel)
+    return scan_files
+
+
+def _scan_baseline_filter_changed_lines(
+    head_findings: list[dict[str, str | int]],
+    baseline_ref: str,
+    cwd: Path,
+    *,
+    machine_output: bool,
+) -> list[dict[str, str | int]]:
+    """Filter head findings to only those on lines changed vs baseline."""
+    try:
+        changed_ranges: dict[str, list[tuple[int, int]]] = {}
+        for rel in {str(f.get("file", "")) for f in head_findings if f.get("file")}:
+            base_cmd = ["git", "diff", "--unified=0", baseline_ref, "--", rel]
+            d = subprocess.run(
+                base_cmd, cwd=cwd, capture_output=True, text=True, check=False,
+            )
+            ranges = _parse_unified0_changed_ranges(d.stdout)
+            if ranges:
+                changed_ranges[rel] = ranges
+
+        kept: list[dict[str, str | int]] = []
+        for f in head_findings:
+            rel = _normalize_path_for_git(str(f.get("file", "")), cwd=cwd)
+            ranges = changed_ranges.get(rel)
+            if not ranges:
+                continue
+            line = int(f.get("line", 0) or 0)
+            if line <= 0:
+                continue
+            if _is_line_in_ranges(line, ranges):
+                kept.append({**f, "file": rel})
+        return kept
+    except Exception as exc:
+        if not machine_output:
+            _echo(
+                color(
+                    f"  ⚠️  Could not compute changed-line ranges vs baseline ({baseline_ref}): {exc}",
+                    YELLOW,
+                )
+            )
+        return head_findings
+
+
+def _scan_baseline_collect(
+    targets: list[str], baseline_ref: str, args: argparse.Namespace,
+    *, machine_output: bool,
+) -> tuple[list[dict[str, str | int]], int]:
+    """Collect findings in baseline (diff) mode."""
+    cwd = Path.cwd()
+    scan_files = _scan_baseline_changed_files(cwd, targets, baseline_ref)
+
+    baseline_findings: list[dict[str, str | int]] = []
+    head_findings: list[dict[str, str | int]] = []
+
+    for rel in scan_files:
+        head_findings.extend(scan_file(rel))
+        baseline_findings.extend(
+            _scan_text_at_git_ref(cwd=cwd, ref=baseline_ref, rel_path=rel),
+        )
+
+    if getattr(args, "changed_only", False) and head_findings:
+        head_findings = _scan_baseline_filter_changed_lines(
+            head_findings, baseline_ref, cwd, machine_output=machine_output,
+        )
+
+    new_findings = _diff_new_findings_cli(head=head_findings, baseline=baseline_findings)
+    return new_findings, len(scan_files)
+
+
+def _scan_direct_collect(
+    targets: list[str],
+) -> tuple[list[dict[str, str | int]], int]:
+    """Collect findings by scanning targets directly."""
     all_findings: list[dict[str, str | int]] = []
     files_scanned = 0
+    for target in targets:
+        findings = scan_path(target)
+        all_findings.extend(findings)
+        if Path(target).is_file():
+            files_scanned += 1
+        elif Path(target).is_dir():
+            for _root, dirs, files in os.walk(target):
+                dirs[:] = [d for d in dirs if d not in _SCAN_SKIP_DIRS]
+                files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
+    return all_findings, files_scanned
 
-    # Machine-readable modes must not mix output (pre-commit, CI, tooling).
-    machine_output = bool(getattr(args, "json", False)) or (
-        bool(getattr(args, "sarif", False)) and not bool(getattr(args, "sarif_file", ""))
-    )
 
-    baseline_ref = str(getattr(args, "baseline", "") or "").strip()
-    baseline_mode = bool(baseline_ref)
+def _scan_process_import_findings(
+    import_findings: list[dict],
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    *,
+    import_count: int,
+    machine_output: bool,
+) -> tuple[int, list[dict[str, str | int]]]:
+    """Process import findings: count hallucinations, emit telemetry."""
+    hallucinations_found = 0
+    if import_findings:
+        hallucinations_found = sum(
+            1 for f in import_findings if str(f.get("rule_id", "")) == "import_not_found"
+        )
+        all_findings = [*all_findings, *import_findings]
+        if not machine_output:
+            _echo(f"  {color(f'   Found {len(import_findings)} unverified import(s)', RED)}\n")
+    elif not machine_output:
+        _echo(f"  {color('   All imports verified ✓', GREEN)}\n")
 
-    if baseline_mode:
-        cwd = Path.cwd()
-        try:
-            diff = subprocess.run(
-                ["git", "diff", "--name-only", "--diff-filter=ACM", baseline_ref, "--"],
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            changed_files = [ln.strip() for ln in diff.stdout.splitlines() if ln.strip()]
-        except Exception:
-            changed_files = []
+    try:
+        from src.telemetry_client import send_telemetry as _send_import_tel
 
-        # Limit to supported source files and to explicit targets if provided.
-        allowed: set[str] = set()
-        for t in targets:
-            p = Path(t)
-            if p.is_file():
-                allowed.add(_normalize_path_for_git(str(p), cwd=cwd) or str(p))
+        _send_import_tel(
+            event_type="import_verified",
+            source="cli",
+            version="unknown",
+            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
+            payload={
+                "total_imports_checked": import_count,
+                "hallucinations_caught": hallucinations_found,
+            },
+        )
+    except Exception:
+        pass  # best-effort
+    return hallucinations_found, all_findings
 
-        scan_files = []
-        for rel in changed_files:
-            if Path(rel).suffix.lower() not in SOURCE_EXTS:
-                continue
-            if allowed and rel not in allowed:
-                continue
-            if not Path(rel).exists():
-                continue
-            scan_files.append(rel)
 
-        baseline_findings: list[dict[str, str | int]] = []
-        head_findings: list[dict[str, str | int]] = []
-
-        for rel in scan_files:
-            head_findings.extend(scan_file(rel))
-            baseline_findings.extend(_scan_text_at_git_ref(cwd=cwd, ref=baseline_ref, rel_path=rel))
-        files_scanned = len(scan_files)
-
-        # If requested, filter to changed lines *against the baseline ref*.
-        if getattr(args, "changed_only", False) and head_findings:
-            try:
-                changed_ranges: dict[str, list[tuple[int, int]]] = {}
-                for rel in {str(f.get("file", "")) for f in head_findings if f.get("file")}:
-                    base_cmd = ["git", "diff", "--unified=0", baseline_ref, "--", rel]
-                    d = subprocess.run(
-                        base_cmd,
-                        cwd=cwd,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    ranges = _parse_unified0_changed_ranges(d.stdout)
-                    if ranges:
-                        changed_ranges[rel] = ranges
-
-                kept: list[dict[str, str | int]] = []
-                for f in head_findings:
-                    rel = _normalize_path_for_git(str(f.get("file", "")), cwd=cwd)
-                    ranges = changed_ranges.get(rel)
-                    if not ranges:
-                        continue
-                    line = int(f.get("line", 0) or 0)
-                    if line <= 0:
-                        continue
-                    if _is_line_in_ranges(line, ranges):
-                        kept.append({**f, "file": rel})
-                head_findings = kept
-            except Exception as exc:
-                if not machine_output:
-                    print(
-                        color(
-                            f"  ⚠️  Could not compute changed-line ranges vs baseline ({baseline_ref}): {exc}",
-                            YELLOW,
-                        )
-                    )
-
-        new_findings = _diff_new_findings_cli(head=head_findings, baseline=baseline_findings)
-        all_findings = new_findings
-
-    else:
-        for target in targets:
-            findings = scan_path(target)
-            all_findings.extend(findings)
-            if Path(target).is_file():
-                files_scanned += 1
-            elif Path(target).is_dir():
-                skip_dirs = {
-                    ".git", ".venv", "venv", "node_modules", "__pycache__",
-                    "dist", "build", ".next", ".open-next", ".turbo",
-                    ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
-                    "coverage", "out", ".cache",
-                }
-                for _root, dirs, files in os.walk(target):
-                    dirs[:] = [d for d in dirs if d not in skip_dirs]
-                    files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
+def _scan_verify_imports(
+    targets: list[str],
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    *,
+    machine_output: bool,
+) -> tuple[list[dict[str, str | int]], int]:
+    """Verify imports against registries and return updated findings."""
+    if getattr(args, "no_verify_imports", False):
+        return all_findings, 0
 
     hallucinations_found = 0
+    try:
+        from src.services.import_verifier import (
+            collect_source_files,
+            verify_file_imports_sync,
+        )
 
-    # --- Live import verification against registries ---
-    if not getattr(args, "no_verify_imports", False):
-        try:
-            from src.services.import_verifier import (
-                collect_source_files,
-                verify_file_imports_sync,
+        py_files, js_files = collect_source_files(targets)
+        if py_files or js_files:
+            import_count = len(py_files) + len(js_files)
+            if not machine_output:
+                _echo(
+                    f"  {color('🔍 Verifying imports against registries...', BLUE)}"
+                    f" ({import_count} file(s))"
+                )
+            import_findings = verify_file_imports_sync(py_files, js_files)
+            hallucinations_found, all_findings = _scan_process_import_findings(
+                import_findings, all_findings, args,
+                import_count=import_count, machine_output=machine_output,
             )
+    except Exception as exc:
+        logger.debug(
+            "import_verification_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    return all_findings, hallucinations_found
 
-            py_files, js_files = collect_source_files(targets)
-            if py_files or js_files:
-                import_count = len(py_files) + len(js_files)
-                if not machine_output:
-                    print(
-                        f"  {color('🔍 Verifying imports against registries...', BLUE)}"
-                        f" ({import_count} file(s))"
-                    )
-                import_findings = verify_file_imports_sync(py_files, js_files)
-                if import_findings:
-                    hallucinations_found = sum(
-                        1 for f in import_findings if str(f.get("rule_id", "")) == "import_not_found"
-                    )
-                    all_findings.extend(import_findings)
-                    if not machine_output:
-                        print(
-                            f"  {color(f'   Found {len(import_findings)} unverified import(s)', RED)}\n"
-                        )
-                else:
-                    if not machine_output:
-                        print(
-                            f"  {color('   All imports verified ✓', GREEN)}\n"
-                        )
 
-                # Emit separate import_verified telemetry so imports_verified counter increments
-                try:
-                    from src.telemetry_client import send_telemetry as _send_import_tel
-
-                    _send_import_tel(
-                        event_type="import_verified",
-                        source="cli",
-                        version="unknown",
-                        cli_opt_out=bool(getattr(args, "no_telemetry", False)),
-                        payload={
-                            "total_imports_checked": import_count,
-                            "hallucinations_caught": hallucinations_found,
-                        },
-                    )
-                except Exception:
-                    pass  # best-effort
-        except Exception as exc:
-            logger.debug(
-                "import_verification_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-
-    cwd = Path.cwd()
-
+def _scan_post_process(
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    cwd: Path,
+    *,
+    baseline_mode: bool,
+) -> tuple[list[dict[str, str | int]], int]:
+    """Apply post-processing filters (changed-only, suppress, dedupe, sort)."""
     if (not baseline_mode) and getattr(args, "changed_only", False):
         all_findings = _filter_findings_to_changed_lines(cwd=cwd, findings=all_findings)
 
     suppressed_count = 0
     if getattr(args, "suppress_lint_noise", False):
         all_findings, suppressed_count = _suppress_lint_covered_findings(
-            project_dir=cwd,
-            findings=all_findings,
+            project_dir=cwd, findings=all_findings,
         )
 
     if getattr(args, "dedupe", False):
         all_findings = _dedupe_findings(all_findings)
 
     all_findings = _sort_findings(all_findings)
+    return all_findings, suppressed_count
 
+
+def _scan_build_result(
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    files_scanned: int,
+    baseline_ref: str,
+    *,
+    baseline_mode: bool,
+) -> dict:
+    """Categorize findings and build scan result dict."""
     blocks = [f for f in all_findings if f.get("severity") == "BLOCK"]
     warns = [f for f in all_findings if f.get("severity") == "WARN"]
     infos = [f for f in all_findings if f.get("severity") == "INFO"]
@@ -2607,7 +2913,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         if has_new_threshold:
             verdict = "BLOCK" if threshold == "BLOCK" else ("WARN" if threshold == "WARN" else verdict)
 
-    result = {
+    return {
         "verdict": verdict,
         "files_scanned": files_scanned,
         "total_findings": len(all_findings),
@@ -2620,7 +2926,53 @@ def cmd_scan(args: argparse.Namespace) -> int:
         "findings": all_findings,
     }
 
-    # --- Anonymous telemetry (best-effort, fire-and-forget) ---
+
+def _scan_telemetry_payload(
+    result: dict,
+    hallucinations_found: int,
+    start_time: float,
+    args: argparse.Namespace,
+    *,
+    baseline_mode: bool,
+) -> dict[str, object]:
+    """Build telemetry payload for scan_completed event."""
+    all_findings = result.get("findings", [])
+    drift = result.get("drift_score", {})
+    unique_rules = list({str(f.get("rule_id", "")) for f in all_findings if f.get("rule_id")})
+    return {
+        "scan_type": "static",
+        "files_scanned": int(result.get("files_scanned", 0) or 0),
+        "languages": {},
+        "total_findings": int(result.get("total_findings", 0) or 0),
+        "findings_by_severity": {
+            "BLOCK": int(result.get("blocks", 0) or 0),
+            "WARN": int(result.get("warnings", 0) or 0),
+            "INFO": int(result.get("infos", 0) or 0),
+        },
+        "rules_triggered": unique_rules[:_SCAN_MAX_RULES_TELEMETRY],
+        "layers_hit": [],
+        "trust_score": int(drift.get("score", 0) or 0),
+        "grade": str(drift.get("grade", "")),
+        "trend": str(drift.get("trend", "")),
+        "trend_delta": int(drift.get("delta", 0) or 0),
+        "hallucinations_found": hallucinations_found,
+        "scan_duration_ms": int((time.monotonic() - start_time) * 1000),
+        "used_baseline": bool(baseline_mode),
+        "used_dedupe": bool(getattr(args, "dedupe", False)),
+        "used_sarif_output": bool(getattr(args, "sarif", False) or getattr(args, "sarif_file", "")),
+        "used_json_output": bool(getattr(args, "json", False)),
+    }
+
+
+def _scan_emit_telemetry(
+    args: argparse.Namespace,
+    result: dict,
+    hallucinations_found: int,
+    start_time: float,
+    *,
+    baseline_mode: bool,
+) -> None:
+    """Emit scan_completed telemetry (best-effort, fire-and-forget)."""
     try:
         from importlib.metadata import version as _pkg_version
 
@@ -2631,31 +2983,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
     try:
         from src.telemetry_client import send_telemetry
 
-        unique_rules = list({str(f.get("rule_id", "")) for f in all_findings if f.get("rule_id")})
+        payload = _scan_telemetry_payload(
+            result, hallucinations_found, start_time, args,
+            baseline_mode=baseline_mode,
+        )
         send_telemetry(
             event_type="scan_completed",
             source="cli",
             version=pkg_version,
             cli_opt_out=bool(getattr(args, "no_telemetry", False)),
-            payload={
-                "scan_type": "static",
-                "files_scanned": files_scanned,
-                "languages": {},
-                "total_findings": len(all_findings),
-                "findings_by_severity": {"BLOCK": len(blocks), "WARN": len(warns), "INFO": len(infos)},
-                "rules_triggered": unique_rules[:50],
-                "layers_hit": [],
-                "trust_score": int(drift.get("score", 0) or 0),
-                "grade": str(drift.get("grade", "")),
-                "trend": str(drift.get("trend", "")),
-                "trend_delta": int(drift.get("delta", 0) or 0),
-                "hallucinations_found": hallucinations_found,
-                "scan_duration_ms": int((time.monotonic() - start_time) * 1000),
-                "used_baseline": bool(baseline_mode),
-                "used_dedupe": bool(getattr(args, "dedupe", False)),
-                "used_sarif_output": bool(getattr(args, "sarif", False) or getattr(args, "sarif_file", "")),
-                "used_json_output": bool(getattr(args, "json", False)),
-            },
+            payload=payload,
         )
     except Exception as exc:
         logger.debug(
@@ -2666,71 +3003,106 @@ def cmd_scan(args: argparse.Namespace) -> int:
             source="cli",
         )
 
-    # Human output (do not mix with machine-readable modes)
-    if not machine_output:
-        gates = _detect_verify_gates(cwd)
-        if gates:
-            gates_str = ", ".join(gates[:4]) + ("" if len(gates) <= 4 else ", …")
-            print(color(f"  🔒 Repo gates detected: {gates_str}", BLUE))
-            print(color("  Tip: run these gates before merging to reduce CI churn\n", BLUE))
 
-        if suppressed_count:
-            print(color(f"  🧹 Suppressed {suppressed_count} linter-covered finding(s) (opt-in)", BLUE))
-            print()
+def _scan_output_findings_by_severity(
+    blocks: list[dict], warns: list[dict], infos: list[dict],
+) -> None:
+    """Print findings grouped by severity for human output."""
+    if blocks:
+        _echo(color("  🚫 BLOCK — must fix:", RED))
+        for f in blocks:
+            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        _echo()
 
-        print(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
-        print(f"   Files: {files_scanned} | Findings: {len(all_findings)}")
-        print(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
+    if warns:
+        _echo(color("  ⚠️  WARN — should fix:", YELLOW))
+        for f in warns[:_SCAN_MAX_WARN_DISPLAY]:
+            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        if len(warns) > _SCAN_MAX_WARN_DISPLAY:
+            _echo(f"     ... and {len(warns) - _SCAN_MAX_WARN_DISPLAY} more")
+        _echo()
 
-        if blocks:
-            print(color("  🚫 BLOCK — must fix:", RED))
-            for f in blocks:
-                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-            print()
+    if infos:
+        _echo(color("  i  INFO:", BLUE))
+        for f in infos[:_SCAN_MAX_INFO_DISPLAY]:
+            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        if len(infos) > _SCAN_MAX_INFO_DISPLAY:
+            _echo(f"     ... and {len(infos) - _SCAN_MAX_INFO_DISPLAY} more")
+        _echo()
 
-        if warns:
-            print(color("  ⚠️  WARN — should fix:", YELLOW))
-            for f in warns[:20]:
-                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-            if len(warns) > 20:
-                print(f"     ... and {len(warns) - 20} more")
-            print()
+    if not blocks and not warns and not infos:
+        _echo(color("  ✅ PASS — no issues found\n", GREEN))
 
-        if infos:
-            print(color("  i  INFO:", BLUE))
-            for f in infos[:10]:
-                print(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-            if len(infos) > 10:
-                print(f"     ... and {len(infos) - 10} more")
-            print()
 
-        if not blocks and not warns and not infos:
-            print(color("  ✅ PASS — no issues found\n", GREEN))
+def _scan_output_human(
+    result: dict,
+    suppressed_count: int,
+    cwd: Path,
+) -> None:
+    """Render human-readable scan output to terminal."""
+    gates = _detect_verify_gates(cwd)
+    if gates:
+        gates_str = ", ".join(gates[:_SCAN_MAX_GATES_DISPLAY]) + (
+            "" if len(gates) <= _SCAN_MAX_GATES_DISPLAY else ", …"
+        )
+        _echo(color(f"  🔒 Repo gates detected: {gates_str}", BLUE))
+        _echo(color("  Tip: run these gates before merging to reduce CI churn\n", BLUE))
 
-    # JSON output (pure JSON on stdout)
+    if suppressed_count:
+        _echo(color(f"  🧹 Suppressed {suppressed_count} linter-covered finding(s) (opt-in)", BLUE))
+        _echo()
+
+    drift = result.get("drift_score", {})
+    _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
+    _echo(f"   Files: {result['files_scanned']} | Findings: {result['total_findings']}")
+    _echo(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
+
+    findings = result.get("findings", [])
+    blocks = [f for f in findings if f.get("severity") == "BLOCK"]
+    warns = [f for f in findings if f.get("severity") == "WARN"]
+    infos = [f for f in findings if f.get("severity") == "INFO"]
+    _scan_output_findings_by_severity(blocks, warns, infos)
+
+
+def _scan_output_machine(
+    args: argparse.Namespace,
+    result: dict,
+    all_findings: list[dict[str, str | int]],
+    *,
+    machine_output: bool,
+) -> None:
+    """Emit JSON and/or SARIF output."""
     if getattr(args, "json", False):
-        print(json.dumps(result, indent=2, default=str))
+        _echo(json.dumps(result, indent=2, default=str))
 
-    # SARIF output
     if getattr(args, "sarif", False) or getattr(args, "sarif_file", ""):
         sarif_doc = _findings_to_sarif(all_findings)
         sarif_json = json.dumps(sarif_doc, indent=2, default=str)
         if getattr(args, "sarif_file", ""):
             Path(args.sarif_file).write_text(sarif_json, encoding="utf-8")
             if not machine_output:
-                print(f"  SARIF written to {args.sarif_file}")
-        else:
-            # Pure SARIF to stdout (do not mix with JSON)
-            if not getattr(args, "json", False):
-                print(sarif_json)
+                _echo(f"  SARIF written to {args.sarif_file}")
+        elif not getattr(args, "json", False):
+            _echo(sarif_json)
 
-    def _should_fail(v: str, fail_on: str) -> bool:
-        if fail_on == "never":
-            return False
-        if fail_on == "block":
-            return v == "BLOCK"
-        return fail_on == "warn" and v in ("BLOCK", "WARN")
 
+def _scan_should_fail(verdict: str, fail_on: str) -> bool:
+    """Check if scan verdict meets the failure threshold."""
+    if fail_on == "never":
+        return False
+    if fail_on == "block":
+        return verdict == "BLOCK"
+    return fail_on == "warn" and verdict in ("BLOCK", "WARN")
+
+
+def _scan_exit_code(
+    verdict: str,
+    args: argparse.Namespace,
+    all_findings: list[dict[str, str | int]],
+    *,
+    baseline_mode: bool,
+) -> int:
+    """Compute the scan exit code based on verdict and settings."""
     if baseline_mode:
         threshold = str(getattr(args, "fail_on_new", "BLOCK"))
         fail = any(
@@ -2740,19 +3112,70 @@ def cmd_scan(args: argparse.Namespace) -> int:
         return 1 if fail else 0
 
     fail_on = str(getattr(args, "fail_on", "block"))
-    return 1 if _should_fail(verdict, fail_on) else 0
+    return 1 if _scan_should_fail(verdict, fail_on) else 0
+
+
+def _scan_parse_options(
+    args: argparse.Namespace,
+) -> tuple[list[str], bool, str, bool]:
+    """Extract scan options from parsed arguments."""
+    targets: list[str] = args.targets or ["."]
+    machine_output = bool(getattr(args, "json", False)) or (
+        bool(getattr(args, "sarif", False))
+        and not bool(getattr(args, "sarif_file", ""))
+    )
+    baseline_ref = str(getattr(args, "baseline", "") or "").strip()
+    baseline_mode = bool(baseline_ref)
+    return targets, machine_output, baseline_ref, baseline_mode
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    """Scan files for anti-patterns."""
+    start_time = time.monotonic()
+    targets, machine_output, baseline_ref, baseline_mode = _scan_parse_options(args)
+
+    if baseline_mode:
+        all_findings, files_scanned = _scan_baseline_collect(
+            targets, baseline_ref, args, machine_output=machine_output,
+        )
+    else:
+        all_findings, files_scanned = _scan_direct_collect(targets)
+
+    all_findings, hallucinations = _scan_verify_imports(
+        targets, all_findings, args, machine_output=machine_output,
+    )
+
+    cwd = Path.cwd()
+    all_findings, suppressed_count = _scan_post_process(
+        all_findings, args, cwd, baseline_mode=baseline_mode,
+    )
+
+    result = _scan_build_result(
+        all_findings, args, files_scanned, baseline_ref,
+        baseline_mode=baseline_mode,
+    )
+
+    _scan_emit_telemetry(
+        args, result, hallucinations, start_time,
+        baseline_mode=baseline_mode,
+    )
+
+    if not machine_output:
+        _scan_output_human(result, suppressed_count, cwd)
+
+    _scan_output_machine(args, result, all_findings, machine_output=machine_output)
+
+    return _scan_exit_code(
+        str(result["verdict"]), args, all_findings, baseline_mode=baseline_mode,
+    )
 
 
 # --- Status command ---
 
 
-def cmd_status(_args: argparse.Namespace) -> int:
-    """Check which enforcement layers are installed."""
-    project_dir = Path.cwd()
-
-    print(f"\n{color('🛡️  CodeTrust Status', BOLD)}\n")
-
-    checks = [
+def _status_collect_checks(project_dir: Path) -> list[tuple[str, bool]]:
+    """Collect enforcement layer status checks."""
+    return [
         ("CLAUDE.md", (project_dir / "CLAUDE.md").exists()),
         (".cursorrules", (project_dir / ".cursorrules").exists()),
         (
@@ -2766,36 +3189,45 @@ def cmd_status(_args: argparse.Namespace) -> int:
         ),
     ]
 
-    # Check core.hooksPath
-    hooks_path_set = False
+
+def _status_check_hooks_path(project_dir: Path) -> bool:
+    """Check if core.hooksPath is set to 'hooks'."""
     try:
         result = subprocess.run(
             ["git", "config", "core.hooksPath"],
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
+            capture_output=True, text=True, cwd=project_dir,
         )
-        hooks_path_set = result.returncode == 0 and result.stdout.strip() == "hooks"
+        return result.returncode == 0 and result.stdout.strip() == "hooks"
     except FileNotFoundError:
-        hooks_path_set = False  # git not found
+        return False
+
+
+def cmd_status(_args: argparse.Namespace) -> int:
+    """Check which enforcement layers are installed."""
+    project_dir = Path.cwd()
+
+    _echo(f"\n{color('🛡️  CodeTrust Status', BOLD)}\n")
+
+    checks = _status_collect_checks(project_dir)
+    hooks_path_set = _status_check_hooks_path(project_dir)
 
     all_ok = True
     for name, installed in checks:
         icon = color("✅", GREEN) if installed else color("❌", RED)
-        print(f"  {icon} {name}")
+        _echo(f"  {icon} {name}")
         if not installed:
             all_ok = False
 
     icon = color("✅", GREEN) if hooks_path_set else color("❌", RED)
-    print(f"  {icon} core.hooksPath = hooks")
+    _echo(f"  {icon} core.hooksPath = hooks")
     if not hooks_path_set:
         all_ok = False
 
-    print()
+    _echo()
     if all_ok:
-        print(color("  All enforcement layers active.\n", GREEN))
+        _echo(color("  All enforcement layers active.\n", GREEN))
     else:
-        print(f"  Run {color('codetrust init', BOLD)} to install missing layers.\n")
+        _echo(f"  Run {color('codetrust init', BOLD)} to install missing layers.\n")
 
     return 0 if all_ok else 1
 
@@ -2803,14 +3235,9 @@ def cmd_status(_args: argparse.Namespace) -> int:
 # --- Doctor command ---
 
 
-def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
-    """Install missing enforcement layers.
-
-    Returns a list of actions performed.
-    """
+def _doctor_fix_hooks(project_dir: Path, *, yes: bool) -> list[str]:
+    """Install/fix pre-commit hooks and hooksPath."""
     actions: list[str] = []
-
-    # 1) Ensure hooks/pre-commit exists
     hooks_dir = project_dir / "hooks"
     hooks_dir.mkdir(exist_ok=True)
 
@@ -2824,7 +3251,6 @@ def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
     except OSError:
         actions.append("Warning: could not chmod hooks/pre-commit")
 
-    # Legacy hook fallback
     git_dir = project_dir / ".git"
     if git_dir.is_dir():
         legacy_hook = git_dir / "hooks" / "pre-commit"
@@ -2836,46 +3262,50 @@ def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
         except OSError:
             actions.append("Warning: could not chmod .git/hooks/pre-commit")
 
-        # Activate version-controlled hooks
         try:
             subprocess.run(
                 ["git", "config", "core.hooksPath", "hooks"],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-                check=False,
+                cwd=project_dir, capture_output=True, text=True, check=False,
             )
             actions.append("Set git core.hooksPath=hooks")
         except Exception as exc:
             actions.append(f"Warning: could not set core.hooksPath ({exc})")
 
-    # 2) Ensure governance config
+    return actions
+
+
+def _doctor_fix_config_files(project_dir: Path, *, yes: bool) -> list[str]:
+    """Install missing config files (toml, workflows, cursorrules, CLAUDE.md)."""
+    actions: list[str] = []
+
     ct_toml = project_dir / ".codetrust.toml"
     wrote_toml = _write_text_file_safe(ct_toml, _load_template("codetrust.toml"), yes=yes)
     if wrote_toml:
         actions.append("Installed .codetrust.toml")
 
-    # 3) Ensure GitHub Action workflow
     wf = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
     wf.parent.mkdir(parents=True, exist_ok=True)
     wrote_wf = _write_text_file_safe(wf, _load_template("codetrust-scan.yml"), yes=yes)
     if wrote_wf:
         actions.append("Installed .github/workflows/codetrust-scan.yml")
 
-    # 4) Ensure .cursorrules
     cursorrules = project_dir / ".cursorrules"
     wrote_cursor = _write_text_file_safe(cursorrules, _load_template("cursorrules"), yes=yes)
     if wrote_cursor:
         actions.append("Installed .cursorrules")
 
-    # 5) Ensure CLAUDE.md (only if missing)
     claude_md = project_dir / "CLAUDE.md"
     if not claude_md.exists():
         wrote_claude = _write_text_file_safe(claude_md, _load_template("CLAUDE.md"), yes=yes)
         if wrote_claude:
             actions.append("Installed CLAUDE.md")
 
-    # 6) Ensure .gitignore contains CodeTrust patterns
+    return actions
+
+
+def _doctor_fix_gitignore(project_dir: Path) -> list[str]:
+    """Ensure .gitignore contains CodeTrust patterns."""
+    actions: list[str] = []
     gitignore = project_dir / ".gitignore"
     patterns_to_add = ["codetrust-report.md", ".codetrust/"]
     try:
@@ -2892,116 +3322,140 @@ def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
             actions.append("Updated .gitignore (CodeTrust patterns)")
     except OSError:
         actions.append("Warning: could not update .gitignore")
-
     return actions
 
 
-def cmd_doctor(args: argparse.Namespace) -> int:
-    """Run diagnostic checks on CodeTrust installation."""
-    print(f"\n{color('🛡️  CodeTrust Doctor', BOLD)}\n")
+def _doctor_fix(*, project_dir: Path, yes: bool) -> list[str]:
+    """Install missing enforcement layers.
 
-    issues: list[str] = []
-    project_dir = Path.cwd()
+    Returns a list of actions performed.
+    """
+    actions = _doctor_fix_hooks(project_dir, yes=yes)
+    actions.extend(_doctor_fix_config_files(project_dir, yes=yes))
+    actions.extend(_doctor_fix_gitignore(project_dir))
+    return actions
 
-    # 1. Check git
-    if not (project_dir / ".git").is_dir():
-        issues.append("Not a git repository")
 
-    # 1b. Check git hook activation (core.hooksPath)
-    hooks_path = ""
+def _doctor_check_hooks_path(project_dir: Path) -> str:
+    """Check core.hooksPath git config. Returns the path or empty string."""
     try:
         result = subprocess.run(
             ["git", "config", "core.hooksPath"],
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
+            capture_output=True, text=True, cwd=project_dir,
         )
-        hooks_path = result.stdout.strip() if result.returncode == 0 else ""
+        return result.stdout.strip() if result.returncode == 0 else ""
     except FileNotFoundError:
-        hooks_path = ""
+        return ""
 
-    hooks_path_set = hooks_path == "hooks"
-    if hooks_path_set:
-        print(f"  {color('✅', GREEN)} core.hooksPath = hooks")
-    else:
-        print(f"  {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
-        print(f"     Fix: {color('git config core.hooksPath hooks', BOLD)}")
 
-    # 2. Check CLAUDE.md has enforcement section
+def _doctor_check_claude_md(project_dir: Path) -> list[str]:
+    """Check CLAUDE.md status. Returns list of issues found."""
+    issues: list[str] = []
     claude_md = project_dir / "CLAUDE.md"
     if claude_md.exists():
         content = claude_md.read_text()
         if "codetrust" not in content.lower():
             issues.append("CLAUDE.md exists but doesn't mention CodeTrust")
-            print(f"  {color('⚠️', YELLOW)}  CLAUDE.md missing CodeTrust rules")
+            _echo(f"  {color('⚠️', YELLOW)}  CLAUDE.md missing CodeTrust rules")
         else:
-            print(f"  {color('✅', GREEN)} CLAUDE.md has CodeTrust enforcement")
+            _echo(f"  {color('✅', GREEN)} CLAUDE.md has CodeTrust enforcement")
     else:
         issues.append("CLAUDE.md not found")
-        print(f"  {color('❌', RED)} CLAUDE.md not found")
+        _echo(f"  {color('❌', RED)} CLAUDE.md not found")
+    return issues
 
-    # 3. Check hook is executable
+
+def _doctor_check_hook_file(project_dir: Path, hooks_path_set: bool) -> list[str]:
+    """Check pre-commit hook existence, executability, and legacy status."""
+    issues: list[str] = []
     hook = project_dir / "hooks" / "pre-commit"
     if hook.exists():
         if os.access(hook, os.X_OK):
-            print(f"  {color('✅', GREEN)} Pre-commit hook is executable")
+            _echo(f"  {color('✅', GREEN)} Pre-commit hook is executable")
         else:
             issues.append("Pre-commit hook not executable")
-            print(f"  {color('❌', RED)} Pre-commit hook not executable")
+            _echo(f"  {color('❌', RED)} Pre-commit hook not executable")
     else:
         issues.append("Pre-commit hook not found")
-        print(f"  {color('❌', RED)} Pre-commit hook not found")
+        _echo(f"  {color('❌', RED)} Pre-commit hook not found")
 
     legacy_hook = project_dir / ".git" / "hooks" / "pre-commit"
     if legacy_hook.exists() and not hooks_path_set:
-        print(f"  {color('⚠️', YELLOW)}  Legacy hook detected (.git/hooks/pre-commit)")
-        print(f"     Recommendation: {color('git config core.hooksPath hooks', BOLD)} (version-controlled hooks)")
+        _echo(f"  {color('⚠️', YELLOW)}  Legacy hook detected (.git/hooks/pre-commit)")
+        _echo(f"     Recommendation: {color('git config core.hooksPath hooks', BOLD)} (version-controlled hooks)")
     if hook.exists() and not hooks_path_set:
         issues.append("core.hooksPath not set to hooks (hook may not run)")
 
-    # 4. Test hook works
     if hook.exists() and os.access(hook, os.X_OK):
         result = subprocess.run(
             [sys.executable, str(hook)],
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
+            capture_output=True, text=True, cwd=project_dir,
         )
         if result.returncode == 0:
-            print(f"  {color('✅', GREEN)} Pre-commit hook runs successfully")
+            _echo(f"  {color('✅', GREEN)} Pre-commit hook runs successfully")
         else:
-            print(f"  {color('⚠️', YELLOW)}  Pre-commit hook returned exit code {result.returncode}")
+            _echo(f"  {color('⚠️', YELLOW)}  Pre-commit hook returned exit code {result.returncode}")
 
-    # 5. Check GitHub Action
-    action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
-    if action.exists():
-        print(f"  {color('✅', GREEN)} GitHub Action workflow exists")
-    else:
-        issues.append("GitHub Action not found")
-        print(f"  {color('❌', RED)} GitHub Action not found")
+    return issues
 
-    print()
-    if not issues:
-        print(color("  All checks passed. CodeTrust is fully operational.\n", GREEN))
-        return 0
 
+def _doctor_handle_issues(
+    args: argparse.Namespace, issues: list[str], project_dir: Path,
+) -> int:
+    """Handle doctor issues: fix or report."""
     if getattr(args, "fix", False):
         yes = bool(getattr(args, "yes", False))
         actions = _doctor_fix(project_dir=project_dir, yes=yes)
         if actions:
-            print(color("  Applied fixes:", GREEN))
+            _echo(color("  Applied fixes:", GREEN))
             for a in actions:
-                print(f"    - {a}")
-            print()
+                _echo(f"    - {a}")
+            _echo()
         else:
-            print(color("  No safe fixes applied.", YELLOW))
-            print()
+            _echo(color("  No safe fixes applied.", YELLOW))
+            _echo()
 
-        print(color("  Re-checking...\n", BLUE))
+        _echo(color("  Re-checking...\n", BLUE))
         return cmd_doctor(argparse.Namespace(fix=False, yes=False))
 
-    print(f"  {len(issues)} issue(s) found. Run {color('codetrust doctor --fix', BOLD)} to install missing layers.\n")
+    _echo(f"  {len(issues)} issue(s) found. Run {color('codetrust doctor --fix', BOLD)} to install missing layers.\n")
     return 1
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Run diagnostic checks on CodeTrust installation."""
+    _echo(f"\n{color('🛡️  CodeTrust Doctor', BOLD)}\n")
+
+    issues: list[str] = []
+    project_dir = Path.cwd()
+
+    if not (project_dir / ".git").is_dir():
+        issues.append("Not a git repository")
+
+    hooks_path = _doctor_check_hooks_path(project_dir)
+    hooks_path_set = hooks_path == "hooks"
+    if hooks_path_set:
+        _echo(f"  {color('✅', GREEN)} core.hooksPath = hooks")
+    else:
+        _echo(f"  {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
+        _echo(f"     Fix: {color('git config core.hooksPath hooks', BOLD)}")
+
+    issues.extend(_doctor_check_claude_md(project_dir))
+    issues.extend(_doctor_check_hook_file(project_dir, hooks_path_set))
+
+    action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
+    if action.exists():
+        _echo(f"  {color('✅', GREEN)} GitHub Action workflow exists")
+    else:
+        issues.append("GitHub Action not found")
+        _echo(f"  {color('❌', RED)} GitHub Action not found")
+
+    _echo()
+    if not issues:
+        _echo(color("  All checks passed. CodeTrust is fully operational.\n", GREEN))
+        return 0
+
+    return _doctor_handle_issues(args, issues, project_dir)
 
 
 # --- PR risk command ---
@@ -3015,41 +3469,118 @@ def cmd_pr_risk(args: argparse.Namespace) -> int:
 
     if getattr(args, "json", False):
         payload = {**risk, "staged": staged}
-        print(json.dumps(payload, indent=2, default=str))
+        _echo(json.dumps(payload, indent=2, default=str))
         return 0
 
-    print(f"\n{color('📡 CodeTrust PR Risk Radar', BOLD)}")
+    _echo(f"\n{color('📡 CodeTrust PR Risk Radar', BOLD)}")
     scope = "staged changes" if staged else "working tree vs HEAD"
-    print(f"   Scope: {scope}")
-    print(f"   Changed files: {int(risk.get('changed_files_count', 0) or 0)}")
-    print(f"   Changed lines: {int(risk.get('changed_lines', 0) or 0)}")
-    print(f"   Risk: {risk['level']} ({risk['score']}/{PR_RISK_MAX_SCORE})\n")
+    _echo(f"   Scope: {scope}")
+    _echo(f"   Changed files: {int(risk.get('changed_files_count', 0) or 0)}")
+    _echo(f"   Changed lines: {int(risk.get('changed_lines', 0) or 0)}")
+    _echo(f"   Risk: {risk['level']} ({risk['score']}/{PR_RISK_MAX_SCORE})\n")
 
     eps = risk.get("touched_endpoints", [])
     if isinstance(eps, list) and eps:
-        print(color("  Touched endpoints:", BLUE))
+        _echo(color("  Touched endpoints:", BLUE))
         for ep in eps[:8]:
-            print(f"    - {ep}")
+            _echo(f"    - {ep}")
         if len(eps) > 8:
-            print(f"    ... and {len(eps) - 8} more")
-        print()
+            _echo(f"    ... and {len(eps) - 8} more")
+        _echo()
 
     signals = risk.get("signals", [])
     if isinstance(signals, list) and signals:
-        print(color("  Top signals:", BLUE))
+        _echo(color("  Top signals:", BLUE))
         for s in signals[:6]:
             label = str(s.get("label", ""))
             points = int(s.get("points", 0) or 0)
-            print(f"    - +{points}: {label}")
-        print()
+            _echo(f"    - +{points}: {label}")
+        _echo()
     else:
-        print(color("  No high-risk touchpoints detected from file paths.", GREEN))
-        print()
+        _echo(color("  No high-risk touchpoints detected from file paths.", GREEN))
+        _echo()
 
     return 0
 
 
 # --- Governance command ---
+
+
+def _governance_show_setup(project_dir: Path) -> int:
+    """Display MCP gateway setup instructions."""
+    _echo(f"\n{color('🛡️  CodeTrust Gateway — MCP Setup', BOLD)}\n")
+    _echo("  Add to your AI client's MCP configuration:\n")
+    _echo(f"  {color('Claude Desktop', BOLD)} (~/.claude/claude_desktop_config.json):\n")
+    _echo('  {')
+    _echo('    "mcpServers": {')
+    _echo('      "codetrust-gateway": {')
+    _echo('        "command": "python",')
+    _echo('        "args": ["-m", "src.gateway.server"],')
+    _echo(f'        "cwd": "{project_dir}"')
+    _echo('      }')
+    _echo('    }')
+    _echo('  }\n')
+    _echo(f"  {color('Cursor', BOLD)} (.cursorrules already installed):\n")
+    _echo("  The gateway works alongside .cursorrules enforcement.")
+    _echo("  For full interception, add the MCP server config above.\n")
+    _echo(f"  {color('Configuration', BOLD)}:\n")
+    _echo("    Config file:  .codetrust.toml")
+    _echo("    Audit log:    .codetrust/audit.jsonl")
+    _echo("    Env override: CODETRUST_GOVERNANCE_MODE=enforce|audit|off\n")
+    return 0
+
+
+def _governance_set_mode(project_dir: Path, mode: str) -> int:
+    """Set governance mode in .codetrust.toml."""
+    toml_path = project_dir / ".codetrust.toml"
+    if not toml_path.is_file():
+        _echo(f"  {color('❌', RED)} No .codetrust.toml found. Run: codetrust init")
+        return 1
+    content = toml_path.read_text()
+    import re as _re
+
+    content = _re.sub(r'mode\s*=\s*"[^"]*"', f'mode = "{mode}"', content)
+    toml_path.write_text(content)
+    _echo(f"  {color('✅', GREEN)} Governance mode set to: {mode}")
+    return 0
+
+
+def _governance_show_status(engine: PolicyEngine) -> int:
+    """Display current governance status and policies."""
+    config = engine.config
+    policies = engine.get_policies()
+    enabled = sum(1 for p in policies if p.enabled)
+    disabled = sum(1 for p in policies if not p.enabled)
+
+    _echo(f"\n{color('🛡️  CodeTrust Governance Status', BOLD)}\n")
+    _echo(f"  Mode:     {color(config.mode.value.upper(), GREEN if config.mode.value == 'enforce' else YELLOW)}")
+    _echo(f"  Enabled:  {config.enabled}")
+    _echo(f"  Policies: {enabled} active, {disabled} disabled")
+    _echo(f"  Audit:    {config.audit_path}")
+    _echo()
+
+    _echo(f"  {color('Terminal Policies:', BOLD)}")
+    terminal_flags = {
+        "Heredoc":       config.block_heredoc,
+        "Eval":          config.block_eval,
+        "Sudo su":       config.block_sudo,
+        "rm -rf /":      config.block_rm_rf,
+        "curl|sh":       config.block_curl_pipe_sh,
+        "git push":      config.block_git_push,
+        "chmod " + "777":  config.block_chmod_777,
+    }
+    for name, enabled_flag in terminal_flags.items():
+        icon = color("✅", GREEN) if enabled_flag else color("⚪", BLUE)
+        _echo(f"    {icon} {name}")
+
+    _echo()
+    if config.protected_paths:
+        _echo(f"  {color('Protected Files:', BOLD)}")
+        for p in config.protected_paths:
+            _echo(f"    🔒 {p}")
+        _echo()
+
+    return 0
 
 
 def cmd_governance(args: argparse.Namespace) -> int:
@@ -3060,82 +3591,79 @@ def cmd_governance(args: argparse.Namespace) -> int:
     engine = PolicyEngine.from_workspace(str(project_dir))
 
     if args.setup:
-        print(f"\n{color('🛡️  CodeTrust Gateway — MCP Setup', BOLD)}\n")
-        print("  Add to your AI client's MCP configuration:\n")
-        print(f"  {color('Claude Desktop', BOLD)} (~/.claude/claude_desktop_config.json):\n")
-        print('  {')
-        print('    "mcpServers": {')
-        print('      "codetrust-gateway": {')
-        print('        "command": "python",')
-        print('        "args": ["-m", "src.gateway.server"],')
-        print(f'        "cwd": "{project_dir}"')
-        print('      }')
-        print('    }')
-        print('  }\n')
-        print(f"  {color('Cursor', BOLD)} (.cursorrules already installed):\n")
-        print("  The gateway works alongside .cursorrules enforcement.")
-        print("  For full interception, add the MCP server config above.\n")
-        print(f"  {color('Configuration', BOLD)}:\n")
-        print("    Config file:  .codetrust.toml")
-        print("    Audit log:    .codetrust/audit.jsonl")
-        print("    Env override: CODETRUST_GOVERNANCE_MODE=enforce|audit|off\n")
-        return 0
+        return _governance_show_setup(project_dir)
 
     if args.mode:
-        toml_path = project_dir / ".codetrust.toml"
-        if toml_path.is_file():
-            content = toml_path.read_text()
-            import re as _re
-            content = _re.sub(
-                r'mode\s*=\s*"[^"]*"',
-                f'mode = "{args.mode}"',
-                content,
-            )
-            toml_path.write_text(content)
-            print(f"  {color('✅', GREEN)} Governance mode set to: {args.mode}")
-        else:
-            print(f"  {color('❌', RED)} No .codetrust.toml found. Run: codetrust init")
-            return 1
-        return 0
+        return _governance_set_mode(project_dir, args.mode)
 
-    # Default: show status
-    config = engine.config
-    policies = engine.get_policies()
-    enabled = sum(1 for p in policies if p.enabled)
-    disabled = sum(1 for p in policies if not p.enabled)
-
-    print(f"\n{color('🛡️  CodeTrust Governance Status', BOLD)}\n")
-    print(f"  Mode:     {color(config.mode.value.upper(), GREEN if config.mode.value == 'enforce' else YELLOW)}")
-    print(f"  Enabled:  {config.enabled}")
-    print(f"  Policies: {enabled} active, {disabled} disabled")
-    print(f"  Audit:    {config.audit_path}")
-    print()
-
-    print(f"  {color('Terminal Policies:', BOLD)}")
-    terminal_flags = {
-        "Heredoc":       config.block_heredoc,
-        "Eval":          config.block_eval,
-        "Sudo su":       config.block_sudo,
-        "rm -rf /":      config.block_rm_rf,
-        "curl|sh":       config.block_curl_pipe_sh,
-        "git push":      config.block_git_push,
-        "chmod 777":     config.block_chmod_777,
-    }
-    for name, enabled_flag in terminal_flags.items():
-        icon = color("✅", GREEN) if enabled_flag else color("⚪", BLUE)
-        print(f"    {icon} {name}")
-
-    print()
-    if config.protected_paths:
-        print(f"  {color('Protected Files:', BOLD)}")
-        for p in config.protected_paths:
-            print(f"    🔒 {p}")
-        print()
-
-    return 0
+    return _governance_show_status(engine)
 
 
 # --- Audit command ---
+
+
+def _audit_handle_purge(audit: AuditLogger, retention: int) -> int:
+    """Purge old audit entries."""
+    purged = audit.purge(older_than_days=retention)
+    remaining = audit.entry_count()
+    _echo(f"Purged {purged} entries older than {retention} days. {remaining} entries remaining.")
+    return 0
+
+
+def _audit_handle_stats(audit: AuditLogger) -> int:
+    """Display audit statistics."""
+    stats = audit.get_stats()
+    _echo(f"\n{color('📊 Audit Statistics', BOLD)}\n")
+    if stats["total"] == 0:
+        _echo("  No audit entries found.\n")
+        return 0
+    _echo(f"  Total actions: {stats['total']}")
+    for verdict, count in stats.get("by_verdict", {}).items():
+        v_color = RED if verdict == "BLOCK" else (YELLOW if verdict == "WARN" else GREEN)
+        _echo(f"  {color(verdict, v_color)}: {count}")
+    if stats.get("top_rules"):
+        _echo(f"\n  {color('Top Triggered Rules:', BOLD)}")
+        for rule in stats["top_rules"][:_AUDIT_TOP_RULES_DISPLAY]:
+            _echo(f"    {rule['rule_id']}: {rule['count']}x")
+    _echo()
+    return 0
+
+
+def _audit_show_entries(args: argparse.Namespace, entries: list[AuditEntry]) -> int:
+    """Display or export audit entries."""
+    import time as _time
+
+    fmt = getattr(args, "format", "table")
+    if fmt != "table":
+        from src.gateway.siem import SiemFormat, export_entries, export_to_file
+
+        siem_fmt = SiemFormat(fmt)
+        if args.export:
+            count = export_to_file(entries, siem_fmt, args.export)
+            _echo(f"Exported {count} entries to {args.export} ({fmt})")
+            return 0
+        for line in export_entries(entries, siem_fmt):
+            _echo(line)
+        return 0
+
+    _echo(f"\n{color(f'📋 Audit Log — Last {args.hours} Hours', BOLD)}\n")
+
+    if not entries:
+        _echo("  No entries found.\n")
+        return 0
+
+    for entry in entries:
+        ts = _time.strftime("%H:%M:%S", _time.localtime(entry.timestamp))
+        v_color = RED if entry.verdict == "BLOCK" else (YELLOW if entry.verdict == "WARN" else GREEN)
+        verdict_str = color(entry.verdict.ljust(5), v_color)
+        action = entry.original_action[:70]
+        if len(entry.original_action) > 70:
+            action += "..."
+        rule = entry.rule_id or "-"
+        _echo(f"  {ts}  {verdict_str}  {rule.ljust(28)}  {action}")
+
+    _echo(f"\n  Showing {len(entries)} entries.\n")
+    return 0
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -3153,100 +3681,51 @@ def cmd_audit(args: argparse.Namespace) -> int:
     )
 
     if getattr(args, "purge", False):
-        retention = engine.config.retention_days
-        purged = audit.purge(older_than_days=retention)
-        remaining = audit.entry_count()
-        print(f"Purged {purged} entries older than {retention} days. {remaining} entries remaining.")
-        return 0
+        return _audit_handle_purge(audit, engine.config.retention_days)
 
     if args.stats:
-        stats = audit.get_stats()
-        print(f"\n{color('📊 Audit Statistics', BOLD)}\n")
-        if stats["total"] == 0:
-            print("  No audit entries found.\n")
-            return 0
-        print(f"  Total actions: {stats['total']}")
-        for verdict, count in stats.get("by_verdict", {}).items():
-            v_color = RED if verdict == "BLOCK" else (YELLOW if verdict == "WARN" else GREEN)
-            print(f"  {color(verdict, v_color)}: {count}")
-        if stats.get("top_rules"):
-            print(f"\n  {color('Top Triggered Rules:', BOLD)}")
-            for rule in stats["top_rules"][:5]:
-                print(f"    {rule['rule_id']}: {rule['count']}x")
-        print()
-        return 0
+        return _audit_handle_stats(audit)
 
-    # Show recent entries
-    since = _time.time() - (args.hours * 3600)
+    since = _time.time() - (args.hours * _SECONDS_PER_HOUR)
     entries = audit.get_entries(
         since=since,
         verdict=args.verdict,
-        limit=50,
+        limit=_AUDIT_ENTRY_LIMIT,
     )
 
-    # SIEM export path
-    fmt = getattr(args, "format", "table")
-    if fmt != "table":
-        from src.gateway.siem import SiemFormat, export_entries, export_to_file
-
-        siem_fmt = SiemFormat(fmt)
-        if args.export:
-            count = export_to_file(entries, siem_fmt, args.export)
-            print(f"Exported {count} entries to {args.export} ({fmt})")
-            return 0
-        for line in export_entries(entries, siem_fmt):
-            print(line)
-        return 0
-
-    print(f"\n{color(f'📋 Audit Log — Last {args.hours} Hours', BOLD)}\n")
-
-    if not entries:
-        print("  No entries found.\n")
-        return 0
-
-    for entry in entries:
-        ts = _time.strftime("%H:%M:%S", _time.localtime(entry.timestamp))
-        v_color = RED if entry.verdict == "BLOCK" else (YELLOW if entry.verdict == "WARN" else GREEN)
-        verdict_str = color(entry.verdict.ljust(5), v_color)
-        action = entry.original_action[:70]
-        if len(entry.original_action) > 70:
-            action += "..."
-        rule = entry.rule_id or "-"
-        print(f"  {ts}  {verdict_str}  {rule.ljust(28)}  {action}")
-
-    print(f"\n  Showing {len(entries)} entries.\n")
-    return 0
+    return _audit_show_entries(args, entries)
 
 
 # --- Main ---
 
 
-def main() -> int:
-    """CLI entry point."""
+def _create_main_parser() -> argparse.ArgumentParser:
+    """Create the top-level CLI argument parser."""
     parser = argparse.ArgumentParser(
         prog="codetrust",
         description="CodeTrust — AI code verification. Install, scan, enforce.",
     )
-
     parser.add_argument(
         "--no-telemetry",
         action="store_true",
         help="Disable anonymous telemetry (also supports CODETRUST_TELEMETRY=0)",
     )
-    subparsers = parser.add_subparsers(dest="command")
+    return parser
 
-    # init
+
+def _add_init_and_add_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'init' and 'add' subcommands."""
     init_parser = subparsers.add_parser("init", help="Install enforcement layers")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
 
-    # add
     add_parser = subparsers.add_parser(
         "add",
         help="Add CodeTrust repo bootstrap files (.vscode/.devcontainer/CONTRIBUTING)",
     )
     add_parser.add_argument(
-        "--settings",
-        action="store_true",
+        "--settings", action="store_true",
         help="Also write .vscode/settings.json defaults (only missing keys)",
     )
     add_parser.add_argument(
@@ -3256,123 +3735,104 @@ def main() -> int:
         help="Stack presets to apply when writing settings.json (default: auto-detect)",
     )
     add_parser.add_argument(
-        "--devcontainer",
-        action="store_true",
+        "--devcontainer", action="store_true",
         help="Also write/merge .devcontainer/devcontainer.json",
     )
     add_parser.add_argument(
-        "--contributing",
-        action="store_true",
+        "--contributing", action="store_true",
         help="Also append a CodeTrust section to CONTRIBUTING.md (if present)",
     )
-    add_parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Overwrite/merge without prompting",
-    )
+    add_parser.add_argument("--yes", action="store_true", help="Overwrite/merge without prompting")
 
-    # scan
+
+def _add_scan_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register the 'scan' subcommand with all its options."""
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
     scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
     scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")
     scan_parser.add_argument(
-        "--fail-on",
-        dest="fail_on",
-        choices=["never", "warn", "block"],
-        default="block",
-        help="Exit non-zero when verdict meets threshold (default: block)",
+        "--fail-on", dest="fail_on", choices=["never", "warn", "block"],
+        default="block", help="Exit non-zero when verdict meets threshold (default: block)",
     )
     scan_parser.add_argument(
-        "--no-verify-imports",
-        action="store_true",
+        "--no-verify-imports", action="store_true",
         help="Skip live registry verification of imports",
     )
     scan_parser.add_argument(
-        "--changed-only",
-        action="store_true",
+        "--changed-only", action="store_true",
         help="Only report findings that fall on changed lines (uses git diff)",
     )
     scan_parser.add_argument(
-        "--baseline",
-        type=str,
-        default="",
+        "--baseline", type=str, default="",
         help="Baseline git ref (e.g. origin/main). When set, gates on new findings vs baseline and scans only files changed against that ref.",
     )
     scan_parser.add_argument(
-        "--fail-on-new",
-        dest="fail_on_new",
-        choices=["INFO", "WARN", "BLOCK"],
+        "--fail-on-new", dest="fail_on_new", choices=["INFO", "WARN", "BLOCK"],
         default="BLOCK",
         help="Exit non-zero if NEW findings include this severity or higher (requires --baseline). Default: BLOCK.",
     )
     scan_parser.add_argument(
-        "--dedupe",
-        action="store_true",
-        help="Dedupe identical findings for noise control",
+        "--dedupe", action="store_true", help="Dedupe identical findings for noise control",
     )
     scan_parser.add_argument(
-        "--suppress-lint-noise",
-        dest="suppress_lint_noise",
-        action="store_true",
+        "--suppress-lint-noise", dest="suppress_lint_noise", action="store_true",
         help="Suppress findings commonly covered by existing linters (opt-in)",
     )
 
-    # fix
+
+def _add_fix_vuln_license_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'fix', 'vuln', and 'license' subcommands."""
     fix_parser = subparsers.add_parser("fix", help="Apply safe deterministic autofix recipes")
     fix_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
-    fix_parser.add_argument(
-        "--apply",
-        action="store_true",
-        help="Write changes to disk (default: preview only)",
-    )
-    fix_parser.add_argument(
-        "--pr",
-        action="store_true",
-        help="Create a GitHub PR with the fixes (requires CODETRUST_GITHUB_TOKEN)",
-    )
+    fix_parser.add_argument("--apply", action="store_true", help="Write changes to disk (default: preview only)")
+    fix_parser.add_argument("--pr", action="store_true", help="Create a GitHub PR with the fixes (requires CODETRUST_GITHUB_TOKEN)")
     fix_parser.add_argument("--github-owner", default="", help="GitHub repo owner for --pr")
     fix_parser.add_argument("--github-repo", default="", help="GitHub repo name for --pr")
     fix_parser.add_argument("--github-branch", default="main", help="Base branch for --pr")
 
-    # vuln — vulnerability scanning
     vuln_parser = subparsers.add_parser("vuln", help="Scan dependencies for known vulnerabilities (CVE/GHSA)")
     vuln_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories to scan")
     vuln_parser.add_argument("--language", "-l", default="", help="Language (python, javascript, go, rust, java, csharp)")
     vuln_parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
 
-    # license — license compliance
     license_parser = subparsers.add_parser("license", help="Check dependency licenses for compliance")
     license_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories to scan")
     license_parser.add_argument("--language", "-l", default="", help="Language (python, javascript)")
     license_parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
 
-    # status
+
+def _add_utility_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'status', 'doctor', 'pr-risk', and 'trust-diff' subcommands."""
     subparsers.add_parser("status", help="Check installed enforcement layers")
 
-    # doctor
     doctor_parser = subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
     doctor_parser.add_argument(
-        "--fix",
-        action="store_true",
+        "--fix", action="store_true",
         help="Install missing enforcement layers (safe; no overwrite without confirmation)",
     )
     doctor_parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Apply fixes without prompting (when safe)",
+        "--yes", action="store_true", help="Apply fixes without prompting (when safe)",
     )
 
-    # pr-risk
     pr_parser = subparsers.add_parser("pr-risk", help="Estimate PR risk based on changed files")
     pr_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # trust-diff
     td_parser = subparsers.add_parser("trust-diff", help="Compare trust/drift between HEAD and current changes")
     td_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # trend
+
+def _add_trend_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'trend' subcommand with show/record sub-commands."""
     trend_parser = subparsers.add_parser("trend", help="Record/show drift trend snapshots")
     trend_sub = trend_parser.add_subparsers(dest="subcommand")
 
@@ -3384,63 +3844,59 @@ def main() -> int:
     trend_record.add_argument("targets", nargs="*", default=["."], help="Files or directories")
     trend_record.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # governance
+
+def _add_governance_policy_audit_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'governance', 'policy', and 'audit' subcommands."""
     gov_parser = subparsers.add_parser("governance", help="Manage AI governance policies")
     gov_parser.add_argument("--setup", action="store_true", help="Show MCP gateway setup instructions")
     gov_parser.add_argument("--status", action="store_true", help="Show current governance status")
     gov_parser.add_argument("--mode", choices=["enforce", "audit", "off"], help="Set governance mode")
 
-    # policy
     policy_parser = subparsers.add_parser("policy", help="Policy wizard for governance config")
     policy_sub = policy_parser.add_subparsers(dest="subcommand")
     policy_wizard = policy_sub.add_parser("wizard", help="Generate policy presets + config autocomplete")
     policy_wizard.add_argument(
-        "--profile",
-        choices=list(POLICY_PROFILE_CHOICES),
-        default=POLICY_DEFAULT_PROFILE,
+        "--profile", choices=list(POLICY_PROFILE_CHOICES), default=POLICY_DEFAULT_PROFILE,
         help="Policy preset: startup|team|enterprise (default: team)",
     )
     policy_wizard.add_argument(
-        "--pyproject",
-        choices=["auto", "skip", "force"],
-        default="auto",
+        "--pyproject", choices=["auto", "skip", "force"], default="auto",
         help="Sync into pyproject.toml [tool.codetrust]: auto|skip|force (default: auto)",
     )
-    policy_wizard.add_argument(
-        "--yes",
-        action="store_true",
-        help="Overwrite/update without prompting",
-    )
+    policy_wizard.add_argument("--yes", action="store_true", help="Overwrite/update without prompting")
 
-    # audit
+    _add_audit_subparser(subparsers)
+
+
+def _add_audit_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'audit' subcommand."""
     audit_parser = subparsers.add_parser("audit", help="Query governance audit log")
     audit_parser.add_argument("--hours", type=int, default=24, help="Hours to look back (default: 24)")
     audit_parser.add_argument("--verdict", choices=["ALLOW", "WARN", "BLOCK"], help="Filter by verdict")
     audit_parser.add_argument("--stats", action="store_true", help="Show aggregate statistics")
     audit_parser.add_argument(
-        "--format",
-        choices=["table", "cef", "leef", "syslog", "json"],
-        default="table",
-        help="Output format: table (default), cef, leef, syslog, json",
+        "--format", choices=["table", "cef", "leef", "syslog", "json"],
+        default="table", help="Output format: table (default), cef, leef, syslog, json",
     )
     audit_parser.add_argument(
-        "--export",
-        type=str,
-        default="",
+        "--export", type=str, default="",
         help="Export audit entries to file in the chosen --format",
     )
     audit_parser.add_argument(
-        "--purge",
-        action="store_true",
+        "--purge", action="store_true",
         help="Purge entries older than retention_days (default: 90 days)",
     )
 
-    args = parser.parse_args()
 
+def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Route parsed CLI args to the appropriate command handler."""
     if args.command == "init":
         return cmd_init(args)
     if args.command == "add":
-        # default to full bootstrap when no specific targets requested
         if not args.devcontainer and not args.contributing:
             args.devcontainer = True
             args.contributing = True
@@ -3474,6 +3930,22 @@ def main() -> int:
 
     parser.print_help()
     return 0
+
+
+def main() -> int:
+    """CLI entry point."""
+    parser = _create_main_parser()
+    subparsers = parser.add_subparsers(dest="command")
+
+    _add_init_and_add_subparsers(subparsers)
+    _add_scan_subparser(subparsers)
+    _add_fix_vuln_license_subparsers(subparsers)
+    _add_utility_subparsers(subparsers)
+    _add_trend_subparser(subparsers)
+    _add_governance_policy_audit_subparsers(subparsers)
+
+    args = parser.parse_args()
+    return _route_command(args, parser)
 
 
 if __name__ == "__main__":

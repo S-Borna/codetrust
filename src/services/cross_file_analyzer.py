@@ -261,6 +261,53 @@ class CrossFileAnalyzer:
         """Initialize the analyzer."""
         self._graph = ImportGraph()
 
+    def _detect_file_languages(
+        self,
+        file_contents: dict[str, str],
+        file_languages: dict[str, Language] | None,
+    ) -> dict[str, Language]:
+        """Detect languages for files, using provided map or extension-based detection."""
+        languages: dict[str, Language] = {}
+        for filepath in file_contents:
+            if file_languages and filepath in file_languages:
+                languages[filepath] = file_languages[filepath]
+            else:
+                lang = detect_language_from_extension(filepath)
+                if lang is not None:
+                    languages[filepath] = lang
+        return languages
+
+    def _build_graph_and_analyze(
+        self,
+        file_contents: dict[str, str],
+        languages: dict[str, Language],
+    ) -> CrossFileAnalysisResponse:
+        """Build the import graph, detect cycles, and compute metrics."""
+        import time
+        start = time.monotonic()
+
+        self._graph.files = set(file_contents.keys())
+        for filepath, content in file_contents.items():
+            lang = languages.get(filepath)
+            if lang is None:
+                continue
+            self._extract_and_link(filepath, content, lang, file_contents)
+
+        self._detect_cycles()
+        orphans = self._find_orphans()
+        hubs = self._find_hubs()
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        return CrossFileAnalysisResponse(
+            total_files=len(file_contents),
+            total_edges=self._graph.total_edges,
+            circular_dependencies=self._graph.circular_deps,
+            orphan_files=orphans,
+            hub_files=hubs,
+            cross_file_findings=[],
+            latency_ms=elapsed_ms,
+        )
+
     def analyze_project(
         self,
         file_contents: dict[str, str],
@@ -276,9 +323,6 @@ class CrossFileAnalyzer:
         Returns:
             CrossFileAnalysisResponse with graph analysis results.
         """
-        import time
-        start = time.monotonic()
-
         self._graph = ImportGraph()
 
         if len(file_contents) > MAX_FILES:
@@ -287,49 +331,10 @@ class CrossFileAnalyzer:
                 count=len(file_contents),
                 limit=MAX_FILES,
             )
-            # Truncate to first MAX_FILES.
             file_contents = dict(list(file_contents.items())[:MAX_FILES])
 
-        # Detect languages if not provided.
-        languages: dict[str, Language] = {}
-        for filepath in file_contents:
-            if file_languages and filepath in file_languages:
-                languages[filepath] = file_languages[filepath]
-            else:
-                lang = detect_language_from_extension(filepath)
-                if lang is not None:
-                    languages[filepath] = lang
-
-        # Register all files.
-        self._graph.files = set(file_contents.keys())
-
-        # Extract imports and build edges.
-        for filepath, content in file_contents.items():
-            lang = languages.get(filepath)
-            if lang is None:
-                continue
-            self._extract_and_link(filepath, content, lang, file_contents)
-
-        # Detect circular dependencies.
-        self._detect_cycles()
-
-        # Identify orphan files.
-        orphans = self._find_orphans()
-
-        # Identify hub files.
-        hubs = self._find_hubs()
-
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-
-        return CrossFileAnalysisResponse(
-            total_files=len(file_contents),
-            total_edges=self._graph.total_edges,
-            circular_dependencies=self._graph.circular_deps,
-            orphan_files=orphans,
-            hub_files=hubs,
-            cross_file_findings=[],
-            latency_ms=elapsed_ms,
-        )
+        languages = self._detect_file_languages(file_contents, file_languages)
+        return self._build_graph_and_analyze(file_contents, languages)
 
     def propagate_findings(
         self,
@@ -599,6 +604,29 @@ class CrossFileAnalyzer:
         hubs.sort(key=lambda h: int(h["importers"]), reverse=True)
         return hubs[:20]
 
+    def _create_propagated_finding(
+        self,
+        source_file: str,
+        current_file: str,
+        importer: str,
+        finding: dict[str, str | int],
+        chain: list[str],
+    ) -> CrossFileFinding:
+        """Create a single propagated finding for a transitive import."""
+        return CrossFileFinding(
+            rule_id=f"cross-file:{finding.get('rule_id', 'unknown')}",
+            severity=Severity.WARN,
+            message=(
+                f"Transitive risk: {importer} imports {current_file} "
+                f"which has {finding.get('rule_id', 'issue')}: "
+                f"{finding.get('message', '')}"
+            ),
+            source_file=source_file,
+            source_line=int(finding.get("line", 0)),
+            propagated_to=importer,
+            propagation_chain=list(chain),
+        )
+
     def _propagate_dfs(
         self,
         source_file: str,
@@ -619,20 +647,11 @@ class CrossFileAnalyzer:
             if importer in visited:
                 continue
 
-            propagated.append(CrossFileFinding(
-                rule_id=f"cross-file:{finding.get('rule_id', 'unknown')}",
-                severity=Severity.WARN,
-                message=(
-                    f"Transitive risk: {importer} imports {current_file} "
-                    f"which has {finding.get('rule_id', 'issue')}: "
-                    f"{finding.get('message', '')}"
-                ),
-                source_file=source_file,
-                source_line=int(finding.get("line", 0)),
-                propagated_to=importer,
-                propagation_chain=list(chain),
-            ))
-
+            propagated.append(
+                self._create_propagated_finding(
+                    source_file, current_file, importer, finding, chain,
+                )
+            )
             self._propagate_dfs(
                 source_file=source_file,
                 current_file=importer,

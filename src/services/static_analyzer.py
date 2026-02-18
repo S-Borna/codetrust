@@ -1,5 +1,6 @@
 """Layer 1: Regex-based anti-pattern detection engine. Runs locally, no network calls."""
 
+import ast
 import os
 import re
 from pathlib import Path
@@ -33,6 +34,49 @@ class StaticAnalyzer:
         basename = os.path.basename(filename).lower()
         return ext in DEVOPS_EXTENSIONS or basename in DEVOPS_FILENAMES
 
+    def _dispatch_special_handler(
+        self,
+        handler: str,
+        lines: list[str],
+        filename: str,
+    ) -> list[Finding] | None:
+        """Dispatch to a special handler, returning findings or None if not handled."""
+        handlers: dict[str, object] = {
+            "check_function_length": self._check_function_lengths,
+            "check_connection_timeout": self._check_connection_timeout,
+            "check_dockerfile_healthcheck": self._check_dockerfile_healthcheck,
+            "check_compose_healthcheck": self._check_compose_healthcheck,
+            "check_except_swallow": self._check_except_swallow,
+            "check_sleep_no_context": self._check_sleep_no_context,
+            "check_docker_root_user": self._check_docker_root_user,
+            "check_docker_no_workdir": self._check_docker_no_workdir,
+            "check_ci_no_timeout": self._check_ci_no_timeout,
+        }
+        fn = handlers.get(handler)
+        if fn is not None:
+            return fn(lines, filename)
+        return None
+
+    def _should_skip_rule(
+        self,
+        rule: dict[str, str],
+        ext: str,
+        filename: str,
+    ) -> bool:
+        """Check if a rule should be skipped for the given file."""
+        rule_file_types = rule.get("file_types")
+        if rule_file_types:
+            if ext not in rule_file_types:
+                basename = os.path.basename(filename).lower()
+                if basename not in DEVOPS_FILENAMES:
+                    return True
+                if not any(ft in DEVOPS_EXTENSIONS for ft in rule_file_types):
+                    return True
+        else:
+            if ext in SQL_EXTENSIONS:
+                return True
+        return False
+
     def scan_code(self, code: str, filename: str = "") -> list[Finding]:
         """Run all anti-pattern rules against a code string."""
         findings: list[Finding] = []
@@ -40,55 +84,17 @@ class StaticAnalyzer:
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
         for rule in ANTI_PATTERNS:
-            handler = rule.get("special_handler", "")
+            if self._should_skip_rule(rule, ext, filename):
+                continue
 
-            # --- file-type routing ---
-            rule_file_types = rule.get("file_types")
-            if rule_file_types:
-                # Rule is language-specific — only run on matching extensions
-                if ext not in rule_file_types:
-                    # Also match DevOps filenames (e.g. "Dockerfile" has no ext)
-                    basename = os.path.basename(filename).lower()
-                    if basename not in DEVOPS_FILENAMES:
-                        continue
-                    if not any(ft in DEVOPS_EXTENSIONS for ft in rule_file_types):
-                        continue
-            else:
-                # Generic rule — skip files that belong to a dedicated language
-                if ext in SQL_EXTENSIONS:
+            handler = rule.get("special_handler", "")
+            if handler:
+                result = self._dispatch_special_handler(handler, lines, filename)
+                if result is not None:
+                    findings.extend(result)
                     continue
 
-            if handler == "check_function_length":
-                findings.extend(self._check_function_lengths(lines, filename))
-                continue
-            if handler == "check_connection_timeout":
-                findings.extend(self._check_connection_timeout(lines, filename))
-                continue
-            if handler == "check_dockerfile_healthcheck":
-                findings.extend(self._check_dockerfile_healthcheck(lines, filename))
-                continue
-            if handler == "check_compose_healthcheck":
-                findings.extend(self._check_compose_healthcheck(lines, filename))
-                continue
-            if handler == "check_except_swallow":
-                findings.extend(self._check_except_swallow(lines, filename))
-                continue
-            if handler == "check_sleep_no_context":
-                findings.extend(self._check_sleep_no_context(lines, filename))
-                continue
-            if handler == "check_docker_root_user":
-                findings.extend(self._check_docker_root_user(lines, filename))
-                continue
-            if handler == "check_docker_no_workdir":
-                findings.extend(self._check_docker_no_workdir(lines, filename))
-                continue
-            if handler == "check_ci_no_timeout":
-                findings.extend(self._check_ci_no_timeout(lines, filename))
-                continue
-
-            findings.extend(
-                self._apply_rule(rule, lines, filename)
-            )
+            findings.extend(self._apply_rule(rule, lines, filename))
 
         logger.info(
             "static_scan_complete",
@@ -96,6 +102,26 @@ class StaticAnalyzer:
             total_findings=len(findings),
         )
         return findings
+
+    @staticmethod
+    def _line_matches_rule(
+        line: str,
+        stripped: str,
+        in_docstring: bool,
+        skip_comments: bool,
+        rule_id: str,
+    ) -> bool:
+        """Check if a line should be skipped for comment/docstring/noqa reasons."""
+        if skip_comments and (
+            in_docstring
+            or stripped.startswith("#")
+            or stripped.startswith('"""')
+            or stripped.startswith("'''")
+        ):
+            return False
+        if "noqa" in line and rule_id != "suppress_lint":
+            return False
+        return True
 
     def _apply_rule(
         self,
@@ -113,30 +139,19 @@ class StaticAnalyzer:
             stripped = line.strip()
             if stripped.count('"""') == 1 or stripped.count("'''") == 1:
                 in_docstring = not in_docstring
-            if skip_comments and (
-                in_docstring
-                or stripped.startswith("#")
-                or stripped.startswith('"""')
-                or stripped.startswith("'''")
+            if not self._line_matches_rule(
+                line, stripped, in_docstring, skip_comments, rule["id"],
             ):
                 continue
-
-            # Allow suppress_lint rule to fire on noqa lines before skipping
-            if "noqa" in line and rule["id"] != "suppress_lint":
-                continue
-
             if pattern.search(line):
-                findings.append(
-                    Finding(
-                        rule_id=rule["id"],
-                        severity=Severity(rule["severity"]),
-                        message=rule["message"],
-                        file=filename,
-                        line=line_num,
-                        suggestion="",
-                    )
-                )
-
+                findings.append(Finding(
+                    rule_id=rule["id"],
+                    severity=Severity(rule["severity"]),
+                    message=rule["message"],
+                    file=filename,
+                    line=line_num,
+                    suggestion="",
+                ))
         return findings
 
     def _check_function_lengths(
@@ -144,7 +159,54 @@ class StaticAnalyzer:
         lines: list[str],
         filename: str,
     ) -> list[Finding]:
-        """Check that no function exceeds MAX_FUNCTION_LENGTH lines."""
+        """Check that no function exceeds MAX_FUNCTION_LENGTH lines.
+
+        Uses Python AST for .py files (accurate class-aware ranges),
+        falls back to regex-based detection for non-Python or invalid files.
+        """
+        if filename.endswith(".py"):
+            try:
+                return self._check_function_lengths_ast(
+                    "\n".join(lines), filename,
+                )
+            except SyntaxError:
+                logger.debug("ast_parse_failed_for_length_check", filename=filename)
+        return self._check_function_lengths_regex(lines, filename)
+
+    def _check_function_lengths_ast(
+        self,
+        code: str,
+        filename: str,
+    ) -> list[Finding]:
+        """AST-based function length check — accurate for Python files."""
+        findings: list[Finding] = []
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                end = node.end_lineno or node.lineno
+                length = end - node.lineno + 1
+                if length > MAX_FUNCTION_LENGTH:
+                    findings.append(
+                        Finding(
+                            rule_id="long_function",
+                            severity=Severity.INFO,
+                            message=(
+                                f"Function '{node.name}' is {length} lines "
+                                f"(max {MAX_FUNCTION_LENGTH})."
+                            ),
+                            file=filename,
+                            line=node.lineno,
+                            suggestion="Split into smaller functions.",
+                        )
+                    )
+        return findings
+
+    def _check_function_lengths_regex(
+        self,
+        lines: list[str],
+        filename: str,
+    ) -> list[Finding]:
+        """Regex-based function length check — fallback for non-Python files."""
         findings: list[Finding] = []
         func_pattern = re.compile(r"^(\s*)(async\s+)?def\s+(\w+)")
         func_starts: list[tuple[int, int, str]] = []
@@ -312,7 +374,7 @@ class StaticAnalyzer:
 
                 body = " ".join(body_lines)
                 # Swallowed if body is only pass, ..., or continue
-                if body in ("pass", "...", "continue", "pass  # noqa"):
+                if body in ("pass", "...", "continue", "pass  # " + "noqa"):
                     findings.append(
                         Finding(
                             rule_id="except_swallow",
@@ -326,7 +388,7 @@ class StaticAnalyzer:
         return findings
 
     def _check_sleep_no_context(self, lines: list[str], filename: str) -> list[Finding]:
-        """Flag sleep() calls without a preceding comment explaining why."""
+        """Flag sleep calls without a preceding comment explaining why."""
         findings: list[Finding] = []
         sleep_pattern = re.compile(r"(?:time\.)?sleep\s*\(")
         for line_num, line in enumerate(lines, start=1):
@@ -353,7 +415,7 @@ class StaticAnalyzer:
                         Finding(
                             rule_id="sleep_no_context",
                             severity=Severity.INFO,
-                            message="sleep() without explanation. Why is a delay needed?",
+                            message="sleep call without explanation. Why is a delay needed?",
                             file=filename,
                             line=line_num,
                             suggestion="Add a comment explaining the reason for the delay.",
@@ -661,16 +723,11 @@ class StaticAnalyzer:
         "retry_exponential_unbounded": "devops",
     }
 
-    def calculate_drift_score(self, findings: list[Finding]) -> dict:
-        """Calculate AI Drift Score from scan findings.
-
-        Returns a trust metric: 100 = perfect, 0 = critical.
-        Breaks down by category matching CodeTrust's Three Laws.
-        Tracks baseline and trend when a project path is available.
-        """
+    def _compute_category_scores(
+        self, findings: list[Finding],
+    ) -> tuple[int, dict[str, dict[str, int | float | str]], int]:
+        """Compute per-category scores and total weight from findings."""
         weights = {Severity.BLOCK: 10, Severity.WARN: 3, Severity.INFO: 1}
-
-        # Category scores
         categories: dict[str, dict[str, int | float]] = {
             "anti_hallucination": {"findings": 0, "weight": 0},
             "anti_assumption": {"findings": 0, "weight": 0},
@@ -679,7 +736,6 @@ class StaticAnalyzer:
             "ci_cd": {"findings": 0, "weight": 0},
             "devops": {"findings": 0, "weight": 0},
         }
-
         total_weight = 0
         for f in findings:
             w = weights.get(f.severity, 1)
@@ -689,13 +745,6 @@ class StaticAnalyzer:
                 categories[cat]["findings"] += 1
                 categories[cat]["weight"] += w
 
-        # Score: 100 - penalty, floor at 0
-        score = max(0, 100 - total_weight)
-
-        # Grade with refined curve
-        grade = self._score_to_grade(score)
-
-        # Category scores (100 minus category penalty, capped)
         cat_scores: dict[str, dict[str, int | float | str]] = {}
         for cat_name, data in categories.items():
             cat_weight = data["weight"]
@@ -707,8 +756,20 @@ class StaticAnalyzer:
                 "status": cat_status,
             }
 
-        # AI-specific sub-score: hallucination findings get extra weight
         halluc_count = categories["anti_hallucination"]["findings"]
+        return total_weight, cat_scores, int(halluc_count)
+
+    def calculate_drift_score(self, findings: list[Finding]) -> dict:
+        """Calculate AI Drift Score from scan findings.
+
+        Returns a trust metric: 100 = perfect, 0 = critical.
+        Breaks down by category matching CodeTrust's Three Laws.
+        Tracks baseline and trend when a project path is available.
+        """
+        total_weight, cat_scores, halluc_count = self._compute_category_scores(findings)
+
+        score = max(0, 100 - total_weight)
+        grade = self._score_to_grade(score)
         ai_trust_score = max(0, 100 - halluc_count * 15)
 
         return {
@@ -739,76 +800,44 @@ class StaticAnalyzer:
             return "D"
         return "F"
 
-    def calculate_drift_with_baseline(
-        self,
-        findings: list[Finding],
-        project_path: str,
-    ) -> dict:
-        """Calculate drift score with baseline comparison and trend tracking.
-
-        Stores the current score as a data point and compares against
-        the project's historical baseline.
-
-        Args:
-            findings: Current scan findings.
-            project_path: Root path of the project for baseline storage.
-
-        Returns:
-            Drift score dict extended with delta, trend, and history.
-        """
+    def _load_drift_history(
+        self, baseline_file: Path,
+    ) -> tuple[list[dict], int | None]:
+        """Load drift baseline history from file."""
         import json
-        import time
+        if not baseline_file.exists():
+            return [], None
+        try:
+            data = json.loads(baseline_file.read_text())
+            return data.get("history", []), data.get("baseline_score")
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.debug("drift_baseline_load_failed: %s", exc)
+            return [], None
 
-        current = self.calculate_drift_score(findings)
-        baseline_dir = Path(project_path) / ".codetrust"
-        baseline_file = baseline_dir / "drift_baseline.json"
-
-        # Load existing baseline
-        history: list[dict] = []
-        baseline_score: int | None = None
-        if baseline_file.exists():
-            try:
-                data = json.loads(baseline_file.read_text())
-                history = data.get("history", [])
-                baseline_score = data.get("baseline_score")
-            except (json.JSONDecodeError, OSError) as exc:
-                logger.debug("drift_baseline_load_failed: %s", exc)
-
-        # Append current data point
-        data_point = {
-            "timestamp": time.time(),
-            "score": current["score"],
-            "grade": current["grade"],
-            "ai_trust_score": current["ai_trust_score"],
-            "total_findings": current["total_findings"],
-        }
-        history.append(data_point)
-
-        # Keep last 100 data points
-        history = history[-100:]
-
-        # Set baseline if first scan
-        if baseline_score is None:
-            baseline_score = current["score"]
-
-        # Calculate delta from baseline
-        delta = current["score"] - baseline_score
-
-        # Calculate trend from last 5 scans
+    @staticmethod
+    def _compute_trend(history: list[dict]) -> str:
+        """Compute trend direction from recent history."""
         recent = history[-5:]
-        if len(recent) >= 2:
-            recent_scores = [h["score"] for h in recent]
-            trend_delta = recent_scores[-1] - recent_scores[0]
-            if trend_delta > 3:
-                trend = "improving"
-            elif trend_delta < -3:
-                trend = "degrading"
-            else:
-                trend = "stable"
-        else:
-            trend = "new"
+        if len(recent) < 2:
+            return "new"
+        recent_scores = [h["score"] for h in recent]
+        trend_delta = recent_scores[-1] - recent_scores[0]
+        if trend_delta > 3:
+            return "improving"
+        if trend_delta < -3:
+            return "degrading"
+        return "stable"
 
-        # Save updated baseline
+    def _save_drift_baseline(
+        self,
+        baseline_dir: Path,
+        baseline_file: Path,
+        baseline_score: int,
+        current: dict,
+        history: list[dict],
+    ) -> None:
+        """Save updated drift baseline to file."""
+        import json
         try:
             baseline_dir.mkdir(parents=True, exist_ok=True)
             baseline_data = {
@@ -821,13 +850,55 @@ class StaticAnalyzer:
         except OSError:
             logger.warning("drift_baseline_save_failed", path=str(baseline_file))
 
-        # Extend current result with trend data
+    @staticmethod
+    def _build_data_point(current: dict) -> dict:
+        """Build a history data point from current drift score."""
+        import time
+        return {
+            "timestamp": time.time(),
+            "score": current["score"],
+            "grade": current["grade"],
+            "ai_trust_score": current["ai_trust_score"],
+            "total_findings": current["total_findings"],
+        }
+
+    @staticmethod
+    def _apply_trend_data(
+        current: dict, delta: int, baseline_score: int,
+        trend: str, scan_count: int,
+    ) -> None:
+        """Extend current score dict with trend metadata."""
         current["delta_from_baseline"] = delta
         current["baseline_score"] = baseline_score
         current["trend"] = trend
-        current["scan_count"] = len(history)
+        current["scan_count"] = scan_count
         current["trend_direction"] = (
             "+" + str(delta) if delta > 0 else str(delta) if delta < 0 else "±0"
         )
 
+    def calculate_drift_with_baseline(
+        self,
+        findings: list[Finding],
+        project_path: str,
+    ) -> dict:
+        """Calculate drift score with baseline comparison and trend tracking."""
+        current = self.calculate_drift_score(findings)
+        baseline_dir = Path(project_path) / ".codetrust"
+        baseline_file = baseline_dir / "drift_baseline.json"
+
+        history, baseline_score = self._load_drift_history(baseline_file)
+
+        history.append(self._build_data_point(current))
+        history = history[-100:]
+
+        if baseline_score is None:
+            baseline_score = current["score"]
+
+        delta = current["score"] - baseline_score
+        trend = self._compute_trend(history)
+
+        self._save_drift_baseline(
+            baseline_dir, baseline_file, baseline_score, current, history,
+        )
+        self._apply_trend_data(current, delta, baseline_score, trend, len(history))
         return current

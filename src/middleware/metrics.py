@@ -54,50 +54,56 @@ class _MetricsStore:
         with self._lock:
             self._active_requests -= 1
 
+    def _render_requests_total(self, lines: list[str]) -> None:
+        """Append codetrust_http_requests_total counter lines."""
+        lines.append("# HELP codetrust_http_requests_total Total HTTP requests.")
+        lines.append("# TYPE codetrust_http_requests_total counter")
+        for (method, path, status), count in sorted(self._request_count.items()):
+            lines.append(
+                f'codetrust_http_requests_total{{method="{method}",'
+                f'path="{path}",status="{status}"}} {count}'
+            )
+
+    def _render_duration(self, lines: list[str]) -> None:
+        """Append codetrust_http_request_duration_seconds summary lines."""
+        lines.append("")
+        lines.append(
+            "# HELP codetrust_http_request_duration_seconds "
+            "Request duration in seconds."
+        )
+        lines.append("# TYPE codetrust_http_request_duration_seconds summary")
+        for (method, path), total in sorted(self._request_duration_sum.items()):
+            count = self._request_duration_count[(method, path)]
+            lines.append(
+                f'codetrust_http_request_duration_seconds_sum'
+                f'{{method="{method}",path="{path}"}} {total:.6f}'
+            )
+            lines.append(
+                f'codetrust_http_request_duration_seconds_count'
+                f'{{method="{method}",path="{path}"}} {count}'
+            )
+
+    def _render_gauges(self, lines: list[str]) -> None:
+        """Append active-requests and uptime gauge lines."""
+        lines.append("")
+        lines.append("# HELP codetrust_active_requests Currently active requests.")
+        lines.append("# TYPE codetrust_active_requests gauge")
+        lines.append(f"codetrust_active_requests {self._active_requests}")
+
+        lines.append("")
+        lines.append("# HELP codetrust_uptime_seconds Seconds since server start.")
+        lines.append("# TYPE codetrust_uptime_seconds gauge")
+        uptime = time.time() - self._startup_time
+        lines.append(f"codetrust_uptime_seconds {uptime:.1f}")
+
     def render(self) -> str:
         """Generate Prometheus exposition format text."""
         lines: list[str] = []
 
         with self._lock:
-            # --- codetrust_http_requests_total ---
-            lines.append("# HELP codetrust_http_requests_total Total HTTP requests.")
-            lines.append("# TYPE codetrust_http_requests_total counter")
-            for (method, path, status), count in sorted(self._request_count.items()):
-                lines.append(
-                    f'codetrust_http_requests_total{{method="{method}",'
-                    f'path="{path}",status="{status}"}} {count}'
-                )
-
-            # --- codetrust_http_request_duration_seconds ---
-            lines.append("")
-            lines.append(
-                "# HELP codetrust_http_request_duration_seconds "
-                "Request duration in seconds."
-            )
-            lines.append("# TYPE codetrust_http_request_duration_seconds summary")
-            for (method, path), total in sorted(self._request_duration_sum.items()):
-                count = self._request_duration_count[(method, path)]
-                lines.append(
-                    f'codetrust_http_request_duration_seconds_sum'
-                    f'{{method="{method}",path="{path}"}} {total:.6f}'
-                )
-                lines.append(
-                    f'codetrust_http_request_duration_seconds_count'
-                    f'{{method="{method}",path="{path}"}} {count}'
-                )
-
-            # --- codetrust_active_requests ---
-            lines.append("")
-            lines.append("# HELP codetrust_active_requests Currently active requests.")
-            lines.append("# TYPE codetrust_active_requests gauge")
-            lines.append(f"codetrust_active_requests {self._active_requests}")
-
-            # --- codetrust_uptime_seconds ---
-            lines.append("")
-            lines.append("# HELP codetrust_uptime_seconds Seconds since server start.")
-            lines.append("# TYPE codetrust_uptime_seconds gauge")
-            uptime = time.time() - self._startup_time
-            lines.append(f"codetrust_uptime_seconds {uptime:.1f}")
+            self._render_requests_total(lines)
+            self._render_duration(lines)
+            self._render_gauges(lines)
 
         lines.append("")
         return "\n".join(lines)
@@ -112,10 +118,13 @@ def get_metrics_store() -> _MetricsStore:
     return _store
 
 
+HTTP_INTERNAL_SERVER_ERROR: int = 500
+
+
 class MetricsMiddleware(BaseHTTPMiddleware):
     """ASGI middleware that records request metrics."""
 
-    async def dispatch(self, request: Request, call_next) -> Response:  # type: ignore[override]
+    async def dispatch(self, request: Request, call_next: object) -> Response:
         # Normalize path to avoid cardinality explosion
         path = _normalize_path(request.url.path)
         method = request.method
@@ -130,7 +139,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             return response
         except Exception:
             duration = time.monotonic() - start
-            _store.record(method, path, 500, duration)
+            _store.record(method, path, HTTP_INTERNAL_SERVER_ERROR, duration)
             raise
         finally:
             _store.dec_active()

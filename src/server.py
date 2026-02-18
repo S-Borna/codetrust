@@ -105,6 +105,26 @@ async def _get_docker() -> DockerVerifyService:
     return _docker
 
 
+def _safe_severity_counts(findings: list[Finding] | None) -> dict[str, int]:
+    """Count findings by severity, returning zero counts if findings is None."""
+    if not findings:
+        return {"total": 0, "BLOCK": 0, "WARN": 0, "INFO": 0}
+    return {
+        "total": len(findings),
+        "BLOCK": sum(1 for f in findings if f.severity == Severity.BLOCK),
+        "WARN": sum(1 for f in findings if f.severity == Severity.WARN),
+        "INFO": sum(1 for f in findings if f.severity == Severity.INFO),
+    }
+
+
+def _parse_ast_language(language: str) -> Language | None:
+    """Parse language string to Language enum, returning None if invalid."""
+    try:
+        return Language(language)
+    except ValueError:
+        return None
+
+
 @mcp.tool(name="codetrust_static_scan")
 async def codetrust_static_scan(
     code: str,
@@ -124,40 +144,40 @@ async def codetrust_static_scan(
     logger.info("mcp_static_scan", filename=filename)
     started = time.monotonic()
     ok = False
+    findings: list[Finding] | None = None
     try:
         findings = analyzer.scan_code(code, filename)
         ok = True
         return analyzer.build_report(findings, title="Static Analysis Report")
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        total = 0
-        blocks = 0
-        warns = 0
-        infos = 0
-        try:
-            total = len(findings) if "findings" in locals() else 0
-            blocks = sum(1 for f in findings if f.severity == Severity.BLOCK) if "findings" in locals() else 0
-            warns = sum(1 for f in findings if f.severity == Severity.WARN) if "findings" in locals() else 0
-            infos = sum(1 for f in findings if f.severity == Severity.INFO) if "findings" in locals() else 0
-        except Exception as exc:
-            logger.debug(
-                "mcp_tool_metrics_compute_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-                tool="codetrust_static_scan",
-            )
-
-        _emit_mcp_tool_invoked(
-            tool="codetrust_static_scan",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "code_len": len(code),
-                "language_provided": bool(language),
-                "total_findings": total,
-                "findings_by_severity": {"BLOCK": blocks, "WARN": warns, "INFO": infos},
-            },
+        _emit_static_scan_telemetry(
+            ok=ok, started=started, code_len=len(code),
+            language_provided=bool(language), findings=findings,
         )
+
+
+def _emit_static_scan_telemetry(
+    *, ok: bool, started: float, code_len: int,
+    language_provided: bool, findings: list[Finding] | None,
+) -> None:
+    """Emit telemetry for static scan tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    counts = _safe_severity_counts(findings)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_static_scan",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "code_len": code_len,
+            "language_provided": language_provided,
+            "total_findings": counts["total"],
+            "findings_by_severity": {
+                "BLOCK": counts["BLOCK"],
+                "WARN": counts["WARN"],
+                "INFO": counts["INFO"],
+            },
+        },
+    )
 
 
 @mcp.tool(name="codetrust_pre_action")
@@ -189,45 +209,50 @@ async def codetrust_pre_action(
     findings: list[Finding] = []
     try:
         findings = _validate_plan(
-            task_description,
-            proposed_stack,
-            proposed_files,
-            has_user_specified_stack,
-            has_user_specified_structure,
+            task_description, proposed_stack, proposed_files,
+            has_user_specified_stack, has_user_specified_structure,
         )
         ok = True
         return analyzer.build_report(findings, title="Pre-Action Validation")
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        blocks = 0
-        warns = 0
-        infos = 0
-        try:
-            blocks = sum(1 for f in findings if f.severity == Severity.BLOCK)
-            warns = sum(1 for f in findings if f.severity == Severity.WARN)
-            infos = sum(1 for f in findings if f.severity == Severity.INFO)
-        except Exception as exc:
-            logger.debug(
-                "mcp_tool_metrics_compute_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-                tool="codetrust_pre_action",
-            )
-
-        _emit_mcp_tool_invoked(
-            tool="codetrust_pre_action",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "task_description_len": len(task_description),
-                "proposed_stack_provided": bool(proposed_stack),
-                "proposed_files_count": len(proposed_files) if proposed_files else 0,
-                "has_user_specified_stack": bool(has_user_specified_stack),
-                "has_user_specified_structure": bool(has_user_specified_structure),
-                "findings_total": len(findings),
-                "findings_by_severity": {"BLOCK": blocks, "WARN": warns, "INFO": infos},
-            },
+        _emit_pre_action_telemetry(
+            ok=ok, started=started, task_description=task_description,
+            proposed_stack=proposed_stack, proposed_files=proposed_files,
+            has_user_specified_stack=has_user_specified_stack,
+            has_user_specified_structure=has_user_specified_structure, findings=findings,
         )
+
+
+def _emit_pre_action_telemetry(
+    *, ok: bool, started: float,
+    task_description: str,
+    proposed_stack: str | None,
+    proposed_files: list[str] | None,
+    has_user_specified_stack: bool,
+    has_user_specified_structure: bool,
+    findings: list[Finding],
+) -> None:
+    """Emit telemetry for pre-action tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    counts = _safe_severity_counts(findings)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_pre_action",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "task_description_len": len(task_description),
+            "proposed_stack_provided": bool(proposed_stack),
+            "proposed_files_count": len(proposed_files) if proposed_files else 0,
+            "has_user_specified_stack": bool(has_user_specified_stack),
+            "has_user_specified_structure": bool(has_user_specified_structure),
+            "findings_total": counts["total"],
+            "findings_by_severity": {
+                "BLOCK": counts["BLOCK"],
+                "WARN": counts["WARN"],
+                "INFO": counts["INFO"],
+            },
+        },
+    )
 
 
 @mcp.tool(name="codetrust_post_action")
@@ -256,46 +281,56 @@ async def codetrust_post_action(
     all_findings: list[Finding] = []
     try:
         all_findings = analyzer.check_repo_structure(repo_root)
-
         if files_changed:
-            for filepath in files_changed:
-                full_path = os.path.join(repo_root, filepath)
-                if os.path.isfile(full_path):
-                    all_findings.extend(
-                        _scan_file(full_path, filepath)
-                    )
-
+            all_findings.extend(_scan_changed_files(repo_root, files_changed))
         ok = True
         return analyzer.build_report(all_findings, title="Post-Action Validation")
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        blocks = 0
-        warns = 0
-        infos = 0
-        try:
-            blocks = sum(1 for f in all_findings if f.severity == Severity.BLOCK)
-            warns = sum(1 for f in all_findings if f.severity == Severity.WARN)
-            infos = sum(1 for f in all_findings if f.severity == Severity.INFO)
-        except Exception as exc:
-            logger.debug(
-                "mcp_tool_metrics_compute_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-                tool="codetrust_post_action",
-            )
-
-        _emit_mcp_tool_invoked(
-            tool="codetrust_post_action",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "task_description_len": len(task_description),
-                "files_changed_count": len(files_changed) if files_changed else 0,
-                "verify_imports": bool(verify_imports),
-                "findings_total": len(all_findings),
-                "findings_by_severity": {"BLOCK": blocks, "WARN": warns, "INFO": infos},
-            },
+        _emit_post_action_telemetry(
+            ok=ok, started=started, task_description=task_description,
+            files_changed=files_changed, verify_imports=verify_imports,
+            findings=all_findings,
         )
+
+
+def _scan_changed_files(
+    repo_root: str, files_changed: list[str],
+) -> list[Finding]:
+    """Scan all changed files and return aggregated findings."""
+    findings: list[Finding] = []
+    for filepath in files_changed:
+        full_path = os.path.join(repo_root, filepath)
+        if os.path.isfile(full_path):
+            findings.extend(_scan_file(full_path, filepath))
+    return findings
+
+
+def _emit_post_action_telemetry(
+    *, ok: bool, started: float,
+    task_description: str,
+    files_changed: list[str] | None,
+    verify_imports: bool,
+    findings: list[Finding],
+) -> None:
+    """Emit telemetry for post-action tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    counts = _safe_severity_counts(findings)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_post_action",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "task_description_len": len(task_description),
+            "files_changed_count": len(files_changed) if files_changed else 0,
+            "verify_imports": bool(verify_imports),
+            "findings_total": counts["total"],
+            "findings_by_severity": {
+                "BLOCK": counts["BLOCK"],
+                "WARN": counts["WARN"],
+                "INFO": counts["INFO"],
+            },
+        },
+    )
 
 
 @mcp.tool(name="codetrust_list_rules")
@@ -307,7 +342,19 @@ async def codetrust_list_rules() -> str:
     """
     logger.info("mcp_list_rules")
     started = time.monotonic()
-    ok = False
+    out = _build_rule_catalog()
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_list_rules",
+        ok=True,
+        duration_ms=duration_ms,
+        payload={"anti_pattern_rules_count": len(ANTI_PATTERNS)},
+    )
+    return out
+
+
+def _build_rule_catalog() -> str:
+    """Build the complete rule catalog as a markdown string."""
     lines: list[str] = [
         "## CodeTrust Rule Catalog",
         "",
@@ -316,12 +363,8 @@ async def codetrust_list_rules() -> str:
         "| ID | Severity | Description |",
         "|---|---|---|",
     ]
-
     for rule in ANTI_PATTERNS:
-        lines.append(
-            f"| {rule['id']} | {rule['severity']} | {rule['message']} |"
-        )
-
+        lines.append(f"| {rule['id']} | {rule['severity']} | {rule['message']} |")
     lines.extend([
         "",
         "### Structure Rules",
@@ -333,17 +376,7 @@ async def codetrust_list_rules() -> str:
         "| missing_recommended_dir | WARN | Recommended directories should exist |",
         "| forbidden_file | WARN | Sensitive files should not be committed |",
     ])
-
-    ok = True
-    out = "\n".join(lines)
-    duration_ms = int((time.monotonic() - started) * 1000)
-    _emit_mcp_tool_invoked(
-        tool="codetrust_list_rules",
-        ok=ok,
-        duration_ms=duration_ms,
-        payload={"anti_pattern_rules_count": len(ANTI_PATTERNS)},
-    )
-    return out
+    return "\n".join(lines)
 
 
 def _validate_plan(
@@ -426,44 +459,77 @@ async def codetrust_verify_imports(
     logger.info("mcp_verify_imports", filename=filename, language=language)
     started = time.monotonic()
     ok = False
-    imports_count = 0
-    verified = 0
-    failed = 0
-    warnings = 0
+    metrics: dict[str, int] = {}
     try:
-        lang = Language(language)
-        imports = _extract_imports(code, lang)
-        imports_count = len(imports)
-
-        if not imports:
-            ok = True
-            return "## Import Verification\n\nNo third-party imports found.\n"
-
-        registry = await _get_registry()
-        results = await registry.verify_packages(lang, imports, requirements)
-
-        verified = sum(1 for r in results if r.status == VerifyStatus.VERIFIED)
-        failed = sum(1 for r in results if r.status in (VerifyStatus.NOT_FOUND, VerifyStatus.VERSION_MISMATCH))
-        warnings = sum(1 for r in results if r.status in (VerifyStatus.DEPRECATED, VerifyStatus.TIMEOUT, VerifyStatus.ERROR))
-
-        ok = True
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        return _format_import_report(results, elapsed_ms)
-    finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_verify_imports",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "language": language,
-                "code_len": len(code),
-                "total_imports_checked": imports_count,
-                "verified": verified,
-                "failed": failed,
-                "warnings": warnings,
-            },
+        report, metrics = await _perform_import_verification(
+            code, language, requirements, started,
         )
+        ok = True
+        return report
+    finally:
+        _emit_verify_imports_telemetry(
+            ok=ok, started=started, language=language,
+            code_len=len(code), metrics=metrics,
+        )
+
+
+async def _perform_import_verification(
+    code: str, language: str, requirements: str, started: float,
+) -> tuple[str, dict[str, int]]:
+    """Execute import verification and return report with metrics."""
+    lang = Language(language)
+    imports = _extract_imports(code, lang)
+    empty_metrics: dict[str, int] = {
+        "imports_count": 0, "verified": 0, "failed": 0, "warnings": 0,
+    }
+    if not imports:
+        return "## Import Verification\n\nNo third-party imports found.\n", empty_metrics
+    registry = await _get_registry()
+    results = await registry.verify_packages(lang, imports, requirements)
+    verified, failed, warnings = _count_import_results(results)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    metrics: dict[str, int] = {
+        "imports_count": len(imports), "verified": verified,
+        "failed": failed, "warnings": warnings,
+    }
+    return _format_import_report(results, elapsed_ms), metrics
+
+
+def _count_import_results(
+    results: list[PackageResult],
+) -> tuple[int, int, int]:
+    """Count verified, failed, and warning results."""
+    verified = sum(1 for r in results if r.status == VerifyStatus.VERIFIED)
+    failed = sum(
+        1 for r in results
+        if r.status in (VerifyStatus.NOT_FOUND, VerifyStatus.VERSION_MISMATCH)
+    )
+    warnings = sum(
+        1 for r in results
+        if r.status in (VerifyStatus.DEPRECATED, VerifyStatus.TIMEOUT, VerifyStatus.ERROR)
+    )
+    return verified, failed, warnings
+
+
+def _emit_verify_imports_telemetry(
+    *, ok: bool, started: float, language: str,
+    code_len: int, metrics: dict[str, int],
+) -> None:
+    """Emit telemetry for import verification."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_verify_imports",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "total_imports_checked": metrics.get("imports_count", 0),
+            "verified": metrics.get("verified", 0),
+            "failed": metrics.get("failed", 0),
+            "warnings": metrics.get("warnings", 0),
+        },
+    )
 
 
 def _extract_imports(code: str, language: Language) -> list[str]:
@@ -570,29 +636,36 @@ async def codetrust_verify_dockerfile(
     try:
         parsed = parse_dockerfile_from(dockerfile_content)
         images_checked = len(parsed)
-
         if not parsed:
             ok = True
             return "## Docker Image Verification\n\nNo FROM statements found in Dockerfile.\n"
-
         docker = await _get_docker()
         inputs = [DockerImageInput(image=img, tag=tag) for img, tag in parsed]
         results = await docker.verify_images(inputs)
-
         ok = True
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        return _format_docker_report(results, elapsed_ms)
+        return _format_docker_report(results, int((time.monotonic() - started) * 1000))
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_verify_dockerfile",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "dockerfile_len": len(dockerfile_content),
-                "images_checked": images_checked,
-            },
+        _emit_dockerfile_telemetry(
+            ok=ok, started=started,
+            dockerfile_len=len(dockerfile_content), images_checked=images_checked,
         )
+
+
+def _emit_dockerfile_telemetry(
+    *, ok: bool, started: float,
+    dockerfile_len: int, images_checked: int,
+) -> None:
+    """Emit telemetry for Dockerfile verification."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_verify_dockerfile",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "dockerfile_len": dockerfile_len,
+            "images_checked": images_checked,
+        },
+    )
 
 
 def _format_docker_report(
@@ -656,38 +729,55 @@ async def codetrust_ast_scan(
     supported = False
     findings_count = 0
     try:
-        try:
-            lang = Language(language)
-        except ValueError:
-            ok = True
-            return f"Unsupported language for AST analysis: {language}"
-
-        if lang not in AST_LANGUAGES:
-            ok = True
-            return f"AST analysis not available for: {language}"
-
-        supported = True
-        findings = ast_analyzer.analyze(
-            code, lang, filename, max_nesting, complexity_threshold,
+        report, supported, findings_count = _perform_ast_scan(
+            code, filename, language, max_nesting, complexity_threshold,
         )
-        findings_count = len(findings)
         ok = True
-        return ast_analyzer.build_report(findings)
+        return report
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_ast_scan",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "language": language,
-                "code_len": len(code),
-                "ast_available": supported,
-                "findings_total": findings_count,
-                "max_nesting": int(max_nesting),
-                "complexity_threshold": int(complexity_threshold),
-            },
+        _emit_ast_scan_telemetry(
+            ok=ok, started=started, language=language, code_len=len(code),
+            supported=supported, findings_count=findings_count,
+            max_nesting=max_nesting, complexity_threshold=complexity_threshold,
         )
+
+
+def _perform_ast_scan(
+    code: str, filename: str, language: str,
+    max_nesting: int, complexity_threshold: int,
+) -> tuple[str, bool, int]:
+    """Run AST analysis and return (report, supported, findings_count)."""
+    lang = _parse_ast_language(language)
+    if lang is None:
+        return f"Unsupported language for AST analysis: {language}", False, 0
+    if lang not in AST_LANGUAGES:
+        return f"AST analysis not available for: {language}", False, 0
+    findings = ast_analyzer.analyze(
+        code, lang, filename, max_nesting, complexity_threshold,
+    )
+    return ast_analyzer.build_report(findings), True, len(findings)
+
+
+def _emit_ast_scan_telemetry(
+    *, ok: bool, started: float, language: str, code_len: int,
+    supported: bool, findings_count: int,
+    max_nesting: int, complexity_threshold: int,
+) -> None:
+    """Emit telemetry for AST scan tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_ast_scan",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "ast_available": supported,
+            "findings_total": findings_count,
+            "max_nesting": int(max_nesting),
+            "complexity_threshold": int(complexity_threshold),
+        },
+    )
 
 
 @mcp.tool(name="codetrust_sandbox_run")
@@ -713,41 +803,51 @@ async def codetrust_sandbox_run(
     started = time.monotonic()
     ok = False
     supported = False
-    success: bool | None = None
-    timed_out: bool | None = None
-    exit_code: int | None = None
-
+    result: SandboxResponse | None = None
     try:
-        try:
-            lang = Language(language)
-        except ValueError:
-            ok = True
-            return f"Unsupported language for sandbox: {language}"
-
-        supported = True
-        result = await sandbox.execute_code(code, lang, timeout)
-        success = bool(result.success)
-        timed_out = bool(result.timed_out)
-        exit_code = int(result.exit_code)
-
+        report, supported, result = await _perform_sandbox_run(code, language, timeout)
         ok = True
-        return _format_sandbox_report(result)
+        return report
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_sandbox_run",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "language": language,
-                "code_len": len(code),
-                "sandbox_available": supported,
-                "timeout_seconds": int(timeout),
-                "success": success if success is not None else False,
-                "timed_out": timed_out if timed_out is not None else False,
-                "exit_code": exit_code if exit_code is not None else -1,
-            },
+        _emit_sandbox_telemetry(
+            ok=ok, started=started, language=language,
+            code_len=len(code), timeout=timeout,
+            supported=supported, result=result,
         )
+
+
+async def _perform_sandbox_run(
+    code: str, language: str, timeout: int,
+) -> tuple[str, bool, SandboxResponse | None]:
+    """Execute sandbox run and return (report, supported, result)."""
+    lang = _parse_ast_language(language)
+    if lang is None:
+        return f"Unsupported language for sandbox: {language}", False, None
+    result = await sandbox.execute_code(code, lang, timeout)
+    return _format_sandbox_report(result), True, result
+
+
+def _emit_sandbox_telemetry(
+    *, ok: bool, started: float, language: str,
+    code_len: int, timeout: int,
+    supported: bool, result: SandboxResponse | None,
+) -> None:
+    """Emit telemetry for sandbox execution."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_sandbox_run",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "sandbox_available": supported,
+            "timeout_seconds": int(timeout),
+            "success": bool(result.success) if result else False,
+            "timed_out": bool(result.timed_out) if result else False,
+            "exit_code": int(result.exit_code) if result else -1,
+        },
+    )
 
 
 def _format_sandbox_report(result: SandboxResponse) -> str:
@@ -799,35 +899,49 @@ async def codetrust_sarif_export(
     total_findings = 0
     used_ast = False
     try:
-        findings = analyzer.scan_code(code, filename)
-
-        try:
-            lang = Language(language)
-        except ValueError:
-            lang = None
-
-        if lang is not None and lang in AST_LANGUAGES:
-            used_ast = True
-            ast_findings = ast_analyzer.analyze(code, lang, filename)
-            findings.extend(ast_findings)
-
-        total_findings = len(findings)
-        sarif = findings_to_sarif(findings)
-        ok = True
-        return json.dumps(sarif, indent=2)
-    finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_sarif_export",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "language": language,
-                "code_len": len(code),
-                "used_ast": used_ast,
-                "findings_total": total_findings,
-            },
+        sarif_json, total_findings, used_ast = _perform_sarif_scan(
+            code, filename, language,
         )
+        ok = True
+        return sarif_json
+    finally:
+        _emit_sarif_telemetry(
+            ok=ok, started=started, language=language,
+            code_len=len(code), used_ast=used_ast, total_findings=total_findings,
+        )
+
+
+def _perform_sarif_scan(
+    code: str, filename: str, language: str,
+) -> tuple[str, int, bool]:
+    """Run static + AST scan and return (sarif_json, total_findings, used_ast)."""
+    findings = analyzer.scan_code(code, filename)
+    lang = _parse_ast_language(language)
+    used_ast = False
+    if lang is not None and lang in AST_LANGUAGES:
+        used_ast = True
+        findings.extend(ast_analyzer.analyze(code, lang, filename))
+    sarif = findings_to_sarif(findings)
+    return json.dumps(sarif, indent=2), len(findings), used_ast
+
+
+def _emit_sarif_telemetry(
+    *, ok: bool, started: float, language: str,
+    code_len: int, used_ast: bool, total_findings: int,
+) -> None:
+    """Emit telemetry for SARIF export."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_sarif_export",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "used_ast": used_ast,
+            "findings_total": total_findings,
+        },
+    )
 
 
 @mcp.tool(name="codetrust_deep_scan")
@@ -852,7 +966,6 @@ async def codetrust_deep_scan(
         static_count = len(findings)
         ast_findings = _deep_scan_ast_findings(code, language, filename)
         ast_count = len(ast_findings) if ast_findings is not None else 0
-
         sections = await _build_deep_scan_sections(
             findings, ast_findings, code, language,
             requirements_content, verify_imports,
@@ -862,21 +975,34 @@ async def codetrust_deep_scan(
         ok = True
         return "\n".join(sections)
     finally:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        _emit_mcp_tool_invoked(
-            tool="codetrust_deep_scan",
-            ok=ok,
-            duration_ms=duration_ms,
-            payload={
-                "language": language,
-                "code_len": len(code),
-                "verify_imports": bool(verify_imports),
-                "verify_docker": bool(verify_docker),
-                "sandbox_run": bool(sandbox_run),
-                "static_findings": static_count,
-                "ast_findings": ast_count,
-            },
+        _emit_deep_scan_telemetry(
+            ok=ok, started=started, language=language, code_len=len(code),
+            verify_imports=verify_imports, verify_docker=verify_docker,
+            sandbox_run=sandbox_run, static_count=static_count, ast_count=ast_count,
         )
+
+
+def _emit_deep_scan_telemetry(
+    *, ok: bool, started: float, language: str, code_len: int,
+    verify_imports: bool, verify_docker: bool, sandbox_run: bool,
+    static_count: int, ast_count: int,
+) -> None:
+    """Emit telemetry for deep scan tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_deep_scan",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "verify_imports": bool(verify_imports),
+            "verify_docker": bool(verify_docker),
+            "sandbox_run": bool(sandbox_run),
+            "static_findings": static_count,
+            "ast_findings": ast_count,
+        },
+    )
 
 
 async def _build_deep_scan_sections(

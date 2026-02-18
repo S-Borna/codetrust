@@ -56,6 +56,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Domain migration** — All API URLs, telemetry endpoints, config defaults, docs, CI workflows, extension defaults, and Helm charts migrated from `saidborna.com` / `codetrust.dev` to `codetrust.ai` / `api.codetrust.ai` (~60 references across ~30 files)
 
+- **SEO & AI Model Discoverability** — Full search engine and AI model optimization for codetrust.ai
+  - `llms.txt` and `llms-full.txt` for AI model discovery (Claude, ChatGPT, Perplexity, Gemini)
+  - JSON-LD structured data: `SoftwareApplication`, `Organization`, `WebSite`, `FAQPage` (6 FAQ entries)
+  - `sitemap.xml` for search engine crawling
+  - `robots.txt` explicitly allowing all AI model crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended)
+  - `.well-known/security.txt` for security contact disclosure
+  - `_headers` file for Cloudflare/GitHub Pages (CORS, security headers, content types)
+  - Canonical URL, expanded keywords, OG/Twitter card meta tags
+  - Crawlable semantic `<aside>` with full product description for AI scrapers
+
 - **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform (+ SQL/YAML already present in backend, now enabled in extension). Total: **13 languages** (up from 6)
 
 - Backend — Language enum:

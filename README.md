@@ -504,6 +504,7 @@ content_rules:
 </details>
 
 **Rules:**
+
 - `id` — unique identifier (auto-prefixed with `custom_` at runtime)
 - `pattern` — Python regex matched against terminal commands or file content
 - `message` — shown when the rule triggers

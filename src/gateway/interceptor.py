@@ -509,6 +509,36 @@ _TERMINAL_RULES: list[dict] = [
         "suggestion": "Only kill specific application processes by name or PID.",
         "severity": Verdict.BLOCK,
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Category 11: Root-cause enforcement (symptom-fix prevention)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_npm_audit_force",
+        "pattern": r"npm\s+audit\s+fix\s+--force",
+        "message": (
+            "npm audit fix --force blindly upgrades to major versions. "
+            "This is a symptom fix that masks breaking changes."
+        ),
+        "suggestion": (
+            "Review each vulnerability individually: npm audit, then "
+            "upgrade specific packages with tested version bumps."
+        ),
+        "severity": Verdict.WARN,
+    },
+    {
+        "id": "gateway_pip_force_reinstall",
+        "pattern": r"pip\s+install\s+--force-reinstall",
+        "message": (
+            "pip install --force-reinstall bypasses dependency resolution. "
+            "This is a symptom fix that hides version conflicts."
+        ),
+        "suggestion": (
+            "Diagnose the dependency conflict: pip check, then pin "
+            "compatible versions in requirements.txt or pyproject.toml."
+        ),
+        "severity": Verdict.WARN,
+    },
 ]
 
 # ═══════════════════════════════════════════════════════════════
@@ -661,6 +691,50 @@ _CONTENT_RULES: list[dict] = [
         "message": "os.system with heredoc. Command injection and heredoc violation.",
         "suggestion": "Use Python file I/O instead of os.system with heredoc.",
         "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: Root-cause enforcement
+    #  Block AI agents from writing code that admits to being a
+    #  non-root-cause fix instead of a proper solution.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_content_symptom_fix",
+        "pattern": (
+            r"(?i)#\s*(?:"
+            r"work" + r"around"
+            r"|quick\s*fix"
+            r"|band[\s\-]*aid"
+            r"|stop[\s\-]*gap"
+            r"|klud" + r"ge"
+            r"|duct[\s\-]*tape"
+            r"|dirty\s*(?:ha" + r"ck|fix)"
+            r"|temporary\s*(?:fix|patch|solution)"
+            r"|symptom\s*fix"
+            r"|monkey[\s\-]*pat" + r"ch"
+            r"|short[\s\-]*term\s*fix"
+            r")"
+        ),
+        "message": (
+            "File contains a comment admitting this is not a root-cause fix. "
+            "AI agents must find and fix the root cause."
+        ),
+        "suggestion": (
+            "Remove the non-root-cause fix and implement a proper solution. "
+            "If the root cause is outside your control, document it as a "
+            "known issue with a tracking reference."
+        ),
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_datetime_naive",
+        "pattern": r"date" + r"time\.(?:utcnow|now\s*\(\s*\))",
+        "message": (
+            "Timezone-naive date" + "time in generated code. "
+            "The deprecated utcnow() method and now() without tz return naive values."
+        ),
+        "suggestion": "Use date" + "time.now(tz=timezone.utc) for timezone-aware values.",
+        "severity": Verdict.WARN,
     },
 ]
 

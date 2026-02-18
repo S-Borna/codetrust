@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1454 tests</code> &middot; <code>154 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1454 tests</code> &middot; <code>165 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 154 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,454 tests.
+**AI Governance Enforcement Platform** — 165 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,454 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -44,7 +44,7 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 The Gateway intercepts AI agent actions **before execution** — not scanning files after the fact. Terminal commands, file writes, and package installs are validated against configurable policies in real-time.
 
-72 interception rules across 9 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, and AI agent enforcement — plus content rules for file writes.
+76 interception rules across 11 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, AI agent enforcement, resource abuse, and root-cause enforcement — plus content rules for file writes.
 
 All rules are configurable. Any rule can be disabled per-project.
 
@@ -117,7 +117,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**82 scan rules + 72 gateway rules = 154 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**89 scan rules + 76 gateway rules = 165 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -321,8 +321,8 @@ CodeTrust ships two MCP servers for different purposes:
 
 | Server | Command | Purpose | Tools |
 |--------|---------|---------|-------|
-| **Scan Server** | `python -m src.server` | Code scanning, import verification, SARIF export | 10 tools |
-| **Gateway Server** | `python -m src.gateway.server` | Real-time AI action interception — blocks destructive commands before execution | 4 tools + 3 resources |
+| **Scan Server** | `codetrust-mcp` | Code scanning, import verification, SARIF export | 10 tools |
+| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 4 tools + 3 resources |
 
 **Use both for full coverage.** The Scan Server gives AI agents code analysis capabilities. The Gateway Server intercepts and validates every command, file write, and package install the agent attempts.
 
@@ -342,14 +342,10 @@ Add to `~/.claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "codetrust": {
-      "command": "python",
-      "args": ["-m", "src.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-mcp"
     },
     "codetrust-gateway": {
-      "command": "python",
-      "args": ["-m", "src.gateway.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-gateway-mcp"
     }
   }
 }
@@ -363,14 +359,10 @@ Add to `.cursor/mcp.json` in your project root:
 {
   "mcpServers": {
     "codetrust": {
-      "command": "python",
-      "args": ["-m", "src.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-mcp"
     },
     "codetrust-gateway": {
-      "command": "python",
-      "args": ["-m", "src.gateway.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-gateway-mcp"
     }
   }
 }
@@ -384,20 +376,16 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 {
   "mcpServers": {
     "codetrust": {
-      "command": "python",
-      "args": ["-m", "src.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-mcp"
     },
     "codetrust-gateway": {
-      "command": "python",
-      "args": ["-m", "src.gateway.server"],
-      "cwd": "/absolute/path/to/codetrust"
+      "command": "codetrust-gateway-mcp"
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/codetrust` with the actual path to your CodeTrust installation (e.g., `~/codetrust` or `/opt/codetrust`).
+Requires `pip install codetrust` so that `codetrust-mcp` and `codetrust-gateway-mcp` are on your PATH.
 
 ---
 
@@ -605,8 +593,8 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v           # 1454 tests
-ruff check src/ tests/     # zero warnings
+pytest                     # 1454 tests
+ruff check .               # zero warnings
 ```
 
 All counts in this README are generated from source and validated in CI.

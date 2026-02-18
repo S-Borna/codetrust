@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib.resources
 import json
 import os
@@ -1906,38 +1907,30 @@ def _check_sleep_no_context(
 def _check_function_length(
     lines: list[str], filepath: str, findings: list[dict],
 ) -> None:
-    """Flag Python functions longer than 40 lines."""
-    func_re = re.compile(r"^(\s*)(async\s+)?def\s+(\w+)")
-    func_starts: list[tuple[int, int, str]] = []  # (line_num, indent, name)
-
-    for i, line in enumerate(lines):
-        m = func_re.match(line)
-        if m:
-            indent = len(m.group(1))
-            name = m.group(3)
-            func_starts.append((i, indent, name))
-
-    for idx, (start, indent, name) in enumerate(func_starts):
-        # Function body ends at next def at same/lower indent or EOF
-        end = len(lines)
-        for nxt_start, nxt_indent, _ in func_starts[idx + 1:]:
-            if nxt_indent <= indent:
-                end = nxt_start
-                break
-        # Count non-blank, non-comment lines in body
-        body_lines = 0
-        for j in range(start + 1, end):
-            stripped = lines[j].strip()
-            if stripped and not stripped.startswith("#"):
-                body_lines += 1
-        if body_lines > 40:
-            findings.append({
-                "rule_id": "long_function",
-                "severity": "INFO",
-                "message": f"Function '{name}' is {body_lines} lines (max 40).",
-                "file": filepath,
-                "line": start + 1,
-            })
+    """Flag Python functions longer than 40 lines using AST."""
+    if not filepath.endswith(".py"):
+        return
+    code = "\n".join(lines)
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        logger.debug("ast_parse_failed", filepath=filepath)
+        return
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            end = node.end_lineno or node.lineno
+            length = end - node.lineno + 1
+            if length > 40:
+                findings.append({
+                    "rule_id": "long_function",
+                    "severity": "INFO",
+                    "message": (
+                        f"Function '{node.name}' is "
+                        f"{length} lines (max 40)."
+                    ),
+                    "file": filepath,
+                    "line": node.lineno,
+                })
 
 
 def _check_connection_timeout(

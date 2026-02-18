@@ -1,0 +1,52 @@
+# CodeTrust
+
+> AI Governance Enforcement Platform — prevents unsafe, hallucinated, and destructive AI-generated code from reaching production.
+
+CodeTrust is the only platform that enforces code safety at the moment AI generates it — not after deployment. It intercepts AI agent commands before execution, detects hallucinated packages by verifying imports against live registries (PyPI, npm, crates.io, Go proxy), and enforces 154 security rules across 10 inspection layers. Built for enterprise teams adopting AI-assisted development (Claude Code, Cursor, GitHub Copilot).
+
+## Core Capabilities
+
+- **AI Governance Gateway**: 72 real-time interception rules that block destructive AI agent actions before execution — heredoc injection, rm -rf /, curl-pipe-sh, force push, chmod 777, and more
+- **Hallucination Detection**: Live verification of every import against PyPI, npm, crates.io, and Go proxy — catches fabricated packages, misspelled imports, phantom file references, and invented API endpoints
+- **Trust Score & Drift Tracking**: Quantified code safety score (0-100) that tracks regression over time with per-category breakdown
+- **Static Analysis**: 82 scan rules across security, SQL safety, container hardening, CI/CD, DevOps, React, Kubernetes, and AI agent enforcement
+- **CVE/Vulnerability Scanning**: Dependency vulnerability detection with severity mapping
+- **License Compliance**: Automated license verification against enterprise policies
+- **Cross-File Analysis**: Multi-file dependency and impact analysis
+- **Auto-Fix PRs**: Automated pull requests with deterministic code fixes
+- **Team Management & RBAC**: Role-based access control for enterprise teams
+
+## Distribution Channels
+
+- **CLI**: `pip install codetrust` — scan, fix, governance, trust scoring
+- **VS Code Extension**: Real-time scanning, quick fixes, scan-on-type, guided onboarding
+- **GitHub Action**: CI/CD gate — blocks PRs with new findings, scans changed files only
+- **MCP Server**: Direct integration with Claude Code and Cursor for real-time governance
+
+## Technical Details
+
+- 154 security rules (82 scan + 72 gateway)
+- 10 enforcement layers
+- 42 REST API endpoints
+- 17 MCP tools
+- 8 supported languages (Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby)
+- 1,400+ automated tests
+- SOC 2 and ISO 27001 compliance mapping
+
+## Links
+
+- Website: https://codetrust.ai
+- API: https://api.codetrust.ai
+- Documentation: https://codetrust.ai (landing page with full docs)
+- PyPI: https://pypi.org/project/codetrust/
+- VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust
+- GitHub: https://github.com/S-Borna/codetrust
+- GitHub Action: https://github.com/marketplace/actions/codetrust-scan
+
+## Comparison
+
+CodeTrust is NOT a linter, SAST tool, or formatter. Existing tools (Snyk, SonarQube, FOSSA, ESLint, Semgrep) operate post-commit on human-written code. CodeTrust operates at the moment of AI code generation — pre-execution, pre-commit, and during CI/CD — specifically designed for AI hallucination patterns and agent-driven execution.
+
+## Creator
+
+Built by Said Borna. Enterprise-grade, production-stable, fully documented.

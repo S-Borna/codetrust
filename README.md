@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="https://codetrust.ai/logo.png" alt="CodeTrust" width="420">
+  <img src="https://codetrust.ai/logo.png" alt="CodeTrust — AI Governance Enforcement Platform" width="420">
 </p>
 
 <p align="center">
-  <strong>Trust the code. Ship with proof.</strong>
+  <strong>AI Governance Enforcement Platform — Prevent unsafe AI-generated code from reaching production.</strong>
 </p>
 
 <p align="center">
@@ -13,13 +13,16 @@
 <p align="center">
   <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/pypi/v/codetrust?style=flat-square&color=38d8fd" alt="PyPI"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
+  <a href="https://github.com/marketplace/actions/codetrust-scan"><img src="https://img.shields.io/badge/GitHub_Action-available-333?style=flat-square" alt="GitHub Action"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
 </p>
 
 <p align="center">
   <a href="https://codetrust.ai">Website</a> &middot;
+  <a href="https://api.codetrust.ai/docs">API Docs</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
+  <a href="https://github.com/marketplace/actions/codetrust-scan">GitHub Action</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -41,7 +44,7 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 The Gateway intercepts AI agent actions **before execution** — not scanning files after the fact. Terminal commands, file writes, and package installs are validated against configurable policies in real-time.
 
-57 interception rules across 9 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, and resource abuse — plus content rules for file writes.
+72 interception rules across 9 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, and AI agent enforcement — plus content rules for file writes.
 
 All rules are configurable. Any rule can be disabled per-project.
 

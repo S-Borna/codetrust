@@ -10,7 +10,7 @@ inputs:
   api-url:
     description: "CodeTrust API URL"
     required: false
-    default: "https://codetrust-api.saidborna.com"
+    default: "https://api.codetrust.ai"
   api-key:
     description: "CodeTrust API key for cloud scanning"
     required: false

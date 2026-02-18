@@ -1,12 +1,12 @@
 {
     "name": "codetrust",
     "displayName": "CodeTrust",
-    "description": "AI code safety platform — 133 rules, 10 enforcement layers, 3 capabilities no other tool has: AI Governance Gateway (57 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io), Trust Score with drift tracking. Blocks destructive AI agent actions before execution. Works with Claude Code, Cursor, and GitHub Copilot.",
+    "description": "AI code safety platform — 154 rules, 10 enforcement layers, 3 capabilities no other tool has: AI Governance Gateway (72 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io), Trust Score with drift tracking. Blocks destructive AI agent actions before execution. Works with Claude Code, Cursor, and GitHub Copilot.",
     "version": "2.3.2",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",
-    "homepage": "https://codetrust.saidborna.com",
+    "homepage": "https://codetrust.ai",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -108,7 +108,7 @@
             "properties": {
                 "codetrust.apiUrl": {
                     "type": "string",
-                    "default": "https://codetrust-api.saidborna.com",
+                    "default": "https://api.codetrust.ai",
                     "description": "CodeTrust API server URL (cloud default; set to your self-hosted API base URL if applicable)"
                 },
                 "codetrust.apiKey": {

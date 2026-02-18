@@ -399,7 +399,84 @@ _TERMINAL_RULES: list[dict] = [
     },
 
     # ═══════════════════════════════════════════════════════════════
-    #  CATEGORY 9: RESOURCE ABUSE & SABOTAGE
+    #  CATEGORY 9: AI AGENT ENFORCEMENT
+    #  Patterns that AI agents use to bypass file-write tools.
+    #  These MUST be blocked — agents must use create_file or
+    #  replace_string_in_file, never shell tricks.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_tee_write",
+        "pattern": r"\btee\s+(?:-a\s+)?\S+\.(?:py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs|rb|java|c|cpp|h)",
+        "message": "Using tee to write code files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_echo_to_file",
+        "pattern": r"echo\s+.*>\s*\S+\.(?:py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs|rb|java|c|cpp|h)",
+        "message": "Using echo redirect to write code files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_printf_to_file",
+        "pattern": r"printf\s+.*>\s*\S+\.(?:py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs)",
+        "message": "Using printf redirect to write code files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_cat_redirect_write",
+        "pattern": r"cat\s+>\s*\S+\.(?:py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs)",
+        "message": "Using cat redirect to write code files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_sed_inline",
+        "pattern": r"\bsed\s+-i",
+        "message": "Using sed -i for inline file editing bypasses safe edit tools.",
+        "suggestion": "Use replace_string_in_file tool instead of sed -i.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_awk_redirect",
+        "pattern": r"\bawk\s+.*>\s*\S+\.(?:py|js|ts|sh|yaml|yml|toml|json)",
+        "message": "Using awk redirect to write code files bypasses safe file-write tools.",
+        "suggestion": "Use replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_bash_c_write",
+        "pattern": r"bash\s+-c\s+.*>\s*\S+\.(?:py|js|ts|sh|yaml|yml|toml|json)",
+        "message": "Using bash -c to write files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_python_write_file",
+        "pattern": r"python[23]?\s+-c\s+.*(?:open|write|Path).*\.(?:py|js|ts|sh|yaml|yml|toml|json)",
+        "message": "Using python -c to write files bypasses safe file-write tools.",
+        "suggestion": "Use create_file or replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_perl_inline",
+        "pattern": r"\bperl\s+-(?:i|pi)\s",
+        "message": "Using perl for inline file editing bypasses safe edit tools.",
+        "suggestion": "Use replace_string_in_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_dd_write_file",
+        "pattern": r"\bdd\s+.*of=\S+\.(?:py|js|ts|sh|yaml|yml|toml|json)",
+        "message": "Using dd to write code files bypasses safe file-write tools.",
+        "suggestion": "Use create_file tool instead.",
+        "severity": Verdict.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CATEGORY 10: RESOURCE ABUSE & SABOTAGE
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_fork_bomb",
@@ -541,6 +618,47 @@ _CONTENT_RULES: list[dict] = [
         "suggestion": "Verify this webhook is authorized and necessary.",
         "severity": Verdict.WARN,
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  CONTENT: AI Agent Enforcement
+    #  Block patterns that AI agents embed in generated code to
+    #  circumvent safe file-write tools or inject shell commands.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gateway_content_heredoc",
+        "pattern": r"<<[-']?\s*[\w\"']+",
+        "message": "Heredoc syntax in file content. Heredocs corrupt files via shell escaping.",
+        "suggestion": "Use template files or multi-line strings instead of heredoc.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_bash_heredoc",
+        "pattern": r"(?:bash|sh|zsh)\s+.*<<",
+        "message": "Shell script with heredoc pattern. Heredocs are prohibited.",
+        "suggestion": "Use template files or multi-line strings.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_tee_write",
+        "pattern": r"\btee\s+(?:-a\s+)?\S+\.\w+\s*<<",
+        "message": "tee with heredoc to write files. Prohibited shell pattern.",
+        "suggestion": "Use proper file I/O instead of tee with heredoc.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_subprocess_heredoc",
+        "pattern": r"subprocess\.\w+\(.*<<",
+        "message": "Subprocess call with heredoc. Shell command injection risk.",
+        "suggestion": "Use Python file I/O and subprocess with shell=False.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_os_system_heredoc",
+        "pattern": r"os\.system\(.*<<",
+        "message": "os.system with heredoc. Command injection and heredoc violation.",
+        "suggestion": "Use Python file I/O instead of os.system with heredoc.",
+        "severity": Verdict.BLOCK,
+    },
 ]
 
 
@@ -549,7 +667,7 @@ class CommandInterceptor:
 
     Usage:
         interceptor = CommandInterceptor()
-        result = interceptor.check_terminal("cat > file.py << 'EOF'")
+        result = interceptor.check_terminal("rm -rf /")
         if result.blocked:
             return result.message  # Don't execute
     """

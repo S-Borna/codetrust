@@ -11,7 +11,7 @@ export function getConfig(): ExtensionConfig {
     const config = vscode.workspace.getConfiguration("codetrust");
 
     return {
-        apiUrl: config.get<string>("apiUrl", "https://codetrust-api.saidborna.com"),
+        apiUrl: config.get<string>("apiUrl", "https://api.codetrust.ai"),
         apiKey: config.get<string>("apiKey", ""),
         scanOnSave: config.get<boolean>("scanOnSave", true),
         scanOnType: config.get<boolean>("scanOnType", false),

@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust &mdash; AI Governance Enforcement Platform</title>
     <meta name="description"
-        content="AI governance enforcement platform &mdash; 133 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team RBAC. Prevents hallucinated packages, blocks destructive AI agent commands before execution, and tracks code safety over time.">
+        content="AI governance enforcement platform &mdash; 154 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team RBAC. Prevents hallucinated packages, blocks destructive AI agent commands before execution, and tracks code safety over time.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow">
 
     <meta property="og:title" content="CodeTrust &mdash; Prevent. Don't detect.">
     <meta property="og:description"
-        content="AI governance enforcement. 10 layers. 1,431 tests. 133 rules. 42 API endpoints. Pre-execution enforcement + enterprise scans.">
+        content="AI governance enforcement. 10 layers. 1,431 tests. 154 rules. 42 API endpoints. Pre-execution enforcement + enterprise scans.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://codetrust.saidborna.com">
+    <meta property="og:url" content="https://codetrust.ai">
     <meta name="twitter:card" content="summary_large_image">
 
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -2263,8 +2263,8 @@
             <a href="#pipeline">Layers</a>
             <a href="#demo">Proof</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
-            <a href="https://codetrust-api.saidborna.com/v1/status" target="_blank">API</a>
-            <a href="mailto:said@saidborna.com">Contact</a>
+            <a href="https://api.codetrust.ai/v1/status" target="_blank">API</a>
+            <a href="mailto:contact@codetrust.ai">Contact</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                 class="topbar-install">Get Extension</a>
         </nav>
@@ -2316,7 +2316,7 @@
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 133 rules &mdash; 42
+            <span class="hero-version">v2.3.2 &mdash; 1,431 tests &mdash; 10 layers &mdash; 154 rules &mdash; 42
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
@@ -2463,7 +2463,7 @@
     <!-- STATS BAR -->
     <div class="stats-bar reveal">
         <div class="stat-item">
-            <div class="stat-num">133</div>
+            <div class="stat-num">154</div>
             <div class="stat-label">Enforcement Rules</div>
         </div>
         <div class="stat-item">
@@ -2500,7 +2500,7 @@
                     file write, and package install against configurable policies &mdash; <strong>before it
                         runs</strong>.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">57</div>
+                    <div class="moat-stat-num">72</div>
                     <span class="t-dim">real-time interception rules</span>
                 </div>
             </div>
@@ -2863,7 +2863,7 @@
                 <div class="pipe-num pipe-num-red">10</div>
                 <div class="pipe-content">
                     <h4>AI Governance Gateway <span class="pipe-type pipe-type-block">BLOCKING</span></h4>
-                    <p>57 real-time interception rules &mdash; blocks destructive AI agent actions before execution</p>
+                    <p>72 real-time interception rules &mdash; blocks destructive AI agent actions before execution</p>
                     <div class="pipe-detail">Moat 1 &mdash; pre-execution enforcement</div>
                 </div>
             </div>
@@ -2932,8 +2932,8 @@
     <!-- RULES -->
     <section class="container" id="rules">
         <div class="section-tag section-center">What we enforce</div>
-        <h2 class="reveal">133 rules across every layer</h2>
-        <p class="section-desc reveal">76 scan rules + 57 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
+        <h2 class="reveal">154 rules across every layer</h2>
+        <p class="section-desc reveal">82 scan rules + 72 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
             risk &mdash; INFO improves</p>
 
         <div class="rule-tabs reveal" id="ruleTabs">
@@ -3087,7 +3087,7 @@
             </div>
             <div class="install-card">
                 <h4>VS Code Extension</h4>
-                <p>133 rules. Scan on save. Works offline.</p>
+                <p>154 rules. Scan on save. Works offline.</p>
                 <code>ext install SaidBorna.codetrust</code>
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                     class="card-link">View on Marketplace &rarr;</a>
@@ -3096,21 +3096,21 @@
                 <h4>GitHub Action</h4>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
                 <code>uses: S-Borna/codetrust@v2.3.2</code>
-                <a href="https://codetrust.saidborna.com" target="_blank" class="card-link">View docs
+                <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
                     &rarr;</a>
             </div>
             <div class="install-card">
                 <h4>MCP Server</h4>
                 <p>17 tools. Claude, Copilot, Cursor.</p>
                 <code>codetrust-mcp</code>
-                <a href="https://codetrust.saidborna.com" target="_blank" class="card-link">Setup guide
+                <a href="https://codetrust.ai" target="_blank" class="card-link">Setup guide
                     &rarr;</a>
             </div>
             <div class="install-card">
                 <h4>Cloud API</h4>
                 <p>42 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
-                <a href="https://codetrust-api.saidborna.com/v1/status" target="_blank" class="card-link">Check API
+                <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API
                     status &rarr;</a>
             </div>
         </div>
@@ -3142,7 +3142,7 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast — CodeTrust enforces it's safe</h2>
-            <p>133 rules. 10 enforcement layers. 42 API endpoints.<br>Five enterprise services.</p>
+            <p>154 rules. 10 enforcement layers. 42 API endpoints.<br>Five enterprise services.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
@@ -3252,8 +3252,8 @@
         });
 
         // Live stats: WebSocket push with polling fallback
-        const API_URL = 'https://codetrust-api.saidborna.com/v1/stats/public';
-        const WS_URL = 'wss://codetrust-api.saidborna.com/v1/stats/live';
+        const API_URL = 'https://api.codetrust.ai/v1/stats/public';
+        const WS_URL = 'wss://api.codetrust.ai/v1/stats/live';
         const POLL_REFRESH_MS = 30_000;
 
         let pollTimer = null;

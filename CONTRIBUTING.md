@@ -53,7 +53,7 @@ npm run compile
 
 1. Report issues privately (the repository is not public)
 2. Include: Python version, OS, steps to reproduce, expected vs actual behavior
-3. Website: <https://codetrust.saidborna.com>
+3. Website: <https://codetrust.ai>
 
 ### Suggesting Features
 
@@ -154,5 +154,5 @@ contributions will be licensed under the same terms as the project.
 
 ## Questions?
 
-- Website: <https://codetrust.saidborna.com>
-- Email: <codetrust@saidborna.com>
+- Website: <https://codetrust.ai>
+- Email: <contact@codetrust.ai>

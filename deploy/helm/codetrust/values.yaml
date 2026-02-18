@@ -70,14 +70,14 @@ ingress:
     nginx.ingress.kubernetes.io/rate-limit-window: "1m"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: api.codetrust.dev
+    - host: api.codetrust.ai
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: codetrust-tls
       hosts:
-        - api.codetrust.dev
+        - api.codetrust.ai
 
 # --- Resources ---
 resources:

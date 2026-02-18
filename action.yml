@@ -34,7 +34,7 @@ inputs:
   api-url:
     description: "CodeTrust API base URL"
     required: false
-    default: "https://codetrust-api-production.up.railway.app"
+    default: "https://api.codetrust.ai"
   max-file-size:
     description: "Maximum file size in bytes to scan"
     required: false

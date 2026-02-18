@@ -2393,7 +2393,7 @@ def _findings_to_sarif(findings: list[dict]) -> dict:
                 "driver": {
                     "name": "CodeTrust",
                     "version": "2.1.0",
-                    "informationUri": "https://codetrust.dev",
+                    "informationUri": "https://codetrust.ai",
                     "rules": rules,
                 },
             },

@@ -49,7 +49,7 @@ jobs:
         id: api_health
         continue-on-error: true
         run: |
-          API_URL="${CODETRUST_API_URL:-https://codetrust-api.saidborna.com}"
+          API_URL="${CODETRUST_API_URL:-https://api.codetrust.ai}"
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/v1/status" || echo "000")
           echo "status=$HTTP_CODE" >> $GITHUB_OUTPUT
           if [ "$HTTP_CODE" = "200" ]; then
@@ -62,7 +62,7 @@ jobs:
         id: scan_api
         if: steps.api_health.outputs.status == '200'
         env:
-          CODETRUST_API_URL: ${{ secrets.CODETRUST_API_URL || 'https://codetrust-api.saidborna.com' }}
+          CODETRUST_API_URL: ${{ secrets.CODETRUST_API_URL || 'https://api.codetrust.ai' }}
           CODETRUST_API_KEY: ${{ secrets.CODETRUST_API_KEY }}
           CHANGED_FILES: ${{ steps.changed.outputs.files }}
         run: python action/scan.py

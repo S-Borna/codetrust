@@ -531,6 +531,50 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
 
     # ═══════════════════════════════════════════════════════════════
+    #  AI AGENT ENFORCEMENT RULES
+    # ═══════════════════════════════════════════════════════════════
+    #  These rules enforce coding standards that AI agents violate
+    #  most frequently. Each maps to a concrete prohibition.
+    #  Severity BLOCK = scan fails, code cannot ship.
+
+    {
+        "id": "agent_tee_heredoc",
+        "pattern": r"\btee\s+\S+\s*<<",
+        "message": "tee with heredoc detected. AI agents must use template files, not shell tricks.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "agent_echo_multiline_redirect",
+        "pattern": r"echo\s+-e\s+.*\\n.*>\s*\S+",
+        "message": "echo -e with newlines to write files. Use proper file I/O or template files.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "agent_cat_heredoc",
+        "pattern": r"cat\s*>\s*\S+\s*<<",
+        "message": "cat with heredoc redirect. Heredocs are prohibited. Use template files.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "agent_subprocess_shell_true",
+        "pattern": r"subprocess\.\w+\(.*shell\s*=\s*True",
+        "message": "subprocess with shell=True. Use shell=False and pass args as list.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "agent_os_system",
+        "pattern": r"\bos\.system\s*\(",
+        "message": "os.system is unsafe. Use subprocess.run with shell=False.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "agent_os_popen",
+        "pattern": r"\bos\.popen\s*\(",
+        "message": "os.popen is unsafe. Use subprocess.run with shell=False.",
+        "severity": Severity.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
     #  AI HALLUCINATION DETECTION RULES
     # ═══════════════════════════════════════════════════════════════
     #  These catch AI agents fabricating URLs, environment variables,

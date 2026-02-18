@@ -46,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **53 new tests** covering all 5 enterprise features (vulnerability, license, cross-file, autofix, team/RBAC, API endpoints, database models)
 
+- **AI Agent Enforcement Rules** — 21 new rules across all enforcement layers to block AI agents from bypassing safe file-write tools
+  - **10 gateway terminal rules**: `gateway_tee_write`, `gateway_echo_to_file`, `gateway_printf_to_file`, `gateway_cat_redirect_write`, `gateway_sed_inline`, `gateway_awk_redirect`, `gateway_bash_c_write`, `gateway_python_write_file`, `gateway_perl_inline`, `gateway_dd_write_file`
+  - **5 gateway content rules**: `gateway_content_heredoc`, `gateway_content_bash_heredoc`, `gateway_content_tee_write`, `gateway_content_subprocess_heredoc`, `gateway_content_os_system_heredoc`
+  - **6 static scan rules**: `agent_tee_heredoc`, `agent_echo_multiline_redirect`, `agent_cat_heredoc`, `agent_subprocess_shell_true`, `agent_os_system`, `agent_os_popen`
+  - All 21 rules enforce `BLOCK` severity — code cannot ship with these patterns
+  - Gateway category 9 (AI Agent Enforcement) added; old category 9 (Resource Abuse) renumbered to 10
+  - 23 new tests in `test_gateway.py` and `test_static.py` for full coverage
+
+- **Domain migration** — All API URLs, telemetry endpoints, config defaults, docs, CI workflows, extension defaults, and Helm charts migrated from `saidborna.com` / `codetrust.dev` to `codetrust.ai` / `api.codetrust.ai` (~60 references across ~30 files)
+
 - **7 new languages** — Java, C#, C++, Shell/Bash, HTML, Terraform (+ SQL/YAML already present in backend, now enabled in extension). Total: **13 languages** (up from 6)
 
 - Backend — Language enum:

@@ -213,7 +213,7 @@ def generate_report(all_findings: list[dict], files_scanned: int) -> str:
         lines.append("")
 
     lines.append("---")
-    lines.append("*Powered by CodeTrust — https://codetrust.saidborna.com*")
+    lines.append("*Powered by CodeTrust — https://codetrust.ai*")
 
     return "\n".join(lines)
 
@@ -229,7 +229,7 @@ def _send_telemetry(payload: dict) -> None:
     if not _telemetry_enabled():
         return
 
-    api_url = os.environ.get("CODETRUST_API_URL", "https://codetrust-api.saidborna.com").rstrip("/")
+    api_url = os.environ.get("CODETRUST_API_URL", "https://api.codetrust.ai").rstrip("/")
     url = f"{api_url}/v1/telemetry"
 
     try:

@@ -53,7 +53,7 @@ locust -f tests/load/locustfile.py --host http://localhost:8000 \
   --users 50 --spawn-rate 5 --run-time 2m --headless
 
 # Against staging
-locust -f tests/load/locustfile.py --host https://codetrust-staging.up.railway.app \
+locust -f tests/load/locustfile.py --host https://api.codetrust.ai \
   --users 100 --spawn-rate 10 --run-time 5m --headless
 ```
 

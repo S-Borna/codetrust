@@ -70,7 +70,7 @@ async def user_with_key(db: DatabaseService) -> tuple[str, str]:
     """Create a user and API key, return (user_id, raw_key)."""
     user = await db.create_user(
         github_id="e2e-test-user",
-        email="e2e@codetrust.dev",
+        email="e2e@codetrust.ai",
         name="E2E Tester",
     )
     raw_key, _record = await db.create_api_key(user.id, "E2E Key")
@@ -312,7 +312,7 @@ class TestE2EHistoryUsage:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["email"] == "e2e@codetrust.dev"
+        assert data["email"] == "e2e@codetrust.ai"
         assert data["plan"] == "free"
 
 
@@ -343,7 +343,7 @@ class TestE2EGDPR:
         assert "profile" in data
         assert "api_keys" in data
         assert "scan_history" in data
-        assert data["profile"]["email"] == "e2e@codetrust.dev"
+        assert data["profile"]["email"] == "e2e@codetrust.ai"
 
     def test_delete_user_data(
         self, e2e_client: TestClient, user_with_key: tuple[str, str],

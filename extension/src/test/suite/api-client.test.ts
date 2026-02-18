@@ -43,7 +43,7 @@ suite("ApiClient Tests", () => {
     test("updates config", () => {
         const config = testConfig();
         const client = new ApiClient(config);
-        const newConfig = testConfig({ apiUrl: "http://api.codetrust.dev" });
+        const newConfig = testConfig({ apiUrl: "http://api.codetrust.ai" });
         client.updateConfig(newConfig);
         assert.ok(client);
     });

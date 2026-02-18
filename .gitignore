@@ -61,3 +61,8 @@ codetrust-results.sarif
 # VS Code Extension builds
 *.vsix
 CTfavicon.png
+
+# Generated docs
+docs/CODETRUST_OVERVIEW.md
+docs/CODETRUST_OVERVIEW.pdf
+docs/_generate_pdf.py

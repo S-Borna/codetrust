@@ -1,0 +1,6 @@
+# https://securitytxt.org/
+Contact: mailto:security@codetrust.ai
+Preferred-Languages: en
+Canonical: https://codetrust.ai/.well-known/security.txt
+Policy: https://github.com/S-Borna/codetrust/blob/main/SECURITY.md
+Expires: 2027-02-18T00:00:00.000Z

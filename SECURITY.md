@@ -18,7 +18,7 @@ vulnerability, please report it responsibly.
 
 ### How to Report
 
-1. **Email:** Send a detailed report to **<security@saidborna.com>**
+1. **Email:** Send a detailed report to **<security@codetrust.ai>**
 2. **Subject line:** `[SECURITY] CodeTrust — <brief description>`
 3. **Include:**
    - Description of the vulnerability
@@ -41,7 +41,7 @@ vulnerability, please report it responsibly.
 The following are in scope:
 
 - **CodeTrust CLI** (`pip install codetrust`)
-- **CodeTrust API** (codetrust-api.saidborna.com)
+- **CodeTrust API** (api.codetrust.ai)
 - **CodeTrust VS Code Extension** (SaidBorna.codetrust)
 - **CodeTrust MCP Server** (codetrust-mcp)
 - **AI Governance Gateway** (src/gateway/)

@@ -92,7 +92,7 @@ install_action() {
         info "GitHub Action workflow installed"
         echo ""
         echo "  To enable, add these secrets to your GitHub repo:"
-        echo "    CODETRUST_API_URL  (default: https://codetrust-api-production.up.railway.app)"
+        echo "    CODETRUST_API_URL  (default: https://api.codetrust.ai)"
         echo "    CODETRUST_API_KEY  (your API key)"
         echo ""
         echo "  Then enable branch protection to require the CodeTrust check to pass."

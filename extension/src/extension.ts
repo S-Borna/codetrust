@@ -38,7 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const client = new ApiClient(config);
 
     void sendTelemetry(context, "client_activated", {
-        api_url_default: config.apiUrl.replace(/\/+$/, "") === "https://codetrust-api.saidborna.com",
+        api_url_default: config.apiUrl.replace(/\/+$/, "") === "https://api.codetrust.ai",
         api_key_configured: config.apiKey.trim().length > 0,
         scan_on_save: config.scanOnSave,
         scan_type: config.scanType,

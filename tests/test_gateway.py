@@ -137,6 +137,68 @@ class TestCommandInterceptor:
         result = interceptor.check_terminal("cat README.md")
         assert result.verdict == Verdict.ALLOW
 
+    # --- AI Agent Enforcement (terminal rules) ---
+
+    def test_blocks_tee_write(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("echo 'data' | tee config.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_tee_write"
+
+    def test_blocks_tee_append(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("echo 'data' | tee -a main.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_tee_write"
+
+    def test_blocks_echo_to_file(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("echo 'print(1)' > app.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_echo_to_file"
+
+    def test_blocks_printf_to_file(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("printf '%s\\n' hello > out.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_printf_to_file"
+
+    def test_blocks_cat_redirect_write(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("cat > setup.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_cat_redirect_write"
+
+    def test_blocks_sed_inline(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("sed -i 's/old/new/g' config.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_sed_inline"
+
+    def test_blocks_awk_redirect(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("awk '{print $1}' data.txt > result.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_awk_redirect"
+
+    def test_blocks_bash_c_write(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("bash -c 'cat /dev/null > out.py'")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_bash_c_write"
+
+    def test_blocks_python_c_write(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("python3 -c 'open(\"f.py\",\"w\").write(\"x\")'")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_python_write_file"
+
+    def test_blocks_perl_inline(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("perl -i -pe 's/old/new/' config.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_perl_inline"
+
+    def test_blocks_perl_pie(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("perl -pi -e 's/foo/bar/' file.py")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_perl_inline"
+
+    def test_blocks_dd_write_file(self, interceptor: CommandInterceptor) -> None:
+        result = interceptor.check_terminal("dd if=/dev/stdin of=output.py bs=1024")
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_dd_write_file"
+
     # --- Disabled interceptor ---
 
     def test_disabled_allows_everything(self, disabled_interceptor: CommandInterceptor) -> None:
@@ -147,7 +209,9 @@ class TestCommandInterceptor:
     # --- Disabled rules ---
 
     def test_disabled_rule_allows_heredoc(self) -> None:
-        interceptor = CommandInterceptor(disabled_rules={"gateway_heredoc"})
+        interceptor = CommandInterceptor(
+            disabled_rules={"gateway_heredoc", "gateway_cat_redirect_write"},
+        )
         result = interceptor.check_terminal("cat > file.py << 'EOF'")
         assert result.verdict == Verdict.ALLOW
 
@@ -198,6 +262,38 @@ class TestFileWriteInterception:
     def test_allows_safe_content(self, interceptor: CommandInterceptor) -> None:
         result = interceptor.check_file_write("main.py", "print('hello')")
         assert result.verdict == Verdict.ALLOW
+
+    # --- AI Agent Enforcement (content rules) ---
+
+    def test_blocks_content_heredoc(self, interceptor: CommandInterceptor) -> None:
+        content = "cat <<EOF\nsome content\nEOF"
+        result = interceptor.check_file_write("deploy.sh", content)
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id == "gateway_content_heredoc"
+
+    def test_blocks_content_bash_heredoc(self, interceptor: CommandInterceptor) -> None:
+        content = "bash script.sh <<MARKER"
+        result = interceptor.check_file_write("run.sh", content)
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id in ("gateway_content_heredoc", "gateway_content_bash_heredoc")
+
+    def test_blocks_content_tee_heredoc(self, interceptor: CommandInterceptor) -> None:
+        content = "tee /etc/config.yml <<EOF"
+        result = interceptor.check_file_write("setup.sh", content)
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id in ("gateway_content_heredoc", "gateway_content_tee_write")
+
+    def test_blocks_content_subprocess_heredoc(self, interceptor: CommandInterceptor) -> None:
+        content = "subprocess.run('cat <<EOF', shell=True)"
+        result = interceptor.check_file_write("app.py", content)
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id in ("gateway_content_heredoc", "gateway_content_subprocess_heredoc")
+
+    def test_blocks_content_os_system_heredoc(self, interceptor: CommandInterceptor) -> None:
+        content = "os.system('cat <<EOF > file.txt')"
+        result = interceptor.check_file_write("app.py", content)
+        assert result.verdict == Verdict.BLOCK
+        assert result.rule_id in ("gateway_content_heredoc", "gateway_content_os_system_heredoc")
 
     def test_blocks_delete_protected(self, interceptor: CommandInterceptor) -> None:
         result = interceptor.check_file_delete("project/LICENSE")

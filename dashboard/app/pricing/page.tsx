@@ -48,7 +48,7 @@ const PLANS = [
             "Audit logs",
         ],
         cta: "Contact sales",
-        href: "mailto:sales@codetrust.dev",
+        href: "mailto:sales@codetrust.ai",
         highlight: false,
     },
 ];
@@ -70,8 +70,8 @@ export default function PricingPage() {
                         <div
                             key={plan.name}
                             className={`rounded-2xl border p-8 ${plan.highlight
-                                    ? "border-brand-600 shadow-lg ring-2 ring-brand-600"
-                                    : "border-gray-200 dark:border-gray-700"
+                                ? "border-brand-600 shadow-lg ring-2 ring-brand-600"
+                                : "border-gray-200 dark:border-gray-700"
                                 }`}
                         >
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -99,8 +99,8 @@ export default function PricingPage() {
                             <Link
                                 href={plan.href}
                                 className={`mt-8 block w-full rounded-lg py-3 text-center font-semibold transition ${plan.highlight
-                                        ? "bg-brand-600 text-white hover:bg-brand-700"
-                                        : "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    ? "bg-brand-600 text-white hover:bg-brand-700"
+                                    : "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                                     }`}
                             >
                                 {plan.cta}

@@ -27,7 +27,7 @@ from src.services.sso import OIDCConfig, OIDCService, OIDCUser
 ISSUER = "https://idp.example.com"
 CLIENT_ID = "test-client-id"
 CLIENT_SECRET = "test-client-secret"
-REDIRECT_URI = "https://app.codetrust.dev/auth/callback/oidc"
+REDIRECT_URI = "https://app.codetrust.ai/auth/callback/oidc"
 
 # RSA-less: we use HS256 for test simplicity (symmetric key = client_secret)
 SIGNING_KEY = CLIENT_SECRET
@@ -41,7 +41,7 @@ def _make_id_token(claims: dict[str, Any] | None = None) -> str:
         "aud": CLIENT_ID,
         "exp": int(time.time()) + 3600,
         "iat": int(time.time()),
-        "email": "alice@codetrust.dev",
+        "email": "alice@codetrust.ai",
         "name": "Alice Tester",
         "picture": "https://example.com/avatar.jpg",
         "roles": ["developer", "admin"],
@@ -110,7 +110,7 @@ class MockOIDCTransport(httpx.AsyncBaseTransport):
                     200,
                     json={
                         "sub": "user-12345",
-                        "email": "alice@codetrust.dev",
+                        "email": "alice@codetrust.ai",
                         "name": "Alice Tester",
                         "picture": "https://example.com/avatar.jpg",
                     },
@@ -135,7 +135,7 @@ def oidc_config() -> OIDCConfig:
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
         scopes=["openid", "profile", "email"],
-        allowed_domains=["codetrust.dev"],
+        allowed_domains=["codetrust.ai"],
     )
 
 
@@ -210,7 +210,7 @@ class TestOIDCTokenExchange:
         user = await oidc_service.exchange_code("valid_code")
         assert user is not None
         assert user.sub == "user-12345"
-        assert user.email == "alice@codetrust.dev"
+        assert user.email == "alice@codetrust.ai"
         assert user.name == "Alice Tester"
         assert "admin" in user.roles
 
@@ -232,7 +232,7 @@ class TestOIDCTokenExchange:
         await oidc_service.discover()
         user = await oidc_service.exchange_code("access_only")
         assert user is not None
-        assert user.email == "alice@codetrust.dev"
+        assert user.email == "alice@codetrust.ai"
 
     @pytest.mark.asyncio()
     async def test_exchange_no_token_endpoint(self, oidc_service: OIDCService) -> None:
@@ -243,7 +243,7 @@ class TestOIDCTokenExchange:
 
 class TestOIDCDomainValidation:
     def test_allowed_domain(self, oidc_service: OIDCService) -> None:
-        assert oidc_service.validate_domain("alice@codetrust.dev") is True
+        assert oidc_service.validate_domain("alice@codetrust.ai") is True
 
     def test_blocked_domain(self, oidc_service: OIDCService) -> None:
         assert oidc_service.validate_domain("alice@evil.com") is False

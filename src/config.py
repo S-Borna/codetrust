@@ -96,11 +96,11 @@ class Settings(BaseSettings):
     oidc_role_claim: str = "roles"
 
     # --- Dashboard ---
-    dashboard_url: str = "https://codetrust.saidborna.com"
+    dashboard_url: str = "https://codetrust.ai"
 
     # --- SARIF ---
     sarif_schema_url: str = "https://json.schemastore.org/sarif-2.1.0.json"
-    tool_info_uri: str = "https://codetrust.saidborna.com"
+    tool_info_uri: str = "https://codetrust.ai"
 
 
 settings = Settings()

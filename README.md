@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://codetrust.saidborna.com/logo.png" alt="CodeTrust" width="420">
+  <img src="https://codetrust.ai/logo.png" alt="CodeTrust" width="420">
 </p>
 
 <p align="center">
@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1431 tests</code> &middot; <code>133 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1431 tests</code> &middot; <code>154 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="https://codetrust.saidborna.com">Website</a> &middot;
+  <a href="https://codetrust.ai">Website</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
@@ -27,7 +27,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 133 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,431 tests.
+**AI Governance Enforcement Platform** — 154 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,431 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -114,7 +114,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**76 scan rules + 57 gateway rules = 133 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**82 scan rules + 72 gateway rules = 154 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -241,7 +241,7 @@ code --install-extension SaidBorna.codetrust
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `codetrust.apiUrl` | `https://codetrust-api.saidborna.com` | API server URL |
+| `codetrust.apiUrl` | `https://api.codetrust.ai` | API server URL |
 | `codetrust.apiKey` | `""` | Deprecated: stored in VS Code Secret Storage. Use Guided Onboarding to set it |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
 | `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
@@ -469,6 +469,44 @@ retention_days = 90
 
 **Override any setting via environment variable:** `CODETRUST_GOVERNANCE_MODE=audit`
 
+### Custom Rules
+
+Add your own governance rules without modifying CodeTrust source. Define them in `.codetrust/custom_rules.yaml` or under `[codetrust.governance.custom_rules]` in `.codetrust.toml`.
+
+<details>
+<summary><strong>YAML example — <code>.codetrust/custom_rules.yaml</code></strong></summary>
+
+```yaml
+terminal_rules:
+  - id: no_docker_privileged
+    pattern: "docker\\s+run\\s+--privileged"
+    message: "Privileged Docker containers are not allowed"
+    suggestion: "Remove --privileged flag"
+    severity: BLOCK
+
+  - id: no_force_push
+    pattern: "git\\s+push\\s+--force"
+    message: "Force push is blocked by policy"
+    suggestion: "Use --force-with-lease instead"
+    severity: BLOCK
+
+content_rules:
+  - id: no_console_log
+    pattern: "console\\.log\\("
+    message: "console.log found in production code"
+    suggestion: "Use a structured logger"
+    severity: WARN
+```
+
+</details>
+
+**Rules:**
+- `id` — unique identifier (auto-prefixed with `custom_` at runtime)
+- `pattern` — Python regex matched against terminal commands or file content
+- `message` — shown when the rule triggers
+- `suggestion` — recommended fix (optional)
+- `severity` — `BLOCK` (hard stop) or `WARN` (flag only)
+
 ---
 
 ## Security & Compliance
@@ -553,9 +591,9 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` |
-| **Cloud API** | Available at `codetrust-api.saidborna.com` |
+| **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
-| **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
+| **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---
 

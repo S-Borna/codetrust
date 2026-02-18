@@ -65,6 +65,50 @@ class TestScanCodeBlock:
         assert len(pickle_findings) >= 1
         assert pickle_findings[0].severity == Severity.BLOCK
 
+    # --- AI Agent Enforcement ---
+
+    def test_detects_tee_heredoc(self, analyzer: StaticAnalyzer) -> None:
+        code = "tee /etc/config.yml <<EOF\nkey: value\nEOF"
+        findings = analyzer.scan_code(code, "deploy.sh")
+        matched = [f for f in findings if f.rule_id == "agent_tee_heredoc"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_detects_echo_multiline_redirect(self, analyzer: StaticAnalyzer) -> None:
+        code = 'echo -e "line1\\nline2" > output.py'
+        findings = analyzer.scan_code(code, "setup.sh")
+        matched = [f for f in findings if f.rule_id == "agent_echo_multiline_redirect"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_detects_cat_heredoc(self, analyzer: StaticAnalyzer) -> None:
+        code = "cat > config.py <<EOF\nprint('hi')\nEOF"
+        findings = analyzer.scan_code(code, "install.sh")
+        matched = [f for f in findings if f.rule_id == "agent_cat_heredoc"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_detects_subprocess_shell_true(self, analyzer: StaticAnalyzer) -> None:
+        code = "subprocess.run('ls -la', shell=True)"
+        findings = analyzer.scan_code(code, "app.py")
+        matched = [f for f in findings if f.rule_id == "agent_subprocess_shell_true"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_detects_os_system(self, analyzer: StaticAnalyzer) -> None:
+        code = "os.system('rm -rf /tmp/build')"
+        findings = analyzer.scan_code(code, "cleanup.py")
+        matched = [f for f in findings if f.rule_id == "agent_os_system"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_detects_os_popen(self, analyzer: StaticAnalyzer) -> None:
+        code = "result = os.popen('whoami').read()"
+        findings = analyzer.scan_code(code, "utils.py")
+        matched = [f for f in findings if f.rule_id == "agent_os_popen"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
 
 # ---------------------------------------------------------------------------
 # scan_code — WARN severity

@@ -248,7 +248,7 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
                 command: "vscode.open",
                 arguments: [
                     vscode.Uri.parse(
-                        `https://codetrust.dev/rules/${ruleId}`,
+                        `https://codetrust.ai/rules/${ruleId}`,
                     ),
                 ],
             };

@@ -2,9 +2,9 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-133 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
+154 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
-1. **AI Governance Gateway** — 57 real-time interception rules block destructive AI agent actions *before* they execute
+1. **AI Governance Gateway** — 72 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, and Go proxy
 3. **Trust Score & Drift Tracking** — Baseline your codebase and detect safety regression over time
 
@@ -24,7 +24,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 - **CLI repo-aware commands** — `pr-risk`, `trust-diff`, `trend record/show` for commit-level insight
 - **Safe autofix** — `codetrust fix` with preview by default, `--apply` to write
 - **Policy Wizard** — `codetrust policy wizard` generates governance presets with TOML autocomplete
-- **133 total rules** — 76 scan + 57 gateway interception rules
+- **154 total rules** — 82 scan + 72 gateway interception rules
 
 ---
 
@@ -114,7 +114,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `codetrust.apiUrl` | `https://codetrust-api.saidborna.com` | CodeTrust API server URL |
+| `codetrust.apiUrl` | `https://api.codetrust.ai` | CodeTrust API server URL |
 | `codetrust.apiKey` | `""` | Deprecated: API key is stored in VS Code Secret Storage (use Guided Onboarding) |
 | `codetrust.scanOnSave` | `true` | Auto-scan on save |
 | `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
@@ -141,7 +141,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` |
 | **MCP Server** | 17 tools for Claude Code / Cursor |
 | **REST API** | 28 endpoints |
-| **Website** | [codetrust.saidborna.com](https://codetrust.saidborna.com) |
+| **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---
 
@@ -157,9 +157,9 @@ All scan rules work offline. Import verification, AI governance, and deep scanni
 
 ## Links
 
-- [Website](https://codetrust.saidborna.com)
+- [Website](https://codetrust.ai)
 - [PyPI](https://pypi.org/project/codetrust/)
-- [Changelog](https://codetrust.saidborna.com)
+- [Changelog](https://codetrust.ai)
 
 ---
 

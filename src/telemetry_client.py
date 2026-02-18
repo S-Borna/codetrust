@@ -18,7 +18,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-TELEMETRY_URL: str = "https://codetrust-api.saidborna.com/v1/telemetry"
+TELEMETRY_URL: str = "https://api.codetrust.ai/v1/telemetry"
 TELEMETRY_TIMEOUT_SECONDS: float = 3.0
 INSTALL_ID_REL: Path = Path(".codetrust") / "install_id"
 

@@ -256,14 +256,14 @@ class TestExtensionFileLevelLogic:
 class TestRuleCounts:
     """Verify both CLI and extension have the expected number of rules."""
 
-    def test_backend_has_76_rules(self):
+    def test_backend_has_82_rules(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
-        assert len(ANTI_PATTERNS) == 76
+        assert len(ANTI_PATTERNS) == 82
 
     def test_cli_skips_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
         regex_only = [r for r in ANTI_PATTERNS if not r.get("special_handler")]
-        assert len(regex_only) == 65
+        assert len(regex_only) == 71
 
     def test_eleven_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
@@ -314,7 +314,7 @@ class TestConfigHallucinationRules:
 
     def test_real_url_ok(self):
         """Real URLs should not trigger."""
-        code = 'API = "https://api.codetrust.dev/v1"'
+        code = 'API = "https://api.codetrust.ai/v1"'
         assert "placeholder_url" not in _scan_code(code)
 
     def test_fake_openai_key(self):

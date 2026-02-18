@@ -20,7 +20,7 @@ def oidc_config() -> OIDCConfig:
         issuer="https://login.microsoftonline.com/tenant-id/v2.0",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        redirect_uri="https://app.codetrust.dev/auth/callback/oidc",
+        redirect_uri="https://app.codetrust.ai/auth/callback/oidc",
         scopes=["openid", "profile", "email"],
     )
 

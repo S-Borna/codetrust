@@ -2,7 +2,7 @@
  * API client for communicating with the CodeTrust Python backend.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.codetrust.ai";
 
 interface ScanLog {
     id: string;

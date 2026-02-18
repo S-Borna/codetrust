@@ -14,7 +14,7 @@ Configuration via environment variables:
     CODETRUST_OIDC_ISSUER=https://login.microsoftonline.com/{tenant}/v2.0
     CODETRUST_OIDC_CLIENT_ID=your-client-id
     CODETRUST_OIDC_CLIENT_SECRET=your-client-secret
-    CODETRUST_OIDC_REDIRECT_URI=https://app.codetrust.dev/auth/callback/oidc
+    CODETRUST_OIDC_REDIRECT_URI=https://app.codetrust.ai/auth/callback/oidc
     CODETRUST_OIDC_SCOPES=openid,profile,email
 
 Or via .codetrust.toml (project-level):

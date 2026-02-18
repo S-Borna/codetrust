@@ -135,7 +135,7 @@ npx vsce package --no-dependencies  # Must produce .vsix
 ### 13. Smoke Test
 
 ```bash
-./smoke_test.sh https://codetrust-api.saidborna.com
+./smoke_test.sh https://api.codetrust.ai
 ```
 
 All checks must pass. If a new endpoint was added, verify it's included in the smoke test.
@@ -162,7 +162,7 @@ After all checks pass:
 
 After push and deploy:
 
-1. **Smoke test** against production: `./smoke_test.sh https://codetrust-api.saidborna.com`
+1. **Smoke test** against production: `./smoke_test.sh https://api.codetrust.ai`
 2. **PyPI** — verify version appears: `pip install codetrust==X.Y.Z`
 3. **VS Code Marketplace** — verify extension version
 4. **GitHub Action** — verify tag works: `uses: S-Borna/codetrust@vX.Y.Z`

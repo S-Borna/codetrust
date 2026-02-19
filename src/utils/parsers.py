@@ -46,7 +46,7 @@ _RUBY_STDLIB: frozenset[str] = frozenset({
     "yaml", "zlib",
     # Core modules always available
     "kernel", "comparable", "enumerable", "errno", "file", "dir",
-    "io", "process", "signal", "thread", "mutex",
+    "process", "signal", "thread", "mutex",
 })
 
 # PHP built-in extensions/namespaces to skip
@@ -62,7 +62,7 @@ _PHP_BUILTINS: frozenset[str] = frozenset({
     "zlib", "bz2", "zip", "phar", "rar",
     "ctype", "tokenizer", "readline",
     "shmop", "sem", "sysvsem", "sysvshm", "sysvmsg",
-    "pcntl", "posix", "proc",
+    "pcntl", "proc",
     "apcu", "opcache",
 })
 

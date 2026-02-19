@@ -72,7 +72,7 @@ def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
         "generic_block": [], "generic_warn": [], "generic_info": [],
         "sql_block": [], "sql_warn": [], "sql_info": [],
         "docker_block": [], "docker_warn": [],
-        "ci_warn": [],
+        "ci_block": [], "ci_warn": [], "ci_info": [],
         "devops_block": [], "devops_warn": [], "devops_info": [],
         "react_block": [], "react_warn": [],
         "k8s_block": [], "k8s_warn": [], "k8s_info": [],
@@ -81,6 +81,8 @@ def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
         "ps_block": [], "ps_warn": [], "ps_info": [],
         "nginx_block": [], "nginx_warn": [], "nginx_info": [],
         "bicep_block": [], "bicep_warn": [], "bicep_info": [],
+        "redis_block": [], "redis_warn": [], "redis_info": [],
+        "systemd_block": [], "systemd_warn": [], "systemd_info": [],
     }
 
 
@@ -112,6 +114,10 @@ def _classify_rule_entry(
             cats.get(f"php_{sev_lower}", cats["php_warn"]).append(entry)
         elif ft_set & {".ps1", ".psm1"}:
             cats.get(f"ps_{sev_lower}", cats["ps_warn"]).append(entry)
+        elif rule_id.startswith("redis_"):
+            cats.get(f"redis_{sev_lower}", cats["redis_warn"]).append(entry)
+        elif rule_id.startswith("systemd_"):
+            cats.get(f"systemd_{sev_lower}", cats["systemd_warn"]).append(entry)
         elif ft_set == {".conf"}:
             cats.get(f"nginx_{sev_lower}", cats["nginx_warn"]).append(entry)
         elif ft_set == {".bicep"}:
@@ -154,7 +160,9 @@ SQL_WARN_RULES = _CLI_RULES["sql_warn"]
 SQL_INFO_RULES = _CLI_RULES["sql_info"]
 DOCKER_BLOCK_RULES = _CLI_RULES["docker_block"]
 DOCKER_WARN_RULES = _CLI_RULES["docker_warn"]
+CI_BLOCK_RULES = _CLI_RULES["ci_block"]
 CI_WARN_RULES = _CLI_RULES["ci_warn"]
+CI_INFO_RULES = _CLI_RULES.get("ci_info", [])
 DEVOPS_BLOCK_RULES = _CLI_RULES["devops_block"]
 DEVOPS_WARN_RULES = _CLI_RULES["devops_warn"]
 DEVOPS_INFO_RULES = _CLI_RULES["devops_info"]
@@ -175,6 +183,10 @@ NGINX_WARN_RULES = _CLI_RULES["nginx_warn"]
 NGINX_INFO_RULES = _CLI_RULES["nginx_info"]
 BICEP_BLOCK_RULES = _CLI_RULES["bicep_block"]
 BICEP_WARN_RULES = _CLI_RULES["bicep_warn"]
+REDIS_BLOCK_RULES = _CLI_RULES["redis_block"]
+REDIS_WARN_RULES = _CLI_RULES["redis_warn"]
+SYSTEMD_WARN_RULES = _CLI_RULES["systemd_warn"]
+SYSTEMD_INFO_RULES = _CLI_RULES["systemd_info"]
 
 SOURCE_EXTS = {
     ".py", ".js", ".ts", ".tsx", ".jsx",
@@ -187,6 +199,7 @@ SOURCE_EXTS = {
     ".cpp", ".c", ".h",
     ".html", ".htm",
     ".conf", ".bicep",
+    ".service", ".timer", ".ini", ".cfg",
 }
 DEVOPS_EXTS = DEVOPS_EXTENSIONS
 SQL_EXTS = SQL_EXTENSIONS
@@ -1414,6 +1427,7 @@ def _select_rule_sets(
     is_powershell: bool = False,
     is_nginx: bool = False,
     is_bicep: bool = False,
+    is_systemd: bool = False,
 ) -> tuple[
     list[tuple[str, str, str]],
     list[tuple[str, str, str]],
@@ -1440,15 +1454,21 @@ def _select_rule_sets(
             WARN_RULES + PS_WARN_RULES + DEVOPS_WARN_RULES,
             INFO_RULES + PS_INFO_RULES + DEVOPS_INFO_RULES,
         )
+    if is_systemd:
+        return [], SYSTEMD_WARN_RULES, SYSTEMD_INFO_RULES
     if is_nginx:
-        return NGINX_BLOCK_RULES, NGINX_WARN_RULES, NGINX_INFO_RULES
+        return (
+            NGINX_BLOCK_RULES + REDIS_BLOCK_RULES + DEVOPS_BLOCK_RULES,
+            NGINX_WARN_RULES + REDIS_WARN_RULES + DEVOPS_WARN_RULES,
+            NGINX_INFO_RULES + DEVOPS_INFO_RULES,
+        )
     if is_bicep:
         return BLOCK_RULES + BICEP_BLOCK_RULES, WARN_RULES + BICEP_WARN_RULES, INFO_RULES
     if is_ci:
         return (
-            _DEVOPS_K8S_RULES[0],
+            _DEVOPS_K8S_RULES[0] + CI_BLOCK_RULES,
             WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES,
-            _DEVOPS_K8S_RULES[2],
+            _DEVOPS_K8S_RULES[2] + CI_INFO_RULES,
         )
     if is_k8s:
         return _DEVOPS_K8S_RULES
@@ -1602,11 +1622,12 @@ def scan_text(code: str, filepath: str) -> list[dict[str, str | int]]:
     is_powershell = ext in {".ps1", ".psm1", ".psd1"}
     is_nginx = ext == ".conf"
     is_bicep = ext == ".bicep"
+    is_systemd = ext in {".service", ".timer"}
 
     block_rules, warn_rules, info_rules = _select_rule_sets(
         ext, is_dockerfile, is_react, is_ci, is_k8s, is_devops,
         is_ruby=is_ruby, is_php=is_php, is_powershell=is_powershell,
-        is_nginx=is_nginx, is_bicep=is_bicep,
+        is_nginx=is_nginx, is_bicep=is_bicep, is_systemd=is_systemd,
     )
 
     lines = code.splitlines(keepends=True)

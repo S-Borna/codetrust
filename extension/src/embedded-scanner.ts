@@ -735,6 +735,332 @@ const BICEP_WARN_RULES: Rule[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════
+//  REDIS CONFIGURATION RULES
+// ═══════════════════════════════════════════════════════════════
+
+const REDIS_BLOCK_RULES: Rule[] = [
+    {
+        id: "redis_protected_mode_off",
+        pattern: /^\s*protected-mode\s+no/,
+        message: "Redis protected mode disabled. Enable protected-mode to reject external connections without auth.",
+        severity: "BLOCK",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "redis_weak_password",
+        pattern: /^\s*requirepass\s+(?:redis|password|admin|test|default|changeme|1234|pass|foobared)\s*$/i,
+        message: "Weak or default Redis password. Use a strong, randomly generated password.",
+        severity: "BLOCK",
+        fileTypes: [".conf"],
+    },
+];
+
+const REDIS_WARN_RULES: Rule[] = [
+    {
+        id: "redis_bind_all",
+        pattern: /^\s*bind\s+(?:0\.0\.0\.0|\*)/,
+        message: "Redis bound to all interfaces. Bind to 127.0.0.1 or specific IPs in production.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "redis_maxmemory_noeviction",
+        pattern: /^\s*maxmemory-policy\s+noeviction/i,
+        message: "noeviction policy causes write errors when memory is full. Use allkeys-lru or volatile-lru.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "redis_save_disabled",
+        pattern: /^\s*save\s+""/,
+        message: "RDB snapshots disabled. Ensure AOF is enabled or data loss on restart is acceptable.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "redis_aof_no_fsync",
+        pattern: /^\s*appendfsync\s+no\b/i,
+        message: "Redis AOF without fsync risks data loss on crash. Use appendfsync everysec or always.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  HASHICORP VAULT RULES
+// ═══════════════════════════════════════════════════════════════
+
+const VAULT_BLOCK_RULES: Rule[] = [
+    {
+        id: "vault_tls_disabled",
+        pattern: /tls_disable\s*=\s*(?:1|true|"true")/i,
+        message: "Vault TLS disabled. Always enable TLS in production to encrypt client-server communication.",
+        severity: "BLOCK",
+        fileTypes: [".hcl"],
+    },
+];
+
+const VAULT_WARN_RULES: Rule[] = [
+    {
+        id: "vault_file_storage",
+        pattern: /storage\s+"file"\s*\{/i,
+        message: "Vault using file storage backend. Use Consul, Raft, or cloud storage for HA in production.",
+        severity: "WARN",
+        fileTypes: [".hcl"],
+    },
+    {
+        id: "vault_disable_mlock",
+        pattern: /disable_mlock\s*=\s*(?:true|1|"true")/i,
+        message: "Vault mlock disabled. Memory locking prevents secrets from being swapped to disk.",
+        severity: "WARN",
+        fileTypes: [".hcl"],
+    },
+    {
+        id: "vault_telemetry_unauth",
+        pattern: /unauthenticated_metrics_access\s*=\s*(?:true|1|"true")/i,
+        message: "Vault metrics exposed without authentication. Set unauthenticated_metrics_access = false.",
+        severity: "WARN",
+        fileTypes: [".hcl"],
+    },
+];
+
+const VAULT_INFO_RULES: Rule[] = [
+    {
+        id: "vault_max_lease_long",
+        pattern: /max_lease_ttl\s*=\s*"\d{4,}h"/i,
+        message: "Very long Vault max lease TTL (1000+ hours). Short-lived leases reduce exposure.",
+        severity: "INFO",
+        fileTypes: [".hcl"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  PROMETHEUS / GRAFANA MONITORING RULES
+// ═══════════════════════════════════════════════════════════════
+
+const MONITORING_BLOCK_RULES: Rule[] = [
+    {
+        id: "grafana_anon_access",
+        pattern: /GF_AUTH_ANONYMOUS_ENABLED\s*=\s*true/i,
+        message: "Grafana anonymous access enabled. Require authentication for dashboard access in production.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "grafana_default_admin",
+        pattern: /GF_SECURITY_ADMIN_PASSWORD\s*=\s*(?:admin|password|grafana|test|changeme|default)/i,
+        message: "Weak or default Grafana admin password. Use a strong, unique password.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+const MONITORING_WARN_RULES: Rule[] = [
+    {
+        id: "prom_scrape_too_fast",
+        pattern: /scrape_interval:\s*[1-4]s\b/i,
+        message: "Prometheus scrape interval under 5s may overload targets. Use 15s-60s.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "grafana_allow_embedding",
+        pattern: /GF_SECURITY_ALLOW_EMBEDDING\s*=\s*true/i,
+        message: "Grafana allow_embedding enables iframe embedding, creating a clickjacking risk.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+const MONITORING_INFO_RULES: Rule[] = [
+    {
+        id: "prom_eval_too_fast",
+        pattern: /evaluation_interval:\s*[1-4]s\b/i,
+        message: "Prometheus evaluation interval under 5s is aggressive. Use 15s-60s.",
+        severity: "INFO",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  SYSTEMD UNIT FILE RULES
+// ═══════════════════════════════════════════════════════════════
+
+const SYSTEMD_WARN_RULES: Rule[] = [
+    {
+        id: "systemd_restart_disabled",
+        pattern: /^\s*Restart\s*=\s*no\s*$/i,
+        message: "Systemd service will not restart on failure. Set Restart=on-failure.",
+        severity: "WARN",
+        fileTypes: [".service", ".timer"],
+    },
+    {
+        id: "systemd_restart_no_delay",
+        pattern: /^\s*RestartSec\s*=\s*0\s*$/i,
+        message: "RestartSec=0 causes immediate restart loops. Set RestartSec=5 or higher.",
+        severity: "WARN",
+        fileTypes: [".service", ".timer"],
+    },
+    {
+        id: "systemd_unlimited_resource",
+        pattern: /^\s*(?:LimitNOFILE|LimitNPROC)\s*=\s*(?:infinity|unlimited)/i,
+        message: "Unlimited resource limit. Set bounded limits to prevent resource exhaustion.",
+        severity: "WARN",
+        fileTypes: [".service", ".timer"],
+    },
+];
+
+const SYSTEMD_INFO_RULES: Rule[] = [
+    {
+        id: "systemd_exec_shell_wrapper",
+        pattern: /^\s*ExecStart\s*=\s*\/(?:bin|usr\/bin)\/(?:ba)?sh\s+-c\s+/i,
+        message: "Shell wrapper in ExecStart. Use direct binary path for cleaner signal handling.",
+        severity: "INFO",
+        fileTypes: [".service", ".timer"],
+    },
+    {
+        id: "systemd_no_timeout_stop",
+        pattern: /^\s*TimeoutStopSec\s*=\s*(?:infinity|0)\s*$/i,
+        message: "No stop timeout. Set TimeoutStopSec to prevent zombie processes.",
+        severity: "INFO",
+        fileTypes: [".service", ".timer"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  DOCKER COMPOSE ADVANCED RULES
+// ═══════════════════════════════════════════════════════════════
+
+const COMPOSE_BLOCK_RULES: Rule[] = [
+    {
+        id: "compose_env_inline_secret",
+        pattern: /^\s+-\s*(?:DB_PASSWORD|MYSQL_ROOT_PASSWORD|POSTGRES_PASSWORD|REDIS_PASSWORD|SECRET_KEY|API_SECRET|MONGO_INITDB_ROOT_PASSWORD)\s*=\s*\S{4,}/i,
+        message: "Secret value inline in Docker Compose environment. Use env_file or Docker secrets.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+const COMPOSE_WARN_RULES: Rule[] = [
+    {
+        id: "compose_ipc_host",
+        pattern: /^\s+ipc:\s*["']?host/i,
+        message: "Docker Compose IPC set to host, breaking container isolation.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "compose_network_host",
+        pattern: /^\s+network_mode:\s*["']?host/i,
+        message: "Host network mode bypasses container isolation. Use bridge networking.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "compose_pid_host",
+        pattern: /^\s+pid:\s*["']?host/i,
+        message: "PID mode set to host. This exposes host processes to the container.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+const COMPOSE_INFO_RULES: Rule[] = [
+    {
+        id: "compose_restart_always",
+        pattern: /^\s+restart:\s*["']?always/i,
+        message: "restart: always restarts even after manual stop. Use unless-stopped.",
+        severity: "INFO",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  GITHUB ACTIONS ADVANCED RULES
+// ═══════════════════════════════════════════════════════════════
+
+const CI_BLOCK_RULES: Rule[] = [
+    {
+        id: "ci_pull_request_target",
+        pattern: /^\s+pull_request_target:/i,
+        message: "pull_request_target runs with write permissions on fork PRs. Use pull_request + workflow_run.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "ci_write_all_permissions",
+        pattern: /^\s+permissions:\s*write-all/i,
+        message: "write-all grants excessive CI permissions. Scope to specific permissions.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "ci_curl_pipe_shell",
+        pattern: /curl\s+.*\|\s*(?:ba)?sh/i,
+        message: "Piping curl to shell in CI is unsafe. Download, verify checksum, then execute.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+    {
+        id: "ci_inject_untrusted_input",
+        pattern: /\$\{\{\s*github\.event\.(?:issue|comment|pull_request|review|discussion)\.(?:title|body)\s*\}\}/,
+        message: "Untrusted GitHub event data in expression. This enables command injection.",
+        severity: "BLOCK",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+const CI_ADV_WARN_RULES: Rule[] = [
+    {
+        id: "ci_checkout_persist_creds",
+        pattern: /persist-credentials:\s*true/i,
+        message: "Persisting Git credentials in CI. Set persist-credentials: false.",
+        severity: "WARN",
+        fileTypes: [".yml", ".yaml"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  GENERAL CONFIG HYGIENE RULES
+// ═══════════════════════════════════════════════════════════════
+
+const CONFIG_BLOCK_RULES: Rule[] = [
+    {
+        id: "config_ssl_verify_off",
+        pattern: /(?:ssl[_-]?verify|verify[_-]?ssl|tls[_-]?verify)\s*[:=]\s*(?:false|0|no|off)\b/i,
+        message: "SSL/TLS certificate verification disabled. This enables man-in-the-middle attacks.",
+        severity: "BLOCK",
+    },
+    {
+        id: "config_private_key_inline",
+        pattern: /-----BEGIN\s+(?:RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/,
+        message: "Private key embedded in config file. Store keys in secure vaults.",
+        severity: "BLOCK",
+    },
+];
+
+const CONFIG_WARN_RULES: Rule[] = [
+    {
+        id: "config_weak_tls_version",
+        pattern: /(?:tls[_-]?(?:min[_-]?)?version|ssl[_-]?version|min[_-]?protocol)\s*[:=]\s*["']?(?:1\.[01]|TLSv1[^.2]|SSLv[23])/i,
+        message: "Legacy TLS/SSL version configured. Use TLS 1.2 or 1.3 only.",
+        severity: "WARN",
+    },
+    {
+        id: "config_world_writable",
+        pattern: /(?:chmod|mode)\s*[:=]?\s*(?:0?777|a\+rwx)\b/i,
+        message: "World-writable permission (777). Restrict file permissions to owner and group.",
+        severity: "WARN",
+    },
+    {
+        id: "config_listen_all_interfaces",
+        pattern: /(?:listen[_-]?address|bind[_-]?address|bind[_-]?host)\s*[:=]\s*["']?0\.0\.0\.0/i,
+        message: "Service listening on all interfaces. Bind to 127.0.0.1 or specific IPs.",
+        severity: "WARN",
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
 //  RULE ROUTING
 // ═══════════════════════════════════════════════════════════════
 
@@ -763,12 +1089,16 @@ const DOCKERFILE_RULES: Rule[] = [
 
 const CI_RULES: Rule[] = [
     ...GENERIC_RULES,
+    ...CI_BLOCK_RULES,
     ...CI_WARN_RULES,
+    ...CI_ADV_WARN_RULES,
     ...DEVOPS_BLOCK_RULES,
     ...DEVOPS_WARN_RULES,
     ...DEVOPS_INFO_RULES,
     ...K8S_BLOCK_RULES,
     ...K8S_WARN_RULES,
+    ...CONFIG_BLOCK_RULES,
+    ...CONFIG_WARN_RULES,
 ];
 
 const DEVOPS_RULES: Rule[] = [
@@ -778,6 +1108,17 @@ const DEVOPS_RULES: Rule[] = [
     ...DEVOPS_INFO_RULES,
     ...K8S_BLOCK_RULES,
     ...K8S_WARN_RULES,
+    ...MONITORING_BLOCK_RULES,
+    ...MONITORING_WARN_RULES,
+    ...MONITORING_INFO_RULES,
+    ...COMPOSE_BLOCK_RULES,
+    ...COMPOSE_WARN_RULES,
+    ...COMPOSE_INFO_RULES,
+    ...VAULT_BLOCK_RULES,
+    ...VAULT_WARN_RULES,
+    ...VAULT_INFO_RULES,
+    ...CONFIG_BLOCK_RULES,
+    ...CONFIG_WARN_RULES,
 ];
 
 const REACT_RULES: Rule[] = [
@@ -808,10 +1149,19 @@ const PS_RULES: Rule[] = [
     ...DEVOPS_INFO_RULES,
 ];
 
-const NGINX_RULES: Rule[] = [
+const CONF_RULES: Rule[] = [
     ...NGINX_BLOCK_RULES,
     ...NGINX_WARN_RULES,
     ...NGINX_INFO_RULES,
+    ...REDIS_BLOCK_RULES,
+    ...REDIS_WARN_RULES,
+    ...CONFIG_BLOCK_RULES,
+    ...CONFIG_WARN_RULES,
+];
+
+const SYSTEMD_RULES: Rule[] = [
+    ...SYSTEMD_WARN_RULES,
+    ...SYSTEMD_INFO_RULES,
 ];
 
 const BICEP_RULES: Rule[] = [
@@ -821,7 +1171,11 @@ const BICEP_RULES: Rule[] = [
 ];
 
 /** File extensions considered DevOps files. */
-const DEVOPS_EXTS = new Set([".yml", ".yaml", ".toml", ".tf", ".tfvars", ".hcl", ".conf", ".bicep", ".ps1", ".psm1", ".psd1"]);
+const DEVOPS_EXTS = new Set([
+    ".yml", ".yaml", ".toml", ".tf", ".tfvars", ".hcl",
+    ".conf", ".bicep", ".ps1", ".psm1", ".psd1",
+    ".service", ".timer", ".ini", ".cfg",
+]);
 const SQL_EXTS = new Set([".sql"]);
 const HTML_EXTS = new Set([".html", ".htm"]);
 const DEVOPS_FILENAMES = new Set([
@@ -852,7 +1206,10 @@ function getRulesForFile(filename: string): Rule[] {
         return PS_RULES;
     }
     if (ext === ".conf") {
-        return NGINX_RULES;
+        return CONF_RULES;
+    }
+    if (ext === ".service" || ext === ".timer") {
+        return SYSTEMD_RULES;
     }
     if (ext === ".bicep") {
         return BICEP_RULES;

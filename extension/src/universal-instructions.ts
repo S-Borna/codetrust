@@ -26,7 +26,7 @@ const MARKER = "[codetrust-governance-v1]";
 const RULES_BLOCK = `
 ## CodeTrust Governance — Mandatory Rules ${MARKER}
 
-> Enforced by CodeTrust v2.5.0+. Active in every session, every workspace.
+> Enforced by CodeTrust v2.5.2+. Active in every session, every workspace.
 > All actions are logged to \`.codetrust/audit.jsonl\` (append-only).
 
 ### Proxy Validation — Two-Step Workflow

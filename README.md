@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.5.1</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.5.2</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ The Gateway intercepts AI agent actions **before execution** — not scanning fi
 
 All rules are configurable. Any rule can be disabled per-project.
 
-**Real proof:** During the development of v2.1.0, our own AI agent attempted to create a file using a heredoc pattern. The CodeTrust gateway blocked it in real-time — the product protected itself from its own builder.
+**Real proof:** During development, our own AI agent attempted to create a file using a heredoc pattern. The CodeTrust gateway blocked it in real-time — the product protected itself from its own builder.
 
 ### Moat 2: Hallucination Detection Engine
 
@@ -205,7 +205,7 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.1` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.2` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 21 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 42 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -307,7 +307,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.5.1
+      - uses: S-Borna/codetrust@v2.5.2
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -604,7 +604,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.1` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.2` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

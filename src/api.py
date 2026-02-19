@@ -3,8 +3,6 @@
 import asyncio
 import os
 import time
-
-SECONDS_PER_HOUR: int = 3_600
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -28,6 +26,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from src.config import settings
 from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
+from src.gateway.audit import AuditEntry
 from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from src.models.enums import Language, Severity, VerifyStatus
@@ -76,19 +75,18 @@ from src.models.responses import (
 from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
+from src.services.autofix import AutoFixResult
 from src.services.billing import PLAN_LIMITS, BillingService
 from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
+from src.services.license_checker import LicenseScanResponse
 from src.services.rate_limiter import RateLimiter
 from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
+from src.services.sso import OIDCConfig, OIDCService
 from src.services.static_analyzer import StaticAnalyzer
 from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
-from src.gateway.audit import AuditEntry
-from src.services.autofix import AutoFixResult
-from src.services.license_checker import LicenseScanResponse
-from src.services.sso import OIDCConfig, OIDCService
 from src.services.vulnerability import VulnScanResponse
 from src.utils.parsers import (
     extract_cpp_includes,
@@ -102,6 +100,8 @@ from src.utils.parsers import (
 )
 
 logger = structlog.get_logger()
+
+SECONDS_PER_HOUR: int = 3_600
 
 # --- Auth Context ---
 

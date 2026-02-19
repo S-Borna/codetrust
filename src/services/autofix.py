@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
+    import re
+
     import httpx
 
 logger = structlog.get_logger()

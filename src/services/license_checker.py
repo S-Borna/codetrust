@@ -11,13 +11,16 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import httpx
 import structlog
 
 from src.models.enums import Language, Severity
-from src.services.cache import CacheService
+
+if TYPE_CHECKING:
+    from src.services.cache import CacheService
 
 logger = structlog.get_logger()
 
@@ -26,7 +29,7 @@ _SEMAPHORE_LIMIT = 20
 _REQUEST_TIMEOUT = 10.0
 
 
-class LicenseRisk(str, Enum):
+class LicenseRisk(StrEnum):
     """License risk classification."""
 
     PERMISSIVE = "permissive"

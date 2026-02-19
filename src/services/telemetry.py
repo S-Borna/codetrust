@@ -8,8 +8,6 @@ This module is intentionally privacy-preserving:
 from __future__ import annotations
 
 import asyncio
-
-SECONDS_PER_HOUR: int = 3_600
 import datetime
 import json
 import time
@@ -30,6 +28,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+SECONDS_PER_HOUR: int = 3_600
 TELEMETRY_QUEUE_MAXSIZE: int = 10_000
 TELEMETRY_BATCH_SIZE: int = 50
 TELEMETRY_FLUSH_INTERVAL_SECONDS: float = 5.0

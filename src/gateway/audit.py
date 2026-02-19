@@ -14,12 +14,14 @@ import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-SECONDS_PER_DAY: int = 86_400
-
-from src.gateway.interceptor import InterceptResult
+if TYPE_CHECKING:
+    from src.gateway.interceptor import InterceptResult
 
 logger = logging.getLogger(__name__)
+
+SECONDS_PER_DAY: int = 86_400
 
 
 @dataclass

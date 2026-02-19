@@ -10,18 +10,21 @@ CodeTrust provides it free.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models.database import Organization, TeamMember, User
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 logger = structlog.get_logger()
 
 
-class TeamRole(str, Enum):
+class TeamRole(StrEnum):
     """Supported team roles, ordered by privilege level."""
 
     OWNER = "owner"

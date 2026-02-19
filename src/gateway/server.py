@@ -11,15 +11,13 @@ Architecture:
 
 Usage:
     # Standalone gateway (validates terminal commands, file writes, etc.)
-    python -m src.gateway.server
+    codetrust-gateway-mcp
 
     # In Claude Desktop config:
     {
         "mcpServers": {
             "codetrust-gateway": {
-                "command": "python",
-                "args": ["-m", "src.gateway.server"],
-                "cwd": "/path/to/codetrust"
+                "command": "codetrust-gateway-mcp"
             }
         }
     }
@@ -31,8 +29,6 @@ import json
 import os
 import time
 
-SECONDS_PER_HOUR: int = 3_600
-
 import structlog
 from mcp.server.fastmcp import FastMCP
 
@@ -43,6 +39,8 @@ from src.gateway.policies import GovernancePolicy, PolicyEngine
 from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
+
+SECONDS_PER_HOUR: int = 3_600
 
 # ═══════════════════════════════════════════════════════════════
 #  Initialize gateway components

@@ -5,7 +5,7 @@
 275 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 76 real-time interception rules block destructive AI agent actions *before* they execute
-2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, and Go proxy
+2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist
 3. **Trust Score & Drift Tracking** — Baseline your codebase and detect safety regression over time
 
 Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding assistant.
@@ -97,6 +97,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | SQL | ✅ | — | — |
 | Dockerfile | ✅ | — | ✅ (Docker Hub) |
 | YAML / Kubernetes | ✅ | — | — |
+| PowerShell | ✅ | — | — |
 
 ---
 
@@ -156,7 +157,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 ## Getting Started
 
 1. **Install** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
-2. **Open** any Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++, Shell, Terraform, HTML, SQL, Dockerfile, or YAML file
+2. **Open** any Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, C++, Shell, PowerShell, Terraform, HTML, SQL, Dockerfile, or YAML file
 3. **Save** — diagnostics appear automatically
 
 All scan rules work offline. Import verification, AI governance, and deep scanning work out of the box with the default cloud API.

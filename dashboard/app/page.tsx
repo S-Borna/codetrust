@@ -10,7 +10,7 @@ const FEATURES = [
     {
         title: "Registry Verification",
         description:
-            "Verify packages exist on PyPI, npm, crates.io, and Go Proxy before deploying.",
+            "Verify packages exist on PyPI, npm, crates.io, Go Proxy, Maven, NuGet, RubyGems, and Packagist before deploying.",
         icon: "📦",
     },
     {

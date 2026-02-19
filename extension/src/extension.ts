@@ -22,6 +22,7 @@ import { VerificationCache } from "./verification-cache";
 import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 import { sendTelemetry } from "./telemetry";
+import { injectUniversalInstructions, removeUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
 
 // ─────────────────────────────────────────────────────────────────
 //  Copilot global instruction injection
@@ -169,6 +170,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void maybePromptAlwaysOn(context, outputChannel);
     void maybePromptGuidedOnboarding(context, outputChannel);
     void injectCopilotInstructions(context, outputChannel);
+    void injectUniversalInstructions(outputChannel);
+
+    // Watch for IDE updates that overwrite injected rules, or new IDEs installed after CodeTrust
+    const watchDisposables = watchForGovernanceDisruption(outputChannel);
+    context.subscriptions.push(...watchDisposables);
 
     const deps: CommandDeps = {
         client,
@@ -377,9 +383,10 @@ async function maybePromptAlwaysOn(
 /** Extension deactivation — cleanup. */
 export function deactivate(): void {
     // All disposables are cleaned up via context.subscriptions.
-    // Best-effort removal of injected Copilot instructions.
+    // Best-effort removal of injected governance instructions from all IDEs.
     const outputChannel = vscode.window.createOutputChannel("CodeTrust");
     void removeCopilotInstructions(outputChannel);
+    removeUniversalInstructions(outputChannel);
 }
 
 /** Build language selectors for code action registration. */

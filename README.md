@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.4.0</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.5.0</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,15 +30,15 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 275 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,665 tests.
+**AI Governance Enforcement Platform** — 275 rules across 10 enforcement layers, 21 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,672 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
-CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code, with three capabilities no existing tool provides.
+CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code, with four capabilities no existing tool provides.
 
 ---
 
-## The Three Moats
+## The Four Moats
 
 ### Moat 1: AI Governance Gateway
 
@@ -85,6 +85,25 @@ A quantified safety metric that tracks your codebase over time. Not a snapshot �
    AI Drift Score: 94/100 (A)
    Trend: improving (+6 from baseline)
 ```
+
+### Moat 4: Universal IDE Injection
+
+Install once. CodeTrust injects its governance rules into the global configuration of every AI coding IDE on the machine — Claude Code, Cursor, Windsurf, and GitHub Copilot. Every new AI session starts rule-aware, with no manual configuration required.
+
+AI agents that follow their system context — which the vast majority do — will proactively call CodeTrust validation tools. Sessions where AI ignores instructions are caught by Moat 1 (the pre-commit hook), the hard technical backstop that enforces regardless of model behaviour.
+
+| IDE | What gets written |
+|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` |
+| Cursor | `~/.cursor/rules/codetrust.mdc` |
+| Windsurf | `~/.codeium/windsurf/memories/global_rules.md` |
+| GitHub Copilot | VS Code global `codeGeneration.instructions` |
+
+- **Zero configuration** — governance activates on install, not on setup
+- **Every IDE, globally** — rules are in place before the first keystroke in any workspace
+- **Active monitoring** — if an IDE update overwrites the injected rules, or a new IDE is installed after CodeTrust, a warning notification appears immediately with a one-click re-inject action
+- **Complete audit trail** — every gateway action, approved or blocked, written to the append-only audit log
+- **Defense in depth** — instruction injection (proactive) + active monitoring (self-healing) + pre-commit hook (reactive) cover the full lifecycle
 
 ---
 

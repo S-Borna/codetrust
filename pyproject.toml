@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "2.4.0"
-description = "AI code safety platform — 275 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (76 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks safety drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 42 API endpoints, 17 MCP tools, 1672 tests. CLI, VS Code extension, GitHub Action, MCP server."
+version = "2.5.0"
+description = "AI code safety platform — 275 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (76 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks safety drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 42 API endpoints, 21 MCP tools, 1672 tests. CLI, VS Code extension, GitHub Action, MCP server."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"

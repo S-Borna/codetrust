@@ -76,6 +76,11 @@ def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
         "devops_block": [], "devops_warn": [], "devops_info": [],
         "react_block": [], "react_warn": [],
         "k8s_block": [], "k8s_warn": [], "k8s_info": [],
+        "ruby_block": [], "ruby_warn": [], "ruby_info": [],
+        "php_block": [], "php_warn": [], "php_info": [],
+        "ps_block": [], "ps_warn": [], "ps_info": [],
+        "nginx_block": [], "nginx_warn": [], "nginx_info": [],
+        "bicep_block": [], "bicep_warn": [], "bicep_info": [],
     }
 
 
@@ -101,6 +106,16 @@ def _classify_rule_entry(
             cats.get(f"docker_{sev_lower}", cats["docker_warn"]).append(entry)
         elif rule_id.startswith("ci_"):
             cats.get(f"ci_{sev_lower}", cats["ci_warn"]).append(entry)
+        elif ft_set == {".rb"}:
+            cats.get(f"ruby_{sev_lower}", cats["ruby_warn"]).append(entry)
+        elif ft_set == {".php"}:
+            cats.get(f"php_{sev_lower}", cats["php_warn"]).append(entry)
+        elif ft_set & {".ps1", ".psm1"}:
+            cats.get(f"ps_{sev_lower}", cats["ps_warn"]).append(entry)
+        elif ft_set == {".conf"}:
+            cats.get(f"nginx_{sev_lower}", cats["nginx_warn"]).append(entry)
+        elif ft_set == {".bicep"}:
+            cats.get(f"bicep_{sev_lower}", cats["bicep_warn"]).append(entry)
         else:
             cats.get(f"devops_{sev_lower}", cats["devops_warn"]).append(entry)
     else:
@@ -148,9 +163,31 @@ REACT_WARN_RULES = _CLI_RULES["react_warn"]
 K8S_BLOCK_RULES = _CLI_RULES["k8s_block"]
 K8S_WARN_RULES = _CLI_RULES["k8s_warn"]
 K8S_INFO_RULES = _CLI_RULES.get("k8s_info", [])
+RUBY_BLOCK_RULES = _CLI_RULES["ruby_block"]
+RUBY_WARN_RULES = _CLI_RULES["ruby_warn"]
+PHP_BLOCK_RULES = _CLI_RULES["php_block"]
+PHP_WARN_RULES = _CLI_RULES["php_warn"]
+PS_BLOCK_RULES = _CLI_RULES["ps_block"]
+PS_WARN_RULES = _CLI_RULES["ps_warn"]
+PS_INFO_RULES = _CLI_RULES["ps_info"]
+NGINX_BLOCK_RULES = _CLI_RULES["nginx_block"]
+NGINX_WARN_RULES = _CLI_RULES["nginx_warn"]
+NGINX_INFO_RULES = _CLI_RULES["nginx_info"]
+BICEP_BLOCK_RULES = _CLI_RULES["bicep_block"]
+BICEP_WARN_RULES = _CLI_RULES["bicep_warn"]
 
-SOURCE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".sh",
-               ".sql", ".yml", ".yaml", ".toml"}
+SOURCE_EXTS = {
+    ".py", ".js", ".ts", ".tsx", ".jsx",
+    ".go", ".rs", ".java", ".cs",
+    ".rb", ".php",
+    ".sh", ".ps1", ".psm1", ".psd1",
+    ".sql",
+    ".yml", ".yaml", ".toml",
+    ".tf", ".tfvars", ".hcl",
+    ".cpp", ".c", ".h",
+    ".html", ".htm",
+    ".conf", ".bicep",
+}
 DEVOPS_EXTS = DEVOPS_EXTENSIONS
 SQL_EXTS = SQL_EXTENSIONS
 DOCKER_EXTS = set()  # Dockerfiles matched by name, not extension
@@ -1372,6 +1409,11 @@ def _select_rule_sets(
     is_ci: bool,
     is_k8s: bool,
     is_devops: bool,
+    is_ruby: bool = False,
+    is_php: bool = False,
+    is_powershell: bool = False,
+    is_nginx: bool = False,
+    is_bicep: bool = False,
 ) -> tuple[
     list[tuple[str, str, str]],
     list[tuple[str, str, str]],
@@ -1388,6 +1430,20 @@ def _select_rule_sets(
         )
     if is_react:
         return BLOCK_RULES + REACT_BLOCK_RULES, WARN_RULES + REACT_WARN_RULES, INFO_RULES
+    if is_ruby:
+        return BLOCK_RULES + RUBY_BLOCK_RULES, WARN_RULES + RUBY_WARN_RULES, INFO_RULES
+    if is_php:
+        return BLOCK_RULES + PHP_BLOCK_RULES, WARN_RULES + PHP_WARN_RULES, INFO_RULES
+    if is_powershell:
+        return (
+            BLOCK_RULES + PS_BLOCK_RULES + DEVOPS_BLOCK_RULES,
+            WARN_RULES + PS_WARN_RULES + DEVOPS_WARN_RULES,
+            INFO_RULES + PS_INFO_RULES + DEVOPS_INFO_RULES,
+        )
+    if is_nginx:
+        return NGINX_BLOCK_RULES, NGINX_WARN_RULES, NGINX_INFO_RULES
+    if is_bicep:
+        return BLOCK_RULES + BICEP_BLOCK_RULES, WARN_RULES + BICEP_WARN_RULES, INFO_RULES
     if is_ci:
         return (
             _DEVOPS_K8S_RULES[0],
@@ -1541,9 +1597,16 @@ def scan_text(code: str, filepath: str) -> list[dict[str, str | int]]:
     is_devops = ext in DEVOPS_EXTS or basename in DEVOPS_NAMES
     is_react = ext in {".jsx", ".tsx"}
     is_k8s = ext in {".yml", ".yaml"} and not is_ci
+    is_ruby = ext == ".rb"
+    is_php = ext == ".php"
+    is_powershell = ext in {".ps1", ".psm1", ".psd1"}
+    is_nginx = ext == ".conf"
+    is_bicep = ext == ".bicep"
 
     block_rules, warn_rules, info_rules = _select_rule_sets(
         ext, is_dockerfile, is_react, is_ci, is_k8s, is_devops,
+        is_ruby=is_ruby, is_php=is_php, is_powershell=is_powershell,
+        is_nginx=is_nginx, is_bicep=is_bicep,
     )
 
     lines = code.splitlines(keepends=True)

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1504 tests</code> &middot; <code>188 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1571 tests</code> &middot; <code>239 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 188 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,504 tests.
+**AI Governance Enforcement Platform** — 239 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,571 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -117,7 +117,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**112 scan rules + 76 gateway rules = 188 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**163 scan rules + 76 gateway rules = 239 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -595,7 +595,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1504 tests
+pytest                     # 1571 tests
 ruff check .               # zero warnings
 ```
 

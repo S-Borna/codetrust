@@ -39,6 +39,7 @@ class Language(StrEnum):
     TERRAFORM = "terraform"
     RUBY = "ruby"
     PHP = "php"
+    POWERSHELL = "powershell"
 
 
 class Registry(StrEnum):

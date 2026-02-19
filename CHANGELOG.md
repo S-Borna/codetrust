@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PowerShell Language Support** — 12 scan rules for `.ps1` / `.psm1` scripts
+  - 4 BLOCK: `ps_invoke_expression`, `ps_execution_policy_bypass`, `ps_plaintext_credential`, `ps_hardcoded_password`
+  - 5 WARN: `ps_write_host`, `ps_catch_empty`, `ps_no_strict_mode`, `ps_stop_process_force`, `ps_net_webclient`
+  - 3 INFO: `ps_start_process_no_wait`, `ps_sleep_unbounded`, `ps_rm_recurse_force`
+
+- **Terraform Provider Rules** — 9 AWS/cloud-specific rules for `.tf` / `.hcl`
+  - `tf_wildcard_iam`, `tf_public_s3_acl`, `tf_open_security_group`, `tf_unencrypted_ebs`, `tf_no_tags`, `tf_hardcoded_ami`, `tf_no_versioned_module`, `tf_no_state_encryption`, `tf_sensitive_output`
+
+- **Helm Chart Rules** — 6 rules for Helm template best practices
+  - `helm_hardcoded_image_tag`, `helm_no_resource_limits`, `helm_hardcoded_namespace`, `helm_deprecated_api`, `helm_hardcoded_replicas`, `helm_tpl_missing_quote`
+
+- **Ansible Playbook Rules** — 6 rules for Ansible best practices
+  - `ansible_command_module`, `ansible_ignore_errors`, `ansible_plaintext_password`, `ansible_latest_package`, `ansible_no_become_user`, `ansible_no_changed_when`
+
+- **Nginx Config Rules** — 6 rules for `.conf` security hardening
+  - `nginx_server_tokens_on`, `nginx_autoindex_on`, `nginx_ssl_v3`, `nginx_root_in_location`, `nginx_no_rate_limit`, `nginx_add_header_missing_always`
+
+- **CloudFormation / CDK Rules** — 7 rules for AWS IaC
+  - `cfn_wildcard_iam`, `cfn_public_s3`, `cfn_no_deletion_policy`, `cfn_unencrypted_storage`, `cfn_hardcoded_credentials`, `cfn_no_logging`, `cdk_no_removal_policy`
+
+- **Azure ARM / Bicep Rules** — 5 rules for `.bicep` and ARM templates
+  - `bicep_no_secure_param`, `bicep_http_only`, `bicep_public_network`, `arm_wildcard_rbac`, `arm_no_diagnostics`
+
+### Fixed
+
+- **SOURCE_EXTS bug** — CLI directory scan (`codetrust scan .`) was silently skipping `.rb`, `.php`, `.ps1`, `.psm1`, `.psd1`, `.cs`, `.tf`, `.tfvars`, `.hcl`, `.cpp`, `.c`, `.h`, `.html`, `.htm`, `.conf`, `.bicep` files due to missing extensions in SOURCE_EXTS
+- **CLI rule routing** — Language-specific rules (Ruby, PHP, PowerShell, Nginx, Bicep) now have dedicated routing buckets instead of being routed through generic DevOps rules
+- **Extension LANGUAGE_MAP** — Added `ruby`, `php`, `powershell` to VS Code language ID mapping
+
 - **Ruby Language Support** — full static analysis, AST analysis, and import verification for Ruby
   - 11 Ruby-specific scan rules: `ruby_eval`, `ruby_system_exec`, `ruby_send_public_send`, `ruby_binding_pry`, `ruby_puts_p_debug`, `ruby_sleep`, `ruby_rescue_exception`, `ruby_global_variable`, `ruby_mass_assignment`, `ruby_hardcoded_secret`, `ruby_hallucinated_gem`
   - RubyGems registry verification with version checking via rubygems.org API

@@ -30,7 +30,10 @@ export type Language =
     | "cpp"
     | "shell"
     | "html"
-    | "terraform";
+    | "terraform"
+    | "ruby"
+    | "php"
+    | "powershell";
 
 /** Scan type selection */
 export type ScanType = "static" | "deep";
@@ -190,6 +193,9 @@ export const LANGUAGE_MAP: Record<string, Language> = {
     shellscript: "shell",
     html: "html",
     terraform: "terraform",
+    ruby: "ruby",
+    php: "php",
+    powershell: "powershell",
 };
 
 /** Dockerfile-related language IDs */

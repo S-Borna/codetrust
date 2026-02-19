@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "2.4.0"
+    version: str = "2.5.0"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)

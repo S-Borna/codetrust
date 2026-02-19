@@ -11,7 +11,7 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
         content="CodeTrust, AI code safety, AI governance, AI code security, hallucination detection, AI agent enforcement, code scanning, AI governance gateway, trust score, AI code review, MCP server, Claude Code, Cursor, GitHub Copilot, pre-execution enforcement, AI-generated code safety, supply chain security, CVE scanning, license compliance, SAST, code quality, DevSecOps, AI DevOps">
-    <meta name="generator" content="CodeTrust v2.4.0">
+    <meta name="generator" content="CodeTrust v2.5.0">
     <link rel="canonical" href="https://codetrust.ai">
 
     <!-- Open Graph -->
@@ -176,7 +176,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.4.0, and (4) MCP server for direct integration with Claude Code and Cursor."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.5.0, and (4) MCP server for direct integration with Claude Code and Cursor."
                 }
             }
         ]
@@ -2426,7 +2426,7 @@
             </svg>
         </button>
         <nav class="topbar-nav">
-            <a href="#moats">Three Moats</a>
+            <a href="#moats">Four Moats</a>
             <a href="#enforcement">Enforcement</a>
             <a href="#enterprise">Enterprise</a>
             <a href="#pipeline">Layers</a>
@@ -2485,7 +2485,7 @@
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v2.4.0 &mdash; 1,665 tests &mdash; 10 layers &mdash; 275 rules &mdash; 42
+            <span class="hero-version">v2.5.0 &mdash; 1,672 tests &mdash; 10 layers &mdash; 275 rules &mdash; 42
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
@@ -2656,9 +2656,9 @@
     <!-- THREE MOATS -->
     <section class="container" id="moats">
         <div class="section-tag section-center">Competitive Advantage</div>
-        <h2 class="reveal">Three moats no other tool has</h2>
+        <h2 class="reveal">Four moats no other tool has</h2>
         <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file
-            dataflow.<br><strong>CodeTrust does all of that &mdash; plus three capabilities none of them have.</strong>
+            dataflow.<br><strong>CodeTrust does all of that &mdash; plus four capabilities none of them have.</strong>
         </p>
 
         <div class="moats-grid reveal">
@@ -2693,6 +2693,50 @@
                 <div class="moat-stat">
                     <div class="moat-stat-num">A+</div>
                     <span class="t-dim">grade curve with trending</span>
+                </div>
+            </div>
+        </div>
+        <!-- FOURTH MOAT: featured full-width card -->
+        <div class="moat-card moat-highlight reveal"
+            style="margin-top:1.5rem;display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
+            <div style="flex:0 0 auto;">
+                <div class="moat-icon"
+                    style="background:rgba(99,102,241,0.15);color:#818cf8;width:52px;height:52px;font-size:1.6rem;">
+                    &#x1F6E1;</div>
+            </div>
+            <div style="flex:1;min-width:260px;">
+                <div
+                    style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#818cf8;margin-bottom:0.5rem;">
+                    New in v2.5.0 &mdash; The Final Moat</div>
+                <h3 style="font-size:1.15rem;margin-bottom:0.6rem;">Universal IDE Injection</h3>
+                <p style="font-size:0.88rem;color:var(--text-2);line-height:1.7;max-width:640px;">Install once.
+                    CodeTrust injects its governance rules into the global configuration of every AI coding IDE on your
+                    machine. Every new AI session starts rule-aware &mdash; no manual setup, no per-project
+                    configuration. AI agents that follow their system context use CodeTrust validation proactively. Any
+                    that don&rsquo;t are caught by the pre-commit hook, the hard technical backstop.</p>
+                <div style="display:flex;gap:2rem;margin-top:1.2rem;flex-wrap:wrap;">
+                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
+                        <div class="moat-stat-num" style="color:#818cf8;">4</div>
+                        <span class="t-dim">IDEs covered automatically</span>
+                    </div>
+                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
+                        <div class="moat-stat-num" style="color:#818cf8;">0</div>
+                        <span class="t-dim">configuration steps required</span>
+                    </div>
+                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
+                        <div class="moat-stat-num" style="color:#818cf8;">100%</div>
+                        <span class="t-dim">of gateway actions audited</span>
+                    </div>
+                </div>
+            </div>
+            <div style="flex:0 0 auto;align-self:center;">
+                <div
+                    style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-2);line-height:1.9;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;min-width:200px;">
+                    <div style="color:#818cf8;margin-bottom:0.4rem;">IDEs covered on install:</div>
+                    <div>&#x2713; Claude Code</div>
+                    <div>&#x2713; Cursor</div>
+                    <div>&#x2713; Windsurf</div>
+                    <div>&#x2713; GitHub Copilot</div>
                 </div>
             </div>
         </div>
@@ -3265,7 +3309,7 @@
             <div class="install-card">
                 <h4>GitHub Action</h4>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
-                <code>uses: S-Borna/codetrust@v2.4.0</code>
+                <code>uses: S-Borna/codetrust@v2.5.0</code>
                 <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
                     &rarr;</a>
             </div>
@@ -3610,7 +3654,7 @@
         <h3>Distribution</h3>
         <p>Available as: CLI (pip install codetrust), VS Code extension (marketplace.visualstudio.com), GitHub Action
             (github.com/marketplace/actions/codetrust-scan), and MCP server for Claude Code and Cursor integration. 42
-            REST API endpoints. 17 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
+            REST API endpoints. 21 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
             Shell/Bash, Terraform/HCL, HTML, SQL, and YAML.</p>
 
         <h3>How CodeTrust Differs From Other Tools</h3>

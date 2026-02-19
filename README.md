@@ -408,6 +408,7 @@ Requires `pip install codetrust` so that `codetrust-mcp` and `codetrust-gateway-
 | SQL | ✅ | — | — |
 | Dockerfile | ✅ | — | ✅ (Docker Hub) |
 | YAML / Kubernetes | ✅ | — | — |
+| PowerShell | ✅ | — | — |
 
 ---
 
@@ -525,7 +526,7 @@ Five capabilities that match or exceed paid features from Snyk, SonarQube, Semgr
 
 ### CVE / Vulnerability Scanning
 
-Checks dependencies against the [OSV](https://osv.dev) vulnerability database (Google). Supports PyPI, npm, crates.io, Go, Maven, NuGet.
+Checks dependencies against the [OSV](https://osv.dev) vulnerability database (Google). Supports PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist.
 
 ```bash
 codetrust vuln                     # Scan from requirements.txt / package.json
@@ -537,7 +538,7 @@ codetrust vuln --json              # Machine-readable output
 
 ### License Compliance
 
-Extracts licenses from PyPI and npm registries. Classifies as permissive, weak copyleft, strong copyleft, or network copyleft (AGPL). Flags compliance risks.
+Extracts licenses from package registries (PyPI, npm, RubyGems, Packagist, Maven, NuGet). Classifies as permissive, weak copyleft, strong copyleft, or network copyleft (AGPL). Flags compliance risks.
 
 ```bash
 codetrust license                  # Check from dependency files

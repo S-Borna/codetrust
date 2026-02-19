@@ -66,9 +66,9 @@
         "screenshot": "https://codetrust.ai/logo.png",
         "featureList": [
             "AI Governance Gateway — 76 real-time interception rules",
-            "Hallucination Detection — live registry verification against PyPI, npm, crates.io, Go proxy",
+            "Hallucination Detection — live registry verification against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist",
             "Trust Score — quantified code safety with drift tracking",
-            "188 security rules across 10 enforcement layers",
+            "275 security rules across 10 enforcement layers",
             "CVE/vulnerability scanning",
             "License compliance checking",
             "Cross-file analysis",
@@ -136,7 +136,7 @@
                 "name": "What is CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is an AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 188 security rules across 10 inspection layers, blocks AI agent commands before execution, and detects hallucinated packages via live registry verification."
+                    "text": "CodeTrust is an AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 275 security rules across 10 inspection layers, blocks AI agent commands before execution, and detects hallucinated packages via live registry verification."
                 }
             },
             {
@@ -144,7 +144,7 @@
                 "name": "How does CodeTrust detect AI hallucinations in code?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust uses two methods: (1) 13 static detection rules that catch fabricated imports, invented API endpoints, placeholder URLs, fake API keys, and phantom file references. (2) Live registry verification that checks every import against PyPI, npm, crates.io, and Go proxy — packages not found are blocked immediately."
+                    "text": "CodeTrust uses two methods: (1) 12 static detection rules that catch fabricated imports, invented API endpoints, placeholder URLs, fake API keys, and phantom file references. (2) Live registry verification that checks every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist — packages not found are blocked immediately."
                 }
             },
             {
@@ -2632,7 +2632,7 @@
     <!-- STATS BAR -->
     <div class="stats-bar reveal">
         <div class="stat-item">
-            <div class="stat-num">188</div>
+            <div class="stat-num">275</div>
             <div class="stat-label">Enforcement Rules</div>
         </div>
         <div class="stat-item">
@@ -2648,7 +2648,7 @@
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">1,454</div>
+            <div class="stat-num">1,665</div>
             <div class="stat-label">Tests Passing</div>
         </div>
     </div>
@@ -2676,10 +2676,10 @@
             <div class="moat-card">
                 <div class="moat-icon moat-icon-halluc">&#x1F50D;</div>
                 <h3>Hallucination Detection</h3>
-                <p>Extracts imports from source files and verifies every package against live PyPI and npm registries.
+                <p>Extracts imports from source files and verifies every package against live PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist registries.
                     Catches packages that <strong>don't exist</strong> &mdash; with exact file and line number.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">13</div>
+                    <div class="moat-stat-num">12</div>
                     <span class="t-dim">AI-specific hallucination rules</span>
                 </div>
             </div>
@@ -3577,7 +3577,7 @@
         style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">
         <h2>About CodeTrust</h2>
         <p>CodeTrust (codetrust.ai) is the AI governance enforcement platform that prevents unsafe, hallucinated, and
-            destructive AI-generated code from reaching production. Built by Said Borna, CodeTrust enforces 188 security
+            destructive AI-generated code from reaching production. Built by Said Borna, CodeTrust enforces 275 security
             rules across 10 inspection layers in real time.</p>
 
         <h3>AI Governance Gateway</h3>
@@ -3588,10 +3588,10 @@
             and Cline.</p>
 
         <h3>Hallucination Detection</h3>
-        <p>CodeTrust detects AI hallucinations through 13 static detection rules and live registry verification. Static
+        <p>CodeTrust detects AI hallucinations through 12 static detection rules and live registry verification. Static
             rules catch fabricated imports (ai_utils, ml_helpers), misspelled packages (requets, sklear, tenserflow),
             invented API endpoints, placeholder URLs, fake API keys, phantom file references, and hallucinated CLI
-            flags. Live verification checks every import against PyPI, npm, crates.io, and Go proxy — packages not found
+            flags. Live verification checks every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist — packages not found
             are blocked immediately.</p>
 
         <h3>Trust Score and Drift Tracking</h3>

@@ -9,10 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **7 new languages**: Java, C#, C++, Shell/Bash, HTML, Terraform, YAML — total now **13** (up from 6)
-- **Ruby & PHP language support** — activation events, AST analysis, import verification (RubyGems, Packagist). Total: **16 languages**
+- **7 new languages**: Java, C#, C++, Shell/Bash, HTML, Terraform, YAML (up from 6)
+- **Ruby, PHP & PowerShell language support** — activation events, AST analysis, import verification (RubyGems, Packagist)
+- **16 languages total**: Python, JS, TS, Go, Rust, Java, C#, Ruby, PHP, C++, Shell, PowerShell, Terraform, HTML, SQL, YAML
 - Activation events for all 16 languages
-- Import verification for Java, C#, C++, Ruby, PHP added
+- Import verification for Java, C#, C++, Ruby, PHP added (8 registries total)
 - Language mapping: `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
 - Embedded scanner routes Terraform/HCL (`.tf`, `.tfvars`, `.hcl`) to DevOps rules
 - `enabledLanguages` setting expanded from 6 to 16 entries
@@ -25,7 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Auto-fix PR generation** via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr`
 - **Team management & RBAC** with org policies — 10 new endpoints under `/v1/orgs/*`
 - 14 new API endpoints (42 total, up from 28)
-- **11 new philosophy rules** — root-cause enforcement, determinism, configuration, safe data handling, code hygiene (275 total rules, up from 154)
+- **11 new philosophy rules** — root-cause enforcement, determinism, configuration, safe data handling, code hygiene
+- **110 new IaC/config/language rules** (Batches 1–3) — Ruby, PHP, PowerShell, Terraform, Helm, Ansible, Nginx, CloudFormation, Bicep, Redis, Vault, Monitoring, Systemd, Docker Compose, GitHub Actions, Config Hygiene (275 total rules, up from 154)
 
 ### Changed
 

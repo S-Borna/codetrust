@@ -13,7 +13,7 @@ const FORBIDDEN_PUBLIC_DOC_STRINGS = [
     "SESSION_LOG",
     "PLAN.md",
     "SPEC.md",
-    "CLAUDE.md",
+    "](CLAUDE.md)",   // internal markdown link to dev guidelines — NOT ~/.claude/CLAUDE.md
     "docs/backlog-status.md",
 ];
 

@@ -108,6 +108,10 @@
             {
                 "command": "codetrust.governanceStatus",
                 "title": "CodeTrust: Governance Status"
+            },
+            {
+                "command": "codetrust.injectCopilotInstructions",
+                "title": "CodeTrust: Inject Copilot Instructions"
             }
         ],
         "configuration": {

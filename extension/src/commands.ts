@@ -52,6 +52,7 @@ export function registerCommands(
         ["codetrust.deepScan", (): Promise<void> => deepScanCommand(deps)],
         ["codetrust.clearDiagnostics", (): Promise<void> => clearDiagnosticsCommand(deps)],
         ["codetrust.scanWorkspace", (): Promise<void> => scanWorkspaceCommand(deps)],
+        ["codetrust.governanceStatus", (): Promise<void> => governanceStatusCommand(deps)],
     ];
 
     for (const [id, handler] of commands) {
@@ -1064,6 +1065,44 @@ export async function handleScanOnSave(
             }
         }
     }
+}
+
+/**
+ * Display the current CodeTrust governance status in the output channel.
+ *
+ * Shows the active governance mode, injection state of Copilot instructions,
+ * and a reminder of mandatory pre-action validation steps.
+ */
+async function governanceStatusCommand(deps: CommandDeps): Promise<void> {
+    deps.outputChannel.show(true);
+    deps.outputChannel.appendLine(`[${timestamp()}] === CodeTrust Governance Status ===`);
+
+    const cfg = vscode.workspace.getConfiguration("codetrust");
+    const governanceEnabled = cfg.get<boolean>("governance.enabled", false);
+    const governanceMode = cfg.get<string>("governance.mode", "audit");
+    deps.outputChannel.appendLine(`Governance enabled : ${governanceEnabled}`);
+    deps.outputChannel.appendLine(`Governance mode    : ${governanceMode}`);
+
+    const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
+    const copilotInstructions = copilotCfg.get<Array<{ text?: string; file?: string }>>(
+        "codeGeneration.instructions",
+        [],
+    );
+    const injected = copilotInstructions.some(
+        (e) => e.text?.includes("[codetrust-governance-v1]"),
+    );
+    deps.outputChannel.appendLine(`Copilot rules injected: ${injected ? "YES ✓" : "NO — run 'CodeTrust: Inject Copilot Instructions'"}`);
+    deps.outputChannel.appendLine("");
+    deps.outputChannel.appendLine("Mandatory validation sequence:");
+    deps.outputChannel.appendLine("  1. codetrust_validate_command  → before run_in_terminal");
+    deps.outputChannel.appendLine("  2. codetrust_validate_file_write → before create_file / replace_string_in_file");
+    deps.outputChannel.appendLine("  3. codetrust_validate_package  → before installing packages");
+    deps.outputChannel.appendLine("  4. codetrust_validate_file_delete → before file deletion");
+    deps.outputChannel.appendLine("Audit log: .codetrust/audit.jsonl");
+
+    await vscode.window.showInformationMessage(
+        `CodeTrust governance: ${governanceMode.toUpperCase()} | Copilot rules: ${injected ? "injected ✓" : "NOT injected ✗"}`,
+    );
 }
 
 /** Format current timestamp for logging. */

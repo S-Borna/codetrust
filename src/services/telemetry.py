@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable as _Awaitable
     from collections.abc import Callable as _Callable
 
+    from src.services.database import DatabaseService
+
 logger = structlog.get_logger()
 
 SECONDS_PER_HOUR: int = 3_600
@@ -452,6 +454,55 @@ async def _fetch_openvsx_external(
             logger.warning("ext_stats_openvsx_failed", error=str(exc), status_code=status)
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_openvsx_failed", error=str(exc))
+
+
+async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> None:
+    """Seed Redis counters from the database after a server restart.
+
+    Only sets a counter when the persisted DB value exceeds the current Redis
+    value, so this is always monotonic and safe to call concurrently.
+    """
+    try:
+        db_counters: dict[str, int] = await db.get_redis_warmup_counters()
+    except Exception as exc:
+        logger.warning("redis_warmup_db_failed", error=str(exc), error_type=type(exc).__name__)
+        return
+
+    if not db_counters:
+        return
+
+    try:
+        keys = list(db_counters.keys())
+        fetch_pipe = r.pipeline()
+        for key in keys:
+            fetch_pipe.get(key)
+        current_raws = await fetch_pipe.execute()
+        current: dict[str, int] = {
+            key: int(raw) if raw else 0
+            for key, raw in zip(keys, current_raws, strict=True)
+        }
+
+        set_pipe = r.pipeline()
+        restored = 0
+        for key in keys:
+            db_val = db_counters[key]
+            if db_val > current.get(key, 0):
+                set_pipe.set(key, db_val)
+                if key == SCANS_TODAY_KEY:
+                    set_pipe.expire(key, _end_of_day_ttl_seconds())
+                restored += 1
+
+        if restored:
+            await set_pipe.execute()
+            await r.delete(STATS_CACHE_KEY)  # force fresh build on next request
+
+        logger.info(
+            "redis_warmup_complete",
+            counters_restored=restored,
+            total_db_scans=db_counters.get("ct:total_scans", 0),
+        )
+    except redis.RedisError as exc:
+        logger.warning("redis_warmup_set_failed", error=str(exc), error_type=type(exc).__name__)
 
 
 async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -> None:

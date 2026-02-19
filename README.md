@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1454 tests</code> &middot; <code>165 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.3.2</code> &middot; <code>1504 tests</code> &middot; <code>188 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 165 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,454 tests.
+**AI Governance Enforcement Platform** — 188 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,504 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -117,7 +117,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**89 scan rules + 76 gateway rules = 165 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**112 scan rules + 76 gateway rules = 188 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -399,6 +399,8 @@ Requires `pip install codetrust` so that `codetrust-mcp` and `codetrust-gateway-
 | Rust | ✅ | ✅ | ✅ (crates.io) |
 | Java | ✅ | ✅ | ✅ (Maven) |
 | C# | ✅ | ✅ | ✅ (NuGet) |
+| Ruby | ✅ | ✅ | ✅ (RubyGems) |
+| PHP | ✅ | ✅ | ✅ (Packagist) |
 | C / C++ | ✅ | ✅ | — |
 | Shell / Bash | ✅ | — | — |
 | Terraform / HCL | ✅ | — | — |
@@ -593,7 +595,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1454 tests
+pytest                     # 1504 tests
 ruff check .               # zero warnings
 ```
 

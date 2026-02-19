@@ -252,6 +252,174 @@ TOP_GO_MODULES: list[str] = [
     "gopkg.in/yaml.v3",
 ]
 
+# Top popular RubyGems packages for fuzzy matching suggestions
+TOP_RUBYGEMS_PACKAGES: list[str] = [
+    "rails", "rake", "bundler", "nokogiri", "rspec", "puma", "devise",
+    "sidekiq", "pg", "redis", "rack", "sinatra", "activerecord", "activesupport",
+    "actionpack", "actionmailer", "actioncable", "activejob", "activestorage",
+    "railties", "sprockets", "turbo-rails", "stimulus-rails", "importmap-rails",
+    "jbuilder", "bootsnap", "tzinfo", "concurrent-ruby", "i18n", "minitest",
+    "thor", "erubi", "loofah", "rails-html-sanitizer", "globalid", "marcel",
+    "net-smtp", "net-imap", "net-pop", "timeout", "mail", "mini_mime",
+    "faraday", "httparty", "rest-client", "typhoeus", "excon",
+    "json", "multi_json", "oj", "yajl-ruby", "msgpack",
+    "rspec-core", "rspec-expectations", "rspec-mocks", "rspec-support",
+    "rubocop", "rubocop-rails", "rubocop-rspec", "rubocop-performance",
+    "factory_bot", "factory_bot_rails", "faker", "capybara", "selenium-webdriver",
+    "webmock", "vcr", "simplecov", "shoulda-matchers",
+    "aws-sdk-s3", "aws-sdk-core", "aws-sdk-sqs", "aws-sdk-sns",
+    "google-cloud-storage", "fog-aws",
+    "pundit", "cancancan", "omniauth", "bcrypt", "jwt",
+    "kaminari", "will_paginate", "pagy",
+    "slim", "haml", "sassc", "sassc-rails",
+    "activeadmin", "administrate", "ransack",
+    "paper_trail", "audited", "acts_as_paranoid",
+    "draper", "cell", "trailblazer",
+    "grape", "grape-entity", "graphql", "graphql-ruby",
+    "delayed_job", "resque", "good_job", "solid_queue",
+    "whenever", "clockwork", "rufus-scheduler",
+    "carrierwave", "shrine", "dragonfly", "paperclip",
+    "prawn", "wicked_pdf", "grover",
+    "sentry-ruby", "sentry-rails", "newrelic_rpm", "datadog",
+    "pry", "pry-byebug", "byebug", "debug",
+    "dotenv", "figaro", "config",
+    "annotate", "bullet", "rack-mini-profiler",
+    "net-http", "mechanize", "watir",
+    "mongoid", "sequel", "rom-rb",
+    "dry-types", "dry-validation", "dry-monads",
+    "sorbet", "sorbet-runtime", "steep",
+    "rubygems-update", "rdoc", "irb",
+]
+
+# Top popular Packagist (PHP) packages for fuzzy matching suggestions
+TOP_PACKAGIST_PACKAGES: list[str] = [
+    "laravel/framework", "symfony/symfony", "guzzlehttp/guzzle",
+    "monolog/monolog", "phpunit/phpunit", "doctrine/orm",
+    "nesbot/carbon", "fideloper/proxy", "vlucas/phpdotenv",
+    "psr/log", "psr/http-message", "psr/container", "psr/cache",
+    "symfony/console", "symfony/http-foundation", "symfony/routing",
+    "symfony/event-dispatcher", "symfony/process", "symfony/finder",
+    "symfony/yaml", "symfony/var-dumper", "symfony/debug",
+    "symfony/translation", "symfony/http-kernel", "symfony/mime",
+    "symfony/polyfill-mbstring", "symfony/polyfill-ctype",
+    "illuminate/database", "illuminate/support", "illuminate/container",
+    "illuminate/events", "illuminate/http", "illuminate/routing",
+    "illuminate/queue", "illuminate/cache", "illuminate/auth",
+    "league/flysystem", "league/commonmark", "league/csv",
+    "league/oauth2-client", "league/fractal", "league/plates",
+    "ramsey/uuid", "ramsey/collection",
+    "nikic/php-parser", "nikic/fast-route",
+    "filp/whoops", "barryvdh/laravel-debugbar",
+    "phpmailer/phpmailer", "swiftmailer/swiftmailer",
+    "predis/predis", "phpredis/phpredis",
+    "aws/aws-sdk-php", "google/cloud", "azure/storage-blob",
+    "spatie/laravel-permission", "spatie/laravel-medialibrary",
+    "spatie/laravel-backup", "spatie/laravel-activitylog",
+    "tymon/jwt-auth", "lcobucci/jwt",
+    "intervention/image", "barryvdh/laravel-dompdf",
+    "phpstan/phpstan", "psalm/psalm", "squizlabs/php_codesniffer",
+    "friendsofphp/php-cs-fixer", "rector/rector",
+    "mockery/mockery", "pestphp/pest",
+    "fakerphp/faker", "nunomaduro/collision",
+    "dompdf/dompdf", "mpdf/mpdf", "tecnickcom/tcpdf",
+    "elasticsearch/elasticsearch", "algolia/algoliasearch-client-php",
+    "sentry/sentry-laravel", "bugsnag/bugsnag-laravel",
+    "stripe/stripe-php", "paypal/rest-api-sdk-php",
+    "twilio/sdk", "vonage/client-core",
+    "firebase/php-jwt", "web-token/jwt-framework",
+    "composer/composer", "composer/semver",
+    "twig/twig", "blade-ui-kit/blade-icons",
+    "livewire/livewire", "inertiajs/inertia-laravel",
+]
+
+# Top popular Maven Central packages for fuzzy matching suggestions
+TOP_MAVEN_PACKAGES: list[str] = [
+    "com.google.guava:guava", "com.google.code.gson:gson",
+    "org.apache.commons:commons-lang3", "commons-io:commons-io",
+    "org.apache.httpcomponents:httpclient", "org.apache.commons:commons-collections4",
+    "junit:junit", "org.junit.jupiter:junit-jupiter",
+    "org.mockito:mockito-core", "org.assertj:assertj-core",
+    "org.slf4j:slf4j-api", "ch.qos.logback:logback-classic",
+    "org.apache.logging.log4j:log4j-core", "org.apache.logging.log4j:log4j-api",
+    "com.fasterxml.jackson.core:jackson-databind",
+    "com.fasterxml.jackson.core:jackson-core",
+    "com.fasterxml.jackson.core:jackson-annotations",
+    "org.projectlombok:lombok", "javax.annotation:javax.annotation-api",
+    "org.springframework:spring-core", "org.springframework:spring-context",
+    "org.springframework:spring-web", "org.springframework:spring-webmvc",
+    "org.springframework.boot:spring-boot-starter",
+    "org.springframework.boot:spring-boot-starter-web",
+    "org.springframework.boot:spring-boot-starter-data-jpa",
+    "org.springframework.boot:spring-boot-starter-test",
+    "org.springframework.boot:spring-boot-starter-security",
+    "org.springframework.security:spring-security-core",
+    "io.quarkus:quarkus-core", "io.micronaut:micronaut-core",
+    "jakarta.servlet:jakarta.servlet-api", "javax.servlet:javax.servlet-api",
+    "com.squareup.okhttp3:okhttp", "com.squareup.retrofit2:retrofit",
+    "io.netty:netty-all", "io.grpc:grpc-core",
+    "org.apache.kafka:kafka-clients", "com.rabbitmq:amqp-client",
+    "mysql:mysql-connector-java", "org.postgresql:postgresql",
+    "com.h2database:h2", "org.xerial:sqlite-jdbc",
+    "org.hibernate:hibernate-core", "org.mybatis:mybatis",
+    "com.zaxxer:HikariCP", "org.flywaydb:flyway-core",
+    "org.liquibase:liquibase-core",
+    "io.jsonwebtoken:jjwt-api", "com.auth0:java-jwt",
+    "org.apache.maven.plugins:maven-compiler-plugin",
+    "com.google.protobuf:protobuf-java",
+    "io.swagger.core.v3:swagger-core",
+    "org.mapstruct:mapstruct", "ma.glasnost.orika:orika-core",
+    "com.google.cloud:google-cloud-storage",
+    "software.amazon.awssdk:s3", "software.amazon.awssdk:dynamodb",
+    "org.testcontainers:testcontainers", "org.testcontainers:junit-jupiter",
+    "io.micrometer:micrometer-core", "io.prometheus:simpleclient",
+    "org.apache.poi:poi", "org.apache.poi:poi-ooxml",
+    "com.itextpdf:itext7-core",
+    "io.projectreactor:reactor-core", "io.reactivex.rxjava3:rxjava",
+]
+
+# Top popular NuGet packages for fuzzy matching suggestions
+TOP_NUGET_PACKAGES: list[str] = [
+    "Newtonsoft.Json", "System.Text.Json",
+    "Microsoft.Extensions.DependencyInjection",
+    "Microsoft.Extensions.Logging", "Microsoft.Extensions.Configuration",
+    "Microsoft.Extensions.Hosting", "Microsoft.Extensions.Http",
+    "Microsoft.EntityFrameworkCore", "Microsoft.EntityFrameworkCore.SqlServer",
+    "Microsoft.EntityFrameworkCore.Design",
+    "Microsoft.AspNetCore.Mvc.Core", "Microsoft.AspNetCore.Authentication.JwtBearer",
+    "Serilog", "Serilog.Sinks.Console", "Serilog.Sinks.File",
+    "NLog", "log4net",
+    "AutoMapper", "AutoMapper.Extensions.Microsoft.DependencyInjection",
+    "FluentValidation", "FluentValidation.AspNetCore",
+    "MediatR", "MediatR.Extensions.Microsoft.DependencyInjection",
+    "Dapper", "Npgsql", "MySqlConnector", "StackExchange.Redis",
+    "Moq", "NSubstitute", "FakeItEasy",
+    "xunit", "xunit.runner.visualstudio", "NUnit", "NUnit3TestAdapter",
+    "FluentAssertions", "Shouldly", "Bogus",
+    "Polly", "Polly.Extensions.Http",
+    "RestSharp", "Flurl", "Flurl.Http",
+    "Swashbuckle.AspNetCore", "NSwag.AspNetCore",
+    "Hangfire", "Hangfire.Core", "Quartz",
+    "MassTransit", "MassTransit.RabbitMQ",
+    "RabbitMQ.Client", "Confluent.Kafka",
+    "AWSSDK.S3", "AWSSDK.Core", "AWSSDK.SQS",
+    "Google.Cloud.Storage.V1", "Azure.Storage.Blobs",
+    "Microsoft.Azure.Cosmos",
+    "Grpc.Net.Client", "Grpc.AspNetCore",
+    "IdentityServer4", "Duende.IdentityServer",
+    "BCrypt.Net-Next", "Microsoft.AspNetCore.Identity",
+    "Mapster", "Riok.Mapperly",
+    "CsvHelper", "EPPlus", "ClosedXML",
+    "HtmlAgilityPack", "AngleSharp",
+    "SixLabors.ImageSharp", "QRCoder",
+    "Humanizer", "Humanizer.Core",
+    "Scrutor", "Autofac", "SimpleInjector",
+    "BenchmarkDotNet", "coverlet.collector",
+    "SignalR", "Microsoft.AspNetCore.SignalR",
+    "MongoDB.Driver", "LiteDB",
+    "Microsoft.Extensions.Caching.Memory",
+    "Microsoft.Extensions.Caching.StackExchangeRedis",
+]
+
 
 def suggest_similar_package(
     package: str,
@@ -308,3 +476,23 @@ def suggest_crates_package(crate: str) -> str:
 def suggest_go_module(module: str) -> str:
     """Suggest similar Go module names."""
     return suggest_similar_package(module, TOP_GO_MODULES)
+
+
+def suggest_rubygems_package(gem: str) -> str:
+    """Suggest similar RubyGems package names."""
+    return suggest_similar_package(gem, TOP_RUBYGEMS_PACKAGES)
+
+
+def suggest_packagist_package(package: str) -> str:
+    """Suggest similar Packagist (PHP) package names."""
+    return suggest_similar_package(package, TOP_PACKAGIST_PACKAGES)
+
+
+def suggest_maven_package(artifact: str) -> str:
+    """Suggest similar Maven Central package names."""
+    return suggest_similar_package(artifact, TOP_MAVEN_PACKAGES)
+
+
+def suggest_nuget_package(package: str) -> str:
+    """Suggest similar NuGet package names."""
+    return suggest_similar_package(package, TOP_NUGET_PACKAGES)

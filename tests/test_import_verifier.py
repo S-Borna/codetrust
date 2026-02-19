@@ -352,7 +352,7 @@ class TestCollectSourceFiles:
     def test_collect_from_file(self, tmp_path) -> None:
         py_file = tmp_path / "app.py"
         py_file.write_text("import requests\n")
-        py_files, _js_files = collect_source_files([str(py_file)])
+        py_files, _js_files, *_rest = collect_source_files([str(py_file)])
         assert len(py_files) == 1
         assert py_files[0][0] == str(py_file)
 
@@ -361,7 +361,7 @@ class TestCollectSourceFiles:
         (tmp_path / "index.js").write_text("import express from 'express';\n")
         (tmp_path / "test_app.py").write_text("import pytest\n")  # skipped
 
-        py_files, js_files = collect_source_files([str(tmp_path)])
+        py_files, js_files, *_rest = collect_source_files([str(tmp_path)])
         assert len(py_files) == 1  # test_app.py skipped
         assert len(js_files) == 1
 
@@ -371,7 +371,7 @@ class TestCollectSourceFiles:
         (venv_dir / "lib.py").write_text("import requests\n")
         (tmp_path / "app.py").write_text("import flask\n")
 
-        py_files, _js = collect_source_files([str(tmp_path)])
+        py_files, _js, *_rest = collect_source_files([str(tmp_path)])
         assert len(py_files) == 1
         assert py_files[0][0] == str(tmp_path / "app.py")
 

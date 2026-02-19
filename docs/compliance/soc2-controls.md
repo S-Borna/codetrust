@@ -33,7 +33,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC3.1 | Risk identification | 89 scan rules covering anti-patterns, hallucinations | ✅ |
+| CC3.1 | Risk identification | 112 scan rules covering anti-patterns, hallucinations | ✅ |
 | CC3.2 | Fraud risk | Config hallucination detection (5 rules), phantom import detection | ✅ |
 | CC3.3 | Change impact assessment | AST analysis, deep scan combining 5 verification layers | ✅ |
 | CC3.4 | Risk from changes | Dependabot automated dependency updates, SBOM generation | ✅ |

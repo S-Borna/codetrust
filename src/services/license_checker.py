@@ -90,6 +90,10 @@ NETWORK_COPYLEFT_LICENSES: frozenset[str] = frozenset({
 ECOSYSTEM_URLS: dict[str, str] = {
     "PyPI": "https://pypi.org/pypi/{package}/json",
     "npm": "https://registry.npmjs.org/{package}",
+    "RubyGems": "https://rubygems.org/api/v1/gems/{package}.json",
+    "Packagist": "https://repo.packagist.org/p2/{package}.json",
+    "Maven": "https://search.maven.org/solrsearch/select?q=g:{group}+AND+a:{artifact}&rows=1&wt=json",
+    "NuGet": "https://api.nuget.org/v3-flatcontainer/{package}/index.json",
 }
 
 
@@ -417,6 +421,12 @@ class LicenseService:
             Language.PYTHON: "PyPI",
             Language.JAVASCRIPT: "npm",
             Language.TYPESCRIPT: "npm",
+            Language.RUBY: "RubyGems",
+            Language.PHP: "Packagist",
+            Language.JAVA: "Maven",
+            Language.CSHARP: "NuGet",
+            Language.GO: "Go",
+            Language.RUST: "crates.io",
         }
         return mapping.get(language, "")
 

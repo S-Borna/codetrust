@@ -37,6 +37,8 @@ class Language(StrEnum):
     SHELL = "shell"
     HTML = "html"
     TERRAFORM = "terraform"
+    RUBY = "ruby"
+    PHP = "php"
 
 
 class Registry(StrEnum):
@@ -48,6 +50,10 @@ class Registry(StrEnum):
     GO_PROXY = "go_proxy"
     DOCKER_HUB = "docker_hub"
     GHCR = "ghcr"
+    RUBYGEMS = "rubygems"
+    PACKAGIST = "packagist"
+    MAVEN = "maven"
+    NUGET = "nuget"
 
 
 class PlanTier(StrEnum):

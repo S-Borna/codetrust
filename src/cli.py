@@ -1163,6 +1163,12 @@ def _detect_language_from_dep_files(targets: list[str]) -> str:
                 return "rust"
             if (p / "pom.xml").exists():
                 return "java"
+            if (p / "Gemfile").exists():
+                return "ruby"
+            if (p / "composer.json").exists():
+                return "php"
+            if (p / "*.csproj").exists() or any((p).glob("*.csproj")):
+                return "csharp"
         elif p.is_file():
             name = p.name.lower()
             if "requirements" in name or name == "pyproject.toml":
@@ -1173,6 +1179,10 @@ def _detect_language_from_dep_files(targets: list[str]) -> str:
                 return "go"
             if name == "cargo.toml":
                 return "rust"
+            if name == "gemfile":
+                return "ruby"
+            if name == "composer.json":
+                return "php"
     return ""
 
 
@@ -2832,18 +2842,21 @@ def _scan_verify_imports(
             verify_file_imports_sync,
         )
 
-        py_files, js_files = collect_source_files(targets)
-        if py_files or js_files:
-            import_count = len(py_files) + len(js_files)
+        py_files, js_files, rb_files, php_files, go_files, rs_files, java_files, cs_files = collect_source_files(targets)
+        total_files = sum(len(f) for f in (py_files, js_files, rb_files, php_files, go_files, rs_files, java_files, cs_files))
+        if total_files:
             if not machine_output:
                 _echo(
                     f"  {color('🔍 Verifying imports against registries...', BLUE)}"
-                    f" ({import_count} file(s))"
+                    f" ({total_files} file(s))"
                 )
-            import_findings = verify_file_imports_sync(py_files, js_files)
+            import_findings = verify_file_imports_sync(
+                py_files, js_files, rb_files, php_files,
+                go_files, rs_files, java_files, cs_files,
+            )
             hallucinations_found, all_findings = _scan_process_import_findings(
                 import_findings, all_findings, args,
-                import_count=import_count, machine_output=machine_output,
+                import_count=total_files, machine_output=machine_output,
             )
     except Exception as exc:
         logger.debug(

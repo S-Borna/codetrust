@@ -179,6 +179,42 @@ LANGUAGE_NODES: dict[Language, LanguageNodes] = {
         identifier_type="identifier",
         block_type="compound_statement",
     ),
+    Language.RUBY: LanguageNodes(
+        function_types=("method",),
+        branch_types=(
+            "if", "elsif", "unless", "for", "while", "until",
+            "when", "rescue", "binary",
+        ),
+        simple_assignment_types=("assignment",),
+        return_types=(
+            "return", "raise", "break", "next",
+        ),
+        nesting_types=(
+            "if", "unless", "for", "while", "until",
+            "begin", "do_block",
+        ),
+        identifier_type="identifier",
+        block_type="body_statement",
+    ),
+    Language.PHP: LanguageNodes(
+        function_types=("function_definition", "method_declaration"),
+        branch_types=(
+            "if_statement", "for_statement", "foreach_statement",
+            "while_statement", "do_statement", "catch_clause",
+            "conditional_expression", "case_statement",
+        ),
+        simple_assignment_types=("assignment_expression",),
+        return_types=(
+            "return_statement", "throw_expression",
+            "break_statement", "continue_statement",
+        ),
+        nesting_types=(
+            "if_statement", "for_statement", "foreach_statement",
+            "while_statement", "do_statement", "try_statement",
+        ),
+        identifier_type="name",
+        block_type="compound_statement",
+    ),
 }
 
 SUPPORTED_LANGUAGES: frozenset[Language] = frozenset(LANGUAGE_NODES.keys())
@@ -245,6 +281,20 @@ def _load_cpp_language() -> ts.Language:
     return ts.Language(tscpp.language())
 
 
+def _load_ruby_language() -> ts.Language:
+    """Load the Ruby tree-sitter grammar."""
+    import tree_sitter_ruby as tsrb
+
+    return ts.Language(tsrb.language())
+
+
+def _load_php_language() -> ts.Language:
+    """Load the PHP tree-sitter grammar."""
+    import tree_sitter_php as tsphp
+
+    return ts.Language(tsphp.language_php())
+
+
 _LANGUAGE_LOADERS: dict[Language, object] = {
     Language.PYTHON: _load_python_language,
     Language.JAVASCRIPT: _load_javascript_language,
@@ -254,6 +304,8 @@ _LANGUAGE_LOADERS: dict[Language, object] = {
     Language.JAVA: _load_java_language,
     Language.CSHARP: _load_csharp_language,
     Language.CPP: _load_cpp_language,
+    Language.RUBY: _load_ruby_language,
+    Language.PHP: _load_php_language,
 }
 
 

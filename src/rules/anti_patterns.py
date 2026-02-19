@@ -788,6 +788,181 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Non-standard HTTP status code. Valid codes are 1xx-5xx — AI may have invented this status code.",
         "severity": Severity.WARN,
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  RUBY-SPECIFIC RULES (.rb)
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "ruby_eval",
+        "pattern": r"\b(?:eval|class_eval|module_eval|instance_eval)\s*[\(\s]",
+        "message": "Avoid eval/class_eval/module_eval — use safe metaprogramming alternatives.",
+        "severity": Severity.BLOCK,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_system_exec",
+        "pattern": r"\b(?:system|exec|%x|`)\s*[\(\"\']",
+        "message": "Shell command execution detected. Use shell-escape or parameterized commands.",
+        "severity": Severity.BLOCK,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_send_public_send",
+        "pattern": r"\b(?:send|public_send)\s*\(",
+        "message": "Dynamic method dispatch via send/public_send. Verify the method name is trusted.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_binding_pry",
+        "pattern": r"\bbinding\.pry\b",
+        "message": "Debug breakpoint left in code. Remove binding.pry before deploying.",
+        "severity": Severity.BLOCK,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_puts_p_debug",
+        "pattern": r"^\s*(?:puts|p|pp)\s+",
+        "message": "Debug output (puts/p/pp) in production code. Use a structured logger (e.g. Rails.logger).",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+        "skip_comments": True,
+    },
+    {
+        "id": "ruby_sleep",
+        "pattern": r"\bsleep\s*\(",
+        "message": "Blocking sleep call. Consider async patterns or background jobs for delays.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_rescue_exception",
+        "pattern": r"rescue\s+Exception\b",
+        "message": "Rescuing Exception catches system errors (SignalException, NoMemoryError). Rescue StandardError instead.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_global_variable",
+        "pattern": r"\$[A-Za-z_]\w*\s*=",
+        "message": "Global variable assignment. Use module constants, class variables, or dependency injection.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_mass_assignment",
+        "pattern": r"\.new\s*\(\s*params\b",
+        "message": "Potential mass assignment. Use strong parameters (permit) in Rails controllers.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_hardcoded_secret",
+        "pattern": r'(?i)(?:api_key|secret_key|password|token)\s*=\s*["\'][^"\']{8,}["\']',
+        "message": "Possible hardcoded secret in Ruby code. Use environment variables (ENV['KEY']).",
+        "severity": Severity.BLOCK,
+        "file_types": [".rb"],
+    },
+    {
+        "id": "ruby_hallucinated_gem",
+        "pattern": r"^require\s+['\"](?:activrecord|actionspack|railties_utils|ruby_json|string_utils|http_client|easy_http|ruby_async|fast_json)\b",
+        "message": "Misspelled or hallucinated gem name. Verify the gem exists on rubygems.org.",
+        "severity": Severity.BLOCK,
+        "file_types": [".rb"],
+        "skip_comments": True,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  PHP-SPECIFIC RULES (.php)
+    # ═══════════════════════════════════════════════════════════════
+
+    {
+        "id": "php_eval",
+        "pattern": r"\b(?:eval|assert)\s*\(",
+        "message": "eval/assert is a critical security risk. Use safe alternatives.",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_shell_exec",
+        "pattern": r"\b(?:shell_exec|exec|system|passthru|popen|proc_open)\s*\(",
+        "message": "Shell command execution detected. Use escapeshellarg/escapeshellcmd for user input.",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_sql_injection",
+        "pattern": r'(?:mysql_query|mysqli_query|->query)\s*\(\s*["\'].*?\$',
+        "message": "Possible SQL injection via variable interpolation. Use prepared statements (PDO/mysqli).",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_var_dump",
+        "pattern": r"\b(?:var_dump|print_r|echo)\s*\(",
+        "message": "Debug output in production code. Use a structured logger (e.g. Monolog).",
+        "severity": Severity.WARN,
+        "file_types": [".php"],
+        "skip_comments": True,
+    },
+    {
+        "id": "php_deprecated_mysql",
+        "pattern": r"\b(?:mysql_connect|mysql_query|mysql_fetch|mysql_close)\s*\(",
+        "message": "Deprecated mysql_* functions. Use PDO or mysqli instead (mysql_* removed in PHP 7+).",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_error_suppression",
+        "pattern": r"@\w+\s*\(",
+        "message": "Error suppression operator @ hides errors. Handle errors explicitly with try/catch.",
+        "severity": Severity.WARN,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_extract",
+        "pattern": r"\bextract\s*\(",
+        "message": "extract() imports variables from array into current scope — security risk with untrusted data.",
+        "severity": Severity.WARN,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_unserialize",
+        "pattern": r"\bunserialize\s*\(",
+        "message": "unserialize() on untrusted data enables object injection attacks. Use json_decode instead.",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_md5_password",
+        "pattern": r"\b(?:md5|sha1)\s*\(\s*\$(?:password|pass|pwd)",
+        "message": "Weak hash for passwords. Use password_hash() with PASSWORD_BCRYPT or PASSWORD_ARGON2ID.",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_die_exit",
+        "pattern": r"\b(?:die|exit)\s*\(",
+        "message": "die/exit terminates execution abruptly. Use proper exception handling and responses.",
+        "severity": Severity.WARN,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_hardcoded_secret",
+        "pattern": r'(?i)(?:api_key|secret|password|token)\s*=\s*["\'][^"\']{8,}["\']',
+        "message": "Possible hardcoded secret in PHP code. Use environment variables (getenv/dotenv).",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+    },
+    {
+        "id": "php_hallucinated_namespace",
+        "pattern": r"^use\s+(?:Laravel\\Http|Symfony\\Components|Doctrine\\ORM\\Managers|Illuminate\\Facades|GuzzleHttp\\Requests)\b",
+        "message": "Misspelled or hallucinated PHP namespace. Verify the package exists on packagist.org.",
+        "severity": Severity.BLOCK,
+        "file_types": [".php"],
+        "skip_comments": True,
+    },
 ]
 
 # File-type sets for routing

@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     npm_url: str = "https://registry.npmjs.org/{package}"
     crates_url: str = "https://crates.io/api/v1/crates/{package}"
     go_proxy_url: str = "https://proxy.golang.org/{package}/@latest"
+    rubygems_url: str = "https://rubygems.org/api/v1/gems/{package}.json"
+    packagist_url: str = "https://repo.packagist.org/p2/{package}.json"
+    maven_url: str = "https://search.maven.org/solrsearch/select?q=g:{group}+AND+a:{artifact}&rows=1&wt=json"
+    nuget_url: str = "https://api.nuget.org/v3-flatcontainer/{package}/index.json"
     docker_hub_tags_url: str = (
         "https://hub.docker.com/v2/repositories/library/{image}/tags/{tag}"
     )

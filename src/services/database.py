@@ -398,6 +398,53 @@ class DatabaseService:
                 "destructive_commands_blocked": blocked or 0,
             }
 
+    async def get_redis_warmup_counters(self) -> dict[str, int]:
+        """Return aggregate counters needed to warm up Redis after a restart.
+
+        Queries the persisted telemetry rows so Redis counters are restored
+        to their correct values rather than starting from zero.
+        """
+        today_utc = datetime.datetime.combine(
+            datetime.date.today(), datetime.time.min, tzinfo=datetime.UTC,
+        )
+        async with self._session_factory() as session:
+            total_stmt = (
+                select(func.count())
+                .select_from(TelemetryEventRaw)
+                .where(TelemetryEventRaw.event_type == "scan_completed")
+            )
+            total_scans: int = (await session.execute(total_stmt)).scalar_one() or 0
+
+            today_stmt = (
+                select(func.count())
+                .select_from(TelemetryEventRaw)
+                .where(
+                    TelemetryEventRaw.event_type == "scan_completed",
+                    TelemetryEventRaw.created_at >= today_utc,
+                )
+            )
+            scans_today: int = (await session.execute(today_stmt)).scalar_one() or 0
+
+            sources = ("cli", "vscode", "mcp", "github_action", "cloud_api")
+            by_source: dict[str, int] = {}
+            for source in sources:
+                src_stmt = (
+                    select(func.count())
+                    .select_from(TelemetryEventRaw)
+                    .where(
+                        TelemetryEventRaw.event_type == "scan_completed",
+                        TelemetryEventRaw.source == source,
+                    )
+                )
+                by_source[source] = (await session.execute(src_stmt)).scalar_one() or 0
+
+        counters: dict[str, int] = {
+            "ct:total_scans": total_scans,
+            "ct:scans_today": scans_today,
+        }
+        counters.update({f"ct:scans_by_source:{src}": cnt for src, cnt in by_source.items()})
+        return counters
+
     # --- Anonymous telemetry (public aggregates) ---
 
     async def insert_telemetry_event(

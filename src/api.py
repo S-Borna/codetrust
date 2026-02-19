@@ -272,7 +272,7 @@ async def _init_telemetry_tasks(
     app: FastAPI, cache: CacheService,
     http_client: httpx.AsyncClient, db: DatabaseService | None,
 ) -> None:
-    """Start telemetry background tasks."""
+    """Start telemetry background tasks and restore Redis counters from the DB."""
     app.state.telemetry_stop = asyncio.Event()
     app.state.telemetry_queue = asyncio.Queue(maxsize=10_000)
     app.state.ws_clients = set()
@@ -280,11 +280,13 @@ async def _init_telemetry_tasks(
 
     redis_client = cache.raw_client()
     if redis_client is not None:
-        from src.services.telemetry import stats_worker
+        from src.services.telemetry import stats_worker, warm_up_redis_counters
 
         app.state.stats_worker_task = asyncio.create_task(
             stats_worker(r=redis_client, http_client=http_client, stop=app.state.telemetry_stop),
         )
+        if db is not None:
+            await warm_up_redis_counters(r=redis_client, db=db)
     else:
         app.state.stats_worker_task = None
 

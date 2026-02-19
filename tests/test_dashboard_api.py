@@ -18,7 +18,7 @@ _TELEMETRY_EVENT_PAYLOAD: dict[str, object] = {
     "event_type": "scan_completed",
     "source": "cli",
     "installation_id": "anon-" + ("a" * 24),
-    "version": "2.3.2",
+    "version": "2.4.0",
     "payload": {
         "scan_type": "static",
         "files_scanned": 1,

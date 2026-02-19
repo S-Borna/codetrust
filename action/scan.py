@@ -294,7 +294,7 @@ def main() -> int:
             "event_type": "ci_run_completed",
             "source": "github_action",
             "installation_id": f"gha-{uuid.uuid4()}",
-            "version": "2.3.2",
+            "version": "2.4.0",
             "payload": {
                 "scan_type": "static" if use_api else "local",
                 "files_scanned": len(scan_files),

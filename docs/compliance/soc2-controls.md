@@ -33,7 +33,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC3.1 | Risk identification | 112 scan rules covering anti-patterns, hallucinations | ✅ |
+| CC3.1 | Risk identification | 199 scan rules covering anti-patterns, hallucinations | ✅ |
 | CC3.2 | Fraud risk | Config hallucination detection (5 rules), phantom import detection | ✅ |
 | CC3.3 | Change impact assessment | AST analysis, deep scan combining 5 verification layers | ✅ |
 | CC3.4 | Risk from changes | Dependabot automated dependency updates, SBOM generation | ✅ |
@@ -80,7 +80,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 1,454 tests | ✅ |
+| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 1,665 tests | ✅ |
 | CC8.2 | Assessment before deployment | 76% code coverage threshold, automated lint checks | ✅ |
 
 ## CC9 — Risk Mitigation
@@ -146,7 +146,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 | GDPR | Privacy service | Data export/delete service |
 | Auth | Auth service | GitHub OAuth + JWT |
 | Database | Data service | User/key/scan CRUD |
-| Static Analysis | Scan service | 89 regex + special rules |
+| Static Analysis | Scan service | 188 regex + 11 special rules |
 | AST Analysis | Scan service | tree-sitter based |
 | Sandbox | Execution service | Docker-isolated execution |
 | Custom Rules | Gateway module | YAML/TOML user rules |
@@ -158,7 +158,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 For SOC 2 Type II evidence, the following artifacts are available:
 
-1. **Test Suite**: 1,454 Python tests + dashboard tests → `pytest --tb=short`
+1. **Test Suite**: 1,665 Python tests + dashboard tests → `pytest --tb=short`
 2. **Coverage Report**: Code coverage → `pytest --cov=src`
 3. **CI Pipeline**: `.github/workflows/ci.yml` — automated on every push
 4. **SBOM**: CycloneDX SBOM generated in CI and attached to releases

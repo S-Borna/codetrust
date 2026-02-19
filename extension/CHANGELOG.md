@@ -5,17 +5,17 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [2.4.0] - 2026-02-20
 
 ### Added
 
 - **7 new languages**: Java, C#, C++, Shell/Bash, HTML, Terraform, YAML — total now **13** (up from 6)
-- **Ruby & PHP language support** — activation events, AST analysis, import verification (RubyGems, Packagist). Total: **15 languages**
-- Activation events for all 15 languages
+- **Ruby & PHP language support** — activation events, AST analysis, import verification (RubyGems, Packagist). Total: **16 languages**
+- Activation events for all 16 languages
 - Import verification for Java, C#, C++, Ruby, PHP added
 - Language mapping: `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
 - Embedded scanner routes Terraform/HCL (`.tf`, `.tfvars`, `.hcl`) to DevOps rules
-- `enabledLanguages` setting expanded from 6 to 15 entries
+- `enabledLanguages` setting expanded from 6 to 16 entries
 
 ### Platform (benefits all surfaces)
 
@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Auto-fix PR generation** via GitHub API — `POST /v1/fix/apply`, `codetrust fix --pr`
 - **Team management & RBAC** with org policies — 10 new endpoints under `/v1/orgs/*`
 - 14 new API endpoints (42 total, up from 28)
-- **11 new philosophy rules** — root-cause enforcement, determinism, configuration, safe data handling, code hygiene (165 total rules, up from 154)
+- **11 new philosophy rules** — root-cause enforcement, determinism, configuration, safe data handling, code hygiene (275 total rules, up from 154)
 
 ### Changed
 

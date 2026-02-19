@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.3.2</code> &middot; <code>1571 tests</code> &middot; <code>239 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.4.0</code> &middot; <code>1665 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 239 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,571 tests.
+**AI Governance Enforcement Platform** — 275 rules across 10 enforcement layers, 17 MCP tools, 42 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,665 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -117,7 +117,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**163 scan rules + 76 gateway rules = 239 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**199 scan rules + 76 gateway rules = 275 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -186,7 +186,7 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.4.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
 | **REST API** | 42 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -288,7 +288,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.3.2
+      - uses: S-Borna/codetrust@v2.4.0
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -584,7 +584,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.3.2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.4.0` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
@@ -595,7 +595,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1571 tests
+pytest                     # 1665 tests
 ruff check .               # zero warnings
 ```
 

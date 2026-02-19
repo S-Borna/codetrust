@@ -3,6 +3,18 @@
 This is a **shareable excerpt** intended for testers and stakeholders.
 For the complete history, see the repo root CHANGELOG.md.
 
+## 2.4.0 (2026-02-20)
+
+Highlights:
+
+- **275 total rules** — 199 scan + 76 gateway (up from 239)
+- **Batch 1**: Ruby & PHP language support, Maven Central & NuGet registry verification
+- **Batch 2**: 51 IaC/config rules (Terraform, Helm, Ansible, Nginx, CloudFormation, Azure ARM/Bicep) + PowerShell 12 rules
+- **Batch 3**: 36 config rules — Redis, HashiCorp Vault, Prometheus/Grafana, Systemd, Docker Compose advanced, GitHub Actions advanced, general config hygiene
+- **16 languages** supported (added PowerShell)
+- **1,665 tests** (up from 1,571)
+- New file types: `.service`, `.timer`, `.ini`, `.cfg`
+
 ## 2.3.2 (2026-02-16)
 
 Highlights:

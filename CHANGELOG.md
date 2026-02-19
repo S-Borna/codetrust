@@ -5,7 +5,7 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] - 2026-02-20
 
 ### Added
 
@@ -31,6 +31,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Azure ARM / Bicep Rules** — 5 rules for `.bicep` and ARM templates
   - `bicep_no_secure_param`, `bicep_http_only`, `bicep_public_network`, `arm_wildcard_rbac`, `arm_no_diagnostics`
+
+- **Redis Config Rules** — 6 rules for Redis configuration hardening (`.conf`)
+  - 3 BLOCK: `redis_no_password`, `redis_bind_all_interfaces`, `redis_disable_protected_mode`
+  - 2 WARN: `redis_no_maxmemory`, `redis_dangerous_command`
+  - 1 INFO: `redis_no_timeout`
+
+- **Vault Config Rules** — 5 rules for HashiCorp Vault configuration (`.hcl`)
+  - 2 BLOCK: `vault_tls_disable`, `vault_no_seal_config`
+  - 2 WARN: `vault_default_lease`, `vault_ui_enabled`
+  - 1 INFO: `vault_log_level_trace`
+
+- **Monitoring Stack Rules** — 5 rules for Prometheus/Grafana configs (`.yml`/`.yaml`)
+  - 2 BLOCK: `prom_no_auth_targets`, `grafana_admin_password`
+  - 2 WARN: `prom_high_scrape_interval`, `grafana_allow_signup`
+  - 1 INFO: `prom_no_alertmanager`
+
+- **Systemd Unit Rules** — 5 rules for systemd service/timer files (`.service`/`.timer`)
+  - 2 WARN: `systemd_no_restart_policy`, `systemd_exec_start_missing`
+  - 3 INFO: `systemd_no_description`, `systemd_no_after`, `systemd_no_wanted_by`
+
+- **Docker Compose Advanced Rules** — 5 advanced rules for `docker-compose.yml`
+  - 2 BLOCK: `compose_privileged`, `compose_pid_host`
+  - 2 WARN: `compose_no_healthcheck`, `compose_no_mem_limit`
+  - 1 INFO: `compose_no_restart_policy`
+
+- **GitHub Actions Advanced Rules** — 5 rules for CI/CD workflow files (`.yml`/`.yaml`)
+  - 1 BLOCK: `ci_script_injection`
+  - 3 WARN: `ci_no_timeout`, `ci_mutable_action_ref`, `ci_excessive_permissions`
+  - 1 INFO: `ci_no_concurrency`
+
+- **General Config Hygiene Rules** — 5 rules for INI/CFG/TOML/CONF files
+  - 2 BLOCK: `config_plaintext_password`, `config_private_key_inline`
+  - 2 WARN: `config_debug_enabled`, `config_http_endpoint`
+  - 1 INFO: `config_todo_fixme`
+
+- **New file type support** — `.service`, `.timer`, `.ini`, `.cfg` added to CLI scan extensions
 
 ### Fixed
 

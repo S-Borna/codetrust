@@ -6,19 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust — AI Governance Enforcement Platform | Prevent Unsafe AI Code</title>
     <meta name="description"
-        content="CodeTrust is the AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. 188 rules across 10 enforcement layers. Blocks AI agent commands before execution. Detects hallucinated packages via live registry verification. Trust Score tracks code safety drift. Works with Claude Code, Cursor, GitHub Copilot. CLI, VS Code extension, GitHub Action, MCP server.">
+        content="CodeTrust is the AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. 275 rules across 10 enforcement layers. Blocks AI agent commands before execution. Detects hallucinated packages via live registry verification. Trust Score tracks code safety drift. Works with Claude Code, Cursor, GitHub Copilot. CLI, VS Code extension, GitHub Action, MCP server.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
         content="CodeTrust, AI code safety, AI governance, AI code security, hallucination detection, AI agent enforcement, code scanning, AI governance gateway, trust score, AI code review, MCP server, Claude Code, Cursor, GitHub Copilot, pre-execution enforcement, AI-generated code safety, supply chain security, CVE scanning, license compliance, SAST, code quality, DevSecOps, AI DevOps">
-    <meta name="generator" content="CodeTrust v2.3.2">
+    <meta name="generator" content="CodeTrust v2.4.0">
     <link rel="canonical" href="https://codetrust.ai">
 
     <!-- Open Graph -->
     <meta property="og:site_name" content="CodeTrust">
     <meta property="og:title" content="CodeTrust — AI Governance Enforcement Platform">
     <meta property="og:description"
-        content="Stop unsafe AI-generated code before it runs. 188 rules, 10 enforcement layers, real-time AI agent interception. The only platform that blocks hallucinated packages, destructive commands, and unsafe code at the moment of generation.">
+        content="Stop unsafe AI-generated code before it runs. 275 rules, 10 enforcement layers, real-time AI agent interception. The only platform that blocks hallucinated packages, destructive commands, and unsafe code at the moment of generation.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.ai">
     <meta property="og:image" content="https://codetrust.ai/logo.png">
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="CodeTrust — AI Governance Enforcement Platform">
     <meta name="twitter:description"
-        content="188 rules. 10 enforcement layers. Blocks AI agent commands before execution. Detects hallucinated packages. Trust Score tracks drift. CLI, VS Code, GitHub Action, MCP.">
+        content="275 rules. 10 enforcement layers. Blocks AI agent commands before execution. Detects hallucinated packages. Trust Score tracks drift. CLI, VS Code, GitHub Action, MCP.">
     <meta name="twitter:image" content="https://codetrust.ai/logo.png">
 
     <!-- JSON-LD: SoftwareApplication -->
@@ -39,7 +39,7 @@
         "@type": "SoftwareApplication",
         "name": "CodeTrust",
         "alternateName": "CodeTrust AI Governance",
-        "description": "AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. 188 rules across 10 enforcement layers. Real-time AI agent interception gateway. Hallucination detection via live registry verification. Trust Score with drift tracking.",
+        "description": "AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. 275 rules across 10 enforcement layers. Real-time AI agent interception gateway. Hallucination detection via live registry verification. Trust Score with drift tracking.",
         "url": "https://codetrust.ai",
         "applicationCategory": "DeveloperApplication",
         "applicationSubCategory": "Code Security",
@@ -60,7 +60,7 @@
             "name": "CodeTrust",
             "url": "https://codetrust.ai"
         },
-        "softwareVersion": "2.3.2",
+        "softwareVersion": "2.4.0",
         "downloadUrl": "https://pypi.org/project/codetrust/",
         "installUrl": "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
         "screenshot": "https://codetrust.ai/logo.png",
@@ -168,7 +168,7 @@
                 "name": "What languages does CodeTrust support?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust supports 15 languages: Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, C++, Shell/Bash, Terraform/HCL, HTML, SQL, and YAML. The AI Governance Gateway is language-agnostic and intercepts terminal commands and file operations regardless of language."
+                    "text": "CodeTrust supports 16 languages: Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, C++, Shell/Bash, PowerShell, Terraform/HCL, HTML, SQL, and YAML. The AI Governance Gateway is language-agnostic and intercepts terminal commands and file operations regardless of language."
                 }
             },
             {
@@ -176,7 +176,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.3.2, and (4) MCP server for direct integration with Claude Code and Cursor."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.4.0, and (4) MCP server for direct integration with Claude Code and Cursor."
                 }
             }
         ]
@@ -2485,7 +2485,7 @@
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v2.3.2 &mdash; 1,504 tests &mdash; 10 layers &mdash; 188 rules &mdash; 42
+            <span class="hero-version">v2.4.0 &mdash; 1,665 tests &mdash; 10 layers &mdash; 275 rules &mdash; 42
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
@@ -3101,8 +3101,8 @@
     <!-- RULES -->
     <section class="container" id="rules">
         <div class="section-tag section-center">What we enforce</div>
-        <h2 class="reveal">188 rules across every layer</h2>
-        <p class="section-desc reveal">112 scan rules + 76 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
+        <h2 class="reveal">275 rules across every layer</h2>
+        <p class="section-desc reveal">199 scan rules + 76 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
             risk &mdash; INFO improves</p>
 
         <div class="rule-tabs reveal" id="ruleTabs">
@@ -3256,7 +3256,7 @@
             </div>
             <div class="install-card">
                 <h4>VS Code Extension</h4>
-                <p>188 rules. Scan on save. Works offline.</p>
+                <p>275 rules. Scan on save. Works offline.</p>
                 <code>ext install SaidBorna.codetrust</code>
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                     class="card-link">View on Marketplace &rarr;</a>
@@ -3264,7 +3264,7 @@
             <div class="install-card">
                 <h4>GitHub Action</h4>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
-                <code>uses: S-Borna/codetrust@v2.3.2</code>
+                <code>uses: S-Borna/codetrust@v2.4.0</code>
                 <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
                     &rarr;</a>
             </div>
@@ -3311,7 +3311,7 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast — CodeTrust ensures it's safe</h2>
-            <p>188 rules. 10 enforcement layers. 42 API endpoints.<br>Five enterprise services.</p>
+            <p>275 rules. 10 enforcement layers. 42 API endpoints.<br>Five enterprise services.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>

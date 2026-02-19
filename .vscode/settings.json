@@ -1,0 +1,5 @@
+{
+    "codetrust.apiUrl": "https://codetrust-api-production.up.railway.app",
+    "codetrust.scanOnSave": true,
+    "codetrust.severityThreshold": "INFO"
+}

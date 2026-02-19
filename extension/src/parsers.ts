@@ -29,6 +29,16 @@ export function extractImports(code: string, language: Language): string[] {
             return extractCsharpImports(code);
         case "cpp":
             return extractCppIncludes(code);
+        case "ruby":
+            return extractRubyImports(code);
+        case "php":
+            return extractPhpImports(code);
+        case "powershell":
+            return [];
+        default: {
+            const _exhaustive: never = language;
+            return [];
+        }
     }
 }
 
@@ -281,6 +291,42 @@ function extractCppIncludes(code: string): string[] {
     }
 
     return [...includes];
+}
+
+/** Extract Ruby require names (top-level gems only). */
+function extractRubyImports(code: string): string[] {
+    const imports = new Set<string>();
+    const lines = code.split("\n");
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // require "foo" / require 'foo'
+        const requireMatch = trimmed.match(/^require\s+['"]([^'"]+)['"]/);
+        if (requireMatch) {
+            const name = requireMatch[1].split("/")[0];
+            imports.add(name);
+        }
+    }
+
+    return [...imports];
+}
+
+/** Extract PHP use/require names (top-level packages only). */
+function extractPhpImports(code: string): string[] {
+    const imports = new Set<string>();
+    const lines = code.split("\n");
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // use Vendor\Package\Class;
+        const useMatch = trimmed.match(/^use\s+([A-Z]\w+(?:\\[A-Z]\w+)*)/);
+        if (useMatch) {
+            const ns = useMatch[1].split("\\")[0];
+            imports.add(ns);
+        }
+    }
+
+    return [...imports];
 }
 
 /** Docker image reference parsed from a Dockerfile. */

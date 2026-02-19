@@ -23,6 +23,122 @@ import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 import { sendTelemetry } from "./telemetry";
 
+// ─────────────────────────────────────────────────────────────────
+//  Copilot global instruction injection
+// ─────────────────────────────────────────────────────────────────
+
+/** Unique marker embedded in every injected instruction text. */
+const COPILOT_INSTRUCTION_MARKER = "[codetrust-governance-v1]";
+
+/** Globalstate key tracking whether instructions have been injected. */
+const COPILOT_INJECTION_STATE_KEY = "codetrust.copilotInstructionsInjected.v1";
+
+/** Inline Copilot instruction text — injected globally into VS Code settings. */
+const COPILOT_RULES_TEXT = `${COPILOT_INSTRUCTION_MARKER}
+
+CodeTrust Governance — Mandatory rules for every session:
+
+PROXY TOOLS (use these INSTEAD of native tools):
+- codetrust_run_in_terminal → replaces run_in_terminal
+- codetrust_create_file → replaces create_file
+- codetrust_replace_string_in_file → replaces replace_string_in_file
+- codetrust_edit_notebook → replaces edit_notebook_file
+
+Workflow for EVERY action:
+1. Call the codetrust_* proxy tool with the EXACT same parameters.
+2. If status=APPROVED → call the native tool with identical parameters.
+3. If status=BLOCKED → do NOT proceed. Use the suggestion instead.
+4. If status=WARN → acknowledge, then you may proceed.
+
+You MUST also call these for validation:
+- codetrust_validate_package BEFORE installing any package (BLOCK = do not install)
+- codetrust_validate_file_delete BEFORE deleting any file (BLOCK = do not delete)
+
+NEVER do the following under any circumstances:
+- Run git push (user pushes manually — never automate)
+- Use heredoc (<< EOF) — use create_file tool instead
+- Use eval or exec to execute dynamic code
+- Write hardcoded secrets, API keys or passwords
+- Use wildcard imports (from x import *)
+- Use Any type annotation — use explicit types always
+- Skip CodeTrust validation to save time — zero exceptions
+
+Code quality (apply to all generated code):
+- Every function: full type annotations + docstring
+- Max 40 lines per function — split if longer
+- Catch specific exception types only — no bare except
+- Named constants (UPPER_CASE) — no magic numbers inline
+
+All validations are logged to .codetrust/audit.jsonl. Bypasses are auditable.`;
+
+/** Instruction shape accepted by github.copilot.chat.codeGeneration.instructions. */
+type CopilotInstruction = { text: string } | { file: string };
+
+/**
+ * Inject CodeTrust governance rules into VS Code's global Copilot instructions.
+ *
+ * Idempotent: skips if a CodeTrust entry already exists. Writes to
+ * ConfigurationTarget.Global so rules apply in every workspace.
+ */
+async function injectCopilotInstructions(
+    context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel,
+): Promise<void> {
+    try {
+        const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
+        const existing = copilotCfg.get<CopilotInstruction[]>("codeGeneration.instructions", []);
+
+        const alreadyPresent = existing.some(
+            (entry) => "text" in entry && entry.text.includes(COPILOT_INSTRUCTION_MARKER),
+        );
+        if (alreadyPresent) {
+            outputChannel.appendLine("CodeTrust: Copilot instructions already injected — skipping.");
+            return;
+        }
+
+        const updated: CopilotInstruction[] = [...existing, { text: COPILOT_RULES_TEXT }];
+        await copilotCfg.update(
+            "codeGeneration.instructions",
+            updated,
+            vscode.ConfigurationTarget.Global,
+        );
+        await context.globalState.update(COPILOT_INJECTION_STATE_KEY, true);
+        outputChannel.appendLine(
+            "CodeTrust: Governance rules injected into global Copilot instructions.",
+        );
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine(`CodeTrust: Failed to inject Copilot instructions: ${msg}`);
+    }
+}
+
+/**
+ * Remove CodeTrust governance rules from VS Code's global Copilot instructions.
+ *
+ * Called on extension deactivation so users have a clean uninstall path.
+ */
+async function removeCopilotInstructions(outputChannel: vscode.OutputChannel): Promise<void> {
+    try {
+        const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
+        const existing = copilotCfg.get<CopilotInstruction[]>("codeGeneration.instructions", []);
+        const filtered = existing.filter(
+            (entry) => !("text" in entry && entry.text.includes(COPILOT_INSTRUCTION_MARKER)),
+        );
+        if (filtered.length === existing.length) {
+            return; // Nothing to remove
+        }
+        await copilotCfg.update(
+            "codeGeneration.instructions",
+            filtered,
+            vscode.ConfigurationTarget.Global,
+        );
+        outputChannel.appendLine("CodeTrust: Governance rules removed from Copilot instructions.");
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine(`CodeTrust: Failed to remove Copilot instructions: ${msg}`);
+    }
+}
+
 /** Extension activation — called when a supported file is opened. */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const baseConfig = getConfig();
@@ -52,6 +168,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     void maybePromptAlwaysOn(context, outputChannel);
     void maybePromptGuidedOnboarding(context, outputChannel);
+    void injectCopilotInstructions(context, outputChannel);
 
     const deps: CommandDeps = {
         client,
@@ -66,6 +183,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Register commands
     registerCommands(context, deps);
+
+    // Manual re-injection command for governance instructions
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            "codetrust.injectCopilotInstructions",
+            async (): Promise<void> => {
+                // Force re-inject by clearing the state marker first
+                await context.globalState.update(COPILOT_INJECTION_STATE_KEY, undefined);
+                const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
+                const existing = copilotCfg.get<CopilotInstruction[]>("codeGeneration.instructions", []);
+                const filtered = existing.filter(
+                    (e) => !("text" in e && e.text.includes(COPILOT_INSTRUCTION_MARKER)),
+                );
+                await copilotCfg.update(
+                    "codeGeneration.instructions",
+                    filtered,
+                    vscode.ConfigurationTarget.Global,
+                );
+                await injectCopilotInstructions(context, outputChannel);
+                await vscode.window.showInformationMessage(
+                    "CodeTrust: Governance rules injected into global Copilot instructions.",
+                );
+            },
+        ),
+    );
 
     // Register code action provider for all supported languages
     const languageSelectors = buildLanguageSelectors();
@@ -234,7 +376,10 @@ async function maybePromptAlwaysOn(
 
 /** Extension deactivation — cleanup. */
 export function deactivate(): void {
-    // All disposables are cleaned up via context.subscriptions
+    // All disposables are cleaned up via context.subscriptions.
+    // Best-effort removal of injected Copilot instructions.
+    const outputChannel = vscode.window.createOutputChannel("CodeTrust");
+    void removeCopilotInstructions(outputChannel);
 }
 
 /** Build language selectors for code action registration. */

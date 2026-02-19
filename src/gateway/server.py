@@ -244,6 +244,141 @@ async def validate_package(
     return json.dumps(result.to_dict(), indent=2)
 
 
+# ═══════════════════════════════════════════════════════════════
+#  Proxy enforcement tools — AI MUST call these INSTEAD of
+#  the native VS Code tools: run_in_terminal, create_file,
+#  replace_string_in_file, and edit_notebook_file.
+#
+#  Workflow:
+#    1. AI calls codetrust_run_in_terminal(command).
+#    2. If APPROVED → AI may call native run_in_terminal with
+#       the EXACT same command string.
+#    3. If BLOCKED → AI MUST NOT proceed. No exceptions.
+# ═══════════════════════════════════════════════════════════════
+
+_APPROVED_PREFIX = "APPROVED"
+_BLOCKED_PREFIX = "BLOCKED"
+
+
+def _proxy_result(result: InterceptResult) -> str:
+    """Serialise a proxy intercept result with APPROVED / BLOCKED header."""
+    effective_verdict = result.verdict.value
+    if _engine.auditing and result.verdict == Verdict.BLOCK:
+        effective_verdict = "WARN"
+
+    _emit_gateway_telemetry(result=result, effective_verdict=effective_verdict)
+    _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
+
+    if result.blocked and _engine.active:
+        return json.dumps({
+            "status": _BLOCKED_PREFIX,
+            "verdict": "BLOCK",
+            "rule_id": result.rule_id,
+            "message": result.message,
+            "suggestion": result.suggestion,
+            "instruction": (
+                "MANDATORY: Do NOT proceed with the native tool. "
+                "This action is blocked by CodeTrust governance policy."
+            ),
+        }, indent=2)
+
+    return json.dumps({
+        "status": _APPROVED_PREFIX,
+        "verdict": effective_verdict,
+        "rule_id": result.rule_id,
+        "message": result.message or "Action validated — you may proceed.",
+        "instruction": (
+            "You may now call the native tool with the EXACT same parameters."
+        ),
+    }, indent=2)
+
+
+@gateway.tool(name="codetrust_run_in_terminal")
+async def proxy_run_in_terminal(command: str) -> str:
+    """Mandatory proxy gate for run_in_terminal.
+
+    You MUST call this tool BEFORE calling run_in_terminal.
+    - If status=APPROVED → call run_in_terminal with the EXACT same command.
+    - If status=BLOCKED  → do NOT call run_in_terminal. Use the suggestion instead.
+
+    Args:
+        command: The exact terminal command you intend to run.
+
+    Returns:
+        JSON with status (APPROVED/BLOCKED), verdict, and instruction.
+    """
+    logger.info("proxy_run_in_terminal", command=command[:120])
+    result = _interceptor.check_terminal(command)
+    return _proxy_result(result)
+
+
+@gateway.tool(name="codetrust_create_file")
+async def proxy_create_file(path: str, content: str) -> str:
+    """Mandatory proxy gate for create_file.
+
+    You MUST call this tool BEFORE calling create_file.
+    - If status=APPROVED → call create_file with the EXACT same path and content.
+    - If status=BLOCKED  → do NOT create the file.
+
+    Args:
+        path: Absolute path of the file to create.
+        content: Full content to write to the file.
+
+    Returns:
+        JSON with status (APPROVED/BLOCKED), verdict, and instruction.
+    """
+    logger.info("proxy_create_file", path=path)
+    result = _interceptor.check_file_write(path, content)
+    return _proxy_result(result)
+
+
+@gateway.tool(name="codetrust_replace_string_in_file")
+async def proxy_replace_string_in_file(
+    path: str,
+    old_string: str,
+    new_string: str,
+) -> str:
+    """Mandatory proxy gate for replace_string_in_file.
+
+    You MUST call this tool BEFORE calling replace_string_in_file.
+    - If status=APPROVED → call replace_string_in_file with the EXACT same parameters.
+    - If status=BLOCKED  → do NOT edit the file.
+
+    Args:
+        path: Absolute path of the file to edit.
+        old_string: The exact string to be replaced.
+        new_string: The exact replacement content.
+
+    Returns:
+        JSON with status (APPROVED/BLOCKED), verdict, and instruction.
+    """
+    logger.info("proxy_replace_string_in_file", path=path)
+    # Validate the incoming new content as a file write
+    combined_content = f"{old_string}\n---replaced-by---\n{new_string}"
+    result = _interceptor.check_file_write(path, combined_content)
+    return _proxy_result(result)
+
+
+@gateway.tool(name="codetrust_edit_notebook")
+async def proxy_edit_notebook(path: str, new_code: str) -> str:
+    """Mandatory proxy gate for edit_notebook_file.
+
+    You MUST call this tool BEFORE calling edit_notebook_file.
+    - If status=APPROVED → call edit_notebook_file with the EXACT same parameters.
+    - If status=BLOCKED  → do NOT edit the notebook.
+
+    Args:
+        path: Absolute path of the notebook file (.ipynb).
+        new_code: The code content for the new or edited cell.
+
+    Returns:
+        JSON with status (APPROVED/BLOCKED), verdict, and instruction.
+    """
+    logger.info("proxy_edit_notebook", path=path)
+    result = _interceptor.check_file_write(path, new_code)
+    return _proxy_result(result)
+
+
 def _build_governance_policy_lines(
     policies: list[GovernancePolicy],
 ) -> list[str]:

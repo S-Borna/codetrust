@@ -33,7 +33,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC3.1 | Risk identification | 67+ scan rules covering anti-patterns, hallucinations | ✅ |
+| CC3.1 | Risk identification | 89 scan rules covering anti-patterns, hallucinations | ✅ |
 | CC3.2 | Fraud risk | Config hallucination detection (5 rules), phantom import detection | ✅ |
 | CC3.3 | Change impact assessment | AST analysis, deep scan combining 5 verification layers | ✅ |
 | CC3.4 | Risk from changes | Dependabot automated dependency updates, SBOM generation | ✅ |
@@ -80,7 +80,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 950+ tests | ✅ |
+| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 1,454 tests | ✅ |
 | CC8.2 | Assessment before deployment | 76% code coverage threshold, automated lint checks | ✅ |
 
 ## CC9 — Risk Mitigation
@@ -133,24 +133,24 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 ## Implementation References
 
-| Feature | File/Module | Notes |
-|---------|-------------|-------|
-| Policy Engine | `src/gateway/policies.py` | TOML-based governance config |
-| Audit Logger | `src/gateway/audit.py` | JSONL audit trail with purge |
-| Command Interceptor | `src/gateway/interceptor.py` | 11 terminal + 2 content rules |
-| SIEM Export | `src/gateway/siem.py` | CEF, LEEF, Syslog, ECS JSON |
-| Webhooks | `src/gateway/webhooks.py` | Slack, Teams, PagerDuty |
-| Metrics | `src/middleware/metrics.py` | Prometheus /metrics endpoint |
-| Rate Limiting | `src/middleware/ip_rate_limit.py` | IP-based ASGI middleware |
-| SSO/OIDC | `src/services/sso.py` | OIDC Authorization Code Flow |
-| GDPR | `src/services/gdpr.py` | Data export/delete service |
-| Auth | `src/services/auth.py` | GitHub OAuth + JWT |
-| Database | `src/services/database.py` | User/key/scan CRUD |
-| Static Analysis | `src/services/static_analyzer.py` | 67 regex + special rules |
-| AST Analysis | `src/services/ast_analyzer.py` | tree-sitter based |
-| Sandbox | `src/services/sandbox.py` | Docker-isolated execution |
-| Custom Rules | `src/gateway/custom_rules.py` | YAML/TOML user rules |
-| Helm Charts | `deploy/helm/codetrust/` | K8s deployment |
+| Feature | Component | Notes |
+|---------|-----------|-------|
+| Policy Engine | Gateway module | TOML-based governance config |
+| Audit Logger | Gateway module | JSONL audit trail with purge |
+| Command Interceptor | Gateway module | 58 terminal + 18 content rules |
+| SIEM Export | Gateway module | CEF, LEEF, Syslog, ECS JSON |
+| Webhooks | Gateway module | Slack, Teams, PagerDuty |
+| Metrics | Middleware | Prometheus /metrics endpoint |
+| Rate Limiting | Middleware | IP-based ASGI middleware |
+| SSO/OIDC | Auth service | OIDC Authorization Code Flow |
+| GDPR | Privacy service | Data export/delete service |
+| Auth | Auth service | GitHub OAuth + JWT |
+| Database | Data service | User/key/scan CRUD |
+| Static Analysis | Scan service | 89 regex + special rules |
+| AST Analysis | Scan service | tree-sitter based |
+| Sandbox | Execution service | Docker-isolated execution |
+| Custom Rules | Gateway module | YAML/TOML user rules |
+| Helm Charts | Deploy config | K8s deployment |
 
 ---
 
@@ -158,8 +158,8 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 For SOC 2 Type II evidence, the following artifacts are available:
 
-1. **Test Suite**: 950+ Python tests + 18 dashboard tests → `pytest --tb=short`
-2. **Coverage Report**: 76%+ code coverage → `pytest --cov=src`
+1. **Test Suite**: 1,454 Python tests + dashboard tests → `pytest --tb=short`
+2. **Coverage Report**: Code coverage → `pytest --cov=src`
 3. **CI Pipeline**: `.github/workflows/ci.yml` — automated on every push
 4. **SBOM**: CycloneDX SBOM generated in CI and attached to releases
 5. **Dependency Scanning**: Dependabot configured for Python and npm

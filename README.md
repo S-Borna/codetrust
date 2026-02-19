@@ -322,7 +322,7 @@ CodeTrust ships two MCP servers for different purposes:
 | Server | Command | Purpose | Tools |
 |--------|---------|---------|-------|
 | **Scan Server** | `codetrust-mcp` | Code scanning, import verification, SARIF export | 10 tools |
-| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 4 tools + 3 resources |
+| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 7 tools |
 
 **Use both for full coverage.** The Scan Server gives AI agents code analysis capabilities. The Gateway Server intercepts and validates every command, file write, and package install the agent attempts.
 
@@ -332,7 +332,7 @@ CodeTrust ships two MCP servers for different purposes:
 
 ### Gateway Server tools
 
-`validate_command` · `validate_file_write` · `validate_file_delete` · `validate_package`
+`codetrust_validate_command` · `codetrust_validate_file_write` · `codetrust_validate_file_delete` · `codetrust_validate_package` · `codetrust_governance_status` · `codetrust_audit_history` · `codetrust_list_gateway_rules`
 
 ### Setup: Claude Desktop / Claude Code
 

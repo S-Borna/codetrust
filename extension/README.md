@@ -86,6 +86,12 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | JavaScript / TypeScript | ✅ | ✅ | ✅ (npm) |
 | Go | ✅ | ✅ | ✅ (Go proxy) |
 | Rust | ✅ | ✅ | ✅ (crates.io) |
+| Java | ✅ | ✅ | ✅ (Maven) |
+| C# | ✅ | ✅ | ✅ (NuGet) |
+| C / C++ | ✅ | ✅ | — |
+| Shell / Bash | ✅ | — | — |
+| Terraform / HCL | ✅ | — | — |
+| HTML | ✅ | — | — |
 | SQL | ✅ | — | — |
 | Dockerfile | ✅ | — | ✅ (Docker Hub) |
 | YAML / Kubernetes | ✅ | — | — |
@@ -148,7 +154,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 ## Getting Started
 
 1. **Install** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust)
-2. **Open** any Python, JavaScript, TypeScript, Go, Rust, SQL, Dockerfile, or YAML file
+2. **Open** any Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++, Shell, Terraform, HTML, SQL, Dockerfile, or YAML file
 3. **Save** — diagnostics appear automatically
 
 All scan rules work offline. Import verification, AI governance, and deep scanning work out of the box with the default cloud API.

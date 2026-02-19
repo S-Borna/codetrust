@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **6 static scan rules**: `agent_tee_heredoc`, `agent_echo_multiline_redirect`, `agent_cat_heredoc`, `agent_subprocess_shell_true`, `agent_os_system`, `agent_os_popen`
   - All 21 rules enforce `BLOCK` severity — code cannot ship with these patterns
 
+- **PyPI download statistics** — Pepy API integration for real-time download tracking on the landing page
+
 - **Domain migration** — All API URLs, docs, and extension defaults migrated to `codetrust.ai` / `api.codetrust.ai`
 
 - **SEO & AI Model Discoverability** — Search engine and AI model optimization for codetrust.ai

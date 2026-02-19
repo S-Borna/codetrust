@@ -256,14 +256,14 @@ class TestExtensionFileLevelLogic:
 class TestRuleCounts:
     """Verify both CLI and extension have the expected number of rules."""
 
-    def test_backend_has_112_rules(self):
+    def test_backend_has_163_rules(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
-        assert len(ANTI_PATTERNS) == 112
+        assert len(ANTI_PATTERNS) == 163
 
     def test_cli_skips_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
         regex_only = [r for r in ANTI_PATTERNS if not r.get("special_handler")]
-        assert len(regex_only) == 101
+        assert len(regex_only) == 152
 
     def test_eleven_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS

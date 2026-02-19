@@ -55,7 +55,8 @@
         "onLanguage:html",
         "onLanguage:terraform",
         "onLanguage:ruby",
-        "onLanguage:php"
+        "onLanguage:php",
+        "onLanguage:powershell"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -162,7 +163,8 @@
                             "html",
                             "terraform",
                             "ruby",
-                            "php"
+                            "php",
+                            "powershell"
                         ]
                     },
                     "default": [
@@ -180,7 +182,8 @@
                         "html",
                         "terraform",
                         "ruby",
-                        "php"
+                        "php",
+                        "powershell"
                     ],
                     "description": "Languages to scan"
                 },

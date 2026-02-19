@@ -18,7 +18,12 @@ _HEREDOC = "<" + "<"
 # Extensions that have their own dedicated rule sets.
 # Generic rules will NOT fire on these file types.
 SQL_EXTENSIONS: set[str] = {".sql"}
-DEVOPS_EXTENSIONS: set[str] = {".dockerfile", ".toml", ".yml", ".yaml", ".tf", ".tfvars", ".hcl"}
+DEVOPS_EXTENSIONS: set[str] = {
+    ".dockerfile", ".toml", ".yml", ".yaml",
+    ".tf", ".tfvars", ".hcl",
+    ".conf", ".bicep",
+    ".ps1", ".psm1", ".psd1",
+}
 
 # File-name patterns that are treated as DevOps files regardless of extension.
 DEVOPS_FILENAMES: set[str] = {"dockerfile", "docker-compose.yml", "docker-compose.yaml", "procfile"}
@@ -962,6 +967,384 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".php"],
         "skip_comments": True,
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  POWERSHELL RULES (.ps1 / .psm1 / .psd1)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "ps_invoke_expression",
+        "pattern": r"\bInvoke-Expression\b",
+        "message": "Invoke-Expression executes arbitrary strings. Use direct cmdlet calls or validated input.",
+        "severity": Severity.BLOCK,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_execution_policy_bypass",
+        "pattern": r"(?i)Set-ExecutionPolicy\s+(?:Bypass|Unrestricted)",
+        "message": "Setting ExecutionPolicy to Bypass/Unrestricted disables script signing checks.",
+        "severity": Severity.BLOCK,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_plaintext_credential",
+        "pattern": r"(?i)(?:ConvertTo-SecureString)\s+.*-AsPlainText",
+        "message": "Converting plaintext to SecureString exposes secrets. Use credential prompts or vaults.",
+        "severity": Severity.BLOCK,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_hardcoded_password",
+        "pattern": r'(?i)(?:\$password|\$secret|\$apikey|\$token)\s*=\s*["\'][^"\']{4,}["\']',
+        "message": "Hardcoded credential in PowerShell script. Use SecureString, Key Vault, or environment variables.",
+        "severity": Severity.BLOCK,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_write_host",
+        "pattern": r"\bWrite-Host\b",
+        "message": "Write-Host writes to the host UI, not the pipeline. Use Write-Output or Write-Information.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_catch_empty",
+        "pattern": r"catch\s*\{[\s\r\n]*\}",
+        "message": "Empty catch block silently swallows errors. Log or re-throw the exception.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_no_strict_mode",
+        "pattern": r"(?i)Set-StrictMode\s+.*-Off",
+        "message": "Disabling StrictMode hides variable and syntax errors. Keep StrictMode on.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_start_process_no_wait",
+        "pattern": r"\bStart-Process\b(?!.*-Wait)",
+        "message": "Start-Process without -Wait may cause race conditions. Add -Wait if the process must complete.",
+        "severity": Severity.INFO,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_stop_process_force",
+        "pattern": r"\bStop-Process\s+.*-Force",
+        "message": "Stop-Process -Force kills processes without cleanup. Ensure graceful shutdown is not needed.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_net_webclient",
+        "pattern": r"\bNew-Object\s+System\.Net\.WebClient\b",
+        "message": "System.Net.WebClient is deprecated. Use Invoke-RestMethod or Invoke-WebRequest instead.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_sleep_unbounded",
+        "pattern": r"\bStart-Sleep\s+-Seconds\s+\d{3,}",
+        "message": "Long sleep (100+ seconds) blocks execution. Consider async patterns or shorter intervals.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    {
+        "id": "ps_rm_recurse_force",
+        "pattern": r"(?i)Remove-Item\s+.*-Recurse\s+.*-Force",
+        "message": "Remove-Item -Recurse -Force deletes without confirmation. Verify the target path is safe.",
+        "severity": Severity.WARN,
+        "file_types": [".ps1", ".psm1"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  TERRAFORM PROVIDER-SPECIFIC RULES (.tf / .hcl)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "tf_wildcard_iam",
+        "pattern": r'(?:actions|Action)\s*=\s*\[?\s*"\*"\s*\]?',
+        "message": "Wildcard IAM action grants full access. Follow the principle of least privilege.",
+        "severity": Severity.BLOCK,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_public_s3_acl",
+        "pattern": r'(?i)acl\s*=\s*"(?:public-read|public-read-write)"',
+        "message": "S3 bucket with public ACL exposes data. Use bucket policies and block public access settings.",
+        "severity": Severity.BLOCK,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_open_security_group",
+        "pattern": r'cidr_blocks\s*=\s*\[?\s*"0\.0\.0\.0/0"\s*\]?',
+        "message": "Security group open to 0.0.0.0/0. Restrict to specific CIDR ranges.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_unencrypted_ebs",
+        "pattern": r'encrypted\s*=\s*false',
+        "message": "EBS volume encryption explicitly disabled. Set encrypted = true for data-at-rest protection.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_no_tags",
+        "pattern": r'resource\s+"aws_(?:instance|s3_bucket|rds_[a-z_]+|vpc)"\s+"[^"]+"\s*\{',
+        "message": "AWS resource declared — ensure a tags block is present for cost allocation and governance.",
+        "severity": Severity.INFO,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_hardcoded_ami",
+        "pattern": r'ami\s*=\s*"ami-[0-9a-f]{8,17}"',
+        "message": "Hardcoded AMI ID. Use data sources (aws_ami) or variables for portability across regions.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_no_versioned_module",
+        "pattern": r'source\s*=\s*"[^"]+"\s*$(?!.*version)',
+        "message": "Module source without version pin. Add ?ref=TAG or version constraint for reproducibility.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_no_state_encryption",
+        "pattern": r'backend\s+"s3"\s*\{(?:(?!encrypt\s*=\s*true).)*\}',
+        "message": "S3 backend without encryption. Set encrypt = true to protect state file at rest.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    {
+        "id": "tf_sensitive_output",
+        "pattern": r'(?i)output\s+"[^"]*(?:password|secret|key|token)[^"]*"',
+        "message": "Output containing sensitive data should set sensitive = true to prevent accidental exposure.",
+        "severity": Severity.WARN,
+        "file_types": [".tf", ".hcl"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  HELM CHART RULES (.yml / .yaml in charts/templates)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "helm_hardcoded_image_tag",
+        "pattern": r"image:\s+\S+:\d+\.\d+",
+        "message": "Hardcoded image tag in Helm template. Use {{ .Values.image.tag }} for configurability.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "helm_no_resource_limits",
+        "pattern": r"(?i)kind:\s*(?:Deployment|StatefulSet|DaemonSet)",
+        "message": "Helm workload should define resource requests/limits via {{ .Values.resources }}.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "helm_hardcoded_namespace",
+        "pattern": r"namespace:\s+(?!.*\{\{)[a-z][a-z0-9-]+",
+        "message": "Hardcoded namespace in Helm template. Use {{ .Release.Namespace }} for portability.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "helm_deprecated_api",
+        "pattern": r"apiVersion:\s+(?:extensions/v1beta1|apps/v1beta[12]|networking\.k8s\.io/v1beta1)",
+        "message": "Deprecated Kubernetes API version. Migrate to the stable API version.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "helm_hardcoded_replicas",
+        "pattern": r"replicas:\s+\d+(?!\s*#.*Values)",
+        "message": "Hardcoded replica count. Use {{ .Values.replicaCount }} for environment-specific scaling.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "helm_tpl_missing_quote",
+        "pattern": r':\s+\{\{(?!.*quote).*\.Values\.\w+\s*\}\}',
+        "message": "Template value without {{ quote }} wrapper. String values in YAML should be quoted.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  ANSIBLE PLAYBOOK RULES (.yml / .yaml)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "ansible_command_module",
+        "pattern": r"(?:^|\s)(?:command|shell):\s+",
+        "message": "Prefer specific Ansible modules (apt, yum, copy) over command/shell for idempotency.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ansible_ignore_errors",
+        "pattern": r"(?i)ignore_errors:\s*(?:yes|true)",
+        "message": "ignore_errors silently swallows failures. Use failed_when or rescue blocks instead.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ansible_plaintext_password",
+        "pattern": r"(?i)(?:password|secret|api_key):\s+[\"']?[a-zA-Z0-9/+=]{8,}[\"']?",
+        "message": "Plaintext password in Ansible playbook. Use ansible-vault or lookup plugins for secrets.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ansible_latest_package",
+        "pattern": r"state:\s*latest",
+        "message": "state: latest is non-deterministic. Pin package versions for reproducible deployments.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ansible_no_become_user",
+        "pattern": r"become:\s*(?:yes|true)(?!.*become_user)",
+        "message": "Privilege escalation without become_user defaults to root. Specify the target user explicitly.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ansible_no_changed_when",
+        "pattern": r"(?:command|shell|raw):\s+\S+.*(?!.*changed_when)",
+        "message": "command/shell/raw module should have changed_when for idempotency reporting.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  NGINX CONFIG RULES (.conf)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "nginx_server_tokens_on",
+        "pattern": r"(?i)server_tokens\s+on",
+        "message": "server_tokens on exposes Nginx version. Set server_tokens off to hide version info.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "nginx_autoindex_on",
+        "pattern": r"(?i)autoindex\s+on",
+        "message": "autoindex on enables directory listing, exposing file structure. Disable it.",
+        "severity": Severity.BLOCK,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "nginx_ssl_v3",
+        "pattern": r"(?i)ssl_protocols\s+.*(?:SSLv2|SSLv3|TLSv1(?:\s|;))",
+        "message": "Insecure SSL/TLS protocol version. Use TLSv1.2 and TLSv1.3 only.",
+        "severity": Severity.BLOCK,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "nginx_root_in_location",
+        "pattern": r"^\s+root\s+/",
+        "message": "root directive in nested block (likely location) can cause path traversal. Place root in server block.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "nginx_no_rate_limit",
+        "pattern": r"(?i)upstream\s+.*\{(?:(?!limit_req_zone).)*\}",
+        "message": "No rate limiting configured. Add limit_req_zone to protect against abuse.",
+        "severity": Severity.INFO,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "nginx_add_header_missing_always",
+        "pattern": r"add_header\s+(?:X-Frame-Options|Content-Security-Policy|X-Content-Type-Options)(?!.*always)",
+        "message": "Security header without 'always' flag. Add 'always' to apply on all response codes.",
+        "severity": Severity.INFO,
+        "file_types": [".conf"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  AWS CLOUDFORMATION / CDK RULES (.yml / .yaml / .json)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "cfn_wildcard_iam",
+        "pattern": r'(?:Action|Resource):\s*["\']?\*["\']?',
+        "message": "CloudFormation IAM wildcard grants excessive permissions. Scope to specific actions/resources.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cfn_public_s3",
+        "pattern": r"(?i)(?:PublicRead|PublicReadWrite|public-read)",
+        "message": "S3 bucket with public access in CloudFormation template. Enforce BlockPublicAccess.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cfn_no_deletion_policy",
+        "pattern": r"Type:\s*AWS::(?:RDS::DBInstance|DynamoDB::Table|S3::Bucket)(?:(?!DeletionPolicy).)*$",
+        "message": "Stateful AWS resource without DeletionPolicy. Add DeletionPolicy: Retain or Snapshot.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cfn_unencrypted_storage",
+        "pattern": r"Type:\s*AWS::(?:RDS::DBInstance|EBS::Volume|S3::Bucket)(?:(?!Encrypt).)*$",
+        "message": "AWS storage resource without encryption configuration. Enable encryption at rest.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cfn_hardcoded_credentials",
+        "pattern": r'(?i)(?:Password|SecretKey|MasterUserPassword):\s*["\'][^{"\'\s]{8,}["\']',
+        "message": "Hardcoded credential in CloudFormation. Use SSM Parameter Store or Secrets Manager references.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cfn_no_logging",
+        "pattern": r"Type:\s*AWS::(?:EC2::VPC|S3::Bucket|ELB)(?:(?!Logging|LoggingConfiguration).)*$",
+        "message": "AWS resource without logging enabled. Configure access logging for auditability.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "cdk_no_removal_policy",
+        "pattern": r"(?:new\s+(?:s3\.Bucket|dynamodb\.Table|rds\.DatabaseInstance)|s3\.Bucket\(|dynamodb\.Table\(|rds\.DatabaseInstance\()",
+        "message": "CDK stateful construct detected — ensure removalPolicy is set to RETAIN or SNAPSHOT.",
+        "severity": Severity.INFO,
+        "file_types": [".ts", ".js", ".py"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  AZURE ARM / BICEP RULES (.bicep / .json)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "bicep_no_secure_param",
+        "pattern": r"(?i)param\s+\w*(?:password|secret|key|token)\w*\s+string(?!.*@secure\(\))",
+        "message": "Sensitive Bicep parameter without @secure() decorator. Secrets must use @secure().",
+        "severity": Severity.BLOCK,
+        "file_types": [".bicep"],
+    },
+    {
+        "id": "bicep_http_only",
+        "pattern": r"(?i)httpsOnly:\s*false",
+        "message": "Azure resource allowing HTTP. Set httpsOnly: true to enforce HTTPS.",
+        "severity": Severity.BLOCK,
+        "file_types": [".bicep"],
+    },
+    {
+        "id": "bicep_public_network",
+        "pattern": r"(?i)publicNetworkAccess:\s*['\"]?Enabled",
+        "message": "Public network access enabled on Azure resource. Use Private Endpoints where possible.",
+        "severity": Severity.WARN,
+        "file_types": [".bicep"],
+    },
+    {
+        "id": "arm_wildcard_rbac",
+        "pattern": r'"actions":\s*\[\s*"\*"\s*\]',
+        "message": "Wildcard RBAC action in ARM template. Scope to specific resource provider actions.",
+        "severity": Severity.BLOCK,
+        "file_types": [".json", ".yml", ".yaml"],
+    },
+    {
+        "id": "arm_no_diagnostics",
+        "pattern": r"Microsoft\.(?:Compute|Storage|Network)(?:(?!diagnosticSettings|diagnosticsProfile).)*$",
+        "message": "Azure resource without diagnostic settings. Enable diagnostics for monitoring and compliance.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
     },
 ]
 

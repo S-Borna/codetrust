@@ -2,7 +2,7 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-188 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
+239 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 76 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, and Go proxy
@@ -24,7 +24,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding as
 - **CLI repo-aware commands** — `pr-risk`, `trust-diff`, `trend record/show` for commit-level insight
 - **Safe autofix** — `codetrust fix` with preview by default, `--apply` to write
 - **Policy Wizard** — `codetrust policy wizard` generates governance presets with TOML autocomplete
-- **188 total rules** — 112 scan + 76 gateway interception rules
+- **239 total rules** — 163 scan + 76 gateway interception rules
 
 ---
 

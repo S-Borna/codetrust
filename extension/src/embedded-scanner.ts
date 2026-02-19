@@ -490,6 +490,251 @@ const HALLUCINATION_INFO_RULES: Rule[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════
+//  RUBY RULES
+// ═══════════════════════════════════════════════════════════════
+
+const RUBY_BLOCK_RULES: Rule[] = [
+    {
+        id: "ruby_system_exec",
+        pattern: /\b(?:system|exec|`[^`]+`|%x\{)/,
+        message: "Shell execution in Ruby. Use safe alternatives or sanitize input.",
+        severity: "BLOCK",
+        fileTypes: [".rb"],
+    },
+    {
+        id: "ruby_eval",
+        pattern: /\b(?:eval|class_eval|module_eval|instance_eval)\s*[\(\{]/,
+        message: "Dynamic code evaluation in Ruby. Avoid eval — use safe alternatives.",
+        severity: "BLOCK",
+        fileTypes: [".rb"],
+    },
+];
+
+const RUBY_WARN_RULES: Rule[] = [
+    {
+        id: "ruby_global_variable",
+        pattern: /\$[A-Za-z_]\w*\s*=/,
+        message: "Global variable assignment. Use constants or dependency injection.",
+        severity: "WARN",
+        fileTypes: [".rb"],
+    },
+    {
+        id: "ruby_rescue_all",
+        pattern: /rescue\s*$/,
+        message: "Bare rescue catches all exceptions. Rescue specific exception classes.",
+        severity: "WARN",
+        fileTypes: [".rb"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  PHP RULES
+// ═══════════════════════════════════════════════════════════════
+
+const PHP_BLOCK_RULES: Rule[] = [
+    {
+        id: "php_eval",
+        pattern: new RegExp("\\b" + "eval" + "\\s*\\("),
+        message: "ev" + "al() is a critical security risk. Use safe alternatives.",
+        severity: "BLOCK",
+        fileTypes: [".php"],
+    },
+    {
+        id: "php_sql_injection",
+        pattern: /\$(?:_GET|_POST|_REQUEST)\s*\[.*\]\s*[^;]*(?:query|execute|prepare)/,
+        message: "User input in SQL query without parameterization.",
+        severity: "BLOCK",
+        fileTypes: [".php"],
+    },
+];
+
+const PHP_WARN_RULES: Rule[] = [
+    {
+        id: "php_error_suppression",
+        pattern: /@\$?\w+/,
+        message: "Error suppression operator (@) hides problems. Handle errors explicitly.",
+        severity: "WARN",
+        fileTypes: [".php"],
+    },
+    {
+        id: "php_global_statement",
+        pattern: /\bglobal\s+\$/,
+        message: "global keyword creates hidden dependencies. Use dependency injection.",
+        severity: "WARN",
+        fileTypes: [".php"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  POWERSHELL RULES
+// ═══════════════════════════════════════════════════════════════
+
+const PS_BLOCK_RULES: Rule[] = [
+    {
+        id: "ps_invoke_expression",
+        pattern: /\bInvoke-Expression\b/i,
+        message: "Invoke-Expression is a code injection risk. Use direct cmdlet calls.",
+        severity: "BLOCK",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_execution_policy_bypass",
+        pattern: /Set-ExecutionPolicy\s+(?:Bypass|Unrestricted)/i,
+        message: "Execution policy bypass weakens PowerShell security controls.",
+        severity: "BLOCK",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_plaintext_credential",
+        pattern: /ConvertTo-SecureString\s+.*-AsPlainText/i,
+        message: "Plaintext password converted to SecureString. Use credential store.",
+        severity: "BLOCK",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_hardcoded_password",
+        pattern: /\$(?:password|passwd|secret|token)\s*=\s*["'][^"']+["']/i,
+        message: "Hardcoded credential in script. Use SecretManagement module or env vars.",
+        severity: "BLOCK",
+        fileTypes: [".ps1", ".psm1"],
+    },
+];
+
+const PS_WARN_RULES: Rule[] = [
+    {
+        id: "ps_write_host",
+        pattern: /\bWrite-Host\b/i,
+        message: "Write-Host bypasses pipeline. Use Write-Output or Write-Verbose.",
+        severity: "WARN",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_catch_empty",
+        pattern: /catch\s*\{[\s\r\n]*\}/i,
+        message: "Empty catch block swallows errors. Log or re-throw exceptions.",
+        severity: "WARN",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_no_strict_mode",
+        pattern: /^(?!.*Set-StrictMode)/,
+        message: "No Set-StrictMode found. Add Set-StrictMode -Version Latest for safety.",
+        severity: "WARN",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_net_webclient",
+        pattern: /New-Object\s+(?:System\.Net\.)?WebClient/i,
+        message: "Net.WebClient is legacy. Use Invoke-RestMethod or Invoke-WebRequest.",
+        severity: "WARN",
+        fileTypes: [".ps1", ".psm1"],
+    },
+];
+
+const PS_INFO_RULES: Rule[] = [
+    {
+        id: "ps_sleep_unbounded",
+        pattern: /Start-Sleep\s+-(?:Seconds|Milliseconds)\s+\d{3,}/i,
+        message: "Long sleep duration. Consider event-based waiting or reduce timeout.",
+        severity: "INFO",
+        fileTypes: [".ps1", ".psm1"],
+    },
+    {
+        id: "ps_rm_recurse_force",
+        pattern: /Remove-Item\s+.*-Recurse\s+.*-Force/i,
+        message: "Recursive forced deletion. Verify path to prevent accidental data loss.",
+        severity: "INFO",
+        fileTypes: [".ps1", ".psm1"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  NGINX RULES
+// ═══════════════════════════════════════════════════════════════
+
+const NGINX_BLOCK_RULES: Rule[] = [
+    {
+        id: "nginx_server_tokens_on",
+        pattern: /server_tokens\s+on/i,
+        message: "server_tokens on leaks Nginx version. Set server_tokens off.",
+        severity: "BLOCK",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "nginx_autoindex_on",
+        pattern: /autoindex\s+on/i,
+        message: "autoindex on exposes directory listing. Set autoindex off.",
+        severity: "BLOCK",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "nginx_ssl_v3",
+        pattern: /ssl_protocols\s+[^;]*SSLv3/i,
+        message: "SSLv3 is insecure (POODLE). Remove SSLv3 from ssl_protocols.",
+        severity: "BLOCK",
+        fileTypes: [".conf"],
+    },
+];
+
+const NGINX_WARN_RULES: Rule[] = [
+    {
+        id: "nginx_root_in_location",
+        pattern: /location\s+[^{]*\{[^}]*\broot\b/,
+        message: "root inside location block. Place root in server block to avoid path traversal.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+    {
+        id: "nginx_no_rate_limit",
+        pattern: /server\s*\{(?:(?!limit_req).)*\}/s,
+        message: "No rate limiting (limit_req) configured. Add rate limiting for DDoS protection.",
+        severity: "WARN",
+        fileTypes: [".conf"],
+    },
+];
+
+const NGINX_INFO_RULES: Rule[] = [
+    {
+        id: "nginx_add_header_missing_always",
+        pattern: /add_header\s+(?!.*\balways\b)/,
+        message: "add_header without 'always' flag — header not sent on error pages.",
+        severity: "INFO",
+        fileTypes: [".conf"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  AZURE ARM / BICEP RULES
+// ═══════════════════════════════════════════════════════════════
+
+const BICEP_BLOCK_RULES: Rule[] = [
+    {
+        id: "bicep_no_secure_param",
+        pattern: /param\s+\w*(?:password|secret|key)\w*\s+string\b(?!.*@secure)/i,
+        message: "Sensitive parameter without @secure() decorator. Add @secure().",
+        severity: "BLOCK",
+        fileTypes: [".bicep"],
+    },
+    {
+        id: "bicep_http_only",
+        pattern: /httpsOnly:\s*false/i,
+        message: "HTTPS disabled. Set httpsOnly: true for secure transport.",
+        severity: "BLOCK",
+        fileTypes: [".bicep"],
+    },
+];
+
+const BICEP_WARN_RULES: Rule[] = [
+    {
+        id: "bicep_public_network",
+        pattern: /publicNetworkAccess:\s*['"]?Enabled['"]?/i,
+        message: "Public network access enabled. Use private endpoints.",
+        severity: "WARN",
+        fileTypes: [".bicep"],
+    },
+];
+
+// ═══════════════════════════════════════════════════════════════
 //  RULE ROUTING
 // ═══════════════════════════════════════════════════════════════
 
@@ -541,8 +786,42 @@ const REACT_RULES: Rule[] = [
     ...REACT_WARN_RULES,
 ];
 
+const RUBY_RULES: Rule[] = [
+    ...GENERIC_RULES,
+    ...RUBY_BLOCK_RULES,
+    ...RUBY_WARN_RULES,
+];
+
+const PHP_RULES: Rule[] = [
+    ...GENERIC_RULES,
+    ...PHP_BLOCK_RULES,
+    ...PHP_WARN_RULES,
+];
+
+const PS_RULES: Rule[] = [
+    ...GENERIC_RULES,
+    ...PS_BLOCK_RULES,
+    ...PS_WARN_RULES,
+    ...PS_INFO_RULES,
+    ...DEVOPS_BLOCK_RULES,
+    ...DEVOPS_WARN_RULES,
+    ...DEVOPS_INFO_RULES,
+];
+
+const NGINX_RULES: Rule[] = [
+    ...NGINX_BLOCK_RULES,
+    ...NGINX_WARN_RULES,
+    ...NGINX_INFO_RULES,
+];
+
+const BICEP_RULES: Rule[] = [
+    ...GENERIC_RULES,
+    ...BICEP_BLOCK_RULES,
+    ...BICEP_WARN_RULES,
+];
+
 /** File extensions considered DevOps files. */
-const DEVOPS_EXTS = new Set([".yml", ".yaml", ".toml", ".tf", ".tfvars", ".hcl"]);
+const DEVOPS_EXTS = new Set([".yml", ".yaml", ".toml", ".tf", ".tfvars", ".hcl", ".conf", ".bicep", ".ps1", ".psm1", ".psd1"]);
 const SQL_EXTS = new Set([".sql"]);
 const HTML_EXTS = new Set([".html", ".htm"]);
 const DEVOPS_FILENAMES = new Set([
@@ -562,6 +841,21 @@ function getRulesForFile(filename: string): Rule[] {
     }
     if (ext === ".jsx" || ext === ".tsx") {
         return REACT_RULES;
+    }
+    if (ext === ".rb") {
+        return RUBY_RULES;
+    }
+    if (ext === ".php") {
+        return PHP_RULES;
+    }
+    if (ext === ".ps1" || ext === ".psm1" || ext === ".psd1") {
+        return PS_RULES;
+    }
+    if (ext === ".conf") {
+        return NGINX_RULES;
+    }
+    if (ext === ".bicep") {
+        return BICEP_RULES;
     }
     if (filename.includes(".github") && (ext === ".yml" || ext === ".yaml")) {
         return CI_RULES;

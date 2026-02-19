@@ -1,8 +1,8 @@
 {
     "name": "codetrust",
     "displayName": "CodeTrust",
-    "description": "AI code safety platform — 275 rules, 10 enforcement layers, 3 capabilities no other tool has: AI Governance Gateway (76 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist), Trust Score with drift tracking. Blocks destructive AI agent actions before execution. Works with Claude Code, Cursor, and GitHub Copilot.",
-    "version": "2.5.0",
+    "description": "AI code safety platform — 275 rules, 10 enforcement layers, 4 capabilities no other tool has: AI Governance Gateway (76 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist), Trust Score with drift tracking, and Universal IDE Injection (governance rules injected globally into Claude Code, Cursor, Windsurf, and GitHub Copilot on install). Works with Claude Code, Cursor, Windsurf, and GitHub Copilot.",
+    "version": "2.5.1",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

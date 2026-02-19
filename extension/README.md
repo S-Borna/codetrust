@@ -2,29 +2,30 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-275 rules across 10 enforcement layers. Three capabilities no linter, SAST tool, or formatter has:
+275 rules across 10 enforcement layers. Four capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 76 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist
 3. **Trust Score & Drift Tracking** — Baseline your codebase and detect safety regression over time
+4. **Universal IDE Injection** — governance rules injected into every AI IDE globally on install; active monitoring detects and recovers from disruptions
 
-Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding assistant.
+Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and any AI coding assistant.
 
 ---
 
-## What's New in 2.4.0
+## What's New in 2.5.1
 
-- **Guided onboarding** — configure API URL/key and run your first scan from the command palette
-- **Scan-on-type** — opt-in, debounced offline scanning as you type (no save required)
-- **Profiles** — Create and Apply CodeTrust Profile for quick workspace setup
-- **Expanded Quick Fixes** — more deterministic code transforms for common findings
-- **API key in Secret Storage** — credentials migrated from settings to VS Code Secret Storage
-- **GitHub Action PR-mode** — auto on pull_request: scans changed files and gates on new findings only
-- **CLI noise controls** — `--dedupe`, `--changed-only`, `--suppress-lint-noise` for cleaner output
-- **CLI repo-aware commands** — `pr-risk`, `trust-diff`, `trend record/show` for commit-level insight
-- **Safe autofix** — `codetrust fix` with preview by default, `--apply` to write
-- **Policy Wizard** — `codetrust policy wizard` generates governance presets with TOML autocomplete
-- **275 total rules** — 199 scan + 76 gateway interception rules
+- **Extension README fix** — Marketplace page now accurately describes all four moats and v2.5.0 features (Universal IDE Injection, Governance Disruption Monitoring, 21 MCP tools)
+
+---
+
+## What's New in 2.5.0
+
+- **Universal IDE Injection** — on activation, governance rules are written to the global config of every AI IDE installed on the machine (Claude Code, Cursor, Windsurf, GitHub Copilot). Zero configuration required.
+- **Governance Disruption Monitoring** — file watchers detect if an IDE update overwrites injected rules; window-focus check detects new IDEs installed after CodeTrust. Both surface a one-click "Re-inject Now" notification.
+- **4 Proxy MCP tools** — `codetrust_run_in_terminal`, `codetrust_create_file`, `codetrust_replace_string_in_file`, `codetrust_edit_notebook` intercept native tool calls at the gateway before execution
+- **Governance Status command** — `CodeTrust: Governance Status` shows current mode, injection state, and audit stats in the output channel
+- **21 MCP tools total** — up from 17 in v2.4.0
 
 ---
 
@@ -147,8 +148,8 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.4.0` |
-| **MCP Server** | 17 tools for Claude Code / Cursor |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.0` |
+| **MCP Server** | 21 tools for Claude Code / Cursor / Windsurf |
 | **REST API** | 42 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 

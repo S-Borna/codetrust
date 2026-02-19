@@ -70,3 +70,10 @@ docs/_generate_pdf.py
 # Internal docs — not part of published product
 docs/CODETRUST_OVERVIEW.md
 docs/RELEASE_CHECKLIST.md
+
+# Internal business/planning docs — not for public repo
+PITCH.md
+COMPARISON.md
+PRODUCT.md
+TEST_EVIDENCE.md
+scan_all_projects.py

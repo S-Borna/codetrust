@@ -21,12 +21,27 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import tomllib
-
 import structlog
+
+from src.rules.anti_patterns import (
+    ANTI_PATTERNS,
+    DEVOPS_EXTENSIONS,
+    DEVOPS_FILENAMES,
+    SQL_EXTENSIONS,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from src.gateway.audit import AuditEntry, AuditLogger
+    from src.gateway.policies import GovernanceConfig, PolicyEngine
+
+
+logger = structlog.get_logger()
 
 
 def _echo(
@@ -46,26 +61,6 @@ def _echo(
     target.write(sep.join(str(a) for a in args) + end)
     if flush:
         target.flush()
-
-
-# --- Rules imported from backend (single source of truth) ---
-# This eliminates rule drift between CLI, backend, and extension.
-# All rule definitions live in src/rules/anti_patterns.py.
-from src.rules.anti_patterns import (
-    ANTI_PATTERNS,
-    DEVOPS_EXTENSIONS,
-    DEVOPS_FILENAMES,
-    SQL_EXTENSIONS,
-)
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from src.gateway.audit import AuditEntry
-    from src.gateway.policies import GovernanceConfig, PolicyEngine
-
-
-logger = structlog.get_logger()
 
 _SECONDS_PER_HOUR: int = 3_600
 _PREV_BLOCK_LOOKBACK: int = 200
@@ -958,6 +953,7 @@ def cmd_vuln(args: argparse.Namespace) -> int:
     language = _resolve_language(language_hint, targets)
 
     import asyncio
+
     from src.services.cache import CacheService
     from src.services.vulnerability import VulnerabilityService
 
@@ -1039,6 +1035,7 @@ def cmd_license(args: argparse.Namespace) -> int:
     language = _resolve_language(language_hint, targets)
 
     import asyncio
+
     from src.services.cache import CacheService
     from src.services.license_checker import LicenseService
 
@@ -1424,13 +1421,13 @@ def _match_line_rules(
 ) -> list[dict[str, str | int]]:
     """Match per-line regex rules and return findings."""
     findings: list[dict[str, str | int]] = []
-    _NOQA = "no" + "qa"   # split to avoid self-triggering suppress_lint rule
-    _TYPE_IGN = "type: " + "ignore"
-    _ESLINT_DIS = "eslint-" + "disable"
+    _noqa = "no" + "qa"   # split to avoid self-triggering suppress_lint rule
+    _type_ign = "type: " + "ignore"
+    _eslint_dis = "eslint-" + "disable"
     skip_warn = "print_debug" if is_cli_entrypoint else ""
 
     for line_num, line in enumerate(lines, 1):
-        if _NOQA in line or _TYPE_IGN in line or _ESLINT_DIS in line:
+        if _noqa in line or _type_ign in line or _eslint_dis in line:
             for rule_id, pattern, message in warn_rules:
                 if rule_id == "suppress_lint" and re.search(pattern, line):
                     findings.append({

@@ -112,16 +112,14 @@ class StaticAnalyzer:
         rule_id: str,
     ) -> bool:
         """Check if a line should be skipped for comment/docstring/noqa reasons."""
-        if skip_comments and (
+        if "noqa" in line and rule_id != "suppress_lint":
+            return False
+        return not (skip_comments and (
             in_docstring
             or stripped.startswith("#")
             or stripped.startswith('"""')
             or stripped.startswith("'''")
-        ):
-            return False
-        if "noqa" in line and rule_id != "suppress_lint":
-            return False
-        return True
+        ))
 
     def _apply_rule(
         self,

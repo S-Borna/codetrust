@@ -23,6 +23,7 @@ DEVOPS_EXTENSIONS: set[str] = {
     ".tf", ".tfvars", ".hcl",
     ".conf", ".bicep",
     ".ps1", ".psm1", ".psd1",
+    ".service", ".timer", ".ini", ".cfg",
 }
 
 # File-name patterns that are treated as DevOps files regardless of extension.
@@ -1345,6 +1346,287 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Azure resource without diagnostic settings. Enable diagnostics for monitoring and compliance.",
         "severity": Severity.INFO,
         "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  REDIS CONFIGURATION RULES (.conf)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "redis_bind_all",
+        "pattern": r"^\s*bind\s+(?:0\.0\.0\.0|\*)",
+        "message": "Redis bound to all interfaces. Bind to 127.0.0.1 or specific IPs in production.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "redis_protected_mode_off",
+        "pattern": r"^\s*protected-mode\s+no",
+        "message": "Redis protected mode disabled. Enable protected-mode to reject external connections without auth.",
+        "severity": Severity.BLOCK,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "redis_weak_password",
+        "pattern": r"(?i)^\s*requirepass\s+(?:redis|password|admin|test|default|changeme|1234|pass|foobared)\s*$",
+        "message": "Weak or default Redis password. Use a strong, randomly generated password.",
+        "severity": Severity.BLOCK,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "redis_maxmemory_noeviction",
+        "pattern": r"(?i)^\s*maxmemory-policy\s+noeviction",
+        "message": "noeviction policy causes write errors when memory is full. Use allkeys-lru or volatile-lru.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "redis_save_disabled",
+        "pattern": r'^\s*save\s+""',
+        "message": "RDB snapshots disabled. Ensure AOF is enabled or data loss on restart is acceptable.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    {
+        "id": "redis_aof_no_fsync",
+        "pattern": r"(?i)^\s*appendfsync\s+no\b",
+        "message": "Redis AOF without fsync risks data loss on crash. Use appendfsync everysec or always.",
+        "severity": Severity.WARN,
+        "file_types": [".conf"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  HASHICORP VAULT RULES (.hcl)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "vault_tls_disabled",
+        "pattern": r'(?i)tls_disable\s*=\s*(?:1|true|"true")',
+        "message": "Vault TLS disabled. Always enable TLS in production to encrypt client-server communication.",
+        "severity": Severity.BLOCK,
+        "file_types": [".hcl"],
+    },
+    {
+        "id": "vault_file_storage",
+        "pattern": r'(?i)storage\s+"file"\s*\{',
+        "message": "Vault using file storage backend. Use Consul, Raft, or cloud storage for HA in production.",
+        "severity": Severity.WARN,
+        "file_types": [".hcl"],
+    },
+    {
+        "id": "vault_disable_mlock",
+        "pattern": r'(?i)disable_mlock\s*=\s*(?:true|1|"true")',
+        "message": "Vault mlock disabled. Memory locking prevents secrets from being swapped to disk.",
+        "severity": Severity.WARN,
+        "file_types": [".hcl"],
+    },
+    {
+        "id": "vault_telemetry_unauth",
+        "pattern": r'(?i)unauthenticated_metrics_access\s*=\s*(?:true|1|"true")',
+        "message": "Vault metrics exposed without authentication. Set unauthenticated_metrics_access = false.",
+        "severity": Severity.WARN,
+        "file_types": [".hcl"],
+    },
+    {
+        "id": "vault_max_lease_long",
+        "pattern": r'(?i)max_lease_ttl\s*=\s*"\d{4,}h"',
+        "message": "Very long Vault max lease TTL (1000+ hours). Short-lived leases reduce exposure from compromised credentials.",
+        "severity": Severity.INFO,
+        "file_types": [".hcl"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  PROMETHEUS / GRAFANA MONITORING RULES (.yml / .yaml)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "prom_scrape_too_fast",
+        "pattern": r"(?i)scrape_interval:\s*[1-4]s\b",
+        "message": "Prometheus scrape interval under 5s may overload targets and inflate storage. Use 15s-60s.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "prom_eval_too_fast",
+        "pattern": r"(?i)evaluation_interval:\s*[1-4]s\b",
+        "message": "Prometheus evaluation interval under 5s is aggressive. Use 15s-60s for most workloads.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "grafana_anon_access",
+        "pattern": r"(?i)GF_AUTH_ANONYMOUS_ENABLED\s*=\s*true",
+        "message": "Grafana anonymous access enabled. Require authentication for dashboard access in production.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "grafana_default_admin",
+        "pattern": r"(?i)GF_SECURITY_ADMIN_PASSWORD\s*=\s*(?:admin|password|grafana|test|changeme|default)",
+        "message": "Weak or default Grafana admin password. Use a strong, unique password.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "grafana_allow_embedding",
+        "pattern": r"(?i)GF_SECURITY_ALLOW_EMBEDDING\s*=\s*true",
+        "message": "Grafana allow_embedding enables iframe embedding, creating a clickjacking risk. Disable unless required.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  SYSTEMD UNIT FILE RULES (.service / .timer)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "systemd_restart_disabled",
+        "pattern": r"(?i)^\s*Restart\s*=\s*no\s*$",
+        "message": "Systemd service will not restart on failure. Set Restart=on-failure for production services.",
+        "severity": Severity.WARN,
+        "file_types": [".service", ".timer"],
+    },
+    {
+        "id": "systemd_restart_no_delay",
+        "pattern": r"(?i)^\s*RestartSec\s*=\s*0\s*$",
+        "message": "RestartSec=0 causes immediate restart loops, risking CPU storms. Set RestartSec=5 or higher.",
+        "severity": Severity.WARN,
+        "file_types": [".service", ".timer"],
+    },
+    {
+        "id": "systemd_unlimited_resource",
+        "pattern": r"(?i)^\s*(?:LimitNOFILE|LimitNPROC)\s*=\s*(?:infinity|unlimited)",
+        "message": "Unlimited resource limit for systemd service. Set bounded limits to prevent resource exhaustion.",
+        "severity": Severity.WARN,
+        "file_types": [".service", ".timer"],
+    },
+    {
+        "id": "systemd_exec_shell_wrapper",
+        "pattern": r"(?i)^\s*ExecStart\s*=\s*/(?:bin|usr/bin)/(?:ba)?sh\s+-c\s+",
+        "message": "Shell wrapper in ExecStart. Use direct binary path for cleaner signal handling and process management.",
+        "severity": Severity.INFO,
+        "file_types": [".service", ".timer"],
+    },
+    {
+        "id": "systemd_no_timeout_stop",
+        "pattern": r"(?i)^\s*TimeoutStopSec\s*=\s*(?:infinity|0)\s*$",
+        "message": "No stop timeout. Set TimeoutStopSec to prevent zombie processes during shutdown.",
+        "severity": Severity.INFO,
+        "file_types": [".service", ".timer"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  DOCKER COMPOSE ADVANCED RULES (.yml / .yaml)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "compose_ipc_host",
+        "pattern": r'(?i)^\s+ipc:\s*["\']?host',
+        "message": "Docker Compose IPC set to host. This shares host IPC namespace, breaking container isolation.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "compose_network_host",
+        "pattern": r'(?i)^\s+network_mode:\s*["\']?host',
+        "message": "Docker Compose service using host network mode. Use bridge networking for container isolation.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "compose_pid_host",
+        "pattern": r'(?i)^\s+pid:\s*["\']?host',
+        "message": "Docker Compose PID mode set to host. This exposes host processes to the container.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "compose_restart_always",
+        "pattern": r'(?i)^\s+restart:\s*["\']?always',
+        "message": "restart: always restarts even after manual stop. Use unless-stopped for most production services.",
+        "severity": Severity.INFO,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "compose_env_inline_secret",
+        "pattern": (
+            r"(?i)^\s+-\s*(?:DB_PASSWORD|MYSQL_ROOT_PASSWORD|POSTGRES_PASSWORD"
+            r"|REDIS_PASSWORD|SECRET_KEY|API_SECRET|MONGO_INITDB_ROOT_PASSWORD)"
+            r"\s*=\s*\S{4,}"
+        ),
+        "message": "Secret value inline in Docker Compose environment block. Use env_file or Docker secrets.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  GITHUB ACTIONS ADVANCED RULES (.yml / .yaml)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "ci_pull_request_target",
+        "pattern": r"(?i)^\s+pull_request_target:",
+        "message": "pull_request_target runs with write permissions on fork PRs. Use pull_request + workflow_run pattern instead.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ci_write_all_permissions",
+        "pattern": r"(?i)^\s+permissions:\s*write-all",
+        "message": "write-all grants excessive CI permissions. Scope to specific permissions (contents: write, etc).",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ci_curl_pipe_shell",
+        "pattern": r"(?i)curl\s+.*\|\s*(?:ba)?sh",
+        "message": "Piping curl to shell in CI is unsafe. Download, verify checksum, then execute.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ci_checkout_persist_creds",
+        "pattern": r"(?i)persist-credentials:\s*true",
+        "message": "Persisting Git credentials in CI. Set persist-credentials: false to minimize token exposure.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+    },
+    {
+        "id": "ci_inject_untrusted_input",
+        "pattern": (
+            r"\$\{\{\s*github\.event\."
+            r"(?:issue|comment|pull_request|review|discussion)\."
+            r"(?:title|body)\s*\}\}"
+        ),
+        "message": "Untrusted GitHub event data in expression. This enables command injection via issue/PR titles or bodies.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml"],
+    },
+    # ═══════════════════════════════════════════════════════════════
+    #  GENERAL CONFIG HYGIENE (cross-cutting)
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "config_ssl_verify_off",
+        "pattern": r"(?i)(?:ssl[_-]?verify|verify[_-]?ssl|tls[_-]?verify)\s*[:=]\s*(?:false|0|no|off)\b",
+        "message": "SSL/TLS certificate verification disabled. This enables man-in-the-middle attacks.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg"],
+    },
+    {
+        "id": "config_weak_tls_version",
+        "pattern": r"(?i)(?:tls[_-]?(?:min[_-]?)?version|ssl[_-]?version|min[_-]?protocol)\s*[:=]\s*[\"']?(?:1\.[01]|TLSv1[^.2]|SSLv[23])",
+        "message": "Legacy TLS/SSL version configured. Use TLS 1.2 or 1.3 only.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml", ".toml", ".ini", ".cfg"],
+    },
+    {
+        "id": "config_world_writable",
+        "pattern": r"(?i)(?:chmod|mode)\s*[:=]?\s*(?:0?777|a\+rwx)\b",
+        "message": "World-writable permission (777). Restrict file permissions to owner and group.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml", ".toml", ".conf", ".service"],
+    },
+    {
+        "id": "config_listen_all_interfaces",
+        "pattern": r'(?i)(?:listen[_-]?address|bind[_-]?address|bind[_-]?host)\s*[:=]\s*["\']?0\.0\.0\.0',
+        "message": "Service configured to listen on all interfaces. Bind to 127.0.0.1 or specific IPs in production.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".hcl"],
+    },
+    {
+        "id": "config_private_key_inline",
+        "pattern": r"-----BEGIN\s+(?:RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE\s+KEY-----",
+        "message": "Private key embedded in config file. Store keys in secure vaults or separate key files with restricted permissions.",
+        "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg", ".hcl"],
     },
 ]
 

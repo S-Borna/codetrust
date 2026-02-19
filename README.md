@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.5.0</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.5.1</code> &middot; <code>1672 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -205,8 +205,8 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.4.0` | PR checks with SARIF upload to Security tab |
-| **MCP Server** | 17 tools for AI agents | Claude Code / Cursor get real-time safety feedback |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.1` | PR checks with SARIF upload to Security tab |
+| **MCP Server** | 21 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 42 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
@@ -307,7 +307,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.4.0
+      - uses: S-Borna/codetrust@v2.5.1
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -604,7 +604,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.4.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.1` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

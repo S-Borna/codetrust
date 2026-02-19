@@ -5,6 +5,18 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-02-19
+
+### Fixed
+
+- Extension Marketplace README corrected: now accurately describes all four moats, 21 MCP tools, and v2.5.0 features (Universal IDE Injection, Governance Disruption Monitoring)
+- Stale `v2.4.0` GitHub Action references in root README updated to `v2.5.1`
+- Stale `17 tools` MCP count in root README updated to `21`
+- `softwareVersion` in website JSON-LD schema corrected from `2.4.0` to `2.5.1`
+- Extension `package.json` description updated from "3 capabilities" to "4 capabilities"
+
+---
+
 ## [2.5.0] - 2026-02-19
 
 ### Added — Fourth Moat: Session-Level Universal Enforcement

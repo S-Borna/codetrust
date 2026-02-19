@@ -7,6 +7,10 @@
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",
     "homepage": "https://codetrust.ai",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/S-Borna/codetrust.git"
+    },
     "engines": {
         "vscode": "^1.85.0"
     },

@@ -2697,41 +2697,42 @@
             </div>
         </div>
         <!-- FOURTH MOAT: featured full-width card -->
-        <div class="moat-card moat-highlight reveal"
-            style="margin-top:1.5rem;display:flex;gap:2.5rem;align-items:flex-start;flex-wrap:wrap;">
-            <div style="flex:0 0 auto;">
+        <div class="moat-card moat-highlight reveal" style="margin-top:1.5rem;">
+            <!-- Heading row: icon + title + badge -->
+            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
                 <div class="moat-icon"
-                    style="background:rgba(99,102,241,0.15);color:#818cf8;width:52px;height:52px;font-size:1.6rem;">
+                    style="background:rgba(99,102,241,0.15);color:#818cf8;width:44px;height:44px;font-size:1.4rem;flex-shrink:0;">
                     &#x1F6E1;</div>
+                <h3 style="font-size:1.15rem;margin:0;">Universal IDE Injection</h3>
+                <span
+                    style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#818cf8;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:4px;padding:0.2rem 0.55rem;white-space:nowrap;">
+                    New in v2.5.1 &mdash; The Final Moat</span>
             </div>
-            <div style="flex:1;min-width:260px;">
-                <div
-                    style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#818cf8;margin-bottom:0.5rem;">
-                    New in v2.5.0 &mdash; The Final Moat</div>
-                <h3 style="font-size:1.15rem;margin-bottom:0.6rem;">Universal IDE Injection</h3>
-                <p style="font-size:0.88rem;color:var(--text-2);line-height:1.7;max-width:640px;">Install once.
-                    CodeTrust injects its governance rules into the global configuration of every AI coding IDE on your
-                    machine. Every new AI session starts rule-aware &mdash; no manual setup, no per-project
-                    configuration. AI agents that follow their system context use CodeTrust validation proactively. Any
-                    that don&rsquo;t are caught by the pre-commit hook, the hard technical backstop.</p>
-                <div style="display:flex;gap:2rem;margin-top:1.2rem;flex-wrap:wrap;">
-                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
-                        <div class="moat-stat-num" style="color:#818cf8;">4</div>
-                        <span class="t-dim">IDEs covered automatically</span>
-                    </div>
-                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
-                        <div class="moat-stat-num" style="color:#818cf8;">0</div>
-                        <span class="t-dim">configuration steps required</span>
-                    </div>
-                    <div class="moat-stat" style="border:none;padding:0;margin:0;">
-                        <div class="moat-stat-num" style="color:#818cf8;">100%</div>
-                        <span class="t-dim">of gateway actions audited</span>
-                    </div>
+            <!-- Description -->
+            <p style="font-size:0.88rem;color:var(--text-2);line-height:1.7;max-width:640px;margin-bottom:1.4rem;">
+                Install once. CodeTrust injects its governance rules into the global configuration of every AI coding
+                IDE on your machine. Every new AI session starts rule-aware &mdash; no manual setup, no per-project
+                configuration. AI agents that follow their system context use CodeTrust validation proactively. Any
+                that don&rsquo;t are caught by the pre-commit hook, the hard technical backstop.</p>
+            <!-- Stats row: forced single line -->
+            <div style="display:flex;gap:3rem;align-items:flex-start;flex-wrap:nowrap;">
+                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
+                    <div class="moat-stat-num" style="color:#818cf8;">4</div>
+                    <span class="t-dim">IDEs covered automatically</span>
+                </div>
+                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
+                    <div class="moat-stat-num" style="color:#818cf8;">0</div>
+                    <span class="t-dim">configuration steps required</span>
+                </div>
+                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
+                    <div class="moat-stat-num" style="color:#818cf8;">100%</div>
+                    <span class="t-dim">of gateway actions audited</span>
                 </div>
             </div>
-            <div style="flex:0 0 auto;align-self:center;">
+            <!-- IDE checklist: centered below stats -->
+            <div style="display:flex;justify-content:center;margin-top:1.6rem;">
                 <div
-                    style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-2);line-height:1.9;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;min-width:200px;">
+                    style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-2);line-height:1.9;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem 1.4rem;">
                     <div style="color:#818cf8;margin-bottom:0.4rem;">IDEs covered on install:</div>
                     <div>&#x2713; Claude Code</div>
                     <div>&#x2713; Cursor</div>

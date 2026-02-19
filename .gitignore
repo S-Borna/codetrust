@@ -66,3 +66,7 @@ CTfavicon.png
 docs/CODETRUST_OVERVIEW.md
 docs/CODETRUST_OVERVIEW.pdf
 docs/_generate_pdf.py
+
+# Internal docs — not part of published product
+docs/CODETRUST_OVERVIEW.md
+docs/RELEASE_CHECKLIST.md

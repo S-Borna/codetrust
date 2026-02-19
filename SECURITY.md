@@ -59,8 +59,3 @@ We appreciate responsible disclosure. Security researchers who report valid
 vulnerabilities will be:
 
 - Credited in the release notes (unless they prefer anonymity)
-- Listed in a SECURITY_HALL_OF_FAME.md (planned)
-
-### PGP Key
-
-Not currently available. Please use email for now.

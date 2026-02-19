@@ -45,6 +45,8 @@ dependencies = [
     "tree-sitter-java>=0.23.0",
     "tree-sitter-c-sharp>=0.23.0",
     "tree-sitter-cpp>=0.23.0",
+    "tree-sitter-ruby>=0.23.0",
+    "tree-sitter-php>=0.23.0",
     # Database
     "sqlalchemy[asyncio]>=2.0.0",
     "asyncpg>=0.29.0",

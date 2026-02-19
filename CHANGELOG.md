@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Ruby Language Support** — full static analysis, AST analysis, and import verification for Ruby
+  - 11 Ruby-specific scan rules: `ruby_eval`, `ruby_system_exec`, `ruby_send_public_send`, `ruby_binding_pry`, `ruby_puts_p_debug`, `ruby_sleep`, `ruby_rescue_exception`, `ruby_global_variable`, `ruby_mass_assignment`, `ruby_hardcoded_secret`, `ruby_hallucinated_gem`
+  - RubyGems registry verification with version checking via rubygems.org API
+  - `Gemfile` parser for dependency extraction
+  - Ruby import extractor (`require` statements) with stdlib filtering
+  - AST analysis via tree-sitter-ruby
+  - Fuzzy matching against top 100 RubyGems packages
+
+- **PHP Language Support** — full static analysis, AST analysis, and import verification for PHP
+  - 12 PHP-specific scan rules: `php_eval`, `php_shell_exec`, `php_sql_injection`, `php_var_dump`, `php_deprecated_mysql`, `php_error_suppression`, `php_extract`, `php_unserialize`, `php_md5_password`, `php_die_exit`, `php_hardcoded_secret`, `php_hallucinated_namespace`
+  - Packagist registry verification via repo.packagist.org v2 API
+  - `composer.json` parser for dependency extraction (skips `php` and `ext-*`)
+  - PHP import extractor (`use` statements) with namespace normalization and builtins filtering
+  - AST analysis via tree-sitter-php
+  - Fuzzy matching against top 100 Packagist packages
+
+- **Maven Central Registry Verification** — verify Java artifacts against Maven Central
+  - Solr search API integration with `groupId:artifactId` format
+  - `pom.xml` parser for dependency extraction
+  - Fuzzy matching against top 70 Maven artifacts
+
+- **NuGet Registry Verification** — verify .NET packages against nuget.org
+  - Flat container API integration with version listing
+  - `.csproj` parser for `PackageReference` extraction
+  - Fuzzy matching against top 80 NuGet packages
+
+- **Import Verifier Extended** — now supports 8 languages (Python, JS/TS, Ruby, PHP, Go, Rust, Java, C#)
+
 - **CVE / Vulnerability Scanning** — check dependencies against Google's OSV database for known CVEs/GHSAs across all supported ecosystems (PyPI, npm, crates.io, Go, Maven, NuGet)
   - `POST /v1/vuln/scan` — batch check up to 200 packages per request
   - `codetrust vuln` CLI command with `--language` and `--json` flags

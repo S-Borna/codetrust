@@ -10,11 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **7 new languages**: Java, C#, C++, Shell/Bash, HTML, Terraform, YAML — total now **13** (up from 6)
-- Activation events for all 13 languages
-- Import verification for Java, C#, C++ added
+- **Ruby & PHP language support** — activation events, AST analysis, import verification (RubyGems, Packagist). Total: **15 languages**
+- Activation events for all 15 languages
+- Import verification for Java, C#, C++, Ruby, PHP added
 - Language mapping: `c` → `cpp`, `shellscript` → `shell`, plus all new language IDs
 - Embedded scanner routes Terraform/HCL (`.tf`, `.tfvars`, `.hcl`) to DevOps rules
-- `enabledLanguages` setting expanded from 6 to 13 entries
+- `enabledLanguages` setting expanded from 6 to 15 entries
 
 ### Platform (benefits all surfaces)
 

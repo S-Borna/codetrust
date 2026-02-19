@@ -21,8 +21,14 @@ from src.services.cache import CacheService
 from src.services.registry import RegistryService
 from src.utils.parsers import (
     PYTHON_IMPORT_TO_PACKAGE,
+    extract_csharp_imports,
+    extract_go_imports,
+    extract_java_imports,
     extract_js_imports,
+    extract_php_imports,
     extract_python_imports,
+    extract_ruby_imports,
+    extract_rust_imports,
 )
 
 logger = structlog.get_logger()
@@ -104,6 +110,34 @@ def _collect_js_imports(
             line = 1
             for line_num, src_line in enumerate(code.splitlines(), 1):
                 if pkg in src_line:
+                    line = line_num
+                    break
+            package_map.setdefault(pkg, []).append((filepath, line))
+
+    return package_map
+
+
+def _collect_generic_imports(
+    files: list[tuple[str, str]],
+    extractor: object,
+) -> dict[str, list[tuple[str, int]]]:
+    """Extract imports using a language-specific extractor, grouped by package name.
+
+    Args:
+        files: List of (filepath, code) tuples.
+        extractor: Function that takes code string and returns list of package names.
+
+    Returns:
+        Dict mapping package_name -> [(filepath, line_number), ...]
+    """
+    package_map: dict[str, list[tuple[str, int]]] = {}
+
+    for filepath, code in files:
+        imports = extractor(code)  # type: ignore[operator]
+        for pkg in imports:
+            line = 1
+            for line_num, src_line in enumerate(code.splitlines(), 1):
+                if pkg in src_line or pkg.replace("-", "_") in src_line:
                     line = line_num
                     break
             package_map.setdefault(pkg, []).append((filepath, line))
@@ -200,12 +234,24 @@ async def _verify_and_collect(
 async def async_verify_file_imports(
     py_files: list[tuple[str, str]] | None = None,
     js_files: list[tuple[str, str]] | None = None,
+    rb_files: list[tuple[str, str]] | None = None,
+    php_files: list[tuple[str, str]] | None = None,
+    go_files: list[tuple[str, str]] | None = None,
+    rs_files: list[tuple[str, str]] | None = None,
+    java_files: list[tuple[str, str]] | None = None,
+    cs_files: list[tuple[str, str]] | None = None,
 ) -> list[dict[str, str | int]]:
     """Verify imports from source files against live registries.
 
     Args:
         py_files: List of (filepath, code) tuples for Python files.
         js_files: List of (filepath, code) tuples for JS/TS files.
+        rb_files: List of (filepath, code) tuples for Ruby files.
+        php_files: List of (filepath, code) tuples for PHP files.
+        go_files: List of (filepath, code) tuples for Go files.
+        rs_files: List of (filepath, code) tuples for Rust files.
+        java_files: List of (filepath, code) tuples for Java files.
+        cs_files: List of (filepath, code) tuples for C# files.
 
     Returns:
         List of finding dicts for unverified imports.
@@ -224,19 +270,66 @@ async def async_verify_file_imports(
             await _verify_and_collect(Language.JAVASCRIPT, js_map, "JavaScript"),
         )
 
+    if rb_files:
+        rb_map = _collect_generic_imports(rb_files, extract_ruby_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.RUBY, rb_map, "Ruby"),
+        )
+
+    if php_files:
+        php_map = _collect_generic_imports(php_files, extract_php_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.PHP, php_map, "PHP"),
+        )
+
+    if go_files:
+        go_map = _collect_generic_imports(go_files, extract_go_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.GO, go_map, "Go"),
+        )
+
+    if rs_files:
+        rs_map = _collect_generic_imports(rs_files, extract_rust_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.RUST, rs_map, "Rust"),
+        )
+
+    if java_files:
+        java_map = _collect_generic_imports(java_files, extract_java_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.JAVA, java_map, "Java"),
+        )
+
+    if cs_files:
+        cs_map = _collect_generic_imports(cs_files, extract_csharp_imports)
+        all_findings.extend(
+            await _verify_and_collect(Language.CSHARP, cs_map, "CSharp"),
+        )
+
     return all_findings
 
 
 def verify_file_imports_sync(
     py_files: list[tuple[str, str]] | None = None,
     js_files: list[tuple[str, str]] | None = None,
+    rb_files: list[tuple[str, str]] | None = None,
+    php_files: list[tuple[str, str]] | None = None,
+    go_files: list[tuple[str, str]] | None = None,
+    rs_files: list[tuple[str, str]] | None = None,
+    java_files: list[tuple[str, str]] | None = None,
+    cs_files: list[tuple[str, str]] | None = None,
 ) -> list[dict[str, str | int]]:
     """Synchronous wrapper for import verification.
 
     Safe to call from CLI context. Uses asyncio.run() internally.
     """
     try:
-        return asyncio.run(async_verify_file_imports(py_files, js_files))
+        return asyncio.run(
+            async_verify_file_imports(
+                py_files, js_files, rb_files, php_files,
+                go_files, rs_files, java_files, cs_files,
+            )
+        )
     except Exception as exc:
         logger.warning("import_verify_error", error=str(exc))
         return []
@@ -244,13 +337,23 @@ def verify_file_imports_sync(
 
 def collect_source_files(
     targets: list[str],
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    """Walk targets and collect Python and JS/TS source files.
+) -> tuple[
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+]:
+    """Walk targets and collect source files by language.
 
     Skips test files, binary files, and excluded directories.
 
     Returns:
-        (py_files, js_files) — each a list of (filepath, code) tuples.
+        (py_files, js_files, rb_files, php_files, go_files, rs_files,
+         java_files, cs_files) — each a list of (filepath, code) tuples.
     """
     skip_dirs = {
         ".git", ".venv", "venv", "node_modules", "__pycache__",
@@ -260,9 +363,34 @@ def collect_source_files(
     }
     py_exts = {".py"}
     js_exts = {".js", ".ts", ".jsx", ".tsx"}
+    rb_exts = {".rb"}
+    php_exts = {".php"}
+    go_exts = {".go"}
+    rs_exts = {".rs"}
+    java_exts = {".java"}
+    cs_exts = {".cs"}
+
+    all_exts = py_exts | js_exts | rb_exts | php_exts | go_exts | rs_exts | java_exts | cs_exts
 
     py_files: list[tuple[str, str]] = []
     js_files: list[tuple[str, str]] = []
+    rb_files: list[tuple[str, str]] = []
+    php_files: list[tuple[str, str]] = []
+    go_files: list[tuple[str, str]] = []
+    rs_files: list[tuple[str, str]] = []
+    java_files: list[tuple[str, str]] = []
+    cs_files: list[tuple[str, str]] = []
+
+    file_lists = {
+        "py": (py_exts, py_files),
+        "js": (js_exts, js_files),
+        "rb": (rb_exts, rb_files),
+        "php": (php_exts, php_files),
+        "go": (go_exts, go_files),
+        "rs": (rs_exts, rs_files),
+        "java": (java_exts, java_files),
+        "cs": (cs_exts, cs_files),
+    }
 
     from pathlib import Path
 
@@ -270,25 +398,23 @@ def collect_source_files(
         target_path = Path(target)
 
         if target_path.is_file():
-            _add_source_file(target_path, py_files, js_files, py_exts, js_exts)
+            _add_source_file_multi(target_path, file_lists, all_exts)
         elif target_path.is_dir():
             for root, dirs, files in os.walk(target_path):
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
                 for fname in files:
                     fpath = Path(os.path.join(root, fname))
-                    _add_source_file(fpath, py_files, js_files, py_exts, js_exts)
+                    _add_source_file_multi(fpath, file_lists, all_exts)
 
-    return py_files, js_files
+    return py_files, js_files, rb_files, php_files, go_files, rs_files, java_files, cs_files
 
 
-def _add_source_file(
+def _add_source_file_multi(
     fpath: "Path",
-    py_files: list[tuple[str, str]],
-    js_files: list[tuple[str, str]],
-    py_exts: set[str],
-    js_exts: set[str],
+    file_lists: dict[str, tuple[set[str], list[tuple[str, str]]]],
+    all_exts: set[str],
 ) -> None:
-    """Classify and read a single source file."""
+    """Classify and read a single source file into the appropriate list."""
     ext = fpath.suffix.lower()
     basename = fpath.name.lower()
 
@@ -301,7 +427,7 @@ def _add_source_file(
     ):
         return
 
-    if ext not in py_exts and ext not in js_exts:
+    if ext not in all_exts:
         return
 
     try:
@@ -309,7 +435,7 @@ def _add_source_file(
     except OSError:
         return
 
-    if ext in py_exts:
-        py_files.append((str(fpath), code))
-    elif ext in js_exts:
-        js_files.append((str(fpath), code))
+    for _key, (ext_set, file_list) in file_lists.items():
+        if ext in ext_set:
+            file_list.append((str(fpath), code))
+            return

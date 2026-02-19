@@ -13,8 +13,12 @@ from src.utils.parsers import parse_requirements_txt
 from src.utils.similarity import (
     suggest_crates_package,
     suggest_go_module,
+    suggest_maven_package,
     suggest_npm_package,
+    suggest_nuget_package,
+    suggest_packagist_package,
     suggest_pypi_package,
+    suggest_rubygems_package,
 )
 
 logger = structlog.get_logger()
@@ -380,6 +384,14 @@ class RegistryService:
                 return await self.verify_go_module(package, version)
             if language == Language.RUST:
                 return await self.verify_crates_package(package, version)
+            if language == Language.RUBY:
+                return await self.verify_rubygems_package(package, version)
+            if language == Language.PHP:
+                return await self.verify_packagist_package(package, version)
+            if language == Language.JAVA:
+                return await self.verify_maven_package(package, version)
+            if language == Language.CSHARP:
+                return await self.verify_nuget_package(package, version)
             return PackageResult(
                 package=package,
                 registry=Registry.PYPI,
@@ -769,3 +781,557 @@ class RegistryService:
             latest_version=latest,
             message=f"Package '{package}' verified (cached).", cached=True,
         )
+
+    # --- RubyGems verification ---
+
+    async def verify_rubygems_package(
+        self, gem: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a Ruby gem exists on rubygems.org.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET rubygems.org/api/v1/gems/{gem}.json
+        3. If 200: exists -> check version if specified
+        4. If 404: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "rubygems", f"{gem}:{version}" if version else gem
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                gem, Registry.RUBYGEMS, version, cached
+            )
+
+        return await self._check_rubygems_package(gem, version, cache_key)
+
+    async def _check_rubygems_package(
+        self, gem: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual RubyGems API check."""
+        try:
+            data = await self._check_rubygems(gem)
+        except httpx.TimeoutException:
+            return _timeout_result(gem, Registry.RUBYGEMS)
+        except httpx.HTTPError as exc:
+            return _http_error_result(gem, Registry.RUBYGEMS, exc)
+
+        if data is None:
+            return await _not_found_result(
+                gem, Registry.RUBYGEMS,
+                suggest_rubygems_package(gem), self._cache, cache_key,
+            )
+
+        return await self._process_rubygems_response(
+            gem, version, data, cache_key,
+        )
+
+    async def _process_rubygems_response(
+        self,
+        gem: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful RubyGems response."""
+        latest = str(data.get("version", ""))
+
+        await self._cache.set_json(
+            self._cache._make_key("rubygems", gem),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version:
+            return await self._check_rubygems_version(gem, version, latest)
+
+        return PackageResult(
+            package=gem,
+            registry=Registry.RUBYGEMS,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Gem '{gem}' exists on rubygems.org.",
+        )
+
+    async def _check_rubygems_version(
+        self, gem: str, version: str, latest: str
+    ) -> PackageResult:
+        """Check if a specific gem version exists on RubyGems."""
+        try:
+            url = f"https://rubygems.org/api/v1/versions/{gem}.json"
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                versions_data: list[dict[str, object]] = response.json()
+                version_nums = [
+                    str(v.get("number", ""))
+                    for v in versions_data
+                    if isinstance(v, dict)
+                ]
+                if version in version_nums:
+                    return PackageResult(
+                        package=gem,
+                        registry=Registry.RUBYGEMS,
+                        status=VerifyStatus.VERIFIED,
+                        severity=Severity.INFO,
+                        requested_version=version,
+                        latest_version=latest,
+                        message=f"Gem '{gem}=={version}' verified.",
+                    )
+        except (httpx.TimeoutException, httpx.HTTPError) as exc:
+            logger.debug("rubygems_version_check_failed", gem=gem, error=str(exc))
+
+        return PackageResult(
+            package=gem,
+            registry=Registry.RUBYGEMS,
+            status=VerifyStatus.VERSION_MISMATCH,
+            severity=Severity.WARN,
+            requested_version=version,
+            latest_version=latest,
+            message=f"Version '{version}' not found for '{gem}'.",
+            suggestion=f"Latest version is {latest}.",
+        )
+
+    async def _check_rubygems(
+        self, gem: str
+    ) -> dict[str, object] | None:
+        """Raw RubyGems API call. Returns JSON or None on 404."""
+        url = settings.rubygems_url.format(package=gem)
+        try:
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("rubygems_timeout", gem=gem)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("rubygems_error", gem=gem, error=str(exc))
+            raise
+
+    # --- Packagist (PHP) verification ---
+
+    async def verify_packagist_package(
+        self, package: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a PHP package exists on packagist.org.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET repo.packagist.org/p2/{vendor/package}.json
+        3. If 200: exists -> check version if specified
+        4. If 404: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "packagist", f"{package}:{version}" if version else package
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                package, Registry.PACKAGIST, version, cached
+            )
+
+        return await self._check_packagist_package(package, version, cache_key)
+
+    async def _check_packagist_package(
+        self, package: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual Packagist API check."""
+        try:
+            data = await self._check_packagist(package)
+        except httpx.TimeoutException:
+            return _timeout_result(package, Registry.PACKAGIST)
+        except httpx.HTTPError as exc:
+            return _http_error_result(package, Registry.PACKAGIST, exc)
+
+        if data is None:
+            return await _not_found_result(
+                package, Registry.PACKAGIST,
+                suggest_packagist_package(package), self._cache, cache_key,
+            )
+
+        return await self._process_packagist_response(
+            package, version, data, cache_key,
+        )
+
+    async def _process_packagist_response(
+        self,
+        package: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful Packagist response."""
+        packages_data = data.get("packages", {})
+        if not isinstance(packages_data, dict):
+            packages_data = {}
+
+        versions_list = packages_data.get(package, [])
+        if isinstance(versions_list, list) and versions_list:
+            latest = str(versions_list[0].get("version", ""))
+        else:
+            latest = ""
+
+        await self._cache.set_json(
+            self._cache._make_key("packagist", package),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version and versions_list:
+            version_nums = [
+                str(v.get("version", ""))
+                for v in versions_list
+                if isinstance(v, dict)
+            ]
+            if version in version_nums:
+                return PackageResult(
+                    package=package,
+                    registry=Registry.PACKAGIST,
+                    status=VerifyStatus.VERIFIED,
+                    severity=Severity.INFO,
+                    requested_version=version,
+                    latest_version=latest,
+                    message=f"Package '{package}@{version}' verified.",
+                )
+            return PackageResult(
+                package=package,
+                registry=Registry.PACKAGIST,
+                status=VerifyStatus.VERSION_MISMATCH,
+                severity=Severity.WARN,
+                requested_version=version,
+                latest_version=latest,
+                message=f"Version '{version}' not found for '{package}'.",
+                suggestion=f"Latest version is {latest}.",
+            )
+
+        return PackageResult(
+            package=package,
+            registry=Registry.PACKAGIST,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Package '{package}' exists on packagist.org.",
+        )
+
+    async def _check_packagist(
+        self, package: str
+    ) -> dict[str, object] | None:
+        """Raw Packagist API call. Returns JSON or None on 404."""
+        url = settings.packagist_url.format(package=package)
+        try:
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("packagist_timeout", package=package)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("packagist_error", package=package, error=str(exc))
+            raise
+
+    # --- Maven Central verification ---
+
+    async def verify_maven_package(
+        self, artifact: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a Maven artifact exists on Maven Central.
+
+        Expects artifact in 'groupId:artifactId' format.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET search.maven.org/solrsearch/select?q=g:{g}+AND+a:{a}
+        3. If found: exists -> check version if specified
+        4. If not: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "maven", f"{artifact}:{version}" if version else artifact
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                artifact, Registry.MAVEN, version, cached
+            )
+
+        return await self._check_maven_package(artifact, version, cache_key)
+
+    async def _check_maven_package(
+        self, artifact: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual Maven Central API check."""
+        try:
+            data = await self._check_maven(artifact)
+        except httpx.TimeoutException:
+            return _timeout_result(artifact, Registry.MAVEN)
+        except httpx.HTTPError as exc:
+            return _http_error_result(artifact, Registry.MAVEN, exc)
+
+        if data is None:
+            return await _not_found_result(
+                artifact, Registry.MAVEN,
+                suggest_maven_package(artifact), self._cache, cache_key,
+            )
+
+        return await self._process_maven_response(
+            artifact, version, data, cache_key,
+        )
+
+    async def _process_maven_response(
+        self,
+        artifact: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful Maven Central response."""
+        response_data = data.get("response", {})
+        if not isinstance(response_data, dict):
+            response_data = {}
+
+        docs = response_data.get("docs", [])
+        if not isinstance(docs, list) or not docs:
+            return await _not_found_result(
+                artifact, Registry.MAVEN,
+                suggest_maven_package(artifact), self._cache, cache_key,
+            )
+
+        first_doc = docs[0] if isinstance(docs[0], dict) else {}
+        latest = str(first_doc.get("latestVersion", ""))
+
+        await self._cache.set_json(
+            self._cache._make_key("maven", artifact),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version:
+            version_count = int(first_doc.get("versionCount", 0))
+            if version_count > 0:
+                return await self._check_maven_version(
+                    artifact, version, latest
+                )
+
+        return PackageResult(
+            package=artifact,
+            registry=Registry.MAVEN,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Artifact '{artifact}' exists on Maven Central.",
+        )
+
+    async def _check_maven_version(
+        self, artifact: str, version: str, latest: str
+    ) -> PackageResult:
+        """Check if a specific Maven artifact version exists."""
+        parts = artifact.split(":")
+        if len(parts) != 2:
+            return PackageResult(
+                package=artifact,
+                registry=Registry.MAVEN,
+                status=VerifyStatus.VERSION_MISMATCH,
+                severity=Severity.WARN,
+                requested_version=version,
+                latest_version=latest,
+                message=f"Version '{version}' not found for '{artifact}'.",
+                suggestion=f"Latest version is {latest}.",
+            )
+
+        group_id, artifact_id = parts
+        try:
+            url = (
+                f"https://search.maven.org/solrsearch/select"
+                f"?q=g:{group_id}+AND+a:{artifact_id}+AND+v:{version}"
+                f"&rows=1&wt=json"
+            )
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                data: dict[str, object] = response.json()
+                resp = data.get("response", {})
+                if isinstance(resp, dict) and resp.get("numFound", 0):
+                    return PackageResult(
+                        package=artifact,
+                        registry=Registry.MAVEN,
+                        status=VerifyStatus.VERIFIED,
+                        severity=Severity.INFO,
+                        requested_version=version,
+                        latest_version=latest,
+                        message=f"Artifact '{artifact}:{version}' verified.",
+                    )
+        except (httpx.TimeoutException, httpx.HTTPError) as exc:
+            logger.debug(
+                "maven_version_check_failed", artifact=artifact, error=str(exc)
+            )
+
+        return PackageResult(
+            package=artifact,
+            registry=Registry.MAVEN,
+            status=VerifyStatus.VERSION_MISMATCH,
+            severity=Severity.WARN,
+            requested_version=version,
+            latest_version=latest,
+            message=f"Version '{version}' not found for '{artifact}'.",
+            suggestion=f"Latest version is {latest}.",
+        )
+
+    async def _check_maven(
+        self, artifact: str
+    ) -> dict[str, object] | None:
+        """Raw Maven Central API call. Returns JSON or None on error."""
+        parts = artifact.split(":")
+        if len(parts) != 2:
+            return None
+
+        group_id, artifact_id = parts
+        url = settings.maven_url.format(group=group_id, artifact=artifact_id)
+        try:
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("maven_timeout", artifact=artifact)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("maven_error", artifact=artifact, error=str(exc))
+            raise
+
+    # --- NuGet verification ---
+
+    async def verify_nuget_package(
+        self, package: str, version: str = ""
+    ) -> PackageResult:
+        """Check if a .NET package exists on nuget.org.
+
+        Flow:
+        1. Check cache
+        2. If miss: GET api.nuget.org/v3-flatcontainer/{package}/index.json
+        3. If 200: exists -> check version if specified
+        4. If 404: NOT_FOUND -> fuzzy match suggestion
+        5. Cache result
+        """
+        cache_key = self._cache._make_key(
+            "nuget", f"{package}:{version}" if version else package
+        )
+
+        cached = await self._cache.get_json(cache_key)
+        if cached is not None:
+            return self._build_cached_result(
+                package, Registry.NUGET, version, cached
+            )
+
+        return await self._check_nuget_package(package, version, cache_key)
+
+    async def _check_nuget_package(
+        self, package: str, version: str, cache_key: str
+    ) -> PackageResult:
+        """Perform the actual NuGet API check."""
+        try:
+            data = await self._check_nuget(package)
+        except httpx.TimeoutException:
+            return _timeout_result(package, Registry.NUGET)
+        except httpx.HTTPError as exc:
+            return _http_error_result(package, Registry.NUGET, exc)
+
+        if data is None:
+            return await _not_found_result(
+                package, Registry.NUGET,
+                suggest_nuget_package(package), self._cache, cache_key,
+            )
+
+        return await self._process_nuget_response(
+            package, version, data, cache_key,
+        )
+
+    async def _process_nuget_response(
+        self,
+        package: str,
+        version: str,
+        data: dict[str, object],
+        cache_key: str,
+    ) -> PackageResult:
+        """Process a successful NuGet response."""
+        versions_list = data.get("versions", [])
+        if not isinstance(versions_list, list):
+            versions_list = []
+
+        latest = str(versions_list[-1]) if versions_list else ""
+
+        await self._cache.set_json(
+            self._cache._make_key("nuget", package),
+            {"exists": True, "latest": latest, "deprecated": False},
+            settings.cache_ttl_package_exists,
+        )
+
+        if version:
+            if version.lower() in [v.lower() for v in versions_list if isinstance(v, str)]:
+                return PackageResult(
+                    package=package,
+                    registry=Registry.NUGET,
+                    status=VerifyStatus.VERIFIED,
+                    severity=Severity.INFO,
+                    requested_version=version,
+                    latest_version=latest,
+                    message=f"Package '{package}@{version}' verified.",
+                )
+            return PackageResult(
+                package=package,
+                registry=Registry.NUGET,
+                status=VerifyStatus.VERSION_MISMATCH,
+                severity=Severity.WARN,
+                requested_version=version,
+                latest_version=latest,
+                message=f"Version '{version}' not found for '{package}'.",
+                suggestion=f"Latest version is {latest}.",
+            )
+
+        return PackageResult(
+            package=package,
+            registry=Registry.NUGET,
+            status=VerifyStatus.VERIFIED,
+            severity=Severity.INFO,
+            latest_version=latest,
+            message=f"Package '{package}' exists on nuget.org.",
+        )
+
+    async def _check_nuget(
+        self, package: str
+    ) -> dict[str, object] | None:
+        """Raw NuGet API call. Returns JSON or None on 404."""
+        url = settings.nuget_url.format(package=package.lower())
+        try:
+            response = await self._http.get(
+                url, timeout=settings.http_timeout
+            )
+            if response.status_code == 200:
+                result: dict[str, object] = response.json()
+                return result
+            return None
+        except httpx.TimeoutException:
+            logger.warning("nuget_timeout", package=package)
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning("nuget_error", package=package, error=str(exc))
+            raise

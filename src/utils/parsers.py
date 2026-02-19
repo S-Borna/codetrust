@@ -28,6 +28,44 @@ _RUST_STD_CRATES: frozenset[str] = frozenset({
     "self", "super", "crate",
 })
 
+# Ruby standard library modules to skip
+_RUBY_STDLIB: frozenset[str] = frozenset({
+    "abbrev", "base64", "benchmark", "bigdecimal", "cgi", "cmath",
+    "coverage", "csv", "date", "dbm", "debug", "delegate", "digest",
+    "drb", "english", "erb", "etc", "expect", "fcntl", "fiber",
+    "fiddle", "fileutils", "find", "forwardable", "gdbm", "getoptlong",
+    "io", "ipaddr", "irb", "json", "logger", "matrix", "minitest",
+    "monitor", "mutex_m", "net", "nkf", "objspace", "observer",
+    "open-uri", "open3", "openssl", "optparse", "ostruct", "pathname",
+    "pp", "prettyprint", "prime", "pstore", "psych", "pty", "racc",
+    "rake", "rdoc", "readline", "reline", "resolv", "rinda", "ripper",
+    "rss", "ruby2_keywords", "securerandom", "set", "shellwords",
+    "singleton", "socket", "stringio", "strscan", "syslog", "tempfile",
+    "test", "time", "timeout", "tmpdir", "tracer", "tsort", "un",
+    "unicode_normalize", "uri", "weakref", "webrick", "win32ole",
+    "yaml", "zlib",
+    # Core modules always available
+    "kernel", "comparable", "enumerable", "errno", "file", "dir",
+    "io", "process", "signal", "thread", "mutex",
+})
+
+# PHP built-in extensions/namespaces to skip
+_PHP_BUILTINS: frozenset[str] = frozenset({
+    "php", "array", "string", "math", "date", "file", "dir",
+    "json", "xml", "dom", "simplexml", "xmlreader", "xmlwriter",
+    "curl", "ftp", "http", "socket", "stream",
+    "pdo", "mysqli", "sqlite3", "pgsql", "oci8",
+    "session", "cookie", "filter", "hash", "openssl", "mcrypt",
+    "mbstring", "iconv", "intl", "gettext",
+    "pcre", "posix", "spl", "reflection", "classobj",
+    "gd", "imagick", "exif", "fileinfo", "finfo",
+    "zlib", "bz2", "zip", "phar", "rar",
+    "ctype", "tokenizer", "readline",
+    "shmop", "sem", "sysvsem", "sysvshm", "sysvmsg",
+    "pcntl", "posix", "proc",
+    "apcu", "opcache",
+})
+
 # Node.js built-in modules
 _NODE_BUILTINS: frozenset[str] = frozenset({
     "assert", "buffer", "child_process", "cluster", "console", "constants",
@@ -83,6 +121,16 @@ _REQ_LINE_RE = re.compile(
 
 # Version specifier extraction
 _VERSION_SPEC_RE = re.compile(r"([<>=!~]+)\s*([\w.*]+)")
+
+# --- Ruby import patterns ---
+_RUBY_REQUIRE_RE = re.compile(r"""^\s*require\s+['"]([^'"]+)['"]""")
+_RUBY_REQUIRE_RELATIVE_RE = re.compile(r"""^\s*require_relative\s+['"]""")
+
+# --- PHP import patterns ---
+_PHP_USE_RE = re.compile(r"^\s*use\s+([\w\\]+)")
+_PHP_REQUIRE_RE = re.compile(
+    r"""^\s*(?:require|include|require_once|include_once)\s+['"]([^'"]+)['"]"""
+)
 
 
 def extract_python_imports(code: str) -> list[str]:
@@ -674,3 +722,235 @@ def _parse_cargo_dep_line(
         return name, version_match.group(1)
 
     return name, ""
+
+
+# --- Ruby import extraction ---
+
+
+def extract_ruby_imports(code: str) -> list[str]:
+    """Extract third-party gem names from Ruby code.
+
+    Handles:
+      require 'rails'             -> "rails"
+      require "nokogiri"          -> "nokogiri"
+      require 'net/http'          -> skip (stdlib)
+      require_relative './helper' -> skip (relative)
+
+    Skips: Ruby standard library modules.
+    """
+    gems: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        # Skip require_relative (always local)
+        if _RUBY_REQUIRE_RELATIVE_RE.match(stripped):
+            continue
+
+        match = _RUBY_REQUIRE_RE.match(stripped)
+        if match:
+            name = match.group(1)
+            normalized = _normalize_ruby_require(name)
+            if normalized is not None:
+                gems.add(normalized)
+
+    return sorted(gems)
+
+
+def _normalize_ruby_require(name: str) -> str | None:
+    """Normalize a Ruby require name, skip stdlib and sub-paths.
+
+    Maps 'some_gem/submodule' -> 'some_gem' (top-level gem name).
+    Converts underscores to hyphens for common gems.
+    """
+    # Get top-level module name (before any /)
+    top_level = name.split("/")[0]
+
+    # Skip standard library
+    if top_level.lower() in _RUBY_STDLIB:
+        return None
+
+    # Skip relative paths
+    if top_level.startswith("."):
+        return None
+
+    return top_level
+
+
+# --- PHP import extraction ---
+
+
+def extract_php_imports(code: str) -> list[str]:
+    """Extract third-party package namespaces from PHP code.
+
+    Handles:
+      use Illuminate\\Support\\Facades\\DB;   -> "illuminate/support"
+      use GuzzleHttp\\Client;                 -> "guzzlehttp/client"
+      require 'vendor/autoload.php';          -> skip (autoloader)
+
+    Skips: PHP built-in extensions and vendor autoload.
+    """
+    packages: set[str] = set()
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+            continue
+
+        match = _PHP_USE_RE.match(stripped)
+        if match:
+            namespace = match.group(1)
+            normalized = _normalize_php_namespace(namespace)
+            if normalized is not None:
+                packages.add(normalized)
+
+    return sorted(packages)
+
+
+def _normalize_php_namespace(namespace: str) -> str | None:
+    """Normalize a PHP namespace to a Composer package name.
+
+    Converts 'Illuminate\\Support\\Facades\\DB' -> 'illuminate/support'.
+    Uses first two segments of the namespace as vendor/package.
+    """
+    parts = namespace.replace("\\", "/").split("/")
+
+    if len(parts) < 2:
+        # Single segment — check if it's a built-in
+        if parts[0].lower() in _PHP_BUILTINS:
+            return None
+        return parts[0].lower()
+
+    vendor = parts[0].lower()
+    package = parts[1].lower()
+
+    # Skip built-in extensions
+    if vendor in _PHP_BUILTINS:
+        return None
+
+    return f"{vendor}/{package}"
+
+
+# --- Gemfile parsing ---
+
+
+def parse_gemfile(content: str) -> dict[str, str]:
+    """Parse a Ruby Gemfile to {gem_name: version}.
+
+    Handles:
+      gem 'rails', '~> 7.0'        -> {"rails": "~> 7.0"}
+      gem "nokogiri"                -> {"nokogiri": ""}
+      gem 'pg', '>= 1.1'           -> {"pg": ">= 1.1"}
+
+    Skips: source, group blocks (but captures gems inside them), comments.
+    """
+    result: dict[str, str] = {}
+    gem_re = re.compile(
+        r"""^\s*gem\s+['"]([^'"]+)['"]\s*(?:,\s*['"]([^'"]*)['"]\s*)?"""
+    )
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        match = gem_re.match(stripped)
+        if match:
+            name = match.group(1)
+            version = match.group(2) or ""
+            result[name] = version
+
+    return result
+
+
+# --- composer.json parsing ---
+
+
+def parse_composer_json(content: str) -> dict[str, str]:
+    """Parse a PHP composer.json to {package: version}.
+
+    Handles the "require" and "require-dev" sections:
+      {"require": {"laravel/framework": "^10.0"}}
+
+    Skips: php version requirements, ext-* extensions.
+    """
+    result: dict[str, str] = {}
+
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("composer_json_parse_error")
+        return result
+
+    for section in ("require", "require-dev"):
+        deps = data.get(section, {})
+        if not isinstance(deps, dict):
+            continue
+        for pkg, version in deps.items():
+            # Skip PHP version and extension requirements
+            if pkg == "php" or pkg.startswith("ext-") or pkg.startswith("lib-"):
+                continue
+            if isinstance(version, str):
+                result[pkg] = version
+
+    return result
+
+
+# --- pom.xml parsing (Maven) ---
+
+
+def parse_pom_xml(content: str) -> dict[str, str]:
+    """Parse a Maven pom.xml to {groupId:artifactId: version}.
+
+    Uses regex to avoid xml.etree import overhead. Handles:
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.0.0-jre</version>
+      </dependency>
+    """
+    result: dict[str, str] = {}
+
+    dep_re = re.compile(
+        r"<dependency>\s*"
+        r"<groupId>([^<]+)</groupId>\s*"
+        r"<artifactId>([^<]+)</artifactId>\s*"
+        r"(?:<version>([^<]*)</version>)?\s*",
+        re.DOTALL,
+    )
+
+    for match in dep_re.finditer(content):
+        group_id = match.group(1).strip()
+        artifact_id = match.group(2).strip()
+        version = (match.group(3) or "").strip()
+        key = f"{group_id}:{artifact_id}"
+        result[key] = version
+
+    return result
+
+
+# --- .csproj parsing (NuGet) ---
+
+
+def parse_csproj(content: str) -> dict[str, str]:
+    """Parse a .NET .csproj file to {package: version}.
+
+    Handles:
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+      <PackageReference Include="Serilog" />
+    """
+    result: dict[str, str] = {}
+
+    pkg_re = re.compile(
+        r'<PackageReference\s+Include="([^"]+)"\s*'
+        r'(?:Version="([^"]*)")?\s*/?>'
+    )
+
+    for match in pkg_re.finditer(content):
+        name = match.group(1).strip()
+        version = (match.group(2) or "").strip()
+        result[name] = version
+
+    return result

@@ -3,49 +3,82 @@
 ## ⛔ MANDATORY: CodeTrust Enforcement Protocol
 
 > **These rules are NON-NEGOTIABLE. Violation = blocked commit.**
+>
+> **TWO MCP servers enforce governance. Know which is which:**
+>
+> | Server | MCP prefix | Purpose |
+> |--------|-----------|---------|
+> | **Gateway** | `mcp_codetrust-gat_codetrust_*` | Intercepts actions BEFORE execution (commands, file writes, packages) |
+> | **Guardian** | `mcp_guardian_guardian_*` | Scans code quality AFTER writing (anti-patterns, enterprise standards) |
 
 ### Layer A: AI Governance Gateway (BEFORE every action)
 
 > **The Gateway intercepts actions BEFORE execution. This is the first line of defense.**
 > Config: `.codetrust.toml` | Audit log: `.codetrust/audit.jsonl` | Mode: `enforce`
 
-1. **Before ANY terminal command** → call `codetrust_validate_command`
+1. **Before ANY terminal command** → call `mcp_codetrust-gat_codetrust_validate_command`
    - If verdict is BLOCK → **do NOT run the command**. Use the safe alternative.
    - Blocked patterns: heredoc (`<<`), `eval`, `curl|sh`, `rm -rf /`, `chmod 777`, `git push`, `sudo su`, `dd of=`
    - If you need multi-line file content, use the `create_file` or `replace_string_in_file` tool instead of heredoc
 
-2. **Before writing ANY file** → call `codetrust_validate_file_write`
+2. **Before writing ANY file** → call `mcp_codetrust-gat_codetrust_validate_file_write`
    - Protected files (LICENSE, .env, .env.production) trigger WARN
    - Deletion of protected files is BLOCK
 
-3. **Before installing ANY package** → call `codetrust_validate_package`
+3. **Before installing ANY package** → call `mcp_codetrust-gat_codetrust_validate_package`
    - Suspicious or unverified packages are blocked
 
-4. **All actions are logged** to `.codetrust/audit.jsonl`
-   - Query with: `codetrust audit --hours 24` or `codetrust_audit_history`
+4. **Before deleting ANY file** → call `mcp_codetrust-gat_codetrust_validate_file_delete`
+
+5. **All actions are logged** to `.codetrust/audit.jsonl`
+   - Query with: `codetrust audit --hours 24` or `mcp_codetrust-gat_codetrust_audit_history`
    - Every ALLOW, WARN, and BLOCK is recorded with timestamp, rule_id, and context
 
-### Layer B: Code Scanning (AFTER writing code)
+### Layer B: Code Scanning via Guardian (AFTER writing code)
 
-1. Call `codetrust_static_scan` on every file you changed
-2. Call `codetrust_deep_scan` if you created new files or modified imports
+1. Call `mcp_guardian_guardian_mid_action` on every file you changed (anti-pattern scan)
+2. Call `mcp_guardian_guardian_full_scan` if you created new files or modified imports (all 3 passes)
 3. If any finding has severity BLOCK → fix it immediately, do not move on
 4. If any finding has severity WARN → fix it or explain why it's acceptable
 
-### Layer C: Pre-Action / Post-Action Validation
+### Layer C: Pre-Action / Post-Action Validation via Guardian
 
-1. **Before writing ANY code** → call `codetrust_pre_action` with a description of what you plan to do
+1. **Before writing ANY code** → call `mcp_guardian_guardian_pre_action` with a description of what you plan to do
    - If verdict is BLOCK → stop and fix the plan before proceeding
    - If verdict is WARN → acknowledge each warning explicitly
 
-2. **Before committing** → call `codetrust_post_action` with repo root and list of changed files
+2. **Before committing** → call `mcp_guardian_guardian_post_action` with repo root and list of changed files
    - All BLOCK findings must be resolved — zero tolerance
    - Run `ruff check src/ tests/` — zero warnings allowed
 
-### Layer D: Import and Docker Verification
+### Layer D: Proxy Tools (use INSTEAD of native tools when available)
 
-1. When adding ANY new import → call `codetrust_verify_imports`
-2. When modifying Dockerfile → call `codetrust_verify_dockerfile`
+> These are Gateway proxy tools. Call the proxy FIRST → if APPROVED, call the native tool.
+
+| Gateway proxy tool | Replaces native tool |
+|---|---|
+| `mcp_codetrust-gat_codetrust_run_in_terminal` | `run_in_terminal` |
+| `mcp_codetrust-gat_codetrust_create_file` | `create_file` |
+| `mcp_codetrust-gat_codetrust_replace_string_in_file` | `replace_string_in_file` |
+| `mcp_codetrust-gat_codetrust_edit_notebook` | `edit_notebook_file` |
+
+Workflow: Call proxy → if APPROVED, call native tool with identical params. If BLOCKED, stop.
+
+### Layer E: Utility Tools
+
+| Tool | Purpose |
+|---|---|
+| `mcp_codetrust-gat_codetrust_governance_status` | Show active governance config and policy status |
+| `mcp_codetrust-gat_codetrust_list_gateway_rules` | List all gateway interception rules |
+| `mcp_guardian_guardian_list_rules` | List all anti-pattern and structure rules |
+
+### Layer F: Import and Docker Verification (PLANNED — v2.7.0)
+
+> These gateway tools will be implemented to provide automated verification
+> during import additions and Dockerfile modifications.
+
+1. When adding ANY new import → call `mcp_codetrust-gat_codetrust_verify_imports`
+2. When modifying Dockerfile → call `mcp_codetrust-gat_codetrust_verify_dockerfile`
 3. Never use a package that returns NOT_FOUND from registry verification
 
 ### Rules you MUST follow

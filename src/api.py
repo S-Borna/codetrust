@@ -47,6 +47,7 @@ from src.models.requests import (
     OIDCCallbackRequest,
     RefreshRequest,
     SandboxRequest,
+    SignatureScanRequest,
     StaticScanRequest,
     UpdateMemberRoleRequest,
     UpdateOrgPolicyRequest,
@@ -65,6 +66,7 @@ from src.models.responses import (
     SandboxResponse,
     ScanHistoryResponse,
     ScanLogResponse,
+    SignatureScanResponse,
     StaticScanResponse,
     StatusResponse,
     TokenResponse,
@@ -1140,6 +1142,56 @@ async def ast_scan(
     return response
 
 
+@app.post("/v1/scan/signatures", response_model=SignatureScanResponse)
+async def signature_scan(
+    request: Request,
+    req: SignatureScanRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> SignatureScanResponse:
+    """Validate function signatures against curated database.
+
+    Detects AI-hallucinated functions, wrong parameters, deprecated
+    API usage, and common AI mistakes in library calls.
+    """
+    await _enforce_rate_limit(auth, rate_limiter)
+    logger.info(
+        "api_signature_scan", filename=req.filename,
+        language=str(req.language),
+    )
+    start = time.monotonic()
+
+    from src.services.signature_validator import validate_signatures
+
+    lang_str = str(req.language.value) if hasattr(req.language, "value") else str(req.language)
+    findings = validate_signatures(req.code, lang_str, req.filename)
+
+    blocks = [f for f in findings if f.severity == Severity.BLOCK]
+    warns = [f for f in findings if f.severity == Severity.WARN]
+    infos = [f for f in findings if f.severity == Severity.INFO]
+    hallucinations = sum(
+        1 for f in findings if "hallucinated" in f.rule_id
+    )
+    verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
+
+    response = SignatureScanResponse(
+        total_findings=len(findings),
+        blocks=len(blocks),
+        warnings=len(warns),
+        infos=len(infos),
+        hallucinations_caught=hallucinations,
+        findings=findings,
+        verdict=verdict,
+    )
+
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+    await _log_scan(
+        request, auth, "signatures", verdict,
+        len(findings), elapsed_ms, lang_str, req.filename,
+    )
+    return response
+
+
 @app.post("/v1/sandbox/run", response_model=SandboxResponse)
 async def sandbox_run(
     request: Request,
@@ -1263,12 +1315,13 @@ async def _run_deep_scan_core(
         analyzer.scan_code(req.code, req.filename),
     )
     ast_result = _run_ast_layer(req, ast_anal)
+    sig_result = _run_signature_layer(req)
     import_result = await _run_import_layer(req, registry)
     docker_result = await _run_docker_layer(req, docker)
     sandbox_result = await _run_sandbox_layer(req, sandbox_svc)
 
     return _assemble_deep_response(
-        static_result, ast_result, import_result,
+        static_result, ast_result, sig_result, import_result,
         docker_result, sandbox_result, start,
     )
 
@@ -1281,6 +1334,52 @@ def _run_ast_layer(
         findings = ast_anal.analyze(req.code, req.language, req.filename)
         return _build_ast_response(findings)
     return None
+
+
+_SIG_SUPPORTED_LANGUAGES = {"python", "javascript", "typescript"}
+
+
+def _run_signature_layer(
+    req: DeepScanRequest,
+) -> SignatureScanResponse | None:
+    """Run function signature validation if language is supported."""
+    if not getattr(req, "verify_signatures", True):
+        return None
+    if not req.language:
+        return None
+
+    lang_str = str(req.language.value) if hasattr(req.language, "value") else str(req.language)
+    if lang_str not in _SIG_SUPPORTED_LANGUAGES:
+        return None
+
+    try:
+        from src.services.signature_validator import validate_signatures
+
+        findings = validate_signatures(req.code, lang_str, req.filename)
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        warns = [f for f in findings if f.severity == Severity.WARN]
+        infos = [f for f in findings if f.severity == Severity.INFO]
+        hallucinations = sum(
+            1 for f in findings if "hallucinated" in f.rule_id
+        )
+        verdict = "BLOCK" if blocks else ("WARN" if warns else "PASS")
+
+        return SignatureScanResponse(
+            total_findings=len(findings),
+            blocks=len(blocks),
+            warnings=len(warns),
+            infos=len(infos),
+            hallucinations_caught=hallucinations,
+            findings=findings,
+            verdict=verdict,
+        )
+    except Exception as exc:
+        logger.debug(
+            "signature_layer_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        return None
 
 
 async def _run_import_layer(
@@ -1315,6 +1414,7 @@ async def _run_sandbox_layer(
 def _assemble_deep_response(
     static_result: StaticScanResponse,
     ast_result: AstScanResponse | None,
+    sig_result: SignatureScanResponse | None,
     import_result: VerifyImportsResponse | None,
     docker_result: VerifyDockerResponse | None,
     sandbox_result: SandboxResponse | None,
@@ -1324,13 +1424,16 @@ def _assemble_deep_response(
     elapsed_ms = int((time.monotonic() - start) * 1000)
     overall = _compute_overall_verdict(
         static_result, ast_result, import_result, docker_result, sandbox_result,
+        sig_result=sig_result,
     )
     total = _compute_total_findings(
         static_result, ast_result, import_result, docker_result,
+        sig_result=sig_result,
     )
     return DeepScanResponse(
         static_scan=static_result,
         ast_scan=ast_result,
+        signature_validation=sig_result,
         import_verification=import_result,
         docker_verification=docker_result,
         sandbox_result=sandbox_result,
@@ -1472,12 +1575,16 @@ def _compute_overall_verdict(
     imports: VerifyImportsResponse | None,
     docker: VerifyDockerResponse | None,
     sandbox: SandboxResponse | None = None,
+    sig_result: SignatureScanResponse | None = None,
 ) -> str:
     """Compute overall verdict from sub-results."""
     if static.verdict == "BLOCK":
         return "BLOCK"
 
     if ast is not None and ast.verdict == "BLOCK":
+        return "BLOCK"
+
+    if sig_result is not None and sig_result.verdict == "BLOCK":
         return "BLOCK"
 
     if imports is not None and imports.failed > 0:
@@ -1498,6 +1605,9 @@ def _compute_overall_verdict(
     if ast is not None and ast.verdict == "WARN":
         return "WARN"
 
+    if sig_result is not None and sig_result.verdict == "WARN":
+        return "WARN"
+
     if imports is not None and imports.warnings > 0:
         return "WARN"
 
@@ -1512,12 +1622,16 @@ def _compute_total_findings(
     ast: AstScanResponse | None,
     imports: VerifyImportsResponse | None,
     docker: VerifyDockerResponse | None,
+    sig_result: SignatureScanResponse | None = None,
 ) -> int:
     """Count total findings across all layers."""
     total = static.total_findings
 
     if ast is not None:
         total += ast.total_findings
+
+    if sig_result is not None:
+        total += sig_result.total_findings
 
     if imports is not None:
         total += len(imports.results)

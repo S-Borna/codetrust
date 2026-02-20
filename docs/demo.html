@@ -366,9 +366,17 @@
             border-radius: 50%;
         }
 
-        .sev-dot.block { background: var(--block); }
-        .sev-dot.warn { background: var(--warn); }
-        .sev-dot.info { background: var(--info); }
+        .sev-dot.block {
+            background: var(--block);
+        }
+
+        .sev-dot.warn {
+            background: var(--warn);
+        }
+
+        .sev-dot.info {
+            background: var(--info);
+        }
 
         .drift-row {
             display: flex;
@@ -995,10 +1003,10 @@
         ];
 
         const CAT_META = {
-            security:      { icon: "\uD83D\uDD12", label: "Security" },
+            security: { icon: "\uD83D\uDD12", label: "Security" },
             hallucination: { icon: "\uD83E\uDDE0", label: "Hallucination" },
-            quality:       { icon: "\u2728",       label: "Quality" },
-            devops:        { icon: "\u2699\uFE0F", label: "DevOps" }
+            quality: { icon: "\u2728", label: "Quality" },
+            devops: { icon: "\u2699\uFE0F", label: "DevOps" }
         };
 
         // Scanning engine — finds ALL occurrences across all lines
@@ -1173,7 +1181,7 @@
             html += '<div class="metric"><div class="metric-val">' + linesScanned + '</div><div class="metric-label">Lines</div></div>';
             html += '<div class="metric"><div class="metric-val">' + rulesChecked + '</div><div class="metric-label">Rules</div></div>';
             html += '<div class="metric"><div class="metric-val">' + elapsedMs + 'ms</div><div class="metric-label">Time</div></div>';
-            html += '<div class="metric"><div class="metric-val">' + new Set(findings.map(function(f){return f.rule_id})).size + '</div><div class="metric-label">Unique</div></div>';
+            html += '<div class="metric"><div class="metric-val">' + new Set(findings.map(function (f) { return f.rule_id })).size + '</div><div class="metric-label">Unique</div></div>';
             html += '</div>';
 
             panel.innerHTML = html;

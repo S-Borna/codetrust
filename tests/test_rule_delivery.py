@@ -125,7 +125,7 @@ class TestRuleSigning:
         bundle = build_signed_bundle(
             [{"id": "test", "severity": Severity.WARN, "message": "x", "pattern": "x"}],
             secret="test_secret",
-            version="2.6.0",
+            version="2.6.1",
         )
         assert _verify_rules_signature(bundle, "test_secret")
 
@@ -134,7 +134,7 @@ class TestRuleSigning:
         bundle = build_signed_bundle(
             [{"id": "test", "severity": Severity.WARN, "message": "x", "pattern": "x"}],
             secret="test_secret",
-            version="2.6.0",
+            version="2.6.1",
         )
         # Tamper with the rules
         bundle.rules.append({"id": "injected", "severity": "WARN"})
@@ -145,7 +145,7 @@ class TestRuleSigning:
         bundle = build_signed_bundle(
             [{"id": "test", "severity": Severity.WARN, "message": "x", "pattern": "x"}],
             secret="correct_secret",
-            version="2.6.0",
+            version="2.6.1",
         )
         assert not _verify_rules_signature(bundle, "wrong_secret")
 
@@ -159,25 +159,25 @@ class TestBuildSignedBundle:
             {"id": "r1", "severity": Severity.WARN, "message": "x", "pattern": "x"},
             {"id": "r2", "severity": Severity.BLOCK, "message": "y", "pattern": "y"},
         ]
-        bundle = build_signed_bundle(rules, "secret", "2.6.0")
+        bundle = build_signed_bundle(rules, "secret", "2.6.1")
         assert bundle.rule_count == 2
         assert len(bundle.rules) == 2
 
     def test_bundle_serializes_severity(self) -> None:
         """Bundle should convert Severity enum to string."""
         rules = [{"id": "r1", "severity": Severity.BLOCK, "message": "x", "pattern": "x"}]
-        bundle = build_signed_bundle(rules, "secret", "2.6.0")
+        bundle = build_signed_bundle(rules, "secret", "2.6.1")
         assert bundle.rules[0]["severity"] == "BLOCK"
 
     def test_bundle_has_timestamps(self) -> None:
         """Bundle should have issued_at and expires_at."""
-        bundle = build_signed_bundle([], "secret", "2.6.0")
+        bundle = build_signed_bundle([], "secret", "2.6.1")
         assert bundle.issued_at
         assert bundle.expires_at
 
     def test_bundle_has_signature(self) -> None:
         """Bundle should have a non-empty signature."""
-        bundle = build_signed_bundle([], "secret", "2.6.0")
+        bundle = build_signed_bundle([], "secret", "2.6.1")
         assert len(bundle.signature) == 64  # SHA-256 hex
 
 
@@ -225,7 +225,7 @@ class TestFetchPremiumRules:
             issued_at="2026-02-20T00:00:00",
             expires_at="2099-01-01T00:00:00",
             rule_count=1,
-            version="2.6.0",
+            version="2.6.1",
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:

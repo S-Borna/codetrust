@@ -31,6 +31,7 @@ from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
 from src.gateway.audit import AuditEntry
 from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.middleware.metrics import MetricsMiddleware, metrics_endpoint
+from src.middleware.version_check import VersionEnforcementMiddleware
 from src.models.enums import Language, Severity, VerifyStatus
 from src.models.requests import (
     AddMemberRequest,
@@ -374,6 +375,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Client version enforcement — reject outdated installations
+app.add_middleware(
+    VersionEnforcementMiddleware,
+    min_version=settings.min_client_version,
 )
 
 # IP-based rate limiting - runs before auth, catches unauthenticated floods

@@ -142,7 +142,7 @@ class TestSendTelemetry:
             event_type="scan",
             source="cli",
             payload={"files": 1},
-            version="2.6.0",
+            version="2.6.1",
         )
 
         # Wait for background thread to complete
@@ -155,7 +155,7 @@ class TestSendTelemetry:
         body = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
         assert body["event_type"] == "scan"
         assert body["source"] == "cli"
-        assert body["version"] == "2.6.0"
+        assert body["version"] == "2.6.1"
 
     def test_send_failure_is_silent(
         self,

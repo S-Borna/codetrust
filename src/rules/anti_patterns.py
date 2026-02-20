@@ -1630,6 +1630,41 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg", ".hcl"],
     },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Internal diagnostic markers — detect CodeTrust internal
+    #  identifiers that should not appear in production code.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "ct_sig_borna_2026_alpha",
+        "pattern": r"\b__codetrust_internal_marker_alpha__\b",
+        "message": "Internal CodeTrust marker detected. This should not appear in production code.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "ct_sig_governance_w7x9",
+        "pattern": r"\bCODETRUST_INTERNAL_GOVERNANCE_W7X9\b",
+        "message": "Internal governance marker. Remove before deployment.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "ct_sig_drift_k3m2_sentinel",
+        "pattern": r"\b_ct_drift_sentinel_k3m2_check\b",
+        "message": "Trust drift sentinel marker. Remove before deployment.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "ct_sig_moat_v4_fingerprint",
+        "pattern": r"\bCT_MOAT_V4_FINGERPRINT_9F2A\b",
+        "message": "CodeTrust moat fingerprint detected. Remove before deployment.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "ct_sig_sborna_proprietary_q8",
+        "pattern": r"\b__ct_proprietary_q8_marker__\b",
+        "message": "Proprietary code marker. This identifier is registered to CodeTrust.",
+        "severity": Severity.INFO,
+    },
 ]
 
 # File-type sets for routing

@@ -87,6 +87,7 @@ def send_telemetry(
                     "version": version,
                     "payload": payload,
                 },
+                headers={"X-Client-Version": version},
                 timeout=TELEMETRY_TIMEOUT_SECONDS,
             )
         except Exception as exc:

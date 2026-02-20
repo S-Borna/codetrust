@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "2.6.0"
+    version: str = "2.6.1"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     license_key: str = ""  # Commercial license key for full feature access
     license_check_interval: int = 43_200  # 12 hours between re-validations
     license_offline_grace_days: int = 7  # Days allowed offline before lockout
+
+    # --- Client Version Enforcement ---
+    min_client_version: str = "2.6.1"  # Clients below this version get 426 Upgrade Required
 
     # --- Production Mode ---
     production_mode: bool = False  # True = hard-fail on invalid license (API server)

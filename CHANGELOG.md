@@ -5,6 +5,48 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - 2026-02-20
+
+### Added — Agent Optimizer, Integrity Verification, Version Enforcement
+
+#### Agent Optimizer (`codetrust setup`)
+
+- **New CLI command: `codetrust setup`** — configures AI agent optimization for
+  any project. Installs CLAUDE.md (Agent Operating System), SESSION_LOG.md
+  (session tracking), VS Code settings (instruction files), and .cursorrules.
+- **Templates:** `agent-claude.md`, `SESSION_LOG.md`, `vscode-settings.json`
+  added to template library.
+- **Differentiator:** No other product optimizes how AI coding agents work.
+
+#### IP Protection — Integrity Verification
+
+- **Integrity verification markers** embedded in the rule catalog for
+  distribution authenticity validation and IP protection.
+- Used by the post-publish verification pipeline to confirm wheel integrity.
+
+#### Client Version Enforcement
+
+- **`VersionEnforcementMiddleware`** — API middleware that rejects requests from
+  clients below `MIN_CLIENT_VERSION` with HTTP 426 Upgrade Required.
+- **`X-Client-Version` header** — sent by CLI telemetry client on all API calls.
+- **`CODETRUST_MIN_CLIENT_VERSION`** — configurable via environment variable.
+- **Exempt paths:** `/health`, `/v1/stats/public`, `/v1/license/validate`, etc.
+
+#### Post-Publish Verification
+
+- **`scripts/verify_publish.py`** — automated verification of published wheels.
+  Downloads from PyPI and validates: file count (≥50 .py), size (≥500 KB),
+  required entry points, integrity markers, size parity with local build.
+- Prevents the v2.6.0 empty wheel incident from recurring.
+
+### Fixed
+
+- **Empty wheel on PyPI (v2.6.0)** — v2.6.0 was published with 0 Python files
+  (11 KB). Root cause: build artifact issue. v2.6.1 verified locally with 55+
+  Python files (977+ KB).
+
+---
+
 ## [2.6.0] - 2026-02-20
 
 ### Added — IP Protection & Security Hardening
@@ -179,4 +221,4 @@ CodeTrust now actively monitors injected governance files for disruptions after 
 
 For release notes prior to v2.5.0, see the [full git history](https://github.com/S-Borna/codetrust/commits/main) or run `git log --oneline` locally.
 
-**Current version: 2.6.0** — install via `pip install codetrust` or the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust).
+**Current version: 2.6.1** — install via `pip install codetrust` or the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust).

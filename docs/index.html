@@ -67,6 +67,7 @@
         "featureList": [
             "AI Governance Gateway — 76 real-time interception rules",
             "Hallucination Detection — live registry verification against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist",
+            "Signature Validation — 33 modules, 209 functions with min/max argument enforcement",
             "Trust Score — quantified code safety with drift tracking",
             "280 security rules across 10 enforcement layers",
             "CVE/vulnerability scanning",
@@ -2679,10 +2680,12 @@
                 <h3>Hallucination Detection</h3>
                 <p>Extracts imports from source files and verifies every package against live PyPI, npm, crates.io, Go
                     proxy, Maven, NuGet, RubyGems, and Packagist registries.
-                    Catches packages that <strong>don't exist</strong> &mdash; with exact file and line number.</p>
+                    Catches packages that <strong>don't exist</strong> &mdash; with exact file and line number.
+                    Signature validation checks function calls against a curated database of <strong>33 modules, 209
+                        functions</strong> with min/max argument enforcement.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">12</div>
-                    <span class="t-dim">AI-specific hallucination rules</span>
+                    <div class="moat-stat-num">209</div>
+                    <span class="t-dim">function signatures validated</span>
                 </div>
             </div>
             <div class="moat-card">

@@ -980,6 +980,34 @@ _PY_OS: ModuleSig = ModuleSig(
             return_type="None",
             common_hallucinations=["force", "recursive"],
         ),
+        "getcwd": FunctionSig(
+            name="getcwd",
+            params=[],
+            min_args=0,
+            max_args=0,
+            return_type="str",
+        ),
+        "walk": FunctionSig(
+            name="walk",
+            params=[
+                ParamInfo(name="top", required=True),
+                ParamInfo(name="topdown"),
+                ParamInfo(name="onerror"),
+                ParamInfo(name="followlinks"),
+            ],
+            min_args=1,
+            return_type="Iterator",
+        ),
+        "rename": FunctionSig(
+            name="rename",
+            params=[
+                ParamInfo(name="src", required=True),
+                ParamInfo(name="dst", required=True),
+            ],
+            min_args=2,
+            max_args=2,
+            return_type="None",
+        ),
     },
     submodules={
         "path": {
@@ -991,6 +1019,9 @@ _PY_OS: ModuleSig = ModuleSig(
             "isdir": FunctionSig(name="isdir", params=[ParamInfo(name="path", required=True)], min_args=1, return_type="bool"),
             "abspath": FunctionSig(name="abspath", params=[ParamInfo(name="path", required=True)], min_args=1, return_type="str"),
             "splitext": FunctionSig(name="splitext", params=[ParamInfo(name="path", required=True)], min_args=1, return_type="tuple[str, str]"),
+            "normpath": FunctionSig(name="normpath", params=[ParamInfo(name="path", required=True)], min_args=1, return_type="str"),
+            "relpath": FunctionSig(name="relpath", params=[ParamInfo(name="path", required=True), ParamInfo(name="start")], min_args=1, max_args=2, return_type="str"),
+            "expanduser": FunctionSig(name="expanduser", params=[ParamInfo(name="path", required=True)], min_args=1, return_type="str"),
         },
     },
 )
@@ -1400,9 +1431,88 @@ _PY_DATETIME: ModuleSig = ModuleSig(
             max_args=2,
             return_type="timezone",
         ),
+        # Class methods on datetime.datetime — commonly accessed via
+        # ``from datetime import datetime; datetime.now()``
+        "now": FunctionSig(
+            name="now",
+            params=[ParamInfo(name="tz")],
+            min_args=0,
+            max_args=1,
+            return_type="datetime",
+            notes="Class method: datetime.datetime.now(tz=None).",
+        ),
+        "today": FunctionSig(
+            name="today",
+            params=[],
+            min_args=0,
+            max_args=0,
+            return_type="datetime",
+            notes="Class method: datetime.datetime.today(). Consider now() instead.",
+        ),
+        "utcnow": FunctionSig(
+            name="utcnow",
+            params=[],
+            min_args=0,
+            max_args=0,
+            return_type="datetime",
+            deprecated=True,
+            deprecated_since="3.12",
+            replacement="datetime.now(tz=timezone.utc)",
+            notes="Returns naive UTC datetime. Use now(tz=timezone.utc) instead.",
+        ),
+        "strptime": FunctionSig(
+            name="strptime",
+            params=[
+                ParamInfo(name="date_string", required=True),
+                ParamInfo(name="format", required=True),
+            ],
+            min_args=2,
+            max_args=2,
+            return_type="datetime",
+            notes="Class method: datetime.datetime.strptime(date_string, format).",
+        ),
+        "fromtimestamp": FunctionSig(
+            name="fromtimestamp",
+            params=[
+                ParamInfo(name="timestamp", required=True),
+                ParamInfo(name="tz"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="datetime",
+        ),
+        "fromisoformat": FunctionSig(
+            name="fromisoformat",
+            params=[
+                ParamInfo(name="date_string", required=True),
+            ],
+            min_args=1,
+            max_args=1,
+            return_type="datetime",
+        ),
+        "combine": FunctionSig(
+            name="combine",
+            params=[
+                ParamInfo(name="date", required=True),
+                ParamInfo(name="time", required=True),
+                ParamInfo(name="tzinfo"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="datetime",
+        ),
+        "strftime": FunctionSig(
+            name="strftime",
+            params=[
+                ParamInfo(name="format", required=True),
+            ],
+            min_args=1,
+            max_args=1,
+            return_type="str",
+            notes="Instance method also callable as datetime.strftime(dt, fmt).",
+        ),
     },
     common_hallucinated_functions=[
-        "now", "today", "utcnow", "strftime", "strptime",
         "parse", "from_timestamp", "from_string",
     ],
 )

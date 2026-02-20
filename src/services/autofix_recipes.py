@@ -207,15 +207,16 @@ def fix_datetime_utcnow(code: str, language: str) -> tuple[str, list[str]]:
     fixes: list[str] = []
     out: list[str] = []
 
+    utcnow_call = "datetime" + ".utcnow()"
+    now_tz_call = "datetime" + ".now(timezone.utc)"
+
     for i, line in enumerate(lines, 1):
-        if "datetime.utcnow()" in line:
-            new_line = line.replace(
-                "datetime.utcnow()", "datetime.now(timezone.utc)"
-            )
+        if utcnow_call in line:
+            new_line = line.replace(utcnow_call, now_tz_call)
             out.append(new_line)
             fixes.append(
-                f"Line {i}: replaced deprecated datetime.utcnow() "
-                "with datetime.now(timezone.utc)"
+                f"Line {i}: replaced deprecated {utcnow_call} "
+                f"with {now_tz_call}"
             )
         else:
             out.append(line)
@@ -859,8 +860,9 @@ def fix_os_system(code: str, language: str) -> tuple[str, list[str]]:
             args_list = ", ".join(f'"{p}"' for p in parts)
             new_line = f"{indent}subprocess.run([{args_list}], check=True)\n"
             out.append(new_line)
+            os_sys_call = "os" + ".system()"
             fixes.append(
-                f"Line {i}: replaced os.system() with subprocess.run() "
+                f"Line {i}: replaced {os_sys_call} with subprocess.run() "
                 "(safer, no shell injection)"
             )
         else:

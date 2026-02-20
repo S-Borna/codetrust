@@ -4,9 +4,9 @@
 
 Catches what no other tool catches:
     1. Functions that don't exist in a module (e.g. requests.get_async)
-    2. Wrong parameter names (e.g. requests.get(body=...))
+    2. Wrong parameter names (e.g. using 'body' instead of 'data')
     3. Deprecated parameters (e.g. pd.read_csv(date_parser=...))
-    4. Missing required arguments (e.g. requests.get() without url)
+    4. Missing required arguments (e.g. calling get() without url)
     5. Known AI hallucination patterns (e.g. Flask(debug=True))
 
 Architecture:
@@ -58,6 +58,11 @@ _PY_FROM_IMPORT_RE = re.compile(
     r"^\s*from\s+([\w.]+)\s+import\s+(.+)",
     re.MULTILINE,
 )
+# Multi-line parenthesized: from module import (\n  a,\n  b\n)
+_PY_FROM_IMPORT_PAREN_RE = re.compile(
+    r"^\s*from\s+([\w.]+)\s+import\s*\(([^)]+)\)",
+    re.MULTILINE | re.DOTALL,
+)
 
 _JS_IMPORT_RE = re.compile(
     r"""^\s*(?:import|const|let|var)\s+"""
@@ -67,9 +72,15 @@ _JS_IMPORT_RE = re.compile(
     re.MULTILINE,
 )
 
-# Function call extraction — module.function(args)
+# JS/TS: import * as X from 'module'
+_JS_STAR_IMPORT_RE = re.compile(
+    r"""^\s*import\s+\*\s+as\s+(\w+)\s+from\s+['"]([\w@/.:_-]+)['"]""",
+    re.MULTILINE,
+)
+
+# Function call extraction — module.function(args) or module.sub.function(args)
 _CALL_RE = re.compile(
-    r"\b(\w+)\.(\w+)\s*\(([^)]*)\)",
+    r"\b((?:\w+\.)*\w+)\.(\w+)\s*\(([^)]*)\)",
 )
 
 # Keyword argument extraction — name=value
@@ -128,39 +139,64 @@ def _resolve_python_imports(code: str) -> dict[str, ImportBinding]:
             module_name=module,
         )
 
+    # Try parenthesized multi-line imports first (more specific)
+    paren_modules: set[str] = set()
+    for match in _PY_FROM_IMPORT_PAREN_RE.finditer(code):
+        module = match.group(1)
+        paren_modules.add(module)
+        _parse_from_import_names(module, match.group(2), bindings)
+
+    # Then single-line imports (skip modules already handled by paren regex)
     for match in _PY_FROM_IMPORT_RE.finditer(code):
         module = match.group(1)
+        if module in paren_modules:
+            continue
         names_str = match.group(2).strip()
         if names_str.startswith("("):
+            # Partial paren match on single line — strip parens
             names_str = names_str.strip("()")
-        for part in names_str.split(","):
-            part = part.strip()
-            if not part or part.startswith("#"):
-                continue
-            as_match = re.match(r"(\w+)\s+as\s+(\w+)", part)
-            if as_match:
-                symbol = as_match.group(1)
-                alias = as_match.group(2)
-            else:
-                symbol = part.split()[0]
-                alias = symbol
-            bindings[alias] = ImportBinding(
-                local_name=alias,
-                module_name=module,
-                symbol=symbol,
-            )
+        _parse_from_import_names(module, names_str, bindings)
 
     return bindings
+
+
+def _parse_from_import_names(
+    module: str,
+    names_str: str,
+    bindings: dict[str, ImportBinding],
+) -> None:
+    """Parse comma-separated import names into bindings.
+
+    Handles 'Symbol', 'Symbol as Alias', and inline comments.
+    """
+    for part in names_str.split(","):
+        part = part.strip()
+        if not part or part.startswith("#"):
+            continue
+        # Strip inline comments
+        if "#" in part:
+            part = part[:part.index("#")].strip()
+        if not part:
+            continue
+        as_match = re.match(r"(\w+)\s+as\s+(\w+)", part)
+        if as_match:
+            symbol = as_match.group(1)
+            alias = as_match.group(2)
+        else:
+            symbol = part.split()[0]
+            alias = symbol
+        bindings[alias] = ImportBinding(
+            local_name=alias,
+            module_name=module,
+            symbol=symbol,
+        )
 
 
 def _resolve_js_imports(code: str) -> dict[str, ImportBinding]:
     """Extract JavaScript/TypeScript import bindings.
 
-    Handles:
-        import express from 'express'
-        import { useState, useEffect } from 'react'
-        const axios = require('axios')
-        import * as fs from 'fs'
+    Handles default imports, named imports, require(),
+    and star imports (import * as X from 'module').
 
     Returns:
         Dict mapping local name -> ImportBinding.
@@ -196,11 +232,7 @@ def _resolve_js_imports(code: str) -> dict[str, ImportBinding]:
                 )
 
     # Handle: import * as X from 'module'
-    star_re = re.compile(
-        r"""^\s*import\s+\*\s+as\s+(\w+)\s+from\s+['"]([\w@/.:_-]+)['"]""",
-        re.MULTILINE,
-    )
-    for match in star_re.finditer(code):
+    for match in _JS_STAR_IMPORT_RE.finditer(code):
         alias = match.group(1)
         module = match.group(2)
         bindings[alias] = ImportBinding(
@@ -235,6 +267,25 @@ def resolve_imports(
 #  CALL SITE EXTRACTION
 # ═══════════════════════════════════════════════════════════════════════
 
+def _is_kwarg_token(token: str) -> bool:
+    """Check if a token contains a keyword assignment (=) but not comparison operators."""
+    # Find all = characters and check they're not part of ==, !=, >=, <=
+    idx = 0
+    while idx < len(token):
+        pos = token.find("=", idx)
+        if pos == -1:
+            return False
+        # Check it's not ==, !=, >=, <=
+        if pos + 1 < len(token) and token[pos + 1] == "=":
+            idx = pos + 2
+            continue
+        if pos > 0 and token[pos - 1] in "!><":
+            idx = pos + 1
+            continue
+        return True
+    return False
+
+
 def _count_positional_args(args_str: str) -> int:
     """Count positional arguments in a call (before any kwargs)."""
     if not args_str.strip():
@@ -252,14 +303,14 @@ def _count_positional_args(args_str: str) -> int:
             current += char
         elif char == "," and depth == 0:
             token = current.strip()
-            if token and "=" not in token:
+            if token and not _is_kwarg_token(token):
                 count += 1
             current = ""
         else:
             current += char
 
     token = current.strip()
-    if token and "=" not in token:
+    if token and not _is_kwarg_token(token):
         count += 1
 
     return count
@@ -319,11 +370,18 @@ def extract_calls(
             continue
 
         for match in _CALL_RE.finditer(line):
-            module_alias = match.group(1)
+            chain = match.group(1)
             func_name = match.group(2)
             args_str = match.group(3)
 
-            if module_alias not in known_modules:
+            # For chained calls like os.path.join(), use the first
+            # segment as the module alias if it's a known module.
+            first_segment = chain.split(".")[0]
+            if chain in known_modules:
+                module_alias = chain
+            elif first_segment in known_modules:
+                module_alias = first_segment
+            else:
                 continue
 
             kwargs = _extract_kwargs(args_str)
@@ -688,7 +746,22 @@ def _handle_unknown_function(
             confidence=UNKNOWN_FUNC_CONFIDENCE,
         )]
 
-    return []
+    # No close match found — still report as INFO so it's not silently dropped
+    available = sorted(module_sig.functions.keys())
+    return [Finding(
+        rule_id=f"{RULE_PREFIX}_unknown_function",
+        severity=Severity.INFO,
+        message=(
+            f"'{binding.module_name}.{call.function_name}()' "
+            f"not found in signature database."
+        ),
+        file=filepath,
+        line=call.line,
+        suggestion=(
+            f"Available functions: {', '.join(available[:MAX_SUGGESTIONS])}"
+        ),
+        confidence=UNKNOWN_FUNC_CONFIDENCE,
+    )]
 
 
 def _find_closest_function(

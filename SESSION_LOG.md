@@ -20,7 +20,7 @@ GitHub Actions CI "CodeTrust Quality Gate" failed after v2.7.0 push with 28 BLOC
 
 2. **max_args=-1 bug (dozens of false WARNs)**: `_check_arg_count()` fired when `max_args=-1` (meaning unlimited) because `count > -1` is always true. **Fix**: Added `func_sig.max_args >= 0` guard.
 
-3. **autofix_recipes.py example code BLOCKs (9 BLOCKs)**: "before" patterns in docstrings/strings triggered anti-pattern rules in CLI scanner. **Fix**: 
+3. **autofix_recipes.py example code BLOCKs (9 BLOCKs)**: "before" patterns in docstrings/strings triggered anti-pattern rules in CLI scanner. **Fix**:
    - Added docstring tracking (`_is_docstring_boundary_cli()`) to CLI's `_match_line_rules()` and `_check_except_swallow()`
    - Used string splitting in autofix_recipes.py to avoid pattern matches
    - Fixed naive `stripped.count('"""') == 1` heuristic that falsely toggled on code referencing `"""` as a string literal

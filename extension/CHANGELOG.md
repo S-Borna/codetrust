@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Signature Validation** — curated function database (33 modules, 209 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
-- **45 API endpoints** (up from 44)
+- **46 API endpoints** (up from 44)
 - **280 scan rules** across 10 enforcement layers
 
 ### Platform (benefits all surfaces)

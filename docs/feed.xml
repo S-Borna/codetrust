@@ -28,7 +28,7 @@
         token revocation via Redis, input field max_length, extra=forbid on all models,
         path traversal protection, OIDC state validation, restricted CORS headers.</p>
         <p><strong>Signature Database:</strong> 33 modules, 209 functions. 12 new modules added.</p>
-        <p>1,898 tests passing. 280 rules. 45 API endpoints. 21 MCP tools.</p>
+        <p>1,898 tests passing. 280 rules. 46 API endpoints. 21 MCP tools.</p>
       ]]></description>
     </item>
 

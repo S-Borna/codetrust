@@ -19,7 +19,7 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 - **Universal IDE Injection** — governance rules injected into the global config of every AI IDE on your machine (Claude Code, Cursor, Windsurf, GitHub Copilot)
 - **Governance Disruption Monitoring** — file watchers detect overwritten rules; window-focus detects new IDEs
 - **4 Proxy MCP tools** — `codetrust_run_in_terminal`, `codetrust_create_file`, `codetrust_replace_string_in_file`, `codetrust_edit_notebook`
-- **21 MCP tools, 45 API endpoints, 280 rules****
+- **21 MCP tools, 46 API endpoints, 280 rules****
 
 ---
 
@@ -144,7 +144,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | **CLI** | `pip install codetrust` |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.7.0` |
 | **MCP Server** | 21 tools for Claude Code / Cursor / Windsurf |
-| **REST API** | 45 endpoints |
+| **REST API** | 46 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---

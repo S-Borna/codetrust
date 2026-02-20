@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_CALL_RE` updated for chained calls, unknown functions emit INFO not silent drop,
   `_PY_FROM_IMPORT_PAREN_RE` for multi-line imports.
 - All documentation numbers synced to authoritative metrics:
-  1,898 tests, 21 MCP tools (10 scan + 11 gateway), 45 API endpoints, 280 rules.
+  1,898 tests, 21 MCP tools (10 scan + 11 gateway), 46 API endpoints, 280 rules.
 - Gateway Server docs updated: 7 → 11 tools (added 4 proxy tools).
 - Removed aspirational compliance claims (SSO/OIDC, Sigstore, CycloneDX SBOM) from
   website — replaced with implemented features (Signature Validation).

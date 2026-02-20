@@ -4034,7 +4034,7 @@ def _get_setup_version() -> str:
         from importlib.metadata import version as _pkg_version
         return _pkg_version("codetrust")
     except Exception:
-        return "2.6.1"
+        return "2.7.0"
 
 
 def _setup_print_summary(installed_count: int) -> None:

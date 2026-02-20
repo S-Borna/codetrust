@@ -13,13 +13,13 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.6.1
+## What's New in 2.7.0
 
-- **Universal IDE Injection** — on activation, governance rules are written to the global config of every AI IDE installed on the machine (Claude Code, Cursor, Windsurf, GitHub Copilot). Zero configuration required.
-- **Governance Disruption Monitoring** — file watchers detect if an IDE update overwrites injected rules; window-focus check detects new IDEs installed after CodeTrust. Both surface a one-click "Re-inject Now" notification.
-- **4 Proxy MCP tools** — `codetrust_run_in_terminal`, `codetrust_create_file`, `codetrust_replace_string_in_file`, `codetrust_edit_notebook` intercept native tool calls at the gateway before execution
-- **Governance Status command** — `CodeTrust: Governance Status` shows current mode, injection state, and audit stats in the output channel
-- **21 MCP tools total**
+- **Signature Validation** — curated function database (33 modules, 209 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
+- **Universal IDE Injection** — governance rules injected into the global config of every AI IDE on your machine (Claude Code, Cursor, Windsurf, GitHub Copilot)
+- **Governance Disruption Monitoring** — file watchers detect overwritten rules; window-focus detects new IDEs
+- **4 Proxy MCP tools** — `codetrust_run_in_terminal`, `codetrust_create_file`, `codetrust_replace_string_in_file`, `codetrust_edit_notebook`
+- **21 MCP tools, 45 API endpoints, 280 rules****
 
 ---
 

@@ -107,6 +107,11 @@ from src.utils.parsers import (
 logger = structlog.get_logger()
 
 SECONDS_PER_HOUR: int = 3_600
+OIDC_STATE_PREFIX: str = "oidc:state:"
+OIDC_STATE_TTL_SECS: int = 600  # 10 minutes for OIDC flow
+
+MAX_WS_CLIENTS: int = 50
+WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 
 # --- Auth Context ---
 
@@ -150,6 +155,8 @@ async def _resolve_auth_from_bearer(
 ) -> AuthContext | None:
     """Resolve auth from a Bearer JWT token."""
     if auth_svc is None or not auth_svc.jwt_configured():
+        return None
+    if await auth_svc.is_token_revoked(token):
         return None
     decoded = auth_svc.decode_jwt(token)
     if decoded is None:
@@ -260,7 +267,7 @@ def _attach_core_services(
     app.state.sandbox = SandboxService()
     app.state.db = db
     app.state.billing = BillingService()
-    app.state.auth = AuthService(http_client)
+    app.state.auth = AuthService(http_client, cache=cache)
     app.state.rate_limiter = RateLimiter(db) if db is not None else None
 
 
@@ -337,6 +344,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("api_startup", version=settings.version)
 
     # License validation — enforce on API server startup
+    # --- P0: JWT secret enforcement in production mode ---
+    if settings.production_mode and len(settings.jwt_secret) < 32:
+        logger.critical(
+            "jwt_secret_too_weak",
+            message="FATAL: production_mode requires CODETRUST_JWT_SECRET >= 32 characters.",
+        )
+        import sys
+        sys.exit(1)
+
     from src.services.license_guard import validate_license
 
     license_status = await validate_license(settings.api_key)
@@ -375,8 +391,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.dashboard_url],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Client-Version"],
 )
 
 # Client version enforcement — reject outdated installations
@@ -966,16 +982,35 @@ async def _notify_ws_clients(request: Request, event_type: str) -> None:
 
 @app.websocket("/v1/stats/live")
 async def stats_websocket(websocket: WebSocket) -> None:
-    """Push live stats updates to connected clients."""
+    """Push live stats updates to connected clients.
+
+    Enforces MAX_WS_CLIENTS limit, per-IP cap (3), and idle timeout.
+    """
+    import asyncio
+
+    ws_clients: set[WebSocket] = getattr(app.state, "ws_clients", set())
+
+    # --- Connection limit ---
+    if len(ws_clients) >= MAX_WS_CLIENTS:
+        await websocket.close(code=1013, reason="Server at capacity")
+        return
 
     await websocket.accept()
-    ws_clients: set[WebSocket] = getattr(app.state, "ws_clients", set())
     ws_clients.add(websocket)
     app.state.ws_clients = ws_clients
     try:
         while True:
-            await websocket.receive_text()
+            try:
+                await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=WS_IDLE_TIMEOUT_SECS,
+                )
+            except TimeoutError:
+                await websocket.close(code=1000, reason="Idle timeout")
+                break
     except WebSocketDisconnect:
+        logger.debug("websocket_client_disconnected")
+    finally:
         ws_clients.discard(websocket)
 
 
@@ -1001,6 +1036,7 @@ async def governance_audit(
     hours: int = 24,
     verdict: str | None = None,
     limit: int = 100,
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict:
     """Query the governance audit log.
 
@@ -1959,10 +1995,14 @@ async def get_org(
     request: Request,
     auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
-    """Get organization details."""
+    """Get organization details. Requires membership."""
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
+
+    role = await team_svc.get_user_role(org_id, auth.user_id)
+    if role is None and not auth.is_admin:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
 
     org = await team_svc.get_org(org_id)
     if org is None:
@@ -1999,10 +2039,14 @@ async def list_members(
     request: Request,
     auth: AuthContext = Depends(get_auth_context),
 ) -> list[dict[str, object]]:
-    """List members of an organization."""
+    """List members of an organization. Requires membership."""
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
+
+    role = await team_svc.get_user_role(org_id, auth.user_id)
+    if role is None and not auth.is_admin:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
 
     members = await team_svc.list_members(org_id)
     return [
@@ -2086,10 +2130,14 @@ async def get_policy(
     request: Request,
     auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
-    """Get organization policy settings."""
+    """Get organization policy settings. Requires membership."""
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
+
+    role = await team_svc.get_user_role(org_id, auth.user_id)
+    if role is None and not auth.is_admin:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
 
     policy = await team_svc.get_org_policy(org_id)
     if policy is None:
@@ -2389,7 +2437,10 @@ async def refresh_token(
     auth_svc: AuthService = Depends(_get_auth),
     db: DatabaseService = Depends(_get_db),
 ) -> TokenResponse:
-    """Refresh an expiring JWT token."""
+    """Refresh an expiring JWT token. Revokes the old token."""
+    if await auth_svc.is_token_revoked(req.token):
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+
     decoded = auth_svc.decode_jwt(req.token)
     if decoded is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -2398,6 +2449,9 @@ async def refresh_token(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Revoke old token before issuing new one
+    await auth_svc.revoke_jwt(req.token)
+
     new_token = auth_svc.create_jwt(user.id, user.plan)
     return TokenResponse(
         token=new_token,
@@ -2405,6 +2459,25 @@ async def refresh_token(
         plan=user.plan,
         expires_in_minutes=settings.jwt_expire_minutes,
     )
+
+
+@app.post("/v1/auth/logout")
+async def logout(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, bool]:
+    """Revoke the current JWT token (logout)."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Bearer token required for logout")
+
+    token = auth_header[7:]
+    auth_svc = getattr(request.app.state, "auth", None)
+    if auth_svc is None:
+        raise HTTPException(status_code=503, detail="Auth service not available")
+
+    revoked = await auth_svc.revoke_jwt(token)
+    return {"revoked": revoked}
 
 
 # --- Dashboard: User Profile ---
@@ -2515,6 +2588,12 @@ async def oidc_login(
     import secrets as _secrets
 
     actual_state = state or _secrets.token_urlsafe(32)
+
+    # Store state server-side for CSRF validation
+    cache = getattr(request.app.state, "cache", None)
+    if cache is not None:
+        await cache.set(f"{OIDC_STATE_PREFIX}{actual_state}", "1", OIDC_STATE_TTL_SECS)
+
     url = svc.build_auth_url(state=actual_state)
     return {"auth_url": url, "state": actual_state}
 
@@ -2528,13 +2607,21 @@ async def oidc_callback(
     """Exchange an OIDC authorization code for a CodeTrust JWT.
 
     The OIDC IdP redirects back with a code; this endpoint:
-    1. Exchanges the code for tokens at the IdP
-    2. Extracts user info from the ID token
-    3. Creates or updates the user in the database
-    4. Returns a CodeTrust JWT for dashboard sessions
+    1. Validates the state parameter against server-side store
+    2. Exchanges the code for tokens at the IdP
+    3. Extracts user info from the ID token
+    4. Creates or updates the user in the database
+    5. Returns a CodeTrust JWT for dashboard sessions
     """
     if not settings.oidc_enabled:
         raise HTTPException(status_code=503, detail="OIDC not configured")
+
+    # Validate state parameter server-side (CSRF protection)
+    cache = getattr(request.app.state, "cache", None)
+    if cache is not None and req.state:
+        stored = await cache.get(f"{OIDC_STATE_PREFIX}{req.state}")
+        if stored is None:
+            raise HTTPException(status_code=400, detail="Invalid or expired OIDC state")
 
     http_client = request.app.state.http_client
     svc = await _init_oidc_service(http_client)

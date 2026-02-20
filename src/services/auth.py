@@ -3,6 +3,7 @@
 """Authentication service for GitHub OAuth and JWT token management."""
 
 import datetime
+import hashlib
 
 import httpx
 import jwt
@@ -12,13 +13,21 @@ from src.config import settings
 
 logger = structlog.get_logger()
 
+JWT_REVOKE_PREFIX: str = "jwt:revoked:"
+JWT_REVOKE_TTL_SECS: int = settings.jwt_expire_minutes * 60 + 60  # token TTL + margin
+
 
 class AuthService:
     """Handles GitHub OAuth flow and JWT token lifecycle."""
 
-    def __init__(self, http_client: httpx.AsyncClient) -> None:
-        """Initialize with shared HTTP client."""
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        cache: object | None = None,
+    ) -> None:
+        """Initialize with shared HTTP client and optional cache for revocation."""
         self._http = http_client
+        self._cache = cache  # CacheService instance (optional)
         self._configured = bool(
             settings.github_client_id and settings.github_client_secret,
         )
@@ -106,6 +115,36 @@ class AuthService:
         return jwt.encode(
             payload, settings.jwt_secret, algorithm=settings.jwt_algorithm,
         )
+
+    async def revoke_jwt(self, token: str) -> bool:
+        """Revoke a JWT token by adding its hash to the Redis blacklist.
+
+        Returns True if revoked successfully, False if cache unavailable.
+        """
+        if self._cache is None:
+            logger.warning("jwt_revoke_no_cache", message="Cannot revoke — no cache available")
+            return False
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        try:
+            await self._cache.set(
+                f"{JWT_REVOKE_PREFIX}{token_hash}", "1", JWT_REVOKE_TTL_SECS,
+            )
+            logger.info("jwt_revoked", token_hash=token_hash[:12])
+            return True
+        except Exception as exc:
+            logger.error("jwt_revoke_failed", error=str(exc))
+            return False
+
+    async def is_token_revoked(self, token: str) -> bool:
+        """Check if a JWT token has been revoked."""
+        if self._cache is None:
+            return False
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        try:
+            result = await self._cache.get(f"{JWT_REVOKE_PREFIX}{token_hash}")
+            return result is not None
+        except Exception:
+            return False
 
     def decode_jwt(self, token: str) -> dict[str, str] | None:
         """Decode and validate a JWT token.

@@ -23,7 +23,6 @@ import datetime
 import hashlib
 import hmac
 import json
-import time
 from pathlib import Path
 
 import httpx

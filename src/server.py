@@ -69,7 +69,7 @@ _license_status: object | None = None
 
 async def _get_license_status() -> object:
     """Lazily validate license on first MCP tool use."""
-    global _license_status  # noqa: PLW0603
+    global _license_status
     if _license_status is not None:
         return _license_status
 

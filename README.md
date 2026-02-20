@@ -15,6 +15,7 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
   <a href="https://github.com/marketplace/actions/codetrust-scan"><img src="https://img.shields.io/badge/GitHub_Action-available-333?style=flat-square" alt="GitHub Action"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
+  <a href="https://globaldex.ai/domain/codetrust.ai"><img src="https://globaldex.ai/api/v1/badge?domain=codetrust.ai" alt="GlobalDex Score" height="20"></a>
 </p>
 
 <p align="center">

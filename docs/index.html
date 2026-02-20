@@ -35,7 +35,8 @@
     <!-- WebMCP: Agent Tool Discovery -->
     <meta name="webmcp:version" content="1.0">
     <meta name="webmcp:name" content="CodeTrust">
-    <meta name="webmcp:description" content="AI governance enforcement platform — scan code, verify imports, detect hallucinated packages, enforce trust scores">
+    <meta name="webmcp:description"
+        content="AI governance enforcement platform — scan code, verify imports, detect hallucinated packages, enforce trust scores">
     <meta name="webmcp:endpoint" content="https://api.codetrust.ai/v1">
     <meta name="webmcp:transport" content="http">
     <meta name="webmcp:auth" content="api-key">
@@ -337,16 +338,16 @@
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
                 <strong>before</strong> they run — across IDE, CI, and agents.
             </p>
-            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="install-codetrust" data-webmcp-description="Install CodeTrust AI governance enforcement platform">
+            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="install-codetrust"
+                data-webmcp-description="Install CodeTrust AI governance enforcement platform">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
-                    class="btn btn-primary" target="_blank"
-                    data-webmcp-tool="install_vscode_extension"
+                    class="btn btn-primary" target="_blank" data-webmcp-tool="install_vscode_extension"
                     data-webmcp-param-id="SaidBorna.codetrust">Install for VS Code</a>
-                <a href="#pipeline" class="btn btn-ghost"
-                    data-webmcp-tool="navigate"
+                <a href="#pipeline" class="btn btn-ghost" data-webmcp-tool="navigate"
                     data-webmcp-param-section="pipeline">See how it works</a>
             </div>
-            <div class="hero-pip" data-webmcp-context="install-cli" data-webmcp-action="pip-install" data-webmcp-description="Install CodeTrust via pip">
+            <div class="hero-pip" data-webmcp-context="install-cli" data-webmcp-action="pip-install"
+                data-webmcp-description="Install CodeTrust via pip">
                 <code
                     onclick="navigator.clipboard.writeText('pip install codetrust');this.nextElementSibling.style.opacity='1';setTimeout(()=>this.nextElementSibling.style.opacity='0',1500)"
                     data-webmcp-tool="run_command"
@@ -1005,13 +1006,20 @@
         <p class="section-desc reveal">204 scan rules + 76 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
             risk &mdash; INFO improves</p>
 
-        <div class="rule-tabs reveal" id="ruleTabs" data-webmcp-context="rules" data-webmcp-action="filter-rules" data-webmcp-description="Filter CodeTrust enforcement rules by category">
-            <button class="rule-tab active" data-cat="all" data-webmcp-tool="filter_rules" data-webmcp-param-category="all">All</button>
-            <button class="rule-tab" data-cat="gateway" data-webmcp-tool="filter_rules" data-webmcp-param-category="gateway">Gateway</button>
-            <button class="rule-tab" data-cat="security" data-webmcp-tool="filter_rules" data-webmcp-param-category="security">Security</button>
-            <button class="rule-tab" data-cat="halluc" data-webmcp-tool="filter_rules" data-webmcp-param-category="hallucination">Hallucination</button>
-            <button class="rule-tab" data-cat="infra" data-webmcp-tool="filter_rules" data-webmcp-param-category="infra">Infra &amp; SQL</button>
-            <button class="rule-tab" data-cat="container" data-webmcp-tool="filter_rules" data-webmcp-param-category="container">Container</button>
+        <div class="rule-tabs reveal" id="ruleTabs" data-webmcp-context="rules" data-webmcp-action="filter-rules"
+            data-webmcp-description="Filter CodeTrust enforcement rules by category">
+            <button class="rule-tab active" data-cat="all" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="all">All</button>
+            <button class="rule-tab" data-cat="gateway" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="gateway">Gateway</button>
+            <button class="rule-tab" data-cat="security" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="security">Security</button>
+            <button class="rule-tab" data-cat="halluc" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="hallucination">Hallucination</button>
+            <button class="rule-tab" data-cat="infra" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="infra">Infra &amp; SQL</button>
+            <button class="rule-tab" data-cat="container" data-webmcp-tool="filter_rules"
+                data-webmcp-param-category="container">Container</button>
         </div>
 
         <div class="rule-grid reveal" id="ruleGrid">
@@ -1213,14 +1221,13 @@
         <div class="reveal">
             <h2>AI writes fast — CodeTrust ensures it's safe</h2>
             <p>280 rules. 10 enforcement layers. 45 API endpoints.<br>Five enterprise services.</p>
-            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="get-started" data-webmcp-description="Get started with CodeTrust">
+            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="get-started"
+                data-webmcp-description="Get started with CodeTrust">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
-                    class="btn btn-primary" target="_blank"
-                    data-webmcp-tool="install_vscode_extension"
+                    class="btn btn-primary" target="_blank" data-webmcp-tool="install_vscode_extension"
                     data-webmcp-param-id="SaidBorna.codetrust">Install for VS Code</a>
                 <a href="https://pypi.org/project/codetrust/" class="btn btn-ghost" target="_blank"
-                    data-webmcp-tool="run_command"
-                    data-webmcp-param-command="pip install codetrust">pip install
+                    data-webmcp-tool="run_command" data-webmcp-param-command="pip install codetrust">pip install
                     codetrust</a>
             </div>
         </div>

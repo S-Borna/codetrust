@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.6.0</code> &middot; <code>1699 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.6.0</code> &middot; <code>1754 tests</code> &middot; <code>275 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -614,7 +614,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1699 tests
+pytest                     # 1754 tests
 ruff check .               # zero warnings
 ```
 

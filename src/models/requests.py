@@ -79,6 +79,16 @@ class SandboxRequest(BaseModel):
     filename: str = Field(default="untitled")
 
 
+class SignatureScanRequest(BaseModel):
+    """Request for function signature validation (hallucination detection)."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=0, max_length=500_000)
+    filename: str = Field(default="untitled")
+    language: Language = Field(..., strict=False, description="Language for signature lookup")
+
+
 class DeepScanRequest(BaseModel):
     """Request for full deep scan (all layers)."""
 
@@ -88,6 +98,7 @@ class DeepScanRequest(BaseModel):
     filename: str = Field(default="untitled")
     language: Language | None = Field(default=None, strict=False)
     verify_imports: bool = Field(default=True)
+    verify_signatures: bool = Field(default=True)
     verify_docker: bool = Field(default=False)
     sandbox_run: bool = Field(default=False)
     dockerfile_content: str = Field(default="")

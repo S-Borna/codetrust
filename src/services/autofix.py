@@ -197,6 +197,13 @@ FIX_RECIPES: list[tuple[str, object]] = [
     ("hardcoded_secrets", fix_hardcoded_secrets),
 ]
 
+# Register extended recipes (17 additional rules)
+try:
+    from src.services.autofix_recipes import EXTENDED_RECIPES
+    FIX_RECIPES.extend(EXTENDED_RECIPES)
+except ImportError:
+    pass  # Extended recipes module not available
+
 
 class AutoFixService:
     """Applies autofix recipes and optionally creates GitHub PRs.

@@ -2951,6 +2951,122 @@ def _scan_verify_imports(
     return all_findings, hallucinations_found
 
 
+# Extension-to-language mapping for signature validation
+_SIG_EXT_LANG: dict[str, str] = {
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".jsx": "javascript",
+}
+
+
+def _scan_collect_source_files(
+    targets: list[str],
+) -> list[tuple[str, str]]:
+    """Collect source files with language info for signature validation.
+
+    Returns list of (filepath, language) tuples for supported languages.
+    """
+    result: list[tuple[str, str]] = []
+    skip_dirs = {
+        ".git", ".venv", "venv", "node_modules", "__pycache__",
+        "dist", "build", ".next", ".open-next", ".turbo",
+        ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+        "coverage", "out", ".cache", "test", "__tests__",
+    }
+    for target in targets:
+        p = Path(target)
+        if p.is_file():
+            ext = p.suffix.lower()
+            lang = _SIG_EXT_LANG.get(ext, "")
+            if lang:
+                result.append((str(p), lang))
+        elif p.is_dir():
+            for root, dirs, files in os.walk(p):
+                dirs[:] = [d for d in dirs if d not in skip_dirs]
+                for fname in files:
+                    ext = Path(fname).suffix.lower()
+                    lang = _SIG_EXT_LANG.get(ext, "")
+                    if lang:
+                        fpath = os.path.join(root, fname)
+                        basename = os.path.basename(fname).lower()
+                        if not _is_test_file(basename):
+                            result.append((fpath, lang))
+    return result
+
+
+def _scan_validate_signatures(
+    targets: list[str],
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    *,
+    machine_output: bool,
+) -> list[dict[str, str | int]]:
+    """Run function signature validation on scanned files.
+
+    Detects AI-hallucinated functions, wrong parameters, and deprecated API
+    usage by checking calls against a curated signature database.
+    """
+    if getattr(args, "no_verify_signatures", False):
+        return all_findings
+
+    try:
+        from src.services.signature_validator import validate_signatures
+
+        source_files = _scan_collect_source_files(targets)
+        if not source_files:
+            return all_findings
+
+        if not machine_output:
+            _echo(
+                f"  {color('🔬 Validating function signatures...', BLUE)}"
+                f" ({len(source_files)} file(s))"
+            )
+
+        sig_findings_total = 0
+        hallucinations_caught = 0
+
+        for fpath, lang in source_files:
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    code = f.read()
+                findings = validate_signatures(code, lang, fpath)
+                for finding in findings:
+                    all_findings.append({
+                        "rule_id": finding.rule_id,
+                        "severity": finding.severity.value
+                        if hasattr(finding.severity, "value")
+                        else str(finding.severity),
+                        "message": finding.message,
+                        "file": fpath,
+                        "line": finding.line,
+                        "suggestion": finding.suggestion,
+                    })
+                    sig_findings_total += 1
+                    if "hallucinated" in finding.rule_id:
+                        hallucinations_caught += 1
+            except OSError:
+                continue
+
+        if not machine_output:
+            if sig_findings_total:
+                _echo(
+                    f"  {color(f'   Found {sig_findings_total} signature issue(s)', RED)}"
+                    f" ({hallucinations_caught} hallucination(s))\n"
+                )
+            else:
+                _echo(f"  {color('   All signatures verified ✓', GREEN)}\n")
+
+    except Exception as exc:
+        logger.debug(
+            "signature_validation_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    return all_findings
+
+
 def _scan_post_process(
     all_findings: list[dict[str, str | int]],
     args: argparse.Namespace,
@@ -3228,6 +3344,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
         all_findings, files_scanned = _scan_direct_collect(targets)
 
     all_findings, hallucinations = _scan_verify_imports(
+        targets, all_findings, args, machine_output=machine_output,
+    )
+
+    all_findings = _scan_validate_signatures(
         targets, all_findings, args, machine_output=machine_output,
     )
 
@@ -4005,6 +4125,10 @@ def _add_scan_subparser(
     scan_parser.add_argument(
         "--no-verify-imports", action="store_true",
         help="Skip live registry verification of imports",
+    )
+    scan_parser.add_argument(
+        "--no-verify-signatures", action="store_true",
+        help="Skip function signature validation (hallucination detection)",
     )
     scan_parser.add_argument(
         "--changed-only", action="store_true",

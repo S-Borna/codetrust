@@ -102,6 +102,20 @@ class AstScanResponse(BaseModel):
     verdict: str  # "PASS", "WARN", "BLOCK"
 
 
+class SignatureScanResponse(BaseModel):
+    """Response for function signature validation."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_findings: int
+    blocks: int
+    warnings: int
+    infos: int
+    hallucinations_caught: int
+    findings: list[Finding]
+    verdict: str  # "PASS", "WARN", "BLOCK"
+
+
 class SandboxResponse(BaseModel):
     """Response for sandbox code execution."""
 
@@ -122,6 +136,7 @@ class DeepScanResponse(BaseModel):
 
     static_scan: StaticScanResponse
     ast_scan: AstScanResponse | None = None
+    signature_validation: SignatureScanResponse | None = None
     sandbox_result: SandboxResponse | None = None
     import_verification: VerifyImportsResponse | None = None
     docker_verification: VerifyDockerResponse | None = None

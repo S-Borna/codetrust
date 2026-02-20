@@ -70,6 +70,8 @@ $ codetrust scan app.py
 
 CodeTrust also includes static hallucination rules that detect fabricated methods, config options, CLI flags, API endpoints, environment variables, and placeholder URLs — without network access.
 
+**Signature Validation** goes deeper: a curated database of 33 modules and 209 functions validates call signatures with min/max argument enforcement. When AI writes `os.path.join("a")` (too few args) or `hashlib.sha256("a", "b", "c")` (too many), CodeTrust catches it at scan time.
+
 ### Moat 3: Trust Score & Drift Tracking
 
 A quantified safety metric that tracks your codebase over time. Not a snapshot — a trend.

@@ -33,10 +33,10 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC3.1 | Risk identification | 199 scan rules covering anti-patterns, hallucinations | ✅ |
+| CC3.1 | Risk identification | 280 scan rules covering anti-patterns, hallucinations | ✅ |
 | CC3.2 | Fraud risk | Config hallucination detection (5 rules), phantom import detection | ✅ |
 | CC3.3 | Change impact assessment | AST analysis, deep scan combining 5 verification layers | ✅ |
-| CC3.4 | Risk from changes | Dependabot automated dependency updates, SBOM generation | ✅ |
+| CC3.4 | Risk from changes | Dependabot automated dependency updates, SBOM generation (planned) | 📋 |
 
 ## CC4 — Monitoring Activities
 
@@ -80,7 +80,7 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 | Criteria | Control | CodeTrust Feature | Status |
 |----------|---------|-------------------|--------|
-| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 1,665 tests | ✅ |
+| CC8.1 | Infrastructure/software changes | CI/CD pipeline (GitHub Actions), 1,898 tests | ✅ |
 | CC8.2 | Assessment before deployment | 76% code coverage threshold, automated lint checks | ✅ |
 
 ## CC9 — Risk Mitigation
@@ -158,10 +158,10 @@ This document maps CodeTrust's security, availability, processing integrity, con
 
 For SOC 2 Type II evidence, the following artifacts are available:
 
-1. **Test Suite**: 1,665 Python tests + dashboard tests → `pytest --tb=short`
+1. **Test Suite**: 1,898 Python tests + dashboard tests → `pytest --tb=short`
 2. **Coverage Report**: Code coverage → `pytest --cov=src`
 3. **CI Pipeline**: `.github/workflows/ci.yml` — automated on every push
-4. **SBOM**: CycloneDX SBOM generated in CI and attached to releases
+4. **SBOM**: CycloneDX SBOM generation planned for future release
 5. **Dependency Scanning**: Dependabot configured for Python and npm
 6. **Security Policy**: `SECURITY.md` — responsible disclosure process
 7. **Architecture**: README.md with Mermaid architecture diagrams

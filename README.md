@@ -533,8 +533,8 @@ content_rules:
 | **SSO** | Azure AD, Okta, Auth0, Google, Keycloak |
 | **GDPR** | Data export (Art. 15) and right to erasure (Art. 17) |
 | **SIEM export** | CEF, LEEF, Syslog, ECS JSON |
-| **SBOM** | CycloneDX generated in CI |
-| **Signed releases** | Sigstore signing of distributions |
+| **SBOM** | CycloneDX generation (planned) |
+| **Signed releases** | Sigstore signing (planned) |
 
 ---
 

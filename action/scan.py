@@ -250,8 +250,22 @@ def main() -> int:
     files = [f for f in files if Path(f).suffix in source_exts and Path(f).exists()]
 
     # Exclude test files from BLOCK enforcement (they intentionally contain anti-patterns)
-    scan_files = [f for f in files if not Path(f).name.startswith("test_")]
-    test_files = [f for f in files if Path(f).name.startswith("test_")]
+    def _is_test_file(filepath: str) -> bool:
+        """Check if a file is a test file by name or path."""
+        name = Path(filepath).name
+        parts = Path(filepath).parts
+        return (
+            name.startswith("test_")
+            or name.endswith(".test.ts")
+            or name.endswith(".test.js")
+            or name.endswith(".spec.ts")
+            or name.endswith(".spec.js")
+            or "test" in parts
+            or "__tests__" in parts
+        )
+
+    scan_files = [f for f in files if not _is_test_file(f)]
+    test_files = [f for f in files if _is_test_file(f)]
 
     if not scan_files and not test_files:
         print("No source files changed — skipping scan.")

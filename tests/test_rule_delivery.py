@@ -25,7 +25,6 @@ from src.services.rule_delivery import (
     merge_rules,
 )
 
-
 # --- Sample rules for testing ---
 
 SAMPLE_RULES: list[dict[str, object]] = [

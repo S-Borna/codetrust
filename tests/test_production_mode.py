@@ -31,7 +31,7 @@ async def test_production_mode_exits_on_invalid_license() -> None:
         mock_settings.api_key = "invalid_key"
         mock_settings.version = "2.6.0"
 
-        from src.api import lifespan, app
+        from src.api import app, lifespan
 
         async with lifespan(app):
             pass

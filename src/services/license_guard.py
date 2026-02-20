@@ -367,7 +367,7 @@ async def periodic_license_check(license_key: str) -> LicenseStatus | None:
 
     Returns new status only if re-validation was needed and performed.
     """
-    global _last_check_time  # noqa: PLW0603
+    global _last_check_time
 
     now = time.time()
     if now - _last_check_time < LICENSE_CHECK_INTERVAL_SECONDS:

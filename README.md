@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.6.1</code> &middot; <code>1896 tests</code> &middot; <code>280 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.7.0</code> &middot; <code>1898 tests</code> &middot; <code>280 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 44 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,896 tests.
+**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 45 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,898 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -205,9 +205,9 @@ codetrust scan .
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.6.1` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.7.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 21 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 44 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **REST API** | 45 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 
@@ -307,7 +307,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.6.1
+      - uses: S-Borna/codetrust@v2.7.0
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -340,7 +340,7 @@ CodeTrust ships two MCP servers for different purposes:
 | Server | Command | Purpose | Tools |
 |--------|---------|---------|-------|
 | **Scan Server** | `codetrust-mcp` | Code scanning, import verification, SARIF export | 10 tools |
-| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 7 tools |
+| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 11 tools |
 
 **Use both for full coverage.** The Scan Server gives AI agents code analysis capabilities. The Gateway Server intercepts and validates every command, file write, and package install the agent attempts.
 
@@ -350,7 +350,7 @@ CodeTrust ships two MCP servers for different purposes:
 
 ### Gateway Server tools
 
-`codetrust_validate_command` · `codetrust_validate_file_write` · `codetrust_validate_file_delete` · `codetrust_validate_package` · `codetrust_governance_status` · `codetrust_audit_history` · `codetrust_list_gateway_rules`
+`codetrust_validate_command` · `codetrust_validate_file_write` · `codetrust_validate_file_delete` · `codetrust_validate_package` · `codetrust_governance_status` · `codetrust_audit_history` · `codetrust_list_gateway_rules` · `codetrust_run_in_terminal` · `codetrust_create_file` · `codetrust_replace_string_in_file` · `codetrust_edit_notebook`
 
 ### Setup: Claude Desktop / Claude Code
 
@@ -603,7 +603,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.6.1` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.7.0` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
@@ -614,7 +614,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1896 tests
+pytest                     # 1898 tests
 ruff check .               # zero warnings
 ```
 

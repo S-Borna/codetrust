@@ -1970,7 +1970,7 @@ _JS_REACT: ModuleSig = ModuleSig(
     common_hallucinated_functions=[
         "render", "mount", "createComponent",
         "useAsync", "useQuery", "useFetch",
-        "useStore", "useDispatch", "useSelector",
+        "useStore",
     ],
 )
 

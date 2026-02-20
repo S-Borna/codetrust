@@ -13,6 +13,7 @@ Returns: (fixed_code, list_of_human_readable_descriptions)
 from __future__ import annotations
 
 import re
+import shlex
 from collections.abc import Callable
 
 # Type alias for recipe functions
@@ -73,20 +74,63 @@ def fix_console_log(code: str, language: str) -> tuple[str, list[str]]:
 #  RECIPE: mutable_default → None + runtime init
 # ═══════════════════════════════════════════════════════════════════════
 
-_MUTABLE_DEFAULT_RE = re.compile(
-    r"^(\s*)def\s+(\w+)\s*\(([^)]*?)"
-    r"(\w+)\s*:\s*(?:list|dict|set|List|Dict|Set)\s*=\s*(\[\]|\{\}|set\(\))"
-    r"([^)]*)\)\s*:",
-    re.MULTILINE,
+# Per-param mutable default pattern: name: type = mutable_value
+_MUTABLE_PARAM_RE = re.compile(
+    r"(\w+)\s*:\s*(list|dict|set|List|Dict|Set)\s*=\s*(\[\]|\{\}|set\(\))",
 )
+
+_DEF_LINE_RE = re.compile(r"^(\s*)def\s+\w+\s*\(", re.MULTILINE)
+
+
+def _replace_mutable_params(
+    line: str,
+) -> tuple[str, list[tuple[str, str, str]]]:
+    """Replace all mutable default params on a single def line.
+
+    Returns the fixed line and a list of (param_name, type_hint, mutable_val) tuples.
+    """
+    replaced: list[tuple[str, str, str]] = []
+    for m in _MUTABLE_PARAM_RE.finditer(line):
+        param_name = m.group(1)
+        type_hint = m.group(2)
+        mutable_val = m.group(3)
+        old_fragment = f"{param_name}: {type_hint} = {mutable_val}"
+        new_fragment = f"{param_name}: {type_hint} | None = None"
+        line = line.replace(old_fragment, new_fragment, 1)
+        replaced.append((param_name, type_hint, mutable_val))
+    return line, replaced
+
+
+def _skip_docstring(lines: list[str], start: int) -> tuple[list[str], int]:
+    """Skip past a docstring starting at `start`, return lines and next index."""
+    if start >= len(lines):
+        return [], start
+    first = lines[start]
+    if '"""' not in first:
+        return [], start
+
+    # Single-line docstring: opening and closing on same line
+    count = first.count('"""')
+    if count >= 2:
+        return [first], start + 1
+
+    # Multi-line docstring
+    collected = [first]
+    j = start + 1
+    while j < len(lines):
+        collected.append(lines[j])
+        if '"""' in lines[j]:
+            j += 1
+            break
+        j += 1
+    return collected, j
 
 
 def fix_mutable_default(code: str, language: str) -> tuple[str, list[str]]:
     """Replace mutable default arguments with None pattern.
 
-    Replaces:  def foo(items: list = [])
-    With:      def foo(items: list | None = None)
-    And adds:  if items is None: items = []
+    Handles ALL mutable defaults per function, not just the first.
+    Properly skips single-line and multi-line docstrings.
 
     Args:
         code: Source code content.
@@ -105,66 +149,33 @@ def fix_mutable_default(code: str, language: str) -> tuple[str, list[str]]:
 
     while i < len(lines):
         line = lines[i]
-        m = _MUTABLE_DEFAULT_RE.match(line)
-        if m:
-            indent = m.group(1)
-            param_name = m.group(4)
-            mutable_val = m.group(5)
+        if not _DEF_LINE_RE.match(line) or not _MUTABLE_PARAM_RE.search(line):
+            result_lines.append(line)
+            i += 1
+            continue
 
-            # Replace the mutable default with None
-            new_line = line.replace(
-                f"{param_name}: list = {mutable_val}",
-                f"{param_name}: list | None = None",
-            ).replace(
-                f"{param_name}: dict = {mutable_val}",
-                f"{param_name}: dict | None = None",
-            ).replace(
-                f"{param_name}: set = {mutable_val}",
-                f"{param_name}: set | None = None",
-            ).replace(
-                f"{param_name}: List = {mutable_val}",
-                f"{param_name}: List | None = None",
-            ).replace(
-                f"{param_name}: Dict = {mutable_val}",
-                f"{param_name}: Dict | None = None",
-            ).replace(
-                f"{param_name}: Set = {mutable_val}",
-                f"{param_name}: Set | None = None",
-            )
-            result_lines.append(new_line)
+        indent_match = _DEF_LINE_RE.match(line)
+        indent = indent_match.group(1) if indent_match else ""
+        new_line, replaced = _replace_mutable_params(line)
+        result_lines.append(new_line)
 
-            # Find the indentation of the function body
-            body_indent = indent + "    "
+        if not replaced:
+            i += 1
+            continue
 
-            # Check if next line is a docstring, skip past it
-            j = i + 1
-            docstring_lines: list[str] = []
-            if j < len(lines) and '"""' in lines[j]:
-                while j < len(lines):
-                    docstring_lines.append(lines[j])
-                    if j > i + 1 and '"""' in lines[j]:
-                        j += 1
-                        break
-                    j += 1
+        body_indent = indent + "    "
+        docstring_lines, j = _skip_docstring(lines, i + 1)
+        result_lines.extend(docstring_lines)
 
-            result_lines.extend(docstring_lines)
-
-            # Insert the None check
-            guard_line = f"{body_indent}if {param_name} is None:\n"
-            init_line = f"{body_indent}    {param_name} = {mutable_val}\n"
-            result_lines.append(guard_line)
-            result_lines.append(init_line)
-
+        for param_name, _type_hint, mutable_val in replaced:
+            result_lines.append(f"{body_indent}if {param_name} is None:\n")
+            result_lines.append(f"{body_indent}    {param_name} = {mutable_val}\n")
             fixes.append(
                 f"Line {i + 1}: replaced mutable default '{mutable_val}' "
                 f"with None pattern for '{param_name}'"
             )
 
-            # Skip past docstring lines we already added
-            i = j if docstring_lines else i + 1
-        else:
-            result_lines.append(line)
-            i += 1
+        i = j if docstring_lines else i + 1
 
     return "".join(result_lines), fixes
 
@@ -666,6 +677,33 @@ _REQUESTS_NO_TIMEOUT_RE = re.compile(
 )
 
 
+def _inject_timeout_param(line: str) -> str:
+    """Inject timeout parameter into an HTTP call line.
+
+    Uses bracket-depth awareness to find the correct closing paren,
+    instead of naively assuming the line ends with ')'.
+    """
+    stripped = line.rstrip("\n")
+    # Find the last matching ')' at depth 0
+    depth = 0
+    last_close = -1
+    for idx, ch in enumerate(stripped):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                last_close = idx
+                break
+
+    if last_close > 0:
+        before = stripped[:last_close]
+        after = stripped[last_close + 1:]
+        return f"{before}, timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}){after}\n"
+    # Fallback: add FIXME comment
+    return stripped + f"  # FIXME: add timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}\n"
+
+
 def fix_connection_no_timeout(code: str, language: str) -> tuple[str, list[str]]:
     """Add timeout parameter to HTTP client calls missing one.
 
@@ -689,10 +727,7 @@ def fix_connection_no_timeout(code: str, language: str) -> tuple[str, list[str]]
         modified = False
         # Add timeout to httpx client creation
         if "httpx." in line and "Client(" in line and "timeout" not in line:
-            if line.rstrip().endswith(")"):
-                new_line = line.rstrip().rstrip(")") + f", timeout={DEFAULT_HTTP_TIMEOUT_SECONDS})\n"
-            else:
-                new_line = line.rstrip("\n") + f"  # FIXME: add timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}\n"
+            new_line = _inject_timeout_param(line)
             out.append(new_line)
             fixes.append(f"Line {i}: added timeout to httpx client")
             modified = True
@@ -700,10 +735,7 @@ def fix_connection_no_timeout(code: str, language: str) -> tuple[str, list[str]]
         if not modified and "requests." in line and "timeout" not in line:
             for method in ("get", "post", "put", "delete", "patch", "head"):
                 if f"requests.{method}(" in line:
-                    if line.rstrip().endswith(")"):
-                        new_line = line.rstrip().rstrip(")") + f", timeout={DEFAULT_HTTP_TIMEOUT_SECONDS})\n"
-                    else:
-                        new_line = line.rstrip("\n") + f"  # FIXME: add timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}\n"
+                    new_line = _inject_timeout_param(line)
                     out.append(new_line)
                     fixes.append(f"Line {i}: added timeout to requests.{method}()")
                     modified = True
@@ -823,7 +855,7 @@ def fix_os_system(code: str, language: str) -> tuple[str, list[str]]:
         if m:
             indent = m.group(1)
             cmd_str = m.group(3)
-            parts = cmd_str.split()
+            parts = shlex.split(cmd_str)
             args_list = ", ".join(f'"{p}"' for p in parts)
             new_line = f"{indent}subprocess.run([{args_list}], check=True)\n"
             out.append(new_line)

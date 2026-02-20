@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.6.1"
+    "version": "2.7.0"
   },
   "paths": {
     "/v1/status": {
@@ -353,6 +353,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AstScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/signatures": {
+      "post": {
+        "summary": "Signature Scan",
+        "description": "Validate function signatures against curated database.\n\nDetects AI-hallucinated functions, wrong parameters, deprecated\nAPI usage, and common AI mistakes in library calls.",
+        "operationId": "signature_scan_v1_scan_signatures_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignatureScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignatureScanResponse"
                 }
               }
             }
@@ -2117,6 +2161,11 @@
             "title": "Verify Imports",
             "default": true
           },
+          "verify_signatures": {
+            "type": "boolean",
+            "title": "Verify Signatures",
+            "default": true
+          },
           "verify_docker": {
             "type": "boolean",
             "title": "Verify Docker",
@@ -2154,6 +2203,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/AstScanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signature_validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignatureScanResponse"
               },
               {
                 "type": "null"
@@ -2714,6 +2773,79 @@
         ],
         "title": "Severity",
         "description": "Finding severity level."
+      },
+      "SignatureScanRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "untitled"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Language for signature lookup"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "language"
+        ],
+        "title": "SignatureScanRequest",
+        "description": "Request for function signature validation (hallucination detection)."
+      },
+      "SignatureScanResponse": {
+        "properties": {
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "blocks": {
+            "type": "integer",
+            "title": "Blocks"
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings"
+          },
+          "infos": {
+            "type": "integer",
+            "title": "Infos"
+          },
+          "hallucinations_caught": {
+            "type": "integer",
+            "title": "Hallucinations Caught"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_findings",
+          "blocks",
+          "warnings",
+          "infos",
+          "hallucinations_caught",
+          "findings",
+          "verdict"
+        ],
+        "title": "SignatureScanResponse",
+        "description": "Response for function signature validation."
       },
       "StaticScanRequest": {
         "properties": {

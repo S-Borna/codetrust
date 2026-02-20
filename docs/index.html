@@ -263,12 +263,15 @@
             </svg>
             <span class="code" style="margin-left:0.45rem">Code</span><span class="trust">Trust</span>
         </a>
-        <button class="mobile-toggle" onclick="document.querySelector('.topbar-nav').classList.toggle('open')"
-            aria-label="Menu">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Menu" aria-expanded="false">
+            <svg class="icon-menu" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                 <rect y="3" width="20" height="2" rx="1" />
                 <rect y="9" width="20" height="2" rx="1" />
                 <rect y="15" width="20" height="2" rx="1" />
+            </svg>
+            <svg class="icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none">
+                <line x1="4" y1="4" x2="16" y2="16" />
+                <line x1="16" y1="4" x2="4" y2="16" />
             </svg>
         </button>
         <nav class="topbar-nav">
@@ -570,7 +573,7 @@
                 configuration. AI agents that follow their system context use CodeTrust validation proactively. Any
                 that don&rsquo;t are caught by the pre-commit hook, the hard technical backstop.</p>
             <!-- Stats row: forced single line -->
-            <div style="display:flex;gap:3rem;align-items:flex-start;flex-wrap:nowrap;">
+            <div class="moat-stats-row">
                 <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
                     <div class="moat-stat-num" style="color:#818cf8;">4</div>
                     <span class="t-dim">IDEs covered automatically</span>
@@ -765,8 +768,7 @@
         <div class="narrative-grid reveal">
             <div class="narrative-left">
                 <div class="section-tag">The Problem</div>
-                <h2
-                    style="font-size: 2.4rem; font-weight: 700; letter-spacing: -0.03em; color: var(--white); margin-bottom: 1.2rem; white-space: nowrap;">
+                <h2 class="narrative-heading">
                     AI agents act autonomously.<br>Nobody checks what they do.</h2>
                 <p class="narrative-lead">
                     Your AI agent suggests a package import &mdash; it looks right, it compiles.
@@ -1271,6 +1273,33 @@
         const orb2 = document.getElementById('orb2');
         const orb3 = document.getElementById('orb3');
 
+        // --- Mobile navigation toggle ---
+        const mobileToggle = document.getElementById('mobileToggle');
+        const topbarNav = document.querySelector('.topbar-nav');
+        function setMobileNav(open) {
+            topbarNav.classList.toggle('open', open);
+            mobileToggle.setAttribute('aria-expanded', String(open));
+            mobileToggle.querySelector('.icon-menu').style.display = open ? 'none' : '';
+            mobileToggle.querySelector('.icon-close').style.display = open ? '' : 'none';
+            document.body.style.overflow = open ? 'hidden' : '';
+        }
+        mobileToggle.addEventListener('click', () => {
+            setMobileNav(!topbarNav.classList.contains('open'));
+        });
+        // Close on outside click / scroll
+        document.addEventListener('click', (e) => {
+            if (topbarNav.classList.contains('open') && !topbarNav.contains(e.target) && !mobileToggle.contains(e.target)) {
+                setMobileNav(false);
+            }
+        });
+        // Close on ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && topbarNav.classList.contains('open')) {
+                setMobileNav(false);
+                mobileToggle.focus();
+            }
+        });
+
         let scrollTicking = false;
         function updateScrollPolish() {
             const scrollTop = window.scrollY || 0;
@@ -1324,7 +1353,7 @@
                     const t = document.querySelector(href);
                     if (t) t.scrollIntoView({ behavior: 'smooth' });
                 }
-                document.querySelector('.topbar-nav').classList.remove('open');
+                setMobileNav(false);
             });
         });
 

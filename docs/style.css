@@ -2030,7 +2030,48 @@
             margin-top: 0.8rem;
         }
 
-        /* RESPONSIVE */
+        /* ============================================================
+           RESPONSIVE — Mobile-first media queries
+           ============================================================ */
+
+        /* --- Narrative heading (extracted from inline) --- */
+        .narrative-heading {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--white);
+            margin-bottom: 1.2rem;
+        }
+
+        /* --- Moat highlight stats row (extracted from inline) --- */
+        .moat-stats-row {
+            display: flex;
+            gap: 3rem;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        /* ---------- ≤1024px — Small laptops / landscape tablets ---------- */
+        @media (max-width: 1024px) {
+            .install-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .score-grid {
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+            }
+
+            .score-text h2 {
+                text-align: center;
+            }
+
+            .container h2 {
+                font-size: 2rem;
+            }
+        }
+
+        /* ---------- ≤850px — Tablets ---------- */
         @media (max-width: 850px) {
 
             .narrative-grid,
@@ -2042,6 +2083,11 @@
 
             .narrative-left {
                 position: static;
+            }
+
+            .narrative-heading {
+                font-size: 1.8rem;
+                white-space: normal;
             }
 
             .pipe-track::before {
@@ -2069,58 +2115,183 @@
                 grid-template-columns: 80px 20px 1fr 20px 100px;
                 font-size: 0.78rem;
             }
+
+            .hero-sub {
+                white-space: normal;
+            }
+
+            .section-desc {
+                white-space: normal;
+                max-width: 100%;
+            }
+
+            .container {
+                padding: 5rem clamp(1.2rem, 4vw, 3rem);
+            }
+
+            .container h2 {
+                font-size: 1.8rem;
+            }
+
+            .bottom-cta {
+                padding: 6rem 1.5rem 4rem;
+            }
+
+            .moat-highlight {
+                max-width: 100%;
+            }
+
+            .score-text h2 {
+                text-align: center;
+            }
+
+            .moat-stats-row {
+                gap: 2rem;
+                justify-content: center;
+            }
         }
 
+        /* ---------- ≤640px — Phones ---------- */
         @media (max-width: 640px) {
+
+            /* --- Mobile navigation --- */
+            .topbar {
+                padding: 0 1rem;
+            }
+
             .topbar-nav {
                 display: none;
-                position: absolute;
+                position: fixed;
                 top: 56px;
                 left: 0;
                 right: 0;
+                bottom: 0;
                 flex-direction: column;
-                background: rgba(5, 5, 7, 0.97);
+                background: rgba(5, 5, 7, 0.98);
                 backdrop-filter: blur(24px);
+                -webkit-backdrop-filter: blur(24px);
                 border-bottom: 1px solid var(--border);
-                padding: 1rem;
-                gap: 0.25rem;
+                padding: 1.5rem 1.5rem env(safe-area-inset-bottom, 1.5rem);
+                gap: 0.15rem;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                z-index: 999;
             }
 
             .topbar-nav.open {
                 display: flex;
             }
 
-            .mobile-toggle {
-                display: block;
-            }
-
-            .hero h1 {
-                font-size: 2.2rem;
-            }
-
-            .rule-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .arch-flow {
-                flex-direction: column;
+            .topbar-nav a {
+                padding: 0.85rem 1rem;
+                font-size: 1rem;
+                border-radius: 8px;
+                min-height: 48px;
+                display: flex;
                 align-items: center;
             }
 
-            .arch-arrow {
-                transform: rotate(90deg);
-                padding: 0.3rem 0;
+            .topbar-nav a:hover,
+            .topbar-nav a:active {
+                background: rgba(255, 255, 255, 0.06);
             }
 
-            .works-with {
-                gap: 1.2rem;
-                padding: 1.5rem 0.5rem 0.5rem;
+            .topbar-install {
+                margin-left: 0 !important;
+                margin-top: 0.5rem;
+                text-align: center;
+                justify-content: center;
+                min-height: 48px;
             }
 
-            .works-with-item {
-                font-size: 0.75rem;
+            .mobile-toggle {
+                display: block;
+                min-width: 44px;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
+            /* --- Hero --- */
+            .hero {
+                padding: 5.5rem 1.2rem 3rem;
+                min-height: auto;
+            }
+
+            .hero h1 {
+                font-size: 1.85rem;
+                line-height: 1.15;
+            }
+
+            .hero-sub {
+                font-size: 0.92rem;
+                white-space: normal;
+                line-height: 1.65;
+            }
+
+            .hero-logo {
+                gap: 0.8rem;
+                flex-direction: column;
+            }
+
+            .hero-logo svg {
+                width: 80px;
+            }
+
+            .hero-logo-text {
+                font-size: 2.8rem;
+                text-align: center;
+            }
+
+            .hero-version {
+                font-size: 0.68rem;
+                padding: 0.25rem 0.6rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+                gap: 0.75rem;
+                width: 100%;
+            }
+
+            .hero-actions .btn {
+                width: 100%;
+                justify-content: center;
+                min-height: 48px;
+                font-size: 0.95rem;
+            }
+
+            .hero-pip code {
+                font-size: 0.82rem;
+            }
+
+            .scroll-indicator {
+                margin-top: 1.8rem;
+            }
+
+            /* --- Sections --- */
+            .container {
+                padding: 4rem 1.2rem;
+            }
+
+            .container h2 {
+                font-size: 1.55rem;
+                line-height: 1.2;
+            }
+
+            .section-desc {
+                white-space: normal;
+                max-width: 100%;
+                font-size: 0.9rem;
+            }
+
+            .section-tag {
+                font-size: 0.68rem;
+            }
+
+            /* --- Live dashboard --- */
             .dash-grid {
                 grid-template-columns: 1fr;
             }
@@ -2132,6 +2303,8 @@
             .dash-source-bar {
                 flex-direction: column;
                 gap: 0.5rem;
+                align-items: flex-start;
+                padding: 1rem;
             }
 
             .dash-compact-bar {
@@ -2139,8 +2312,67 @@
                 gap: 0.5rem;
             }
 
-            .install-grid {
+            .dash-detail-row {
+                flex-wrap: wrap;
+                gap: 0.6rem;
+            }
+
+            /* --- Stats bar --- */
+            .stats-bar {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 2rem 1rem;
+            }
+
+            .stat-item {
+                padding: 0.6rem 1rem;
+            }
+
+            .stat-num {
+                font-size: 1.6rem;
+            }
+
+            /* --- Works with --- */
+            .works-with {
+                gap: 1rem;
+                padding: 1.5rem 0.5rem 0.5rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .works-with-item {
+                font-size: 0.75rem;
+            }
+
+            /* --- Moats --- */
+            .moats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .moat-card {
+                padding: 1.5rem;
+            }
+
+            .moat-highlight {
+                padding: 1.5rem;
+                max-width: 100%;
+            }
+
+            .moat-stats-row {
+                flex-direction: column;
+                gap: 1.5rem;
+                align-items: center;
+                text-align: center;
+            }
+
+            .moat-stats-row .moat-stat {
+                width: 100%;
+            }
+
+            /* --- Gateway --- */
+            .gateway-container {
+                padding: 1.5rem 1rem;
             }
 
             .gateway-row {
@@ -2159,12 +2391,306 @@
                 text-align: left;
             }
 
-            .section-desc {
-                white-space: normal;
-                max-width: 100%;
+            .gateway-story {
+                padding: 1rem;
             }
 
-            .moats-grid {
+            .gateway-story p {
+                font-size: 0.85rem;
+            }
+
+            /* --- Architecture --- */
+            .arch-flow {
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+            }
+
+            .arch-arrow {
+                transform: rotate(90deg);
+                padding: 0.3rem 0;
+            }
+
+            .arch-node {
+                width: 100%;
+                max-width: 200px;
+            }
+
+            /* --- Trust Score --- */
+            .score-visual {
+                padding: 1.5rem;
+            }
+
+            .score-circle {
+                width: 140px;
+                height: 140px;
+            }
+
+            .score-num {
+                font-size: 2.2rem;
+            }
+
+            .score-features li {
+                font-size: 0.85rem;
+            }
+
+            .trend-bars {
+                height: 48px;
+            }
+
+            /* --- Problem/narrative --- */
+            .narrative-heading {
+                font-size: 1.45rem;
+                white-space: normal;
+            }
+
+            .narrative-lead {
+                font-size: 0.95rem;
+            }
+
+            .problem-item {
+                padding: 1.2rem;
+            }
+
+            /* --- Terminal --- */
+            .terminal {
+                margin: 0 -0.2rem;
+                border-radius: 8px;
+            }
+
+            .terminal-body {
+                padding: 1rem;
+                font-size: 0.72rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* --- Rules --- */
+            .rule-grid {
                 grid-template-columns: 1fr;
             }
+
+            .rule-tabs {
+                gap: 0.2rem;
+            }
+
+            .rule-tab {
+                padding: 0.4rem 0.7rem;
+                font-size: 0.75rem;
+                min-height: 40px;
+            }
+
+            /* --- Languages --- */
+            .lang-chip {
+                font-size: 0.72rem;
+                padding: 0.35rem 0.7rem;
+            }
+
+            /* --- Install --- */
+            .install-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .install-card code {
+                font-size: 0.68rem;
+            }
+
+            /* --- Bottom CTA --- */
+            .bottom-cta {
+                padding: 5rem 1.2rem 3rem;
+            }
+
+            .bottom-cta h2 {
+                font-size: 1.85rem;
+            }
+
+            .bottom-cta .hero-actions {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .bottom-cta .hero-actions .btn {
+                width: 100%;
+                justify-content: center;
+                min-height: 48px;
+            }
+
+            /* --- Footer --- */
+            footer {
+                padding: 2rem 1.2rem;
+                text-align: center;
+            }
+
+            /* --- Floating nav --- */
+            .floating-nav {
+                right: 0.8rem;
+                bottom: 0.8rem;
+            }
+
+            .float-btn {
+                width: 40px;
+                height: 40px;
+            }
+
+            /* --- Enterprise grid override --- */
+            .container .moats-grid[style*="repeat(3"] {
+                grid-template-columns: 1fr !important;
+            }
+
+            .container .moats-grid[style*="repeat(2"] {
+                grid-template-columns: 1fr !important;
+                max-width: 100% !important;
+            }
+
+            /* --- Scan highlights --- */
+            .scan-highlights {
+                display: flex;
+                flex-direction: column;
+                gap: 0.3rem;
+                white-space: normal;
+            }
+
+            .scan-highlights span {
+                display: block;
+            }
+        }
+
+        /* ---------- ≤400px — Small phones ---------- */
+        @media (max-width: 400px) {
+            .hero h1 {
+                font-size: 1.55rem;
+            }
+
+            .hero-logo-text {
+                font-size: 2.2rem;
+            }
+
+            .container h2 {
+                font-size: 1.35rem;
+            }
+
+            .stat-num {
+                font-size: 1.4rem;
+            }
+
+            .dash-hero-num {
+                font-size: 1.7rem;
+            }
+
+            .bottom-cta h2 {
+                font-size: 1.5rem;
+            }
+
+            .score-circle {
+                width: 120px;
+                height: 120px;
+            }
+
+            .score-num {
+                font-size: 1.8rem;
+            }
+
+            .moat-stat-num {
+                font-size: 1.2rem;
+            }
+
+            .narrative-heading {
+                font-size: 1.25rem;
+            }
+
+            .hero-sub {
+                font-size: 0.85rem;
+            }
+
+            .hero-version {
+                font-size: 0.62rem;
+            }
+        }
+
+        /* ---------- Touch & interaction quality ---------- */
+        @media (hover: none) and (pointer: coarse) {
+            /* Disable hover effects that feel broken on touch */
+            .moat-card:hover,
+            .problem-item:hover,
+            .gateway-row:hover,
+            .install-card:hover,
+            .rule-card:hover,
+            .arch-node:hover,
+            .lang-chip:hover,
+            .stat-item:hover,
+            .dash-card:hover,
+            .score-visual:hover,
+            .terminal:hover,
+            .gateway-container:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
+            /* Ensure minimum 48px touch targets */
+            .btn,
+            .rule-tab,
+            .topbar-nav a,
+            .float-btn,
+            .mobile-toggle {
+                min-height: 48px;
+            }
+        }
+
+        /* ---------- Landscape phones ---------- */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .hero {
+                min-height: auto;
+                padding-top: 4.5rem;
+                padding-bottom: 2rem;
+            }
+
+            .hero-logo svg {
+                width: 60px;
+            }
+
+            .scroll-indicator {
+                display: none;
+            }
+        }
+
+        /* ---------- Reduced motion ---------- */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+
+            .bg-animation {
+                display: none;
+            }
+
+            .reveal {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        /* ---------- Print ---------- */
+        @media print {
+            .bg-animation,
+            .scroll-progress,
+            .floating-nav,
+            .topbar,
+            .scroll-indicator,
+            .mobile-toggle {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .reveal {
+                opacity: 1;
+                transform: none;            }
         }

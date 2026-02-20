@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Policy engine — configurable governance rules for AI agent behavior.
 
 Policies define what an AI agent is allowed to do within a workspace.

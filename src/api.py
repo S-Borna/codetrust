@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """FastAPI application — CodeTrust HTTP API with auth and lifespan management."""
 
 import asyncio
@@ -330,6 +332,29 @@ async def _shutdown(app: FastAPI) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize and teardown shared resources."""
     logger.info("api_startup", version=settings.version)
+
+    # License validation — enforce on API server startup
+    from src.services.license_guard import validate_license
+
+    license_status = await validate_license(settings.api_key)
+    app.state.license_status = license_status
+    if not license_status.valid:
+        if settings.production_mode:
+            logger.critical(
+                "license_invalid_production_mode",
+                plan=license_status.plan,
+                message="FATAL: Production mode requires a valid license. "
+                "Set CODETRUST_LICENSE_KEY or disable CODETRUST_PRODUCTION_MODE.",
+            )
+            import sys
+            sys.exit(1)
+        logger.warning(
+            "license_not_valid",
+            plan=license_status.plan,
+            max_rules=license_status.max_rules,
+            message="Running in limited mode — obtain a license at codetrust.ai",
+        )
+
     await _startup(app)
     yield
     await _shutdown(app)
@@ -631,6 +656,86 @@ async def health_check(
     )
 
 
+@app.post("/v1/license/validate")
+async def validate_license_endpoint(
+    request: Request,
+    body: dict[str, object],
+) -> dict[str, object]:
+    """Validate a license key and return feature entitlements.
+
+    Called by client installations at startup and periodically.
+    """
+    license_key = str(body.get("license_key", ""))
+    fingerprint = str(body.get("fingerprint", ""))
+
+    if not license_key:
+        raise HTTPException(status_code=401, detail="License key required")
+
+    # Validate against configured master key or database
+    is_valid = license_key == settings.api_key and bool(settings.api_key)
+
+    # Check database for registered license keys
+    db = getattr(request.app.state, "db", None)
+    plan = "free"
+    if is_valid:
+        plan = "pro"
+    elif db is not None:
+        try:
+            from src.services.database import DatabaseService
+
+            if isinstance(db, DatabaseService):
+                key_record = await db.get_api_key(license_key)
+                if key_record:
+                    is_valid = True
+                    plan = key_record.get("plan", "pro")
+        except Exception as exc:
+            logger.debug("license_db_lookup_failed", error=str(exc))
+
+    max_rules = 275 if is_valid else 15
+    max_gateway = 76 if is_valid else 5
+
+    return {
+        "valid": is_valid,
+        "plan": plan,
+        "machine_bound": bool(fingerprint),
+        "expires_at": "",
+        "features": ["full_scan", "gateway", "mcp", "enterprise"] if is_valid else ["basic_scan"],
+        "max_rules": max_rules,
+        "max_gateway_rules": max_gateway,
+    }
+
+
+@app.get("/v1/rules/download", include_in_schema=False)
+async def download_rules(
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Internal endpoint for rule distribution to licensed clients."""
+    from src.rules.anti_patterns import ANTI_PATTERNS
+    from src.services.rule_delivery import (
+        build_signed_bundle,
+        filter_premium_rules,
+    )
+
+    if not auth.is_admin and auth.plan == "free":
+        return {
+            "rules": [],
+            "signature": "",
+            "issued_at": "",
+            "expires_at": "",
+            "rule_count": 0,
+            "version": settings.version,
+            "message": "Premium rules require a paid license. Visit codetrust.ai",
+        }
+
+    premium = filter_premium_rules(ANTI_PATTERNS)
+    bundle = build_signed_bundle(
+        premium,
+        secret=settings.rules_hmac_secret or settings.jwt_secret or "codetrust",
+        version=settings.version,
+    )
+    return bundle.model_dump()
+
+
 _FALLBACK_STATS_BASE: dict[str, int] = {
     "total_scans": 0,
     "hallucinated_packages_prevented": 0,
@@ -638,7 +743,7 @@ _FALLBACK_STATS_BASE: dict[str, int] = {
     "pypi_downloads_last_day": 0,
     "pypi_downloads_last_week": 0,
     "pypi_downloads_last_month": 0,
-    "pypi_downloads_last_3_months_ci": 0,
+    "pypi_downloads_total": 0,
     "marketplace_installs": 0,
     "marketplace_downloads": 0,
     "marketplace_updates": 0,
@@ -662,8 +767,8 @@ async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
         "pypi_downloads_last_week": int(
             stats.get("distribution", {}).get("pypi", {}).get("downloads_this_week", 0),
         ),
-        "pypi_downloads_last_3_months_ci": int(
-            stats.get("distribution", {}).get("pypi", {}).get("downloads_last_3_months_ci", 0),
+        "pypi_downloads_total": int(
+            stats.get("distribution", {}).get("pypi", {}).get("downloads_total", 0),
         ),
         "marketplace_installs": int(
             stats.get("distribution", {}).get("marketplace", {}).get("installs", 0),

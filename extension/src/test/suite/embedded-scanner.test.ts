@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Unit tests for the embedded offline scanner.
  * Verifies all 49 rules: 40 regex + 9 file-level checks.

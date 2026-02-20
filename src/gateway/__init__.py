@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """CodeTrust Gateway — AI action governance layer.
 
 Intercepts, validates, and audits AI agent actions before execution.

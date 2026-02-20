@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Real-time telemetry ingestion and public stats aggregation.
 
 This module is intentionally privacy-preserving:
@@ -388,7 +390,7 @@ async def _fetch_pepy_external(
             payload.get("total_downloads") if isinstance(payload, dict) else 0,
             max_value=100_000_000,
         )
-        await r.set("ct:ext:pepy_3m_ci_downloads", str(total_downloads), ex=EXT_STATS_TTL_SECONDS)
+        await r.set("ct:ext:pepy_total_downloads", str(total_downloads), ex=EXT_STATS_TTL_SECONDS)
     except (httpx.HTTPError, ValueError, TypeError, redis.RedisError) as exc:
         logger.warning("ext_stats_pepy_failed", error=str(exc))
 
@@ -566,7 +568,7 @@ _COUNTER_KEYS: tuple[str, ...] = (
     "ct:ext:pypi_last_day",
     "ct:ext:pypi_last_week",
     "ct:ext:pypi_last_month",
-    "ct:ext:pepy_3m_ci_downloads",
+    "ct:ext:pepy_total_downloads",
     "ct:ext:marketplace_installs",
     "ct:ext:marketplace_downloads",
     "ct:ext:marketplace_updates",
@@ -649,7 +651,7 @@ def _build_distribution_stats(kv: dict[str, int]) -> dict[str, object]:
             "downloads_today": kv.get("ct:ext:pypi_last_day", 0),
             "downloads_this_week": kv.get("ct:ext:pypi_last_week", 0),
             "downloads_this_month": kv.get("ct:ext:pypi_last_month", 0),
-            "downloads_last_3_months_ci": kv.get("ct:ext:pepy_3m_ci_downloads", 0),
+            "downloads_total": kv.get("ct:ext:pepy_total_downloads", 0),
         },
         "marketplace": {
             "installs": kv.get("ct:ext:marketplace_installs", 0),

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 import * as assert from "assert";
 import * as vscode from "vscode";
 import { CodeTrustCodeActionProvider } from "../../code-actions";

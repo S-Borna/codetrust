@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """GDPR data export and deletion service.
 
 Implements the following GDPR rights:

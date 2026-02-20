@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Redis-backed cache with TTL support. Gracefully degrades if Redis unavailable."""
 
 import json

@@ -78,3 +78,10 @@ COMPARISON.md
 PRODUCT.md
 TEST_EVIDENCE.md
 scan_all_projects.py
+IP_HANDOVER.md
+PLAN.md
+SPEC.md
+
+# Local dev scripts
+setup.sh
+smoke_test.sh

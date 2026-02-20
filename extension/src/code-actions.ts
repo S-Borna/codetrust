@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Code action provider for the CodeTrust VS Code extension.
  * Provides quick-fix suggestions from diagnostics.

@@ -8,8 +8,8 @@ from src.services.public_stats import (
     OPEN_VSX_EXTENSION_NAME,
     OPEN_VSX_EXTENSION_URL_TEMPLATE,
     OPEN_VSX_NAMESPACE,
+    PEPY_API_URL_TEMPLATE,
     PEPY_PROJECT,
-    PEPY_PROJECT_URL_TEMPLATE,
     PYPISTATS_RECENT_URL,
     get_marketplace_stats,
     get_open_vsx_stats,
@@ -108,25 +108,15 @@ async def test_get_pepy_download_stats_parses_total_downloads(
     mock_http_client: httpx.AsyncClient,
     httpx_mock,
 ) -> None:
-    base_url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
-    url = str(
-        httpx.URL(base_url).copy_merge_params(
-            {
-                "timeRange": "threeMonths",
-                "category": "version",
-                "includeCIDownloads": "true",
-                "granularity": "daily",
-                "viewType": "line",
-                "versions": settings.version,
-            }
+    url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(settings, "pepy_api_key", "test-key-12345678")
+        httpx_mock.add_response(
+            method="GET",
+            url=url,
+            json={"total_downloads": 2712, "id": "codetrust"},
         )
-    )
-    httpx_mock.add_response(
-        method="GET",
-        url=url,
-        text='<!doctype html><script>self.__next_f.push([1,"{\\"totalDownloads\\":2712}"])</script>',
-    )
 
-    stats = await get_pepy_download_stats(http_client=mock_http_client, cache=fake_cache)
-    assert stats == {"pypi_downloads_last_3_months_ci": 2712}
+        stats = await get_pepy_download_stats(http_client=mock_http_client, cache=fake_cache)
+        assert stats == {"pypi_downloads_total": 2712}
 

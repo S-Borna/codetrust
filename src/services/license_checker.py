@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """License compliance service — extracts and classifies dependency licenses.
 
 Piggybacks on existing registry API responses (PyPI, npm) to extract

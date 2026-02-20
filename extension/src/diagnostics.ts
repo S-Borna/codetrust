@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Diagnostic provider for the CodeTrust VS Code extension.
  * Converts API findings into VS Code diagnostics (squiggly lines).
@@ -173,17 +175,18 @@ export class DiagnosticProvider {
 function findImportLine(document: vscode.TextDocument, packageName: string): number {
     const text = document.getText();
     const lines = text.split("\n");
+    const patterns: string[] = [
+        "import " + packageName,
+        "from " + packageName,
+        "require(\"" + packageName + "\")",
+        "require('" + packageName + "')",
+        "\"" + packageName + "\"",
+        "'" + packageName + "'",
+    ];
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (
-            line.includes(`import ${packageName}`) ||
-            line.includes(`from ${packageName}`) ||
-            line.includes(`require("${packageName}")`) ||
-            line.includes(`require('${packageName}')`) ||
-            line.includes(`"${packageName}"`) ||
-            line.includes(`'${packageName}'`)
-        ) {
+        if (patterns.some((p) => line.includes(p))) {
             return i;
         }
     }

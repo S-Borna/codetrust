@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Anti-pattern rule definitions for static code analysis."""
 
 from src.models.enums import Severity

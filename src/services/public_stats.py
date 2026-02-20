@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Public-facing stats aggregation for the website.
 
 Combines:
@@ -9,7 +11,6 @@ All external calls are cached (Redis when available) to avoid rate limits.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 import httpx
@@ -28,7 +29,7 @@ PYPISTATS_RECENT_URL: str = "https://pypistats.org/api/packages/codetrust/recent
 MARKETPLACE_EXTENSION_QUERY_URL: str = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
 OPEN_VSX_EXTENSION_URL_TEMPLATE: str = "https://open-vsx.org/api/{namespace}/{name}"
 
-PEPY_PROJECT_URL_TEMPLATE: str = "https://pepy.tech/projects/{project}"
+PEPY_API_URL_TEMPLATE: str = "https://api.pepy.tech/api/v2/projects/{project}"
 PEPY_PROJECT: str = "codetrust"
 
 MARKETPLACE_EXTENSION_ID: str = "SaidBorna.codetrust"
@@ -40,7 +41,6 @@ OPEN_VSX_EXTENSION_NAME: str = "codetrust"
 CACHE_TTL_SECONDS: int = 900  # 15 minutes
 CACHE_KEY_PREFIX: str = "codetrust:public_stats:"
 
-_PEPY_TOTAL_DOWNLOADS_RE: re.Pattern[str] = re.compile(r'\\?"totalDownloads\\?"\s*:\s*(\d+)')
 
 
 def _cache_key(name: str) -> str:
@@ -223,20 +223,19 @@ async def get_open_vsx_stats(
 async def _fetch_pepy_downloads(
     http_client: httpx.AsyncClient,
 ) -> int:
-    """Fetch total downloads from pepy.tech page."""
-    url = PEPY_PROJECT_URL_TEMPLATE.format(project=PEPY_PROJECT)
-    params = {
-        "timeRange": "threeMonths",
-        "category": "version",
-        "includeCIDownloads": "true",
-        "granularity": "daily",
-        "viewType": "line",
-        "versions": settings.version,
-    }
-    res = await http_client.get(url, params=params, follow_redirects=True)
+    """Fetch total downloads via the Pepy API v2."""
+    if not settings.pepy_api_key:
+        logger.debug("pepy_api_key_not_configured")
+        return 0
+    url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
+    headers = {"X-Api-Key": settings.pepy_api_key}
+    res = await http_client.get(url, headers=headers)
     res.raise_for_status()
-    match = _PEPY_TOTAL_DOWNLOADS_RE.search(res.text)
-    return int(match.group(1)) if match else 0
+    payload = res.json()
+    if not isinstance(payload, dict):
+        return 0
+    total = payload.get("total_downloads", 0)
+    return int(total) if total is not None else 0
 
 
 async def get_pepy_download_stats(
@@ -246,26 +245,26 @@ async def get_pepy_download_stats(
     """Fetch Pepy download stats for the CodeTrust PyPI package.
 
     Returns dict with keys:
-      - pypi_downloads_last_3_months_ci
+      - pypi_downloads_total
 
     Falls back to zeros on any failure.
     """
     cached = await cache.get_json(_cache_key("pepy"))
     if cached is not None:
         return {
-            "pypi_downloads_last_3_months_ci": int(
-                cached.get("pypi_downloads_last_3_months_ci", 0)
+            "pypi_downloads_total": int(
+                cached.get("pypi_downloads_total", 0)
             ),
         }
 
     try:
         downloads = await _fetch_pepy_downloads(http_client)
-        result: dict[str, int] = {"pypi_downloads_last_3_months_ci": downloads}
+        result: dict[str, int] = {"pypi_downloads_total": downloads}
         cache_payload: dict[str, JsonScalar] = {
-            "pypi_downloads_last_3_months_ci": downloads,
+            "pypi_downloads_total": downloads,
         }
         await cache.set_json(_cache_key("pepy"), cache_payload, ttl=CACHE_TTL_SECONDS)
         return result
     except (httpx.HTTPError, ValueError, TypeError) as exc:
         logger.debug("pepy_stats_fetch_failed", error=str(exc), error_type=type(exc).__name__)
-        return {"pypi_downloads_last_3_months_ci": 0}
+        return {"pypi_downloads_total": 0}

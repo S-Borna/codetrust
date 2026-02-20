@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Prometheus metrics middleware and /metrics endpoint.
 
 Tracks request counts, latencies, and active connections for

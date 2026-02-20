@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Pydantic request models for the CodeTrust API and MCP server."""
 
 from pydantic import BaseModel, ConfigDict, Field

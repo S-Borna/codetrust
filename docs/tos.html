@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service — CodeTrust</title>
+    <meta name="description"
+        content="CodeTrust Terms of Service — governs use of the CLI, API, VS Code extension, MCP servers, and website.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://codetrust.ai/tos">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text-1: #f0f0f5;
+            --text-2: #a0a0b5;
+            --text-3: #60607a;
+            --accent: #38d8fd;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-2);
+            line-height: 1.7;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            color: var(--text-1);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--text-1);
+            font-size: 1.25rem;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--text-1);
+            font-size: 1.05rem;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p,
+        li {
+            margin-bottom: 0.75rem;
+        }
+
+        ul,
+        ol {
+            padding-left: 1.5rem;
+        }
+
+        .meta {
+            color: var(--text-3);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-3);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&larr; Back to CodeTrust</a>
+
+        <h1>Terms of Service</h1>
+        <p class="meta">Effective Date: February 20, 2026 &middot; Last Updated: February 20, 2026</p>
+
+        <p>These Terms of Service ("Terms") govern your access to and use of the CodeTrust platform,
+            including the CLI tool, REST API, VS Code extension, MCP servers, GitHub Action, and website
+            (collectively, the "Service"), operated by Said Borna ("Owner", "we", "us").</p>
+
+        <p>By installing, accessing, or using any part of the Service, you agree to be bound by these Terms.
+            If you do not agree, do not use the Service.</p>
+
+        <h2>1. License Grant</h2>
+
+        <p>Subject to these Terms, we grant you a limited, non-exclusive, non-transferable, revocable license
+            to use the Service for your internal development purposes.</p>
+
+        <h3>1.1 Permitted Use</h3>
+        <ul>
+            <li>Install and use the CLI tool (<code>pip install codetrust</code>) in your development environment</li>
+            <li>Install and use the VS Code extension from the Visual Studio Marketplace</li>
+            <li>Use the MCP servers for AI governance enforcement in your IDE</li>
+            <li>Integrate the GitHub Action in your CI/CD pipelines</li>
+            <li>Access the REST API within published rate limits</li>
+        </ul>
+
+        <h3>1.2 Restrictions</h3>
+        <p>You may NOT:</p>
+        <ul>
+            <li>Reverse engineer, decompile, disassemble, or attempt to derive the source code of the Service</li>
+            <li>Copy, modify, adapt, or create derivative works based on the Service or its components</li>
+            <li>Redistribute, sublicense, rent, lease, or lend the Service to third parties</li>
+            <li>Remove, alter, or obscure any copyright notices, proprietary markings, or branding</li>
+            <li>Use the Service to build a competing product or service</li>
+            <li>Extract rules, patterns, algorithms, or detection logic for use outside the Service</li>
+            <li>Circumvent, disable, or interfere with license validation, telemetry, or security features</li>
+            <li>Use automated tools to scrape, mirror, or download the Service's rule sets or analysis logic</li>
+            <li>Share API keys, license keys, or access credentials with unauthorized parties</li>
+        </ul>
+
+        <h2>2. Intellectual Property</h2>
+
+        <p>The Service, including all source code, detection rules, algorithms, documentation, branding,
+            trademarks, and trade secrets, is the exclusive property of Said Borna and is protected by
+            copyright law, trade secret law, and international intellectual property treaties.</p>
+
+        <p>The CodeTrust name, logo, and all associated branding are trademarks of Said Borna.
+            You may not use these marks without prior written permission.</p>
+
+        <p>All rights not expressly granted in these Terms are reserved by the Owner.</p>
+
+        <h2>3. API and Service Usage</h2>
+
+        <h3>3.1 Rate Limits</h3>
+        <p>API access is subject to rate limiting. Current limits are published at
+            <a href="https://api.codetrust.ai/docs">api.codetrust.ai/docs</a>.
+            Exceeding rate limits may result in temporary or permanent access restriction.
+        </p>
+
+        <h3>3.2 API Keys</h3>
+        <p>API keys are personal and non-transferable. You are responsible for maintaining the
+            confidentiality of your API key. Compromised keys should be reported immediately
+            to <a href="mailto:said@saidborna.com">said@saidborna.com</a>.</p>
+
+        <h3>3.3 Availability</h3>
+        <p>We aim for high availability but do not guarantee uninterrupted access. The Service
+            may be temporarily unavailable for maintenance, updates, or due to circumstances
+            beyond our control.</p>
+
+        <h2>4. Data Collection and Privacy</h2>
+
+        <h3>4.1 Telemetry</h3>
+        <p>The Service collects anonymous usage telemetry to improve the product, including:</p>
+        <ul>
+            <li>Scan counts and timing</li>
+            <li>Languages and file types scanned</li>
+            <li>Finding categories (not file contents)</li>
+            <li>Feature usage statistics</li>
+        </ul>
+        <p>Telemetry does NOT include: source code, file paths, file contents, personal identifiers,
+            or repository names. All telemetry data is aggregated and anonymized.</p>
+
+        <h3>4.2 GDPR Compliance</h3>
+        <p>The Service provides GDPR-compliant data export (Art. 15) and right to erasure (Art. 17)
+            via API endpoints. Contact <a href="mailto:said@saidborna.com">said@saidborna.com</a>
+            for data requests.</p>
+
+        <h2>5. License Validation</h2>
+
+        <p>The Service may periodically validate your installation against our licensing server.
+            This process transmits only:</p>
+        <ul>
+            <li>A hashed machine identifier (not hardware details)</li>
+            <li>License key (if configured)</li>
+            <li>Client version</li>
+        </ul>
+        <p>Installations without a valid license operate in a limited capacity with a reduced
+            rule set. Disabling or circumventing license validation is a violation of these Terms.</p>
+
+        <h2>6. Contributions</h2>
+
+        <p>All contributions to the CodeTrust codebase require signing the
+            <a href="https://github.com/S-Borna/codetrust/blob/main/CLA.md">Contributor License Agreement</a>
+            (CLA), which grants the Owner perpetual, worldwide, non-exclusive rights to the contribution.
+        </p>
+
+        <h2>7. Disclaimer of Warranties</h2>
+
+        <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND,
+            EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+            FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.</p>
+
+        <p>WE DO NOT WARRANT THAT THE SERVICE WILL DETECT ALL SECURITY VULNERABILITIES,
+            HALLUCINATED PACKAGES, OR UNSAFE CODE PATTERNS. THE SERVICE IS A SUPPLEMENTARY
+            TOOL AND DOES NOT REPLACE PROFESSIONAL SECURITY AUDITS.</p>
+
+        <h2>8. Limitation of Liability</h2>
+
+        <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OWNER SHALL NOT BE LIABLE FOR ANY
+            INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS
+            OF PROFITS, DATA, OR USE, ARISING FROM YOUR USE OF THE SERVICE.</p>
+
+        <p>THE OWNER'S TOTAL LIABILITY FOR ALL CLAIMS ARISING FROM THESE TERMS SHALL NOT
+            EXCEED THE AMOUNT YOU PAID FOR THE SERVICE IN THE 12 MONTHS PRECEDING THE CLAIM,
+            OR €100, WHICHEVER IS GREATER.</p>
+
+        <h2>9. Termination</h2>
+
+        <p>We may suspend or terminate your access to the Service at any time, with or without
+            cause, with or without notice. Upon termination:</p>
+        <ul>
+            <li>Your license to use the Service immediately ends</li>
+            <li>You must uninstall all CodeTrust components</li>
+            <li>Provisions that by their nature should survive (including IP, liability,
+                and dispute resolution) shall survive termination</li>
+        </ul>
+
+        <h2>10. Governing Law</h2>
+
+        <p>These Terms are governed by the laws of Sweden. Any disputes shall be resolved in
+            the courts of Stockholm, Sweden, unless otherwise required by applicable consumer
+            protection law.</p>
+
+        <h2>11. Changes to These Terms</h2>
+
+        <p>We may update these Terms from time to time. Material changes will be communicated
+            via the website or release notes. Continued use of the Service after changes
+            constitutes acceptance of the revised Terms.</p>
+
+        <h2>12. Contact</h2>
+
+        <p>For questions about these Terms, contact:</p>
+        <p>
+            Said Borna<br>
+            <a href="mailto:said@saidborna.com">said@saidborna.com</a><br>
+            <a href="https://www.saidborna.com">www.saidborna.com</a>
+        </p>
+
+        <footer>
+            <span>&copy; 2026 Said Borna. All rights reserved.</span>
+        </footer>
+    </div>
+</body>
+
+</html>

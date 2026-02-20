@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Test runner configuration for the CodeTrust VS Code extension.
  * Uses @vscode/test-electron to run tests inside VS Code.

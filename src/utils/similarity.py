@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Fuzzy matching for package name suggestions using difflib."""
 
 from difflib import get_close_matches

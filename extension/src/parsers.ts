@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Import and Dockerfile extraction utilities.
  * Parses source files to extract package names and Docker image references.

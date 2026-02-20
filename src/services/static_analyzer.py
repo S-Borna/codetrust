@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Layer 1: Regex-based anti-pattern detection engine. Runs locally, no network calls."""
 
 import ast
@@ -28,6 +30,39 @@ logger = structlog.get_logger()
 
 class StaticAnalyzer:
     """Regex-based anti-pattern detection. Runs locally, no network calls."""
+
+    def __init__(self, premium_rules: list[dict[str, object]] | None = None) -> None:
+        """Initialize with optional premium rules from server-side delivery.
+
+        Args:
+            premium_rules: Additional rules fetched from cloud API.
+                           If None, only the bundled ANTI_PATTERNS are used.
+                           In production (server-side), this is None because
+                           the server has all rules locally.
+        """
+        from src.services.rule_delivery import FREE_TIER_RULE_IDS, merge_rules
+
+        if premium_rules is not None:
+            # Client-side: merge free-tier + server-delivered premium rules
+            free_only = [r for r in ANTI_PATTERNS if r.get("id") in FREE_TIER_RULE_IDS]
+            # Deserialize severity strings back to enum for premium rules
+            deserialized: list[dict[str, object]] = []
+            for rule in premium_rules:
+                entry = dict(rule)
+                if isinstance(entry.get("severity"), str):
+                    entry["severity"] = Severity(entry["severity"])
+                deserialized.append(entry)
+            self._rules: list[dict[str, object]] = merge_rules(free_only, deserialized)
+        else:
+            # Server-side or local dev: use all bundled rules
+            self._rules = list(ANTI_PATTERNS)
+
+        logger.info("static_analyzer_initialized", rule_count=len(self._rules))
+
+    @property
+    def active_rule_count(self) -> int:
+        """Number of active rules loaded."""
+        return len(self._rules)
 
     def _is_devops_file(self, filename: str, ext: str) -> bool:
         """Check if a file is a DevOps/infrastructure file."""
@@ -83,7 +118,7 @@ class StaticAnalyzer:
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
-        for rule in ANTI_PATTERNS:
+        for rule in self._rules:
             if self._should_skip_rule(rule, ext, filename):
                 continue
 

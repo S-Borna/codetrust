@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Custom rule loader — load user-defined governance rules from YAML/TOML.
 
 Users can define additional terminal or content rules in:

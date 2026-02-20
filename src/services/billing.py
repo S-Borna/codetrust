@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Stripe billing service for subscription management and usage metering."""
 
 import stripe as stripe_lib

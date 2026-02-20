@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Shared TypeScript types for the CodeTrust VS Code extension.
  * Maps to the Python backend Pydantic models.
@@ -171,7 +173,6 @@ export interface ExtensionConfig {
     scanType: ScanType;
     verifyImportsOnSave: boolean;
     timeout: number;
-    telemetry: boolean;
     governance: GovernanceConfig;
 }
 

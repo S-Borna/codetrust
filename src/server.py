@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """MCP server entry point — CodeTrust Layers 1-4 + SARIF + Deep Scan tools."""
 
 import json
@@ -53,7 +55,6 @@ def _emit_mcp_tool_invoked(
         event_type="mcp_tool_invoked",
         source="mcp",
         version=settings.version,
-        cli_opt_out=False,
         payload=safe_payload,
     )
 
@@ -61,6 +62,27 @@ mcp = FastMCP("codetrust")
 analyzer = StaticAnalyzer()
 ast_analyzer = AstAnalyzer()
 sandbox = SandboxService()
+
+# License status — validated lazily on first tool invocation
+_license_status: object | None = None
+
+
+async def _get_license_status() -> object:
+    """Lazily validate license on first MCP tool use."""
+    global _license_status  # noqa: PLW0603
+    if _license_status is not None:
+        return _license_status
+
+    from src.services.license_guard import validate_license
+
+    _license_status = await validate_license(settings.api_key)
+    if not _license_status.valid:
+        logger.warning(
+            "mcp_license_limited",
+            plan=_license_status.plan,
+            max_rules=_license_status.max_rules,
+        )
+    return _license_status
 
 # Lazy-initialized shared resources for Layer 2
 _cache: CacheService | None = None

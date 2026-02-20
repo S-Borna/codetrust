@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Auto-fix PR generation service — applies fixes and opens pull requests.
 
 Uses the GitHub API to create branches, commit fixes, and open PRs

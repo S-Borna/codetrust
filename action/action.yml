@@ -36,10 +36,6 @@ inputs:
     description: "Generate SARIF output file (true/false)"
     required: false
     default: "true"
-  telemetry:
-    description: "Send anonymous telemetry (true/false). Disable with false."
-    required: false
-    default: "true"
 
 outputs:
   verdict:
@@ -75,7 +71,6 @@ runs:
         CODETRUST_SCAN_TYPE: ${{ inputs.scan-type }}
         CODETRUST_LANGUAGE: ${{ inputs.language }}
         CODETRUST_SARIF: ${{ inputs.sarif }}
-        CODETRUST_TELEMETRY: ${{ inputs.telemetry }}
       run: |
         if [ -z "$CHANGED_FILES" ]; then
           # Auto-detect changed files

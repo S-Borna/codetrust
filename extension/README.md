@@ -2,7 +2,7 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-275 rules across 10 enforcement layers. Four capabilities no linter, SAST tool, or formatter has:
+280 rules across 10 enforcement layers. Four capabilities no linter, SAST tool, or formatter has:
 
 1. **AI Governance Gateway** — 76 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist
@@ -13,7 +13,7 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.6.0
+## What's New in 2.6.1
 
 - **Universal IDE Injection** — on activation, governance rules are written to the global config of every AI IDE installed on the machine (Claude Code, Cursor, Windsurf, GitHub Copilot). Zero configuration required.
 - **Governance Disruption Monitoring** — file watchers detect if an IDE update overwrites injected rules; window-focus check detects new IDEs installed after CodeTrust. Both surface a one-click "Re-inject Now" notification.
@@ -142,7 +142,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.6.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.6.1` |
 | **MCP Server** | 21 tools for Claude Code / Cursor / Windsurf |
 | **REST API** | 44 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

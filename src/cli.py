@@ -3782,6 +3782,163 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return _audit_show_entries(args, entries)
 
 
+# --- Agent Optimizer (setup command) ---
+
+SETUP_VSCODE_DIR: str = ".vscode"
+SETUP_SESSION_LOG: str = "SESSION_LOG.md"
+SETUP_AGENT_CLAUDE: str = "CLAUDE.md"
+
+
+def _setup_install_agent_claude(
+    project_dir: Path,
+    *,
+    force: bool,
+) -> bool:
+    """Install the enhanced Agent Optimizer CLAUDE.md."""
+    target = project_dir / SETUP_AGENT_CLAUDE
+    version = _get_setup_version()
+    content = _load_template("agent-claude.md").replace("{VERSION}", version)
+
+    if target.exists() and not force:
+        _echo(f"  {color('⚠️', YELLOW)}  CLAUDE.md exists (use --force to overwrite)")
+        return False
+
+    if target.exists():
+        shutil.copy2(target, target.with_suffix(".md.bak"))
+
+    target.write_text(content, encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} CLAUDE.md — Agent Operating System installed")
+    return True
+
+
+def _setup_install_session_log(project_dir: Path) -> bool:
+    """Install SESSION_LOG.md template for session tracking."""
+    target = project_dir / SETUP_SESSION_LOG
+    if target.exists():
+        _echo(f"  {color('⚠️', YELLOW)}  SESSION_LOG.md exists (preserving)")
+        return False
+
+    project_name = project_dir.name
+    content = _load_template("SESSION_LOG.md").replace(
+        "[PROJECT_NAME]", project_name,
+    )
+    target.write_text(content, encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} SESSION_LOG.md — session tracking template")
+    return True
+
+
+def _setup_install_vscode_settings(
+    project_dir: Path,
+    *,
+    force: bool,
+) -> bool:
+    """Install or merge VS Code workspace settings for agent optimization."""
+    vscode_dir = project_dir / SETUP_VSCODE_DIR
+    vscode_dir.mkdir(exist_ok=True)
+    settings_path = vscode_dir / "settings.json"
+
+    template_text = _load_template("vscode-settings.json")
+    template_settings = json.loads(template_text)
+
+    if settings_path.exists() and not force:
+        existing = json.loads(settings_path.read_text(encoding="utf-8"))
+        merged = False
+        for key, value in template_settings.items():
+            if key.startswith("//"):
+                continue
+            if key not in existing:
+                existing[key] = value
+                merged = True
+        if merged:
+            settings_path.write_text(
+                json.dumps(existing, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            _echo(f"  {color('✅', GREEN)} .vscode/settings.json — merged agent settings")
+            return True
+        _echo(f"  {color('⚠️', YELLOW)}  .vscode/settings.json — already has agent settings")
+        return False
+
+    settings_path.write_text(
+        json.dumps(template_settings, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    _echo(f"  {color('✅', GREEN)} .vscode/settings.json — agent settings installed")
+    return True
+
+
+def _setup_install_cursorrules(
+    project_dir: Path,
+    *,
+    force: bool,
+) -> bool:
+    """Install .cursorrules for Cursor IDE agent optimization."""
+    target = project_dir / ".cursorrules"
+    if target.exists() and not force:
+        _echo(f"  {color('⚠️', YELLOW)}  .cursorrules exists (use --force to overwrite)")
+        return False
+
+    target.write_text(_load_template("cursorrules"), encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} .cursorrules — Cursor IDE agent rules")
+    return True
+
+
+def _get_setup_version() -> str:
+    """Get current CodeTrust version for template stamping."""
+    try:
+        from importlib.metadata import version as _pkg_version
+        return _pkg_version("codetrust")
+    except Exception:
+        return "2.6.1"
+
+
+def _setup_print_summary(installed_count: int) -> None:
+    """Print the Agent Optimizer installation summary."""
+    _echo(f"\n{'━' * 48}")
+    _echo(f"\n  {color('✅ Agent Optimizer configured!', GREEN)}\n")
+    _echo(f"  {installed_count} file(s) installed/updated\n")
+    _echo("  What was configured:")
+    _echo(f"    CLAUDE.md           {color('Agent Operating System', BLUE)}")
+    _echo(f"    SESSION_LOG.md      {color('Session tracking', BLUE)}")
+    _echo(f"    .vscode/settings    {color('VS Code agent instructions', BLUE)}")
+    _echo(f"    .cursorrules        {color('Cursor IDE rules', BLUE)}")
+    _echo()
+    _echo("  How it works:")
+    _echo("    • AI agents read CLAUDE.md at session start")
+    _echo("    • CodeTrust governance is enforced via MCP tools")
+    _echo("    • Session state is tracked in SESSION_LOG.md")
+    _echo("    • VS Code settings enable instruction files")
+    _echo()
+    _echo("  No other product optimizes how AI agents work.")
+    _echo(f"  {color('CodeTrust Agent Optimizer — https://codetrust.ai', BOLD)}")
+    _echo()
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    """Configure AI agent optimization for the current project.
+
+    Installs CLAUDE.md, SESSION_LOG.md, VS Code settings, and
+    .cursorrules to optimize how AI coding agents work.
+    """
+    project_dir = Path.cwd()
+    force = getattr(args, "force", False)
+
+    _echo(f"\n{color('🧠 CodeTrust Agent Optimizer — Configuring AI agents', BOLD)}\n")
+
+    installed = 0
+    if _setup_install_agent_claude(project_dir, force=force):
+        installed += 1
+    if _setup_install_session_log(project_dir):
+        installed += 1
+    if _setup_install_vscode_settings(project_dir, force=force):
+        installed += 1
+    if _setup_install_cursorrules(project_dir, force=force):
+        installed += 1
+
+    _setup_print_summary(installed)
+    return 0
+
+
 # --- Main ---
 
 
@@ -3797,9 +3954,15 @@ def _create_main_parser() -> argparse.ArgumentParser:
 def _add_init_and_add_subparsers(
     subparsers: argparse._SubParsersAction,
 ) -> None:
-    """Register 'init' and 'add' subcommands."""
+    """Register 'init', 'add', and 'setup' subcommands."""
     init_parser = subparsers.add_parser("init", help="Install enforcement layers")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Configure AI Agent Optimizer — CLAUDE.md, SESSION_LOG, VS Code settings",
+    )
+    setup_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
 
     add_parser = subparsers.add_parser(
         "add",
@@ -3977,6 +4140,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
     """Route parsed CLI args to the appropriate command handler."""
     if args.command == "init":
         return cmd_init(args)
+    if args.command == "setup":
+        return cmd_setup(args)
     if args.command == "add":
         if not args.devcontainer and not args.contributing:
             args.devcontainer = True

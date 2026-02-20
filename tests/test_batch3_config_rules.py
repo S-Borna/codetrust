@@ -84,9 +84,9 @@ class TestBatch3Meta:
         """Exactly 36 Batch 3 rules must exist."""
         assert len(BATCH3_RULE_IDS) == BATCH3_RULE_COUNT
 
-    def test_backend_has_199_rules(self) -> None:
-        """Backend ANTI_PATTERNS must contain 199 rules after Batch 3."""
-        assert len(ANTI_PATTERNS) == 199
+    def test_backend_has_204_rules(self) -> None:
+        """Backend ANTI_PATTERNS must contain 204 rules (199 + 5 diagnostic markers)."""
+        assert len(ANTI_PATTERNS) == 204
 
     def test_no_duplicate_ids(self) -> None:
         """All rule IDs across ANTI_PATTERNS must be unique."""

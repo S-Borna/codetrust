@@ -79,8 +79,9 @@ _JS_STAR_IMPORT_RE = re.compile(
 )
 
 # Function call extraction — module.function(args) or module.sub.function(args)
-_CALL_RE = re.compile(
-    r"\b((?:\w+\.)*\w+)\.(\w+)\s*\(([^)]*)\)",
+# Only matches the opening of the call; args are extracted depth-aware.
+_CALL_OPEN_RE = re.compile(
+    r"\b((?:\w+\.)*\w+)\.(\w+)\s*\(",
 )
 
 # Keyword argument extraction — name=value
@@ -126,12 +127,20 @@ def _resolve_python_imports(code: str) -> dict[str, ImportBinding]:
         from flask import Flask, jsonify
         from django.shortcuts import render
 
+    Skips commented-out import lines (starting with #).
+    Merges bindings from both single-line and parenthesized imports.
+
     Returns:
         Dict mapping local name -> ImportBinding.
     """
     bindings: dict[str, ImportBinding] = {}
 
     for match in _PY_IMPORT_RE.finditer(code):
+        # H2 fix: skip if the import line is a comment
+        line_start = code.rfind("\n", 0, match.start()) + 1
+        prefix = code[line_start:match.start()].lstrip()
+        if prefix.startswith("#"):
+            continue
         module = match.group(1)
         alias = match.group(2) or module
         bindings[alias] = ImportBinding(
@@ -142,19 +151,25 @@ def _resolve_python_imports(code: str) -> dict[str, ImportBinding]:
     # Try parenthesized multi-line imports first (more specific)
     paren_modules: set[str] = set()
     for match in _PY_FROM_IMPORT_PAREN_RE.finditer(code):
+        line_start = code.rfind("\n", 0, match.start()) + 1
+        prefix = code[line_start:match.start()].lstrip()
+        if prefix.startswith("#"):
+            continue
         module = match.group(1)
         paren_modules.add(module)
         _parse_from_import_names(module, match.group(2), bindings)
 
-    # Then single-line imports (skip modules already handled by paren regex)
+    # Then single-line imports — merge into bindings (don't skip module)
     for match in _PY_FROM_IMPORT_RE.finditer(code):
-        module = match.group(1)
-        if module in paren_modules:
+        line_start = code.rfind("\n", 0, match.start()) + 1
+        prefix = code[line_start:match.start()].lstrip()
+        if prefix.startswith("#"):
             continue
+        module = match.group(1)
         names_str = match.group(2).strip()
         if names_str.startswith("("):
-            # Partial paren match on single line — strip parens
-            names_str = names_str.strip("()")
+            # Skip — already handled by paren regex above
+            continue
         _parse_from_import_names(module, names_str, bindings)
 
     return bindings
@@ -353,6 +368,8 @@ def extract_calls(
 ) -> list[FunctionCall]:
     """Extract function call sites for known modules.
 
+    Uses depth-aware argument extraction to handle nested parens.
+
     Args:
         code: Source code.
         known_modules: Set of module alias names to look for.
@@ -369,10 +386,9 @@ def extract_calls(
         if stripped.startswith(("#", "//", "*", "/*")):
             continue
 
-        for match in _CALL_RE.finditer(line):
+        for match in _CALL_OPEN_RE.finditer(line):
             chain = match.group(1)
             func_name = match.group(2)
-            args_str = match.group(3)
 
             # For chained calls like os.path.join(), use the first
             # segment as the module alias if it's a known module.
@@ -383,6 +399,9 @@ def extract_calls(
                 module_alias = first_segment
             else:
                 continue
+
+            # Extract args with depth-aware paren matching
+            args_str = _extract_balanced_args(line, match.end() - 1)
 
             kwargs = _extract_kwargs(args_str)
             pos_count = _count_positional_args(args_str)
@@ -396,6 +415,25 @@ def extract_calls(
             ))
 
     return calls
+
+
+def _extract_balanced_args(line: str, open_paren_idx: int) -> str:
+    """Extract arguments between balanced parentheses.
+
+    Handles nested calls like f(a, g(b), c=d(e)).
+    """
+    depth = 0
+    start = open_paren_idx + 1
+    for idx in range(open_paren_idx, len(line)):
+        ch = line[idx]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return line[start:idx]
+    # Unbalanced — return what we have (multi-line call)
+    return line[start:]
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -434,12 +472,13 @@ def _validate_call(
     """Validate a single function call against its signature.
 
     Delegates to specialised checkers for deprecated functions,
-    hallucinated kwargs, and deprecated parameters.
+    hallucinated kwargs, deprecated parameters, and argument counts.
     """
     findings: list[Finding] = []
     findings.extend(_check_deprecated_function(call, func_sig, module_name, filepath))
     findings.extend(_check_hallucinated_kwargs(call, func_sig, module_name, filepath))
     findings.extend(_check_deprecated_params(call, func_sig, filepath))
+    findings.extend(_check_arg_count(call, func_sig, module_name, filepath))
     return findings
 
 
@@ -549,6 +588,52 @@ def _check_deprecated_params(
             file=filepath,
             line=call.line,
             suggestion=suggestion,
+        ))
+
+    return findings
+
+
+def _check_arg_count(
+    call: FunctionCall,
+    func_sig: FunctionSig,
+    module_name: str,
+    filepath: str,
+) -> list[Finding]:
+    """Check positional argument count against min_args / max_args."""
+    findings: list[Finding] = []
+
+    if func_sig.min_args is not None and call.positional_count < func_sig.min_args:
+        findings.append(Finding(
+            rule_id=f"{RULE_PREFIX}_too_few_args",
+            severity=Severity.WARN,
+            message=(
+                f"'{module_name}.{func_sig.name}()' requires at least "
+                f"{func_sig.min_args} positional argument(s), "
+                f"got {call.positional_count}"
+            ),
+            file=filepath,
+            line=call.line,
+            suggestion=(
+                f"Check the function signature for "
+                f"'{module_name}.{func_sig.name}()'."
+            ),
+        ))
+
+    if func_sig.max_args is not None and call.positional_count > func_sig.max_args:
+        findings.append(Finding(
+            rule_id=f"{RULE_PREFIX}_too_many_args",
+            severity=Severity.WARN,
+            message=(
+                f"'{module_name}.{func_sig.name}()' accepts at most "
+                f"{func_sig.max_args} positional argument(s), "
+                f"got {call.positional_count}"
+            ),
+            file=filepath,
+            line=call.line,
+            suggestion=(
+                f"Check the function signature for "
+                f"'{module_name}.{func_sig.name}()'."
+            ),
         ))
 
     return findings

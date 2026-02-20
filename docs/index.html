@@ -11,7 +11,7 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
         content="CodeTrust, AI code safety, AI governance, AI code security, hallucination detection, AI agent enforcement, code scanning, AI governance gateway, trust score, AI code review, MCP server, Claude Code, Cursor, GitHub Copilot, pre-execution enforcement, AI-generated code safety, supply chain security, CVE scanning, license compliance, SAST, code quality, DevSecOps, AI DevOps">
-    <meta name="generator" content="CodeTrust v2.6.1">
+    <meta name="generator" content="CodeTrust v2.7.0">
     <link rel="canonical" href="https://codetrust.ai">
 
     <!-- Open Graph -->
@@ -176,7 +176,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.6.1, and (4) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action using S-Borna/codetrust@v2.7.0, and (4) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
                 }
             }
         ]
@@ -2431,6 +2431,7 @@
             <a href="#enterprise">Enterprise</a>
             <a href="#pipeline">Layers</a>
             <a href="#demo">Proof</a>
+            <a href="demo.html">Demo</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
             <a href="https://api.codetrust.ai/v1/status" target="_blank">API</a>
             <a href="mailto:said@saidborna.com">Contact</a>
@@ -2485,7 +2486,7 @@
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v2.6.1 &mdash; 1,896 tests &mdash; 10 layers &mdash; 280 rules &mdash; 44
+            <span class="hero-version">v2.7.0 &mdash; 1,898 tests &mdash; 10 layers &mdash; 280 rules &mdash; 45
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
@@ -2640,15 +2641,15 @@
             <div class="stat-label">Verification Layers</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">17</div>
+            <div class="stat-num">21</div>
             <div class="stat-label">MCP Tools</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">44</div>
+            <div class="stat-num">45</div>
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">1,665</div>
+            <div class="stat-num">1,898</div>
             <div class="stat-label">Tests Passing</div>
         </div>
     </div>
@@ -3148,7 +3149,7 @@
     <section class="container" id="rules">
         <div class="section-tag section-center">What we enforce</div>
         <h2 class="reveal">280 rules across every layer</h2>
-        <p class="section-desc reveal">199 scan rules + 76 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
+        <p class="section-desc reveal">204 scan rules + 76 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
             risk &mdash; INFO improves</p>
 
         <div class="rule-tabs reveal" id="ruleTabs">
@@ -3310,20 +3311,20 @@
             <div class="install-card">
                 <h4>GitHub Action</h4>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
-                <code>uses: S-Borna/codetrust@v2.6.1</code>
+                <code>uses: S-Borna/codetrust@v2.7.0</code>
                 <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
                     &rarr;</a>
             </div>
             <div class="install-card">
                 <h4>MCP Server</h4>
-                <p>17 tools. Claude, Copilot, Cursor.</p>
+                <p>21 tools. Claude, Copilot, Cursor.</p>
                 <code>codetrust-mcp</code>
                 <a href="https://codetrust.ai" target="_blank" class="card-link">Setup guide
                     &rarr;</a>
             </div>
             <div class="install-card">
                 <h4>Cloud API</h4>
-                <p>44 REST endpoints. No install needed.</p>
+                <p>45 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
                 <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API
                     status &rarr;</a>
@@ -3337,11 +3338,8 @@
             <div class="section-tag">Enterprise Ready</div>
             <h2>Compliance surface</h2>
             <div class="lang-row" style="margin-top: 2rem; flex-wrap: wrap; gap: 0.4rem;">
-                <span class="lang-chip">SSO / OIDC</span>
                 <span class="lang-chip">GDPR Art. 15 &amp; 17</span>
                 <span class="lang-chip">SIEM Export</span>
-                <span class="lang-chip">Sigstore Signing</span>
-                <span class="lang-chip">CycloneDX SBOM</span>
                 <span class="lang-chip">Audit Trail</span>
                 <span class="lang-chip">Prometheus Metrics</span>
                 <span class="lang-chip">CVE / Vulnerability Scan</span>
@@ -3349,6 +3347,7 @@
                 <span class="lang-chip">Cross-File Analysis</span>
                 <span class="lang-chip">Auto-Fix PRs</span>
                 <span class="lang-chip">Team RBAC</span>
+                <span class="lang-chip">Signature Validation</span>
             </div>
         </div>
     </section>
@@ -3357,7 +3356,7 @@
     <section class="bottom-cta">
         <div class="reveal">
             <h2>AI writes fast — CodeTrust ensures it's safe</h2>
-            <p>280 rules. 10 enforcement layers. 44 API endpoints.<br>Five enterprise services.</p>
+            <p>280 rules. 10 enforcement layers. 45 API endpoints.<br>Five enterprise services.</p>
             <div class="hero-actions">
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
                     class="btn btn-primary" target="_blank">Install for VS Code</a>
@@ -3655,12 +3654,13 @@
         <h3>Enterprise Features</h3>
         <p>CVE and vulnerability scanning with CVSS scoring. License compliance verification against enterprise
             policies. Cross-file dependency and impact analysis. Automated auto-fix pull requests with deterministic
-            code transforms. Team management with role-based access control (RBAC). SSO/OIDC integration. SOC 2 and ISO
-            27001 compliance mapping. Append-only audit logs. Webhook integration with Slack and Microsoft Teams.</p>
+            code transforms. Team management with role-based access control (RBAC). Signature validation with curated
+            function database (33 modules, 209 functions). GDPR Art. 15 &amp; 17 compliance.
+            Append-only audit logs. Webhook integration with Slack and Microsoft Teams.</p>
 
         <h3>Distribution</h3>
         <p>Available as: CLI (pip install codetrust), VS Code extension (marketplace.visualstudio.com), GitHub Action
-            (github.com/marketplace/actions/codetrust-scan), and MCP server for Claude Code and Cursor integration. 43
+            (github.com/marketplace/actions/codetrust-scan), and MCP server for Claude Code and Cursor integration. 45
             REST API endpoints. 21 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
             Shell/Bash, Terraform/HCL, HTML, SQL, and YAML.</p>
 

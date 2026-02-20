@@ -5,6 +5,60 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-02-20
+
+### Added — Signature Engine Hardening, min_args Enforcement, Documentation Overhaul
+
+#### Signature Validator Improvements
+
+- **Depth-aware argument extraction:** `_CALL_RE` replaced with `_CALL_OPEN_RE` +
+  `_extract_balanced_args()` — correctly handles nested function calls like
+  `os.path.join(os.getcwd(), "file")`.
+- **min_args / max_args enforcement:** new `_check_arg_count()` validates positional
+  argument counts against signature database, emitting WARN for too few or too many args.
+- **Commented import filtering:** `_resolve_python_imports()` now skips lines starting
+  with `#` — prevents false positives from commented-out import statements.
+- **From-import merging:** parenthesized and single-line imports for the same module
+  are now merged instead of skipped, preserving all bindings.
+
+#### Autofix Recipe Fixes
+
+- **fix_mutable_default:** complete rewrite — handles ALL mutable default parameters
+  per function (not just the first) using per-param regex `_MUTABLE_PARAM_RE`.
+  New `_skip_docstring()` helper correctly handles single-line docstrings.
+- **fix_connection_no_timeout:** new `_inject_timeout_param()` uses bracket-depth
+  paren matching instead of naive line-ending check.
+- **fix_os_system:** uses `shlex.split()` instead of `str.split()` for proper
+  shell-safe argument parsing.
+
+#### Signature Database
+
+- 12 new modules added in v2.6.1 (subprocess, re, datetime, hashlib, collections,
+  openai, asyncio, sys, crypto, http, child_process, next/navigation).
+- Removed `useDispatch` and `useSelector` from React hallucination list — these are
+  real functions from react-redux.
+- Total: 33 modules, 209 functions.
+
+### Fixed
+
+- Signature validator: 4 critical/high bugs fixed — `_is_kwarg_token()` for `=` vs `==`,
+  `_CALL_RE` updated for chained calls, unknown functions emit INFO not silent drop,
+  `_PY_FROM_IMPORT_PAREN_RE` for multi-line imports.
+- All documentation numbers synced to authoritative metrics:
+  1,898 tests, 21 MCP tools (10 scan + 11 gateway), 45 API endpoints, 280 rules.
+- Gateway Server docs updated: 7 → 11 tools (added 4 proxy tools).
+- Removed aspirational compliance claims (SSO/OIDC, Sigstore, CycloneDX SBOM) from
+  website — replaced with implemented features (Signature Validation).
+- Added demo.html link to website navigation.
+
+### Changed
+
+- Test count: 1,896 → 1,898.
+- Scan rules: 199 → 204.
+- COMPARISON.md and PRODUCT.md fully rewritten to match v2.7.0 state.
+
+---
+
 ## [2.6.1] - 2026-02-20
 
 ### Added — Signature Validation, Extended Autofix, Interactive Demo

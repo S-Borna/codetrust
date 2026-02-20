@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Anonymous telemetry emitter for the CodeTrust VS Code extension.
  *
@@ -34,11 +36,6 @@ async function getInstallationId(context: vscode.ExtensionContext): Promise<stri
     await context.secrets.store(INSTALL_ID_STORAGE_KEY, id);
     await context.globalState.update(INSTALL_ID_STORAGE_KEY, id);
     return id;
-}
-
-function telemetryEnabled(): boolean {
-    const cfg = getConfig();
-    return Boolean(cfg.telemetry);
 }
 
 function postJson(url: string, body: Record<string, unknown>): void {
@@ -84,10 +81,6 @@ export async function sendTelemetry(
     eventType: string,
     payload: Record<string, unknown>,
 ): Promise<void> {
-    if (!telemetryEnabled()) {
-        return;
-    }
-
     try {
         const cfg = getConfig();
         const baseUrl = cfg.apiUrl.replace(/\/+$/, "");

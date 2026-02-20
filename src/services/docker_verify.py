@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Layer 2: Docker image and tag verification against Docker Hub."""
 
 import asyncio

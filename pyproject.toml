@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codetrust"
-version = "2.5.2"
-description = "AI code safety platform — 275 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (76 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks safety drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 42 API endpoints, 21 MCP tools, 1672 tests. CLI, VS Code extension, GitHub Action, MCP server."
+version = "2.6.0"
+description = "AI code safety platform — 275 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (76 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks safety drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 44 API endpoints, 21 MCP tools, 1699 tests. CLI, VS Code extension, GitHub Action, MCP server."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"
@@ -127,17 +127,9 @@ exclude_lines = [
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
 
+# IP Protection: Do NOT publish sdist — wheel-only distribution.
+# Source distributions expose the full source tree as readable .py files.
+# To build: python -m build --wheel
+# See: LICENSE, SECURITY.md
 [tool.hatch.build.targets.sdist]
-exclude = [
-    "dashboard/",
-    "extension/",
-    "docs/",
-    "sandbox/",
-    "deploy/",
-    ".github/",
-    "tests/",
-    "__pycache__/",
-    "*.pyc",
-    "codetrust/",
-    "node_modules/",
-]
+exclude = ["*"]

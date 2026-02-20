@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Command handlers for the CodeTrust VS Code extension.
  * Implements scan, verify, and diagnostic management commands.

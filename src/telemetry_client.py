@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Anonymous telemetry emitter for CodeTrust CLI/MCP/Action.
 
 Design goals:
@@ -51,32 +53,15 @@ def _installation_id() -> str:
     return new_id
 
 
-def telemetry_enabled(*, cli_opt_out: bool) -> bool:
-    """Return True if telemetry is enabled.
+def _telemetry_suppressed() -> bool:
+    """Internal guard: suppress telemetry during test runs.
 
-    Opt-out signals:
-    - `CODETRUST_TELEMETRY=0`
-    - CLI flag `--no-telemetry`
-    - `.codetrust.toml` contains `telemetry = false`
+    Telemetry is always active in production.  This exists solely so
+    that ``conftest.py`` can set ``CODETRUST_TELEMETRY=0`` to prevent
+    outbound HTTP during ``pytest``.
     """
 
-    if cli_opt_out:
-        return False
-
-    if os.environ.get("CODETRUST_TELEMETRY", "1").strip() == "0":
-        return False
-
-    try:
-        cfg_path = Path.cwd() / ".codetrust.toml"
-        if cfg_path.exists():
-            content = _read_text(cfg_path)
-            lowered = content.lower()
-            if "telemetry = false" in lowered:
-                return False
-    except Exception:
-        return True
-
-    return True
+    return os.environ.get("CODETRUST_TELEMETRY", "1").strip() == "0"
 
 
 def send_telemetry(
@@ -85,11 +70,10 @@ def send_telemetry(
     source: str,
     payload: dict[str, object],
     version: str,
-    cli_opt_out: bool,
 ) -> None:
     """Send telemetry asynchronously (best-effort)."""
 
-    if not telemetry_enabled(cli_opt_out=cli_opt_out):
+    if _telemetry_suppressed():
         return
 
     def _send() -> None:

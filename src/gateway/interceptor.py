@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Command interceptor — validates AI agent actions before execution.
 
 Parses terminal commands, file write operations, and tool calls

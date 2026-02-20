@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """IP-based rate limiting and abuse protection middleware."""
 
 import time

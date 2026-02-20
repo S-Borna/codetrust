@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Gateway webhook notifications — alert external systems on governance events.
 
 Sends real-time alerts to Slack, Microsoft Teams, PagerDuty, or generic

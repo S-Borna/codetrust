@@ -5,6 +5,27 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.6.0] - 2026-02-20
+
+### Added
+
+- **Copyright headers** — all 22 TypeScript source files carry proprietary copyright notice
+- **esbuild bundling** — extension now ships as a single minified, identifier-obfuscated file instead of individual compiled `.js` files
+- **Source maps disabled** — `tsconfig.json` sets `sourceMap: false`; no `.map` files in package
+
+### Changed
+
+- `vscode:prepublish` now runs `npm run bundle` (esbuild) instead of `npm run compile` (tsc)
+- Extension output is a single `out/extension.js` file with copyright banner
+
+### Platform (benefits all surfaces)
+
+- Runtime license validation module (`src/services/license_guard.py`)
+- `POST /v1/license/validate` endpoint for license key verification
+- Release security gates — 7 automated pre-release IP/security checks
+- Terms of Service published at codetrust.ai/tos
+- Contributor License Agreement (CLA.md) required for all contributions
+
 ## [2.4.0] - 2026-02-20
 
 ### Added

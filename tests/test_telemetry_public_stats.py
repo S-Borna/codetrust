@@ -77,7 +77,7 @@ async def test_fetch_external_stats_populates_distribution_keys(
 
     assert await r.get("ct:ext:openvsx_downloads") == "2710"
 
-    assert await r.get("ct:ext:pepy_3m_ci_downloads") == "2712"
+    assert await r.get("ct:ext:pepy_total_downloads") == "2712"
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_build_public_stats_includes_open_vsx_distribution(
     await r.set("ct:ext:marketplace_installs", "4")
     await r.set("ct:ext:marketplace_downloads", "89")
     await r.set("ct:ext:openvsx_downloads", "2710")
-    await r.set("ct:ext:pepy_3m_ci_downloads", "2712")
+    await r.set("ct:ext:pepy_total_downloads", "2712")
 
     stats = await build_public_stats(r=r, use_cache=False)
 
@@ -106,7 +106,7 @@ async def test_build_public_stats_includes_open_vsx_distribution(
 
     pypi = distribution.get("pypi") or {}
     assert isinstance(pypi, dict)
-    assert pypi.get("downloads_last_3_months_ci") == 2712
+    assert pypi.get("downloads_total") == 2712
 
     impact = stats.get("impact")
     assert isinstance(impact, dict)

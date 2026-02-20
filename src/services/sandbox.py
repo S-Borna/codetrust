@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Layer 4: Sandbox code execution in isolated Docker containers.
 
 Runs untrusted code in short-lived Docker containers with strict resource

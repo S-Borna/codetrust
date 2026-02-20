@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Cross-file import graph analysis — builds a dependency graph across project files.
 
 Resolves imports between project files, propagates findings across boundaries,

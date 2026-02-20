@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Layer 3: AST-based code analysis using tree-sitter.
 
 Provides deep structural analysis of source code by parsing it into

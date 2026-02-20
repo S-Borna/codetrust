@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Test suite entry point for Mocha test runner.
  */

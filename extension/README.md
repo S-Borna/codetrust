@@ -13,7 +13,7 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.5.2
+## What's New in 2.6.0
 
 - **Universal IDE Injection** — on activation, governance rules are written to the global config of every AI IDE installed on the machine (Claude Code, Cursor, Windsurf, GitHub Copilot). Zero configuration required.
 - **Governance Disruption Monitoring** — file watchers detect if an IDE update overwrites injected rules; window-focus check detects new IDEs installed after CodeTrust. Both surface a one-click "Re-inject Now" notification.
@@ -142,9 +142,9 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.5.2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.6.0` |
 | **MCP Server** | 21 tools for Claude Code / Cursor / Windsurf |
-| **REST API** | 42 endpoints |
+| **REST API** | 44 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---

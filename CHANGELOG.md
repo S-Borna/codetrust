@@ -5,6 +5,69 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-02-20
+
+### Added — IP Protection & Security Hardening
+
+This release introduces comprehensive intellectual property protection and runtime
+license validation across the entire CodeTrust platform.
+
+#### Runtime License Validation
+
+- **License validation module** — validates installations against the cloud API at
+  startup with configurable intervals.
+- **Offline grace period** — configurable offline window before license lockout,
+  with local cached status.
+- **Machine fingerprinting** — hashed installation ID (not hardware) for license
+  binding. No personally identifiable hardware data is transmitted.
+- **Degraded mode** — unlicensed installations limited to a subset of rules
+  across scan and gateway layers. CLI warns but does not block.
+- **`POST /v1/license/validate`** — new endpoint for license key validation with
+  feature entitlements and plan details.
+- **Integration** — license check runs at API startup, MCP tool invocation, and
+  CLI main entry.
+- **Configuration** — `CODETRUST_LICENSE_KEY`, `CODETRUST_LICENSE_CHECK_INTERVAL`,
+  `CODETRUST_LICENSE_OFFLINE_GRACE_DAYS` env vars.
+
+#### IP Protection Infrastructure
+
+- **Copyright headers** — all Python and TypeScript files carry
+  `Copyright (c) 2026 Said Borna. All rights reserved. Proprietary — see LICENSE`.
+- **sdist blocked** — `pyproject.toml` excludes all files from source distribution.
+  Only wheel (`.whl`) is published.
+- **Source maps disabled** — no `.map` files ship in any published package.
+- **Extension bundling** — esbuild bundles and minifies the extension into a single
+  file. `vscode:prepublish` runs the bundler instead of plain `tsc` compilation.
+- **Contributor License Agreement** — `CLA.md` requires all contributors to grant
+  perpetual IP rights. `CONTRIBUTING.md` references CLA before merge.
+
+#### Release Security Gates
+
+- **Automated gate script** — multi-check verification runs before every release
+  covering distribution format, copyright, source protection, license validation,
+  CLA, secrets audit, and runtime integrity.
+- **Updated release checklist** — mandatory security gates section. Release is
+  blocked if any gate fails.
+- **Post-release verification** — checklist requires distribution audit after
+  every publish.
+
+#### Security Hardening
+
+- Additional runtime license enforcement for production deployments.
+- Rule delivery architecture hardened for cloud-first distribution.
+- Build pipeline improvements for compiled and obfuscated output.
+- Source protection expanded across Python and TypeScript targets.
+
+#### Legal & Compliance
+
+- **Terms of Service** — `docs/tos.html` published at codetrust.ai/tos covering
+  license grant, restrictions, IP ownership, data collection, GDPR compliance,
+  and governing law (Sweden).
+- **Website footer** — Terms of Service and <www.saidborna.com> links added.
+- **Contact updated** — contact email changed to <said@saidborna.com> on website.
+
+---
+
 ## [2.5.2] - 2026-02-19
 
 ### Fixed
@@ -114,6 +177,6 @@ CodeTrust now actively monitors injected governance files for disruptions after 
 
 ## Older Releases
 
-For release notes prior to v2.5.0, see the [full git history](https://github.com/SaidBorna/codetrust/commits/main) or run `git log --oneline` locally.
+For release notes prior to v2.5.0, see the [full git history](https://github.com/S-Borna/codetrust/commits/main) or run `git log --oneline` locally.
 
-**Current version: 2.5.2** — install via `pip install codetrust` or the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust).
+**Current version: 2.6.0** — install via `pip install codetrust` or the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust).

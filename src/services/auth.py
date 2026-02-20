@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Authentication service for GitHub OAuth and JWT token management."""
 
 import datetime

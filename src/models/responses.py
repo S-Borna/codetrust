@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Pydantic response models for the CodeTrust API."""
 
 from pydantic import BaseModel, ConfigDict, Field

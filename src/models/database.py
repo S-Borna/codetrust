@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """SQLAlchemy ORM models for users, API keys, scan logs, telemetry, and teams."""
 
 import datetime

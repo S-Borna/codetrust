@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Unit tests for the CodeTrust type definitions and language mapping.
  */

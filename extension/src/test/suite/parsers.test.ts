@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Unit tests for the import/Dockerfile parser utilities.
  * These tests run without VS Code API dependencies.

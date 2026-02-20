@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Enterprise-grade file and structure rules for repository validation."""
 
 # Files that MUST exist in a production repository

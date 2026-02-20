@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """MCP Gateway Server — AI action governance as an MCP tool layer.
 
 This server provides governance tools that AI agents and MCP clients
@@ -106,7 +108,6 @@ def _emit_gateway_telemetry(*, result: InterceptResult, effective_verdict: str) 
         event_type="gateway_check",
         source="mcp",
         version=settings.version,
-        cli_opt_out=False,
         payload={
             "action": action,
             "rule_triggered": result.rule_id,

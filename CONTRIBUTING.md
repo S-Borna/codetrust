@@ -3,6 +3,17 @@
 Thank you for your interest in contributing to CodeTrust! This guide will help
 you get started.
 
+## Contributor License Agreement (CLA)
+
+**All contributors must sign the [CLA](CLA.md) before their first contribution
+can be merged.** This ensures that intellectual property rights are properly
+assigned and that CodeTrust can continue to be distributed under its
+proprietary license.
+
+To sign, include the following statement in your first pull request:
+
+> I have read the CLA and I agree to its terms.
+
 ## Code of Conduct
 
 By participating in this project, you agree to maintain a respectful and

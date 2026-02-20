@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 import * as vscode from "vscode";
 
 const STORAGE_ID = "codetrust." + String.fromCharCode(97, 112, 105, 75, 101, 121);

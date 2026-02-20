@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """SSO/OIDC authentication service — enterprise identity provider integration.
 
 Supports any OpenID Connect compliant provider:

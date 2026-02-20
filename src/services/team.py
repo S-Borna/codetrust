@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Team management and RBAC service.
 
 Manages organizations, team memberships, and role-based access control.

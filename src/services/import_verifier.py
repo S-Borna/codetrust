@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Import verification: extract imports from source files and verify against registries.
 
 Bridges static analysis with live registry checks. Designed for CLI and CI use

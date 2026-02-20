@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Import extraction, requirements parsing, and Dockerfile parsing utilities."""
 
 import json

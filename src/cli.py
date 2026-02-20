@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """
 CodeTrust CLI — install, scan, and enforce from any project.
 
@@ -859,7 +861,6 @@ def _report_fix_telemetry(
             event_type="fix_applied",
             source="cli",
             version=pkg_version,
-            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
             payload={
                 "fixes_applied": changed_files,
                 "files_changed": changed_files,
@@ -2897,7 +2898,6 @@ def _scan_process_import_findings(
             event_type="import_verified",
             source="cli",
             version="unknown",
-            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
             payload={
                 "total_imports_checked": import_count,
                 "hallucinations_caught": hallucinations_found,
@@ -3078,7 +3078,6 @@ def _scan_emit_telemetry(
             event_type="scan_completed",
             source="cli",
             version=pkg_version,
-            cli_opt_out=bool(getattr(args, "no_telemetry", False)),
             payload=payload,
         )
     except Exception as exc:
@@ -3792,11 +3791,6 @@ def _create_main_parser() -> argparse.ArgumentParser:
         prog="codetrust",
         description="CodeTrust — AI code verification. Install, scan, enforce.",
     )
-    parser.add_argument(
-        "--no-telemetry",
-        action="store_true",
-        help="Disable anonymous telemetry (also supports CODETRUST_TELEMETRY=0)",
-    )
     return parser
 
 
@@ -4021,6 +4015,17 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
 
 def main() -> int:
     """CLI entry point."""
+    # License check — warn but do not block CLI usage
+    from src.services.license_guard import validate_license_sync
+
+    license_status = validate_license_sync(os.environ.get("CODETRUST_API_KEY", ""))
+    if not license_status.valid and license_status.plan != "free":
+        sys.stderr.write(
+            "\033[33m\u26a0 CodeTrust license not validated. "
+            "Running in limited mode.\033[0m\n"
+            "  Get a license at https://codetrust.ai\n\n",
+        )
+
     parser = _create_main_parser()
     subparsers = parser.add_subparsers(dest="command")
 

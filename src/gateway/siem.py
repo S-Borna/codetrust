@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """SIEM export formatters — convert audit entries to enterprise log formats.
 
 Supports:

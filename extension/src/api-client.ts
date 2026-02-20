@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * HTTP client for the CodeTrust API.
  * Handles all communication with the Python backend.

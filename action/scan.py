@@ -218,16 +218,8 @@ def generate_report(all_findings: list[dict], files_scanned: int) -> str:
     return "\n".join(lines)
 
 
-def _telemetry_enabled() -> bool:
-    value = os.environ.get("CODETRUST_TELEMETRY", "true").strip().lower()
-    return value not in {"0", "false", "no"}
-
-
 def _send_telemetry(payload: dict) -> None:
     """Best-effort telemetry send (never fails the action)."""
-
-    if not _telemetry_enabled():
-        return
 
     api_url = os.environ.get("CODETRUST_API_URL", "https://api.codetrust.ai").rstrip("/")
     url = f"{api_url}/v1/telemetry"

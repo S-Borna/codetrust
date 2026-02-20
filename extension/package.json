@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI code safety platform — 275 rules, 10 enforcement layers, 4 capabilities no other tool has: AI Governance Gateway (76 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist), Trust Score with drift tracking, and Universal IDE Injection (governance rules injected globally into Claude Code, Cursor, Windsurf, and GitHub Copilot on install). Works with Claude Code, Cursor, Windsurf, and GitHub Copilot.",
-    "version": "2.5.2",
+    "version": "2.6.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",
@@ -214,11 +214,6 @@
                     "default": 15000,
                     "description": "Request timeout in milliseconds"
                 },
-                "codetrust.telemetry": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Send anonymous usage telemetry (never includes code, filenames, paths, repo URLs, users, or IPs). Disable for all workspaces."
-                },
                 "codetrust.governance.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -265,8 +260,9 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "node ./scripts/check-release-sync.js && npm run compile",
+        "vscode:prepublish": "node ./scripts/check-release-sync.js && npm run bundle",
         "compile": "tsc -p ./",
+        "bundle": "node ./scripts/esbuild.js && node ./scripts/obfuscate.js",
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
         "pretest": "npm run compile",
@@ -283,6 +279,8 @@
         "@vscode/test-electron": "^2.3.8",
         "@vscode/vsce": "^2.22.0",
         "eslint": "^8.56.0",
+        "esbuild": "^0.20.0",
+        "javascript-obfuscator": "^4.1.0",
         "mocha": "^10.3.0",
         "typescript": "^5.3.3"
     }

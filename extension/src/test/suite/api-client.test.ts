@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Said Borna. All rights reserved.
+// Proprietary — see LICENSE for terms.
 /**
  * Unit tests for the CodeTrust API client.
  * Tests request building, error handling, and response parsing.
@@ -20,7 +22,6 @@ function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
         scanType: "static",
         verifyImportsOnSave: false,
         timeout: 5000,
-        telemetry: true,
         governance: {
             enabled: true,
             mode: "enforce",

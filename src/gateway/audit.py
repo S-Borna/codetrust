@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """Audit logger — structured logging of all AI agent actions.
 
 Records every intercepted action (allowed, warned, or blocked)

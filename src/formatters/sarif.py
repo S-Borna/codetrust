@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """SARIF v2.1.0 output formatter for CodeTrust findings.
 
 Converts CodeTrust Finding objects into SARIF (Static Analysis Results

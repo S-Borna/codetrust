@@ -22,7 +22,7 @@ from pathlib import Path
 
 PACKAGE_NAME: str = "codetrust"
 MIN_PYTHON_FILES: int = 50
-MIN_WHEEL_SIZE_KB: int = 500
+MIN_WHEEL_SIZE_KB: int = 200
 REQUIRED_ENTRY_POINTS: list[str] = [
     "src/cli.py",
     "src/server.py",

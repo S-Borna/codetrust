@@ -33,6 +33,7 @@
 
         html {
             scroll-behavior: smooth;
+            overflow-x: hidden;
         }
 
         body {
@@ -42,6 +43,7 @@
             line-height: 1.65;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+            max-width: 100vw;
         }
 
         /* PORTFOLIO-STYLE AMBIENCE (keeps CodeTrust colors) */
@@ -2120,6 +2122,15 @@
                 white-space: normal;
             }
 
+            .hero-tagline {
+                font-size: 0.6rem;
+                letter-spacing: 0.12em;
+            }
+
+            .hero-version {
+                max-width: 100%;
+            }
+
             .section-desc {
                 white-space: normal;
                 max-width: 100%;
@@ -2217,41 +2228,73 @@
             .hero {
                 padding: 5.5rem 1.2rem 3rem;
                 min-height: auto;
+                overflow: hidden;
+            }
+
+            .hero-content {
+                max-width: 100%;
+                overflow: hidden;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .hero h1 {
-                font-size: 1.85rem;
+                font-size: 1.65rem;
                 line-height: 1.15;
+                overflow-wrap: break-word;
+                word-break: break-word;
             }
 
             .hero-sub {
-                font-size: 0.92rem;
-                white-space: normal;
+                font-size: 0.88rem;
+                white-space: normal !important;
                 line-height: 1.65;
+                max-width: 100%;
+                overflow-wrap: break-word;
             }
 
             .hero-logo {
                 gap: 0.8rem;
-                flex-direction: column;
+                flex-direction: column !important;
+                align-items: center;
+                max-width: 100%;
             }
 
             .hero-logo svg {
-                width: 80px;
+                width: 72px;
             }
 
             .hero-logo-text {
-                font-size: 2.8rem;
+                font-size: 2.6rem;
                 text-align: center;
+                display: block;
+                max-width: 100%;
+            }
+
+            .hero-tagline {
+                font-size: 0.52rem;
+                letter-spacing: 0.1em;
+                white-space: normal !important;
+                width: auto !important;
+                overflow: visible;
+                border-right: none !important;
+                animation: none !important;
+                opacity: 1;
             }
 
             .hero-version {
-                font-size: 0.68rem;
+                font-size: 0.62rem;
                 padding: 0.25rem 0.6rem;
                 margin-bottom: 1.5rem;
+                max-width: 100%;
+                white-space: normal;
+                width: auto;
+                text-align: center;
+                line-height: 1.5;
             }
 
             .hero-actions {
-                flex-direction: column;
+                flex-direction: column !important;
                 gap: 0.75rem;
                 width: 100%;
             }
@@ -2558,11 +2601,16 @@
         /* ---------- ≤400px — Small phones ---------- */
         @media (max-width: 400px) {
             .hero h1 {
-                font-size: 1.55rem;
+                font-size: 1.4rem;
             }
 
             .hero-logo-text {
-                font-size: 2.2rem;
+                font-size: 2.1rem;
+            }
+
+            .hero-tagline {
+                font-size: 0.45rem;
+                letter-spacing: 0.06em;
             }
 
             .container h2 {
@@ -2599,11 +2647,11 @@
             }
 
             .hero-sub {
-                font-size: 0.85rem;
+                font-size: 0.82rem;
             }
 
             .hero-version {
-                font-size: 0.62rem;
+                font-size: 0.56rem;
             }
         }
 

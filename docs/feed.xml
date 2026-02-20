@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>CodeTrust — AI Governance Enforcement Platform</title>
+    <link>https://codetrust.ai</link>
+    <description>Release notes, security advisories, and updates from CodeTrust — the AI governance enforcement platform that prevents unsafe AI-generated code from reaching production.</description>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 20 Feb 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://codetrust.ai/feed.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>https://codetrust.ai/logo.png</url>
+      <title>CodeTrust</title>
+      <link>https://codetrust.ai</link>
+    </image>
+
+    <item>
+      <title>CodeTrust v2.7.0 — Signature Engine Hardening, Security Audit Fixes</title>
+      <link>https://github.com/S-Borna/codetrust/releases/tag/v2.7.0</link>
+      <guid isPermaLink="true">https://github.com/S-Borna/codetrust/releases/tag/v2.7.0</guid>
+      <pubDate>Thu, 20 Feb 2026 00:00:00 +0000</pubDate>
+      <description><![CDATA[
+        <p><strong>Signature Validator Improvements:</strong> Depth-aware argument extraction,
+        min_args/max_args enforcement, commented import filtering, from-import merging.</p>
+        <p><strong>Autofix Recipe Fixes:</strong> fix_mutable_default rewrite (handles all mutable defaults),
+        fix_connection_no_timeout with bracket-depth matching, fix_os_system with shlex.split.</p>
+        <p><strong>Security Hardening:</strong> JWT secret enforcement at startup, auth on governance audit,
+        WebSocket connection limits and idle timeout, org membership authorization,
+        token revocation via Redis, input field max_length, extra=forbid on all models,
+        path traversal protection, OIDC state validation, restricted CORS headers.</p>
+        <p><strong>Signature Database:</strong> 33 modules, 209 functions. 12 new modules added.</p>
+        <p>1,898 tests passing. 280 rules. 45 API endpoints. 21 MCP tools.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>CodeTrust v2.6.1 — Signature Validation Engine, Extended Autofix, Interactive Demo</title>
+      <link>https://github.com/S-Borna/codetrust/releases/tag/v2.6.1</link>
+      <guid isPermaLink="true">https://github.com/S-Borna/codetrust/releases/tag/v2.6.1</guid>
+      <pubDate>Thu, 20 Feb 2026 00:00:00 +0000</pubDate>
+      <description><![CDATA[
+        <p><strong>Signature Validation Engine:</strong> Function signature knowledge base covering
+        16 Python + 11 JS/TS modules. Catches hallucinated functions, unknown parameters,
+        deprecated usage, and provides typo suggestions via Levenshtein distance.</p>
+        <p><strong>Extended Autofix:</strong> 17 new deterministic autofix recipes added.</p>
+        <p><strong>Interactive Demo:</strong> Live browser-based demo at codetrust.ai/demo.html.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>CodeTrust v2.6.0 — AI Governance Gateway, MCP Proxy Tools</title>
+      <link>https://github.com/S-Borna/codetrust/releases/tag/v2.6.0</link>
+      <guid isPermaLink="true">https://github.com/S-Borna/codetrust/releases/tag/v2.6.0</guid>
+      <pubDate>Wed, 19 Feb 2026 00:00:00 +0000</pubDate>
+      <description><![CDATA[
+        <p><strong>AI Governance Gateway:</strong> 76 real-time interception rules that block
+        destructive AI agent actions before execution. Works with Claude Code, Cursor,
+        GitHub Copilot, Windsurf, and Cline.</p>
+        <p><strong>MCP Proxy Tools:</strong> 4 proxy tools (run_in_terminal, create_file,
+        replace_string_in_file, edit_notebook) that enforce governance policies before
+        allowing native tool calls.</p>
+        <p><strong>Guardian Scanner:</strong> Pre-action, mid-action, and post-action code
+        quality scanning with full enterprise rule enforcement.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>CodeTrust v2.5.0 — Enterprise Features, Team RBAC, Billing</title>
+      <link>https://github.com/S-Borna/codetrust/releases/tag/v2.5.0</link>
+      <guid isPermaLink="true">https://github.com/S-Borna/codetrust/releases/tag/v2.5.0</guid>
+      <pubDate>Tue, 18 Feb 2026 00:00:00 +0000</pubDate>
+      <description><![CDATA[
+        <p><strong>Enterprise Features:</strong> Organization management, team RBAC with
+        admin/member/viewer roles, Stripe billing integration, webhook notifications
+        to Slack and Microsoft Teams.</p>
+        <p><strong>GDPR Compliance:</strong> Art. 15 data export and Art. 17 right to
+        erasure endpoints with append-only audit logging.</p>
+        <p><strong>Dashboard:</strong> Next.js admin dashboard with real-time scan
+        statistics, rule management, and team administration.</p>
+      ]]></description>
+    </item>
+
+  </channel>
+</rss>

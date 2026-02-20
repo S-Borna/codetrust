@@ -320,8 +320,17 @@ def _scan_changed_files(
 ) -> list[Finding]:
     """Scan all changed files and return aggregated findings."""
     findings: list[Finding] = []
+    real_root = os.path.realpath(repo_root)
     for filepath in files_changed:
-        full_path = os.path.join(repo_root, filepath)
+        full_path = os.path.realpath(os.path.join(repo_root, filepath))
+        if not full_path.startswith(real_root + os.sep) and full_path != real_root:
+            logger.warning(
+                "path_traversal_blocked",
+                filepath=filepath,
+                resolved=full_path,
+                repo_root=real_root,
+            )
+            continue
         if os.path.isfile(full_path):
             findings.extend(_scan_file(full_path, filepath))
     return findings

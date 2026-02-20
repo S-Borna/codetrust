@@ -28,7 +28,6 @@ MAX_URL_LENGTH = 2048        # max URL length
 EXEMPT_PATHS = frozenset({
     "/v1/status",
     "/v1/stats/public",
-    "/v1/stats/live",
     "/v1/telemetry",
     "/health",
     "/",

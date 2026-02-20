@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 — Page Not Found | CodeTrust</title>
+    <meta name="description" content="The page you are looking for does not exist. Return to CodeTrust homepage.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://codetrust.ai">
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0f1c;
+            color: #e2e8f0;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .error-container {
+            max-width: 560px;
+        }
+
+        .error-code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 7rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            font-size: 1rem;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.06);
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        .footer-note {
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            color: #475569;
+        }
+
+        .footer-note a {
+            color: #22c55e;
+            text-decoration: none;
+        }
+
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="error-container">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Page not found</h1>
+        <p class="error-message">
+            The page you are looking for does not exist or has been moved.
+            If you believe this is an error, please check the URL or return to the homepage.
+        </p>
+        <div class="error-actions">
+            <a href="https://codetrust.ai" class="btn btn-primary">Back to Homepage</a>
+            <a href="https://api.codetrust.ai/docs" class="btn btn-ghost">API Documentation</a>
+        </div>
+    </div>
+    <p class="footer-note">
+        <a href="https://codetrust.ai">CodeTrust</a> — AI Governance Enforcement Platform
+    </p>
+</body>
+
+</html>

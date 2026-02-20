@@ -5,6 +5,21 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.7.0] - 2026-02-20
+
+### Added
+
+- **Signature Validation** — curated function database (33 modules, 209 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
+- **45 API endpoints** (up from 44)
+- **280 scan rules** across 10 enforcement layers
+
+### Platform (benefits all surfaces)
+
+- Signature engine hardening with min_args enforcement
+- Public-facing materials audit — all claims verified against real implementation
+- SOC 2 controls mapping documentation updated
+- SECURITY.md updated with v2.7.x support
+
 ## [2.6.0] - 2026-02-20
 
 ### Added

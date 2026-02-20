@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.6.1</code> &middot; <code>1795 tests</code> &middot; <code>280 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.6.1</code> &middot; <code>1896 tests</code> &middot; <code>280 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 44 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,795 tests.
+**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 44 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,896 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -614,7 +614,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1795 tests
+pytest                     # 1896 tests
 ruff check .               # zero warnings
 ```
 

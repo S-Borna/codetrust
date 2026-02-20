@@ -42,6 +42,12 @@ logger = structlog.get_logger()
 
 RULE_PREFIX = "sig"
 MAX_FINDINGS_PER_FILE = 50
+MAX_DISTANCE_SENTINEL = 999
+MAX_PARAM_EDIT_DISTANCE = 2
+MAX_FUNC_EDIT_DISTANCE = 3
+HALLUCINATION_CONFIDENCE = 0.95
+UNKNOWN_FUNC_CONFIDENCE = 0.7
+MAX_SUGGESTIONS = 8
 
 # Regex patterns for import resolution
 _PY_IMPORT_RE = re.compile(
@@ -367,88 +373,125 @@ def _validate_call(
     module_name: str,
     filepath: str,
 ) -> list[Finding]:
-    """Validate a single function call against its signature."""
-    findings: list[Finding] = []
+    """Validate a single function call against its signature.
 
-    # Check if function is deprecated
-    if func_sig.deprecated:
-        msg = f"'{module_name}.{func_sig.name}' is deprecated"
-        if func_sig.deprecated_since:
-            msg += f" since {func_sig.deprecated_since}"
-        suggestion = ""
-        if func_sig.replacement:
-            suggestion = f"Use '{func_sig.replacement}' instead."
-            msg += f". Use '{func_sig.replacement}' instead"
+    Delegates to specialised checkers for deprecated functions,
+    hallucinated kwargs, and deprecated parameters.
+    """
+    findings: list[Finding] = []
+    findings.extend(_check_deprecated_function(call, func_sig, module_name, filepath))
+    findings.extend(_check_hallucinated_kwargs(call, func_sig, module_name, filepath))
+    findings.extend(_check_deprecated_params(call, func_sig, filepath))
+    return findings
+
+
+def _check_deprecated_function(
+    call: FunctionCall,
+    func_sig: FunctionSig,
+    module_name: str,
+    filepath: str,
+) -> list[Finding]:
+    """Flag deprecated function usage."""
+    if not func_sig.deprecated:
+        return []
+
+    msg = f"'{module_name}.{func_sig.name}' is deprecated"
+    if func_sig.deprecated_since:
+        msg += f" since {func_sig.deprecated_since}"
+    suggestion = ""
+    if func_sig.replacement:
+        suggestion = f"Use '{func_sig.replacement}' instead."
+        msg += f". Use '{func_sig.replacement}' instead"
+    return [Finding(
+        rule_id=f"{RULE_PREFIX}_deprecated_function",
+        severity=Severity.WARN,
+        message=msg,
+        file=filepath,
+        line=call.line,
+        suggestion=suggestion,
+    )]
+
+
+def _check_hallucinated_kwargs(
+    call: FunctionCall,
+    func_sig: FunctionSig,
+    module_name: str,
+    filepath: str,
+) -> list[Finding]:
+    """Detect hallucinated or unknown keyword arguments."""
+    if not call.keyword_args or not func_sig.params:
+        return []
+
+    findings: list[Finding] = []
+    valid_params = {p.name for p in func_sig.params}
+
+    for kwarg in call.keyword_args:
+        if kwarg in valid_params:
+            continue
+
+        sev = Severity.WARN
+        if kwarg in func_sig.common_hallucinations:
+            sev = Severity.BLOCK
+            suggestion = (
+                f"'{kwarg}' is a common AI hallucination for "
+                f"'{module_name}.{func_sig.name}()'. "
+                f"Valid parameters: {', '.join(sorted(valid_params))}"
+            )
+        else:
+            closest = _find_closest_param(kwarg, valid_params)
+            suggestion = (
+                f"Did you mean '{closest}'?"
+                if closest
+                else f"Valid parameters: {', '.join(sorted(valid_params))}"
+            )
+
         findings.append(Finding(
-            rule_id=f"{RULE_PREFIX}_deprecated_function",
+            rule_id=f"{RULE_PREFIX}_unknown_param",
+            severity=sev,
+            message=(
+                f"Unknown parameter '{kwarg}' for "
+                f"'{module_name}.{func_sig.name}()'"
+            ),
+            file=filepath,
+            line=call.line,
+            suggestion=suggestion,
+        ))
+
+    return findings
+
+
+def _check_deprecated_params(
+    call: FunctionCall,
+    func_sig: FunctionSig,
+    filepath: str,
+) -> list[Finding]:
+    """Flag usage of deprecated parameters."""
+    if not call.keyword_args or not func_sig.params:
+        return []
+
+    findings: list[Finding] = []
+    deprecated_params = {
+        p.name: p for p in func_sig.params if p.deprecated
+    }
+    for kwarg in call.keyword_args:
+        if kwarg not in deprecated_params:
+            continue
+        param = deprecated_params[kwarg]
+        msg = f"Parameter '{kwarg}' is deprecated"
+        if param.deprecated_since:
+            msg += f" since {param.deprecated_since}"
+        suggestion = ""
+        if param.replacement:
+            suggestion = f"Use '{param.replacement}' instead."
+            msg += f". Use '{param.replacement}' instead"
+        findings.append(Finding(
+            rule_id=f"{RULE_PREFIX}_deprecated_param",
             severity=Severity.WARN,
             message=msg,
             file=filepath,
             line=call.line,
             suggestion=suggestion,
         ))
-
-    # Check for hallucinated keyword arguments
-    if call.keyword_args and func_sig.params:
-        valid_params = {p.name for p in func_sig.params}
-        for kwarg in call.keyword_args:
-            if kwarg not in valid_params:
-                sev = Severity.WARN
-                suggestion = ""
-
-                # Is it a known AI hallucination?
-                if kwarg in func_sig.common_hallucinations:
-                    sev = Severity.BLOCK
-                    suggestion = (
-                        f"'{kwarg}' is a common AI hallucination for "
-                        f"'{module_name}.{func_sig.name}()'. "
-                        f"Valid parameters: {', '.join(sorted(valid_params))}"
-                    )
-                else:
-                    # Find closest valid parameter
-                    closest = _find_closest_param(kwarg, valid_params)
-                    if closest:
-                        suggestion = f"Did you mean '{closest}'?"
-                    else:
-                        suggestion = (
-                            f"Valid parameters: {', '.join(sorted(valid_params))}"
-                        )
-
-                findings.append(Finding(
-                    rule_id=f"{RULE_PREFIX}_unknown_param",
-                    severity=sev,
-                    message=(
-                        f"Unknown parameter '{kwarg}' for "
-                        f"'{module_name}.{func_sig.name}()'"
-                    ),
-                    file=filepath,
-                    line=call.line,
-                    suggestion=suggestion,
-                ))
-
-    # Check for deprecated parameters
-    if call.keyword_args and func_sig.params:
-        deprecated_params = {
-            p.name: p for p in func_sig.params if p.deprecated
-        }
-        for kwarg in call.keyword_args:
-            if kwarg in deprecated_params:
-                param = deprecated_params[kwarg]
-                msg = f"Parameter '{kwarg}' is deprecated"
-                if param.deprecated_since:
-                    msg += f" since {param.deprecated_since}"
-                suggestion = ""
-                if param.replacement:
-                    suggestion = f"Use '{param.replacement}' instead."
-                    msg += f". Use '{param.replacement}' instead"
-                findings.append(Finding(
-                    rule_id=f"{RULE_PREFIX}_deprecated_param",
-                    severity=Severity.WARN,
-                    message=msg,
-                    file=filepath,
-                    line=call.line,
-                    suggestion=suggestion,
-                ))
 
     return findings
 
@@ -459,11 +502,11 @@ def _find_closest_param(name: str, valid: set[str]) -> str:
         return ""
 
     best_name = ""
-    best_dist = 999
+    best_dist = MAX_DISTANCE_SENTINEL
 
     for candidate in valid:
         dist = _levenshtein(name.lower(), candidate.lower())
-        if dist < best_dist and dist <= 2:
+        if dist < best_dist and dist <= MAX_PARAM_EDIT_DISTANCE:
             best_dist = dist
             best_name = candidate
 
@@ -517,28 +560,44 @@ def validate_signatures(
     Returns:
         List of Finding objects for detected issues.
     """
-    findings: list[Finding] = []
     lang_key = language.lower()
-
     sig_db = SIGNATURES.get(lang_key)
     if not sig_db:
-        return findings
+        return []
 
-    # Step 1: Resolve imports
     bindings = resolve_imports(code, lang_key)
     if not bindings:
-        return findings
+        return []
 
-    # Build set of module aliases that map to known libraries
+    known_aliases, alias_to_binding = _build_alias_map(bindings, sig_db)
+    if not known_aliases:
+        return []
+
+    calls = extract_calls(code, known_aliases)
+    findings = _validate_all_calls(calls, alias_to_binding, sig_db, filepath)
+
+    logger.debug(
+        "signature_validation_complete",
+        file=filepath,
+        language=lang_key,
+        calls_checked=len(calls),
+        findings=len(findings),
+    )
+    return findings
+
+
+def _build_alias_map(
+    bindings: dict[str, ImportBinding],
+    sig_db: dict[str, ModuleSig],
+) -> tuple[set[str], dict[str, ImportBinding]]:
+    """Build mapping from local aliases to known library modules."""
     known_aliases: set[str] = set()
     alias_to_binding: dict[str, ImportBinding] = {}
 
     for alias, binding in bindings.items():
-        # Check direct module match
         if binding.module_name in sig_db:
             known_aliases.add(alias)
             alias_to_binding[alias] = binding
-        # Check parent module match (e.g., "django.shortcuts" -> "django")
         parent = binding.module_name.split(".")[0]
         if parent in sig_db and alias not in known_aliases:
             known_aliases.add(alias)
@@ -548,13 +607,18 @@ def validate_signatures(
                 symbol=binding.symbol,
             )
 
-    if not known_aliases:
-        return findings
+    return known_aliases, alias_to_binding
 
-    # Step 2: Extract function calls
-    calls = extract_calls(code, known_aliases)
 
-    # Step 3: Validate each call
+def _validate_all_calls(
+    calls: list[FunctionCall],
+    alias_to_binding: dict[str, ImportBinding],
+    sig_db: dict[str, ModuleSig],
+    filepath: str,
+) -> list[Finding]:
+    """Validate each extracted call against the signature database."""
+    findings: list[Finding] = []
+
     for call in calls:
         if len(findings) >= MAX_FINDINGS_PER_FILE:
             break
@@ -567,66 +631,64 @@ def validate_signatures(
         if not module_sig:
             continue
 
-        # Look up the function
         func_sig = _lookup_function(module_sig, call.function_name, binding)
 
         if func_sig is None:
-            # Check if it's a known hallucinated function
-            is_hallucinated = (
-                call.function_name in module_sig.common_hallucinated_functions
+            findings.extend(
+                _handle_unknown_function(call, binding, module_sig, filepath)
             )
-
-            if is_hallucinated:
-                # Known AI hallucination — BLOCK
-                available = sorted(module_sig.functions.keys())
-                findings.append(Finding(
-                    rule_id=f"{RULE_PREFIX}_hallucinated_function",
-                    severity=Severity.BLOCK,
-                    message=(
-                        f"'{binding.module_name}.{call.function_name}()' does not exist. "
-                        f"This is a known AI hallucination."
-                    ),
-                    file=filepath,
-                    line=call.line,
-                    suggestion=(
-                        f"Available functions: {', '.join(available[:8])}"
-                    ),
-                    confidence=0.95,
-                ))
-            else:
-                # Unknown function — could be a method we don't track
-                # Only flag if it looks suspicious
-                closest = _find_closest_function(
-                    call.function_name, module_sig,
-                )
-                if closest:
-                    findings.append(Finding(
-                        rule_id=f"{RULE_PREFIX}_unknown_function",
-                        severity=Severity.WARN,
-                        message=(
-                            f"'{binding.module_name}.{call.function_name}()' "
-                            f"not found in signature database."
-                        ),
-                        file=filepath,
-                        line=call.line,
-                        suggestion=f"Did you mean '{closest}'?",
-                        confidence=0.7,
-                    ))
         else:
-            # Function exists — validate its parameters
             findings.extend(
                 _validate_call(call, func_sig, binding.module_name, filepath)
             )
 
-    logger.debug(
-        "signature_validation_complete",
-        file=filepath,
-        language=lang_key,
-        calls_checked=len(calls),
-        findings=len(findings),
+    return findings
+
+
+def _handle_unknown_function(
+    call: FunctionCall,
+    binding: ImportBinding,
+    module_sig: ModuleSig,
+    filepath: str,
+) -> list[Finding]:
+    """Handle a call to a function not found in the signature database."""
+    is_hallucinated = (
+        call.function_name in module_sig.common_hallucinated_functions
     )
 
-    return findings
+    if is_hallucinated:
+        available = sorted(module_sig.functions.keys())
+        return [Finding(
+            rule_id=f"{RULE_PREFIX}_hallucinated_function",
+            severity=Severity.BLOCK,
+            message=(
+                f"'{binding.module_name}.{call.function_name}()' does not exist. "
+                f"This is a known AI hallucination."
+            ),
+            file=filepath,
+            line=call.line,
+            suggestion=(
+                f"Available functions: {', '.join(available[:MAX_SUGGESTIONS])}"
+            ),
+            confidence=HALLUCINATION_CONFIDENCE,
+        )]
+
+    closest = _find_closest_function(call.function_name, module_sig)
+    if closest:
+        return [Finding(
+            rule_id=f"{RULE_PREFIX}_unknown_function",
+            severity=Severity.WARN,
+            message=(
+                f"'{binding.module_name}.{call.function_name}()' "
+                f"not found in signature database."
+            ),
+            file=filepath,
+            line=call.line,
+            suggestion=f"Did you mean '{closest}'?",
+            confidence=UNKNOWN_FUNC_CONFIDENCE,
+        )]
+
+    return []
 
 
 def _find_closest_function(
@@ -639,11 +701,11 @@ def _find_closest_function(
         all_funcs.update(sub_funcs.keys())
 
     best = ""
-    best_dist = 999
+    best_dist = MAX_DISTANCE_SENTINEL
 
     for candidate in all_funcs:
         dist = _levenshtein(name.lower(), candidate.lower())
-        if dist < best_dist and dist <= 3:
+        if dist < best_dist and dist <= MAX_FUNC_EDIT_DISTANCE:
             best_dist = dist
             best = candidate
 

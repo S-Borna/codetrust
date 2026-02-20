@@ -156,6 +156,18 @@ class StaticAnalyzer:
             or stripped.startswith("'''")
         ))
 
+    @staticmethod
+    def _is_docstring_boundary(stripped: str) -> bool:
+        """Check if a line is a docstring boundary (open/close).
+
+        Only toggles on lines where triple-quotes appear at the START,
+        not when referenced inside code (e.g. ``if '\"\"\"' in text:``).
+        """
+        for quote in ('"""', "'''"):
+            if stripped.startswith(quote) and stripped.count(quote) == 1:
+                    return True
+        return False
+
     def _apply_rule(
         self,
         rule: dict[str, str],
@@ -170,7 +182,7 @@ class StaticAnalyzer:
 
         for line_num, line in enumerate(lines, start=1):
             stripped = line.strip()
-            if stripped.count('"""') == 1 or stripped.count("'''") == 1:
+            if self._is_docstring_boundary(stripped):
                 in_docstring = not in_docstring
             if not self._line_matches_rule(
                 line, stripped, in_docstring, skip_comments, rule["id"],
@@ -388,7 +400,13 @@ class StaticAnalyzer:
         """Flag except blocks that swallow errors (pass/... with no logging)."""
         findings: list[Finding] = []
         except_pattern = re.compile(r"^\s*except[\s:]")
+        in_docstring = False
         for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if self._is_docstring_boundary(stripped):
+                in_docstring = not in_docstring
+            if in_docstring:
+                continue
             if "noqa" in line:
                 continue
             if except_pattern.match(line):

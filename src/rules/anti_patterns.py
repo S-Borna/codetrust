@@ -688,6 +688,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\bos\.system\s*\(",
         "message": "os.system is unsafe. Use subprocess.run with shell=False.",
         "severity": Severity.BLOCK,
+        "skip_comments": True,
     },
     {
         "id": "agent_os_popen",

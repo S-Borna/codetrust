@@ -112,6 +112,7 @@ class FunctionCall:
     line: int
     keyword_args: list[str] = field(default_factory=list)
     positional_count: int = 0
+    submodule: str = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -392,11 +393,17 @@ def extract_calls(
 
             # For chained calls like os.path.join(), use the first
             # segment as the module alias if it's a known module.
+            # Extract submodule from chain (e.g. "path" from "os.path").
             first_segment = chain.split(".")[0]
+            submodule = ""
             if chain in known_modules:
                 module_alias = chain
             elif first_segment in known_modules:
                 module_alias = first_segment
+                # Remaining chain segments form the submodule path
+                remaining = chain[len(first_segment) + 1:]
+                if remaining:
+                    submodule = remaining
             else:
                 continue
 
@@ -412,6 +419,7 @@ def extract_calls(
                 line=line_num,
                 keyword_args=kwargs,
                 positional_count=pos_count,
+                submodule=submodule,
             ))
 
     return calls
@@ -444,18 +452,31 @@ def _lookup_function(
     module_sig: ModuleSig,
     func_name: str,
     binding: ImportBinding,
+    submodule: str = "",
 ) -> FunctionSig | None:
     """Look up a function in the module signature database.
 
     Handles both top-level and submodule lookups.
+
+    Args:
+        module_sig: Module signature database entry.
+        func_name: Function name to look up.
+        binding: Import binding for the call.
+        submodule: Submodule chain (e.g. "path" for os.path.join).
     """
     # Direct function lookup
     if func_name in module_sig.functions:
         return module_sig.functions[func_name]
 
+    # Targeted submodule lookup (e.g. os.path.join → submodule="path")
+    if submodule and submodule in module_sig.submodules:
+        sub_funcs = module_sig.submodules[submodule]
+        if func_name in sub_funcs:
+            return sub_funcs[func_name]
+
     # Check submodules (e.g. os.path.join → module=os, path accessed differently)
     # This handles cases like: from django.shortcuts import render
-    if binding.symbol:
+    if binding.symbol or submodule:
         for _sub_name, sub_funcs in module_sig.submodules.items():
             if func_name in sub_funcs:
                 return sub_funcs[func_name]
@@ -619,7 +640,12 @@ def _check_arg_count(
             ),
         ))
 
-    if func_sig.max_args is not None and call.positional_count > func_sig.max_args:
+    # max_args == -1 means unlimited (variadic / *args) — skip check
+    if (
+        func_sig.max_args is not None
+        and func_sig.max_args >= 0
+        and call.positional_count > func_sig.max_args
+    ):
         findings.append(Finding(
             rule_id=f"{RULE_PREFIX}_too_many_args",
             severity=Severity.WARN,
@@ -774,7 +800,9 @@ def _validate_all_calls(
         if not module_sig:
             continue
 
-        func_sig = _lookup_function(module_sig, call.function_name, binding)
+        func_sig = _lookup_function(
+            module_sig, call.function_name, binding, call.submodule,
+        )
 
         if func_sig is None:
             findings.extend(

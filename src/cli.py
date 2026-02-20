@@ -1498,6 +1498,18 @@ def _append_rule_matches(
             })
 
 
+def _is_docstring_boundary_cli(stripped: str) -> bool:
+    """Check if a line toggles docstring state (open/close boundary).
+
+    Only triggers on lines where triple-quotes appear at the START,
+    not when referenced inside code (e.g. ``if '\"\"\"' in text:``).
+    """
+    for quote in ('"""', "'''"):
+        if stripped.startswith(quote) and stripped.count(quote) == 1:
+            return True
+    return False
+
+
 def _match_line_rules(
     lines: list[str],
     filepath: str,
@@ -1512,8 +1524,15 @@ def _match_line_rules(
     _type_ign = "type: " + "ignore"
     _eslint_dis = "eslint-" + "disable"
     skip_warn = "print_debug" if is_cli_entrypoint else ""
+    in_docstring = False
 
     for line_num, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if _is_docstring_boundary_cli(stripped):
+            in_docstring = not in_docstring
+        # Skip anti-pattern matching inside docstrings
+        if in_docstring:
+            continue
         if _noqa in line or _type_ign in line or _eslint_dis in line:
             for rule_id, pattern, message in warn_rules:
                 if rule_id == "suppress_lint" and re.search(pattern, line):
@@ -1955,7 +1974,13 @@ def _check_except_swallow(
     lines: list[str], filepath: str, findings: list[dict],
 ) -> None:
     """Flag except blocks that swallow errors with pass/..."""
+    in_docstring = False
     for i, line in enumerate(lines):
+        stripped = line.strip()
+        if _is_docstring_boundary_cli(stripped):
+            in_docstring = not in_docstring
+        if in_docstring:
+            continue
         if not re.match(r"^\s*except[\s:]", line):
             continue
         # Look at the next non-blank line(s) for pass or ...

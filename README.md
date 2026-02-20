@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 45 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,898 tests.
+**AI Governance Enforcement Platform** — 280 rules across 10 enforcement layers, 21 MCP tools, 46 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,898 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -210,7 +210,7 @@ codetrust scan .
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.7.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 21 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 45 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **REST API** | 46 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 

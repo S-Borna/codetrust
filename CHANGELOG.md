@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.6.1] - 2026-02-20
 
+### Added — Signature Validation, Extended Autofix, Interactive Demo
+
+#### Signature Validation Engine
+
+- **Signature knowledge base** covering 16 Python + 11 JS/TS modules with
+  function signatures, parameter types, and deprecation metadata.
+- **Signature validator** catches hallucinated functions, unknown parameters,
+  deprecated usage, and provides typo suggestions via Levenshtein distance.
+- **CLI flag:** `--no-verify-signatures` to skip signature validation.
+- **API endpoint:** `POST /v1/scan/signatures` for standalone signature checks.
+- **Deep scan integration:** signature layer included in full deep scans.
+
+#### Extended Autofix (17 new recipes)
+
+- 17 new deterministic autofix recipes registered in the autofix engine:
+  `console_log`, `mutable_default`, `datetime_utcnow`, `except_swallow`,
+  `debug_mode_enabled`, `hardcoded_port`, `env_var_no_default`,
+  `subprocess_shell`, `docker_latest_tag`, `sql_select_star`, `any_type`,
+  `sleep_no_context`, `connection_no_timeout`, `suppress_lint`,
+  `react_index_as_key`, `os_system`, `string_concat_sql`.
+
+#### Interactive Web Demo
+
+- Client-side interactive demo (`docs/demo.html`) with 25+ JS scanning rules,
+  verdict badge (PASS/WARN/BLOCK), AI drift score with A–F grading,
+  category breakdown (Security, Hallucination, Quality, DevOps), and
+  per-finding category icons.
+
+#### New Scan Rule
+
+- `hardcoded_port` — detects hardcoded port numbers in application code.
+
+### Fixed
+
+- Scanning engine: finds ALL occurrences per rule (removed early-break bug),
+  deduplicates per-line, clean multi-line fallback only when needed.
+- `react_index_key` regex updated to use word boundaries (false positive fix).
+- Code quality: refactored long functions in signature_validator.py (>40 lines → ≤40),
+  extracted named constants, fixed weak type annotation in autofix_recipes.py.
+
+### Changed
+
+- Test count: 1795 → 1896 tests (101 new: 58 signature + 43 autofix).
+- Synced test count and rule count across all documentation (README, pyproject.toml,
+  metrics.json, docs/index.html, extension/package.json).
+
+---
+
 ### Added — Agent Optimizer, Integrity Verification, Version Enforcement
 
 #### Agent Optimizer (`codetrust setup`)

@@ -13,6 +13,13 @@ Returns: (fixed_code, list_of_human_readable_descriptions)
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+
+# Type alias for recipe functions
+RecipeFn = Callable[[str, str], tuple[str, list[str]]]
+
+# Default timeout for HTTP connections added by fix recipes
+DEFAULT_HTTP_TIMEOUT_SECONDS = 30.0
 
 # ═══════════════════════════════════════════════════════════════════════
 #  RECIPE: console_log → structured logging (JS/TS)
@@ -683,9 +690,9 @@ def fix_connection_no_timeout(code: str, language: str) -> tuple[str, list[str]]
         # Add timeout to httpx client creation
         if "httpx." in line and "Client(" in line and "timeout" not in line:
             if line.rstrip().endswith(")"):
-                new_line = line.rstrip().rstrip(")") + ", timeout=30.0)\n"
+                new_line = line.rstrip().rstrip(")") + f", timeout={DEFAULT_HTTP_TIMEOUT_SECONDS})\n"
             else:
-                new_line = line.rstrip("\n") + "  # FIXME: add timeout=30.0\n"
+                new_line = line.rstrip("\n") + f"  # FIXME: add timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}\n"
             out.append(new_line)
             fixes.append(f"Line {i}: added timeout to httpx client")
             modified = True
@@ -694,9 +701,9 @@ def fix_connection_no_timeout(code: str, language: str) -> tuple[str, list[str]]
             for method in ("get", "post", "put", "delete", "patch", "head"):
                 if f"requests.{method}(" in line:
                     if line.rstrip().endswith(")"):
-                        new_line = line.rstrip().rstrip(")") + ", timeout=30.0)\n"
+                        new_line = line.rstrip().rstrip(")") + f", timeout={DEFAULT_HTTP_TIMEOUT_SECONDS})\n"
                     else:
-                        new_line = line.rstrip("\n") + "  # FIXME: add timeout=30.0\n"
+                        new_line = line.rstrip("\n") + f"  # FIXME: add timeout={DEFAULT_HTTP_TIMEOUT_SECONDS}\n"
                     out.append(new_line)
                     fixes.append(f"Line {i}: added timeout to requests.{method}()")
                     modified = True
@@ -873,7 +880,7 @@ def fix_string_concat_sql(code: str, language: str) -> tuple[str, list[str]]:
 #  RECIPE REGISTRY
 # ═══════════════════════════════════════════════════════════════════════
 
-EXTENDED_RECIPES: list[tuple[str, object]] = [
+EXTENDED_RECIPES: list[tuple[str, RecipeFn]] = [
     ("console_log", fix_console_log),
     ("mutable_default", fix_mutable_default),
     ("datetime_utcnow", fix_datetime_utcnow),

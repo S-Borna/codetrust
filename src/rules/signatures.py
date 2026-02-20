@@ -367,10 +367,30 @@ _PY_PANDAS: ModuleSig = ModuleSig(
             return_type="DatetimeIndex | Timestamp",
             common_hallucinations=["date_format", "fmt", "strftime"],
         ),
+        "read_table": FunctionSig(
+            name="read_table",
+            params=[
+                ParamInfo(name="filepath_or_buffer", required=True),
+                ParamInfo(name="sep"),
+                ParamInfo(name="header"),
+                ParamInfo(name="names"),
+                ParamInfo(name="index_col"),
+                ParamInfo(name="usecols"),
+                ParamInfo(name="dtype"),
+                ParamInfo(name="engine"),
+                ParamInfo(name="nrows"),
+                ParamInfo(name="skiprows"),
+                ParamInfo(name="encoding"),
+            ],
+            min_args=1,
+            return_type="DataFrame",
+            notes="Reads tab-separated data. Default sep='\\t'.",
+            common_hallucinations=["file", "path", "delimiter"],
+        ),
     },
     common_hallucinated_functions=[
         "read", "load", "load_csv", "from_csv", "from_json",
-        "read_table", "create_dataframe", "from_dict_list",
+        "create_dataframe", "from_dict_list",
     ],
 )
 
@@ -398,6 +418,7 @@ _PY_NUMPY: ModuleSig = ModuleSig(
                 ParamInfo(name="order"),
             ],
             min_args=1,
+            max_args=3,
             return_type="ndarray",
         ),
         "ones": FunctionSig(
@@ -408,6 +429,7 @@ _PY_NUMPY: ModuleSig = ModuleSig(
                 ParamInfo(name="order"),
             ],
             min_args=1,
+            max_args=3,
             return_type="ndarray",
         ),
         "arange": FunctionSig(
@@ -427,12 +449,15 @@ _PY_NUMPY: ModuleSig = ModuleSig(
             name="reshape",
             params=[
                 ParamInfo(name="a", required=True),
-                ParamInfo(name="newshape", required=True),
+                ParamInfo(name="shape", required=True),
+                ParamInfo(name="newshape", deprecated=True, deprecated_since="2.0",
+                          replacement="shape"),
                 ParamInfo(name="order"),
             ],
             min_args=2,
+            max_args=3,
             return_type="ndarray",
-            common_hallucinations=["shape", "dims", "dimensions"],
+            common_hallucinations=["dims", "dimensions"],
         ),
         "linspace": FunctionSig(
             name="linspace",
@@ -455,6 +480,7 @@ _PY_NUMPY: ModuleSig = ModuleSig(
                 ParamInfo(name="dtype"),
             ],
             min_args=1,
+            max_args=3,
             return_type="ndarray",
         ),
         "dot": FunctionSig(
@@ -462,8 +488,10 @@ _PY_NUMPY: ModuleSig = ModuleSig(
             params=[
                 ParamInfo(name="a", required=True),
                 ParamInfo(name="b", required=True),
+                ParamInfo(name="out"),
             ],
             min_args=2,
+            max_args=3,
             return_type="ndarray | scalar",
         ),
     },
@@ -645,7 +673,8 @@ _PY_SQLALCHEMY: ModuleSig = ModuleSig(
                 ParamInfo(name="pool_recycle"),
                 ParamInfo(name="pool_pre_ping"),
                 ParamInfo(name="connect_args"),
-                ParamInfo(name="future"),
+                ParamInfo(name="future", deprecated=True, deprecated_since="2.0",
+                          replacement="(default behavior in 2.0+)"),
             ],
             min_args=1,
             return_type="Engine",
@@ -1074,10 +1103,649 @@ _PY_LOGGING: ModuleSig = ModuleSig(
         "warning": FunctionSig(name="warning", params=[ParamInfo(name="msg", required=True)], min_args=1, max_args=-1, return_type="None"),
         "error": FunctionSig(name="error", params=[ParamInfo(name="msg", required=True)], min_args=1, max_args=-1, return_type="None"),
         "debug": FunctionSig(name="debug", params=[ParamInfo(name="msg", required=True)], min_args=1, max_args=-1, return_type="None"),
+        "log": FunctionSig(
+            name="log",
+            params=[
+                ParamInfo(name="level", required=True),
+                ParamInfo(name="msg", required=True),
+            ],
+            min_args=2,
+            max_args=-1,
+            return_type="None",
+            notes="logging.log(level, msg, *args, **kwargs)",
+        ),
     },
     common_hallucinated_functions=[
-        "log", "create_logger", "set_level",
+        "create_logger", "set_level",
         "add_handler", "Logger",
+    ],
+)
+
+_PY_SUBPROCESS: ModuleSig = ModuleSig(
+    name="subprocess",
+    functions={
+        "run": FunctionSig(
+            name="run",
+            params=[
+                ParamInfo(name="args", required=True),
+                ParamInfo(name="stdin"),
+                ParamInfo(name="input"),
+                ParamInfo(name="stdout"),
+                ParamInfo(name="stderr"),
+                ParamInfo(name="capture_output"),
+                ParamInfo(name="shell"),
+                ParamInfo(name="cwd"),
+                ParamInfo(name="timeout"),
+                ParamInfo(name="check"),
+                ParamInfo(name="encoding"),
+                ParamInfo(name="errors"),
+                ParamInfo(name="text"),
+                ParamInfo(name="env"),
+            ],
+            min_args=1,
+            return_type="CompletedProcess",
+            common_hallucinations=[
+                "command", "cmd", "output", "wait",
+                "async_", "background", "pipe",
+            ],
+        ),
+        "Popen": FunctionSig(
+            name="Popen",
+            params=[
+                ParamInfo(name="args", required=True),
+                ParamInfo(name="bufsize"),
+                ParamInfo(name="executable"),
+                ParamInfo(name="stdin"),
+                ParamInfo(name="stdout"),
+                ParamInfo(name="stderr"),
+                ParamInfo(name="shell"),
+                ParamInfo(name="cwd"),
+                ParamInfo(name="env"),
+                ParamInfo(name="text"),
+                ParamInfo(name="encoding"),
+            ],
+            min_args=1,
+            return_type="Popen",
+            common_hallucinations=["command", "cmd", "wait", "async_"],
+        ),
+        "call": FunctionSig(
+            name="call",
+            params=[
+                ParamInfo(name="args", required=True),
+                ParamInfo(name="stdin"),
+                ParamInfo(name="stdout"),
+                ParamInfo(name="stderr"),
+                ParamInfo(name="shell"),
+                ParamInfo(name="cwd"),
+                ParamInfo(name="timeout"),
+            ],
+            min_args=1,
+            return_type="int",
+            notes="Returns returncode. Prefer subprocess.run with check=True.",
+        ),
+        "check_output": FunctionSig(
+            name="check_output",
+            params=[
+                ParamInfo(name="args", required=True),
+                ParamInfo(name="stdin"),
+                ParamInfo(name="stderr"),
+                ParamInfo(name="shell"),
+                ParamInfo(name="cwd"),
+                ParamInfo(name="timeout"),
+                ParamInfo(name="encoding"),
+                ParamInfo(name="text"),
+            ],
+            min_args=1,
+            return_type="bytes | str",
+            common_hallucinations=["output", "capture", "stdout"],
+        ),
+        "check_call": FunctionSig(
+            name="check_call",
+            params=[
+                ParamInfo(name="args", required=True),
+                ParamInfo(name="stdin"),
+                ParamInfo(name="stdout"),
+                ParamInfo(name="stderr"),
+                ParamInfo(name="shell"),
+                ParamInfo(name="cwd"),
+                ParamInfo(name="timeout"),
+            ],
+            min_args=1,
+            return_type="int",
+        ),
+    },
+    common_hallucinated_functions=[
+        "execute", "exec", "system", "command",
+        "run_command", "shell", "spawn",
+    ],
+)
+
+_PY_RE: ModuleSig = ModuleSig(
+    name="re",
+    functions={
+        "compile": FunctionSig(
+            name="compile",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Pattern",
+            common_hallucinations=["regex", "options", "mode"],
+        ),
+        "match": FunctionSig(
+            name="match",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="Match | None",
+            common_hallucinations=["text", "input", "regex"],
+        ),
+        "search": FunctionSig(
+            name="search",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="Match | None",
+        ),
+        "findall": FunctionSig(
+            name="findall",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="list[str]",
+            common_hallucinations=["text", "input", "count", "limit"],
+        ),
+        "finditer": FunctionSig(
+            name="finditer",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="Iterator[Match]",
+        ),
+        "sub": FunctionSig(
+            name="sub",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="repl", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="count"),
+                ParamInfo(name="flags"),
+            ],
+            min_args=3,
+            max_args=5,
+            return_type="str",
+            common_hallucinations=["replacement", "replace", "limit", "text"],
+        ),
+        "split": FunctionSig(
+            name="split",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="maxsplit"),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=4,
+            return_type="list[str]",
+        ),
+        "fullmatch": FunctionSig(
+            name="fullmatch",
+            params=[
+                ParamInfo(name="pattern", required=True),
+                ParamInfo(name="string", required=True),
+                ParamInfo(name="flags"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="Match | None",
+        ),
+        "escape": FunctionSig(
+            name="escape",
+            params=[ParamInfo(name="pattern", required=True)],
+            min_args=1,
+            max_args=1,
+            return_type="str",
+        ),
+    },
+    common_hallucinated_functions=[
+        "find", "replace", "test", "exec",
+        "match_all", "grep", "extract",
+    ],
+)
+
+_PY_DATETIME: ModuleSig = ModuleSig(
+    name="datetime",
+    functions={
+        "datetime": FunctionSig(
+            name="datetime",
+            params=[
+                ParamInfo(name="year", required=True),
+                ParamInfo(name="month", required=True),
+                ParamInfo(name="day", required=True),
+                ParamInfo(name="hour"),
+                ParamInfo(name="minute"),
+                ParamInfo(name="second"),
+                ParamInfo(name="microsecond"),
+                ParamInfo(name="tzinfo"),
+            ],
+            min_args=3,
+            return_type="datetime",
+            common_hallucinations=["date", "time", "timestamp", "format"],
+            notes="Constructor: datetime.datetime(year, month, day, ...)",
+        ),
+        "date": FunctionSig(
+            name="date",
+            params=[
+                ParamInfo(name="year", required=True),
+                ParamInfo(name="month", required=True),
+                ParamInfo(name="day", required=True),
+            ],
+            min_args=3,
+            max_args=3,
+            return_type="date",
+        ),
+        "time": FunctionSig(
+            name="time",
+            params=[
+                ParamInfo(name="hour"),
+                ParamInfo(name="minute"),
+                ParamInfo(name="second"),
+                ParamInfo(name="microsecond"),
+                ParamInfo(name="tzinfo"),
+            ],
+            min_args=0,
+            return_type="time",
+        ),
+        "timedelta": FunctionSig(
+            name="timedelta",
+            params=[
+                ParamInfo(name="days"),
+                ParamInfo(name="seconds"),
+                ParamInfo(name="microseconds"),
+                ParamInfo(name="milliseconds"),
+                ParamInfo(name="minutes"),
+                ParamInfo(name="hours"),
+                ParamInfo(name="weeks"),
+            ],
+            min_args=0,
+            return_type="timedelta",
+            common_hallucinations=["months", "years", "duration"],
+            notes="No 'months' or 'years' — use dateutil.relativedelta.",
+        ),
+        "timezone": FunctionSig(
+            name="timezone",
+            params=[
+                ParamInfo(name="offset", required=True),
+                ParamInfo(name="name"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="timezone",
+        ),
+    },
+    common_hallucinated_functions=[
+        "now", "today", "utcnow", "strftime", "strptime",
+        "parse", "from_timestamp", "from_string",
+    ],
+)
+
+_PY_HASHLIB: ModuleSig = ModuleSig(
+    name="hashlib",
+    functions={
+        "md5": FunctionSig(
+            name="md5",
+            params=[
+                ParamInfo(name="data"),
+                ParamInfo(name="usedforsecurity"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="HASH",
+            common_hallucinations=["string", "encoding", "text"],
+        ),
+        "sha256": FunctionSig(
+            name="sha256",
+            params=[
+                ParamInfo(name="data"),
+                ParamInfo(name="usedforsecurity"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="HASH",
+            common_hallucinations=["string", "text", "message"],
+        ),
+        "sha1": FunctionSig(
+            name="sha1",
+            params=[
+                ParamInfo(name="data"),
+                ParamInfo(name="usedforsecurity"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="HASH",
+        ),
+        "sha512": FunctionSig(
+            name="sha512",
+            params=[
+                ParamInfo(name="data"),
+                ParamInfo(name="usedforsecurity"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="HASH",
+        ),
+        "new": FunctionSig(
+            name="new",
+            params=[
+                ParamInfo(name="name", required=True),
+                ParamInfo(name="data"),
+                ParamInfo(name="usedforsecurity"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="HASH",
+            common_hallucinations=["algorithm", "algo", "hash_type"],
+        ),
+        "pbkdf2_hmac": FunctionSig(
+            name="pbkdf2_hmac",
+            params=[
+                ParamInfo(name="hash_name", required=True),
+                ParamInfo(name="password", required=True),
+                ParamInfo(name="salt", required=True),
+                ParamInfo(name="iterations", required=True),
+                ParamInfo(name="dklen"),
+            ],
+            min_args=4,
+            max_args=5,
+            return_type="bytes",
+            common_hallucinations=["rounds", "key_length", "algo"],
+        ),
+    },
+    common_hallucinated_functions=[
+        "hash", "digest", "hexdigest", "create_hash",
+        "hmac", "sha", "encrypt",
+    ],
+)
+
+_PY_COLLECTIONS: ModuleSig = ModuleSig(
+    name="collections",
+    functions={
+        "Counter": FunctionSig(
+            name="Counter",
+            params=[ParamInfo(name="iterable")],
+            min_args=0,
+            return_type="Counter",
+            common_hallucinations=["data", "elements", "items", "list"],
+        ),
+        "defaultdict": FunctionSig(
+            name="defaultdict",
+            params=[ParamInfo(name="default_factory")],
+            min_args=0,
+            max_args=-1,
+            return_type="defaultdict",
+            common_hallucinations=["type", "default", "factory"],
+        ),
+        "OrderedDict": FunctionSig(
+            name="OrderedDict",
+            min_args=0,
+            max_args=-1,
+            return_type="OrderedDict",
+        ),
+        "namedtuple": FunctionSig(
+            name="namedtuple",
+            params=[
+                ParamInfo(name="typename", required=True),
+                ParamInfo(name="field_names", required=True),
+                ParamInfo(name="rename"),
+                ParamInfo(name="defaults"),
+                ParamInfo(name="module"),
+            ],
+            min_args=2,
+            max_args=5,
+            return_type="type",
+            common_hallucinations=["name", "fields", "class_name"],
+        ),
+        "deque": FunctionSig(
+            name="deque",
+            params=[
+                ParamInfo(name="iterable"),
+                ParamInfo(name="maxlen"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="deque",
+            common_hallucinations=["size", "capacity", "max_size"],
+        ),
+        "ChainMap": FunctionSig(
+            name="ChainMap",
+            min_args=0,
+            max_args=-1,
+            return_type="ChainMap",
+        ),
+    },
+    common_hallucinated_functions=[
+        "Dict", "List", "Set", "Tuple",
+        "SortedDict", "SortedList", "FrozenDict",
+    ],
+)
+
+_PY_OPENAI: ModuleSig = ModuleSig(
+    name="openai",
+    functions={
+        "OpenAI": FunctionSig(
+            name="OpenAI",
+            params=[
+                ParamInfo(name="api_key"),
+                ParamInfo(name="organization"),
+                ParamInfo(name="project"),
+                ParamInfo(name="base_url"),
+                ParamInfo(name="timeout"),
+                ParamInfo(name="max_retries"),
+                ParamInfo(name="default_headers"),
+                ParamInfo(name="default_query"),
+                ParamInfo(name="http_client"),
+            ],
+            min_args=0,
+            return_type="OpenAI",
+            common_hallucinations=[
+                "model", "key", "token", "engine",
+                "api_base", "api_version",
+            ],
+            notes="api_base/api_version are v0.x params. Use base_url in v1+.",
+        ),
+        "AsyncOpenAI": FunctionSig(
+            name="AsyncOpenAI",
+            params=[
+                ParamInfo(name="api_key"),
+                ParamInfo(name="organization"),
+                ParamInfo(name="project"),
+                ParamInfo(name="base_url"),
+                ParamInfo(name="timeout"),
+                ParamInfo(name="max_retries"),
+                ParamInfo(name="default_headers"),
+                ParamInfo(name="http_client"),
+            ],
+            min_args=0,
+            return_type="AsyncOpenAI",
+            common_hallucinations=["model", "key", "engine", "api_base"],
+        ),
+    },
+    common_hallucinated_functions=[
+        "Completion", "ChatCompletion", "create",
+        "complete", "chat", "generate",
+        "Embedding", "Image", "Audio",
+    ],
+)
+
+_PY_ASYNCIO: ModuleSig = ModuleSig(
+    name="asyncio",
+    functions={
+        "run": FunctionSig(
+            name="run",
+            params=[
+                ParamInfo(name="main", required=True),
+                ParamInfo(name="debug"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="T",
+            common_hallucinations=["loop", "coro", "coroutine"],
+        ),
+        "create_task": FunctionSig(
+            name="create_task",
+            params=[
+                ParamInfo(name="coro", required=True),
+                ParamInfo(name="name"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Task",
+            common_hallucinations=["callback", "func", "function"],
+        ),
+        "gather": FunctionSig(
+            name="gather",
+            min_args=0,
+            max_args=-1,
+            return_type="Future",
+            common_hallucinations=["tasks", "coroutines", "coros"],
+            notes="Takes *aws positional args, not a list.",
+        ),
+        "sleep": FunctionSig(
+            name="sleep",
+            params=[
+                ParamInfo(name="delay", required=True),
+                ParamInfo(name="result"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Coroutine",
+        ),
+        "wait": FunctionSig(
+            name="wait",
+            params=[
+                ParamInfo(name="fs", required=True),
+                ParamInfo(name="timeout"),
+                ParamInfo(name="return_when"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="tuple[set, set]",
+        ),
+        "wait_for": FunctionSig(
+            name="wait_for",
+            params=[
+                ParamInfo(name="fut", required=True),
+                ParamInfo(name="timeout", required=True),
+            ],
+            min_args=2,
+            max_args=2,
+            return_type="T",
+        ),
+        "get_event_loop": FunctionSig(
+            name="get_event_loop",
+            min_args=0,
+            max_args=0,
+            return_type="AbstractEventLoop",
+            deprecated=True,
+            deprecated_since="3.10",
+            replacement="asyncio.run() or asyncio.get_running_loop()",
+        ),
+        "get_running_loop": FunctionSig(
+            name="get_running_loop",
+            min_args=0,
+            max_args=0,
+            return_type="AbstractEventLoop",
+        ),
+        "Queue": FunctionSig(
+            name="Queue",
+            params=[ParamInfo(name="maxsize")],
+            min_args=0,
+            max_args=1,
+            return_type="Queue",
+        ),
+        "Semaphore": FunctionSig(
+            name="Semaphore",
+            params=[ParamInfo(name="value")],
+            min_args=0,
+            max_args=1,
+            return_type="Semaphore",
+        ),
+        "Lock": FunctionSig(
+            name="Lock",
+            min_args=0,
+            max_args=0,
+            return_type="Lock",
+        ),
+        "Event": FunctionSig(
+            name="Event",
+            min_args=0,
+            max_args=0,
+            return_type="Event",
+        ),
+    },
+    common_hallucinated_functions=[
+        "async_run", "start", "spawn",
+        "parallel", "concurrent", "execute",
+        "create_loop", "new_event_loop",
+    ],
+)
+
+_PY_SYS: ModuleSig = ModuleSig(
+    name="sys",
+    functions={
+        "exit": FunctionSig(
+            name="exit",
+            params=[ParamInfo(name="arg")],
+            min_args=0,
+            max_args=1,
+            return_type="NoReturn",
+            common_hallucinations=["code", "status", "message"],
+        ),
+        "getsizeof": FunctionSig(
+            name="getsizeof",
+            params=[
+                ParamInfo(name="object", required=True),
+                ParamInfo(name="default"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="int",
+        ),
+        "getrecursionlimit": FunctionSig(
+            name="getrecursionlimit",
+            min_args=0,
+            max_args=0,
+            return_type="int",
+        ),
+        "setrecursionlimit": FunctionSig(
+            name="setrecursionlimit",
+            params=[ParamInfo(name="limit", required=True)],
+            min_args=1,
+            max_args=1,
+            return_type="None",
+        ),
+    },
+    common_hallucinated_functions=[
+        "args", "print", "input", "os",
+        "getenv", "platform_info",
     ],
 )
 
@@ -1316,6 +1984,7 @@ _JS_FS: ModuleSig = ModuleSig(
                 ParamInfo(name="options"),
             ],
             min_args=1,
+            max_args=2,
             return_type="string | Buffer",
         ),
         "writeFileSync": FunctionSig(
@@ -1326,6 +1995,7 @@ _JS_FS: ModuleSig = ModuleSig(
                 ParamInfo(name="options"),
             ],
             min_args=2,
+            max_args=3,
             return_type="void",
         ),
         "existsSync": FunctionSig(
@@ -1342,6 +2012,7 @@ _JS_FS: ModuleSig = ModuleSig(
                 ParamInfo(name="options"),
             ],
             min_args=1,
+            max_args=2,
             return_type="string | undefined",
         ),
         "readdirSync": FunctionSig(
@@ -1351,6 +2022,7 @@ _JS_FS: ModuleSig = ModuleSig(
                 ParamInfo(name="options"),
             ],
             min_args=1,
+            max_args=2,
             return_type="string[]",
         ),
         "unlinkSync": FunctionSig(
@@ -1367,13 +2039,93 @@ _JS_FS: ModuleSig = ModuleSig(
                 ParamInfo(name="options"),
             ],
             min_args=1,
+            max_args=2,
             return_type="Stats",
+        ),
+        "readFile": FunctionSig(
+            name="readFile",
+            params=[
+                ParamInfo(name="path", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=2,
+            return_type="void",
+            notes="Async callback variant. Use readFileSync for sync or fs/promises for async/await.",
+        ),
+        "writeFile": FunctionSig(
+            name="writeFile",
+            params=[
+                ParamInfo(name="file", required=True),
+                ParamInfo(name="data", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=3,
+            return_type="void",
+            notes="Async callback variant.",
+        ),
+        "mkdir": FunctionSig(
+            name="mkdir",
+            params=[
+                ParamInfo(name="path", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=2,
+            return_type="void",
+            notes="Async callback variant. Use mkdirSync for sync.",
+        ),
+        "open": FunctionSig(
+            name="open",
+            params=[
+                ParamInfo(name="path", required=True),
+                ParamInfo(name="flags", required=True),
+                ParamInfo(name="mode"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=3,
+            return_type="void",
+        ),
+        "close": FunctionSig(
+            name="close",
+            params=[
+                ParamInfo(name="fd", required=True),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            return_type="void",
+        ),
+        "read": FunctionSig(
+            name="read",
+            params=[
+                ParamInfo(name="fd", required=True),
+                ParamInfo(name="buffer", required=True),
+                ParamInfo(name="offset", required=True),
+                ParamInfo(name="length", required=True),
+                ParamInfo(name="position"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=5,
+            return_type="void",
+        ),
+        "write": FunctionSig(
+            name="write",
+            params=[
+                ParamInfo(name="fd", required=True),
+                ParamInfo(name="buffer", required=True),
+                ParamInfo(name="offset"),
+                ParamInfo(name="length"),
+                ParamInfo(name="position"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=2,
+            return_type="void",
         ),
     },
     common_hallucinated_functions=[
-        "read", "write", "open", "close",
-        "readFile", "writeFile", "mkdir",
-        "delete", "remove", "copy",
+        "delete", "remove", "copy", "move",
+        "readdir", "isFile", "isDirectory",
     ],
 )
 
@@ -1455,6 +2207,284 @@ _JS_PRISMA: ModuleSig = ModuleSig(
     ],
 )
 
+_JS_CRYPTO: ModuleSig = ModuleSig(
+    name="crypto",
+    functions={
+        "createHash": FunctionSig(
+            name="createHash",
+            params=[
+                ParamInfo(name="algorithm", required=True),
+                ParamInfo(name="options"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Hash",
+            common_hallucinations=["type", "algo", "hashType"],
+        ),
+        "createHmac": FunctionSig(
+            name="createHmac",
+            params=[
+                ParamInfo(name="algorithm", required=True),
+                ParamInfo(name="key", required=True),
+                ParamInfo(name="options"),
+            ],
+            min_args=2,
+            max_args=3,
+            return_type="Hmac",
+        ),
+        "createCipheriv": FunctionSig(
+            name="createCipheriv",
+            params=[
+                ParamInfo(name="algorithm", required=True),
+                ParamInfo(name="key", required=True),
+                ParamInfo(name="iv", required=True),
+                ParamInfo(name="options"),
+            ],
+            min_args=3,
+            max_args=4,
+            return_type="Cipher",
+            common_hallucinations=["cipher", "mode", "padding"],
+        ),
+        "createDecipheriv": FunctionSig(
+            name="createDecipheriv",
+            params=[
+                ParamInfo(name="algorithm", required=True),
+                ParamInfo(name="key", required=True),
+                ParamInfo(name="iv", required=True),
+                ParamInfo(name="options"),
+            ],
+            min_args=3,
+            max_args=4,
+            return_type="Decipher",
+        ),
+        "randomBytes": FunctionSig(
+            name="randomBytes",
+            params=[
+                ParamInfo(name="size", required=True),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Buffer",
+            common_hallucinations=["length", "count", "bytes"],
+        ),
+        "randomUUID": FunctionSig(
+            name="randomUUID",
+            params=[ParamInfo(name="options")],
+            min_args=0,
+            max_args=1,
+            return_type="string",
+        ),
+        "pbkdf2": FunctionSig(
+            name="pbkdf2",
+            params=[
+                ParamInfo(name="password", required=True),
+                ParamInfo(name="salt", required=True),
+                ParamInfo(name="iterations", required=True),
+                ParamInfo(name="keylen", required=True),
+                ParamInfo(name="digest", required=True),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=6,
+            max_args=6,
+            return_type="void",
+        ),
+        "scrypt": FunctionSig(
+            name="scrypt",
+            params=[
+                ParamInfo(name="password", required=True),
+                ParamInfo(name="salt", required=True),
+                ParamInfo(name="keylen", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback", required=True),
+            ],
+            min_args=4,
+            max_args=5,
+            return_type="void",
+        ),
+    },
+    common_hallucinated_functions=[
+        "encrypt", "decrypt", "hash", "sha256",
+        "md5", "generateKey", "sign", "verify",
+    ],
+)
+
+_JS_HTTP: ModuleSig = ModuleSig(
+    name="http",
+    functions={
+        "createServer": FunctionSig(
+            name="createServer",
+            params=[
+                ParamInfo(name="options"),
+                ParamInfo(name="requestListener"),
+            ],
+            min_args=0,
+            max_args=2,
+            return_type="Server",
+            common_hallucinations=["callback", "handler", "port"],
+        ),
+        "request": FunctionSig(
+            name="request",
+            params=[
+                ParamInfo(name="url", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="ClientRequest",
+            common_hallucinations=["method", "headers", "body"],
+        ),
+        "get": FunctionSig(
+            name="get",
+            params=[
+                ParamInfo(name="url", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="ClientRequest",
+        ),
+    },
+    common_hallucinated_functions=[
+        "listen", "fetch", "post", "put",
+        "delete", "send", "connect",
+    ],
+)
+
+_JS_CHILD_PROCESS: ModuleSig = ModuleSig(
+    name="child_process",
+    functions={
+        "exec": FunctionSig(
+            name="exec",
+            params=[
+                ParamInfo(name="command", required=True),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="ChildProcess",
+            common_hallucinations=["cmd", "args", "shell"],
+        ),
+        "execFile": FunctionSig(
+            name="execFile",
+            params=[
+                ParamInfo(name="file", required=True),
+                ParamInfo(name="args"),
+                ParamInfo(name="options"),
+                ParamInfo(name="callback"),
+            ],
+            min_args=1,
+            max_args=4,
+            return_type="ChildProcess",
+        ),
+        "spawn": FunctionSig(
+            name="spawn",
+            params=[
+                ParamInfo(name="command", required=True),
+                ParamInfo(name="args"),
+                ParamInfo(name="options"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="ChildProcess",
+            common_hallucinations=["cmd", "params", "env"],
+        ),
+        "fork": FunctionSig(
+            name="fork",
+            params=[
+                ParamInfo(name="modulePath", required=True),
+                ParamInfo(name="args"),
+                ParamInfo(name="options"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="ChildProcess",
+            common_hallucinations=["script", "file", "path"],
+        ),
+        "execSync": FunctionSig(
+            name="execSync",
+            params=[
+                ParamInfo(name="command", required=True),
+                ParamInfo(name="options"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="Buffer | string",
+        ),
+        "spawnSync": FunctionSig(
+            name="spawnSync",
+            params=[
+                ParamInfo(name="command", required=True),
+                ParamInfo(name="args"),
+                ParamInfo(name="options"),
+            ],
+            min_args=1,
+            max_args=3,
+            return_type="SpawnSyncReturns",
+        ),
+    },
+    common_hallucinated_functions=[
+        "run", "execute", "system", "command",
+        "shell", "process", "start",
+    ],
+)
+
+_JS_NEXT: ModuleSig = ModuleSig(
+    name="next/navigation",
+    functions={
+        "useRouter": FunctionSig(
+            name="useRouter",
+            min_args=0,
+            max_args=0,
+            return_type="AppRouterInstance",
+            common_hallucinations=["options", "config"],
+            notes="App Router hook. Pages Router: import from 'next/router'.",
+        ),
+        "usePathname": FunctionSig(
+            name="usePathname",
+            min_args=0,
+            max_args=0,
+            return_type="string",
+        ),
+        "useSearchParams": FunctionSig(
+            name="useSearchParams",
+            min_args=0,
+            max_args=0,
+            return_type="ReadonlyURLSearchParams",
+        ),
+        "useParams": FunctionSig(
+            name="useParams",
+            min_args=0,
+            max_args=0,
+            return_type="Params",
+        ),
+        "redirect": FunctionSig(
+            name="redirect",
+            params=[
+                ParamInfo(name="url", required=True),
+                ParamInfo(name="type"),
+            ],
+            min_args=1,
+            max_args=2,
+            return_type="never",
+            common_hallucinations=["path", "permanent", "status"],
+        ),
+        "notFound": FunctionSig(
+            name="notFound",
+            min_args=0,
+            max_args=0,
+            return_type="never",
+        ),
+    },
+    common_hallucinated_functions=[
+        "navigate", "push", "replace",
+        "getRouter", "getPathname", "Link",
+    ],
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  REGISTRY — Flat lookup by language
@@ -1477,6 +2507,14 @@ PYTHON_SIGNATURES: dict[str, ModuleSig] = {
     "json": _PY_JSON,
     "pathlib": _PY_PATHLIB,
     "logging": _PY_LOGGING,
+    "subprocess": _PY_SUBPROCESS,
+    "re": _PY_RE,
+    "datetime": _PY_DATETIME,
+    "hashlib": _PY_HASHLIB,
+    "collections": _PY_COLLECTIONS,
+    "openai": _PY_OPENAI,
+    "asyncio": _PY_ASYNCIO,
+    "sys": _PY_SYS,
 }
 
 JS_TS_SIGNATURES: dict[str, ModuleSig] = {
@@ -1491,6 +2529,13 @@ JS_TS_SIGNATURES: dict[str, ModuleSig] = {
     "zod": _JS_ZOD,
     "z": _JS_ZOD,  # common alias
     "@prisma/client": _JS_PRISMA,
+    "crypto": _JS_CRYPTO,
+    "node:crypto": _JS_CRYPTO,
+    "http": _JS_HTTP,
+    "node:http": _JS_HTTP,
+    "child_process": _JS_CHILD_PROCESS,
+    "node:child_process": _JS_CHILD_PROCESS,
+    "next/navigation": _JS_NEXT,
 }
 
 SIGNATURES: dict[str, dict[str, ModuleSig]] = {
@@ -1499,10 +2544,24 @@ SIGNATURES: dict[str, dict[str, ModuleSig]] = {
     "typescript": JS_TS_SIGNATURES,
 }
 
-# Total counts for metrics
-TOTAL_MODULES = len(PYTHON_SIGNATURES) + len(JS_TS_SIGNATURES)
-TOTAL_FUNCTIONS = sum(
-    len(m.functions) + sum(len(sub) for sub in m.submodules.values())
-    for sigs in SIGNATURES.values()
-    for m in sigs.values()
-)
+# Total counts for metrics — deduplicate aliases and shared dicts
+_UNIQUE_PY_MODULES = {sig.name for sig in PYTHON_SIGNATURES.values()}
+_UNIQUE_JS_MODULES = {sig.name for sig in JS_TS_SIGNATURES.values()}
+TOTAL_MODULES = len(_UNIQUE_PY_MODULES) + len(_UNIQUE_JS_MODULES)
+
+def _count_unique_functions() -> int:
+    """Count unique functions across all modules, avoiding double-counting."""
+    total = 0
+    seen_modules: set[str] = set()
+    # Only iterate unique language dicts (python + js/ts, not both js AND ts)
+    for sigs in (PYTHON_SIGNATURES, JS_TS_SIGNATURES):
+        for module_sig in sigs.values():
+            if module_sig.name in seen_modules:
+                continue
+            seen_modules.add(module_sig.name)
+            total += len(module_sig.functions)
+            for sub_funcs in module_sig.submodules.values():
+                total += len(sub_funcs)
+    return total
+
+TOTAL_FUNCTIONS = _count_unique_functions()

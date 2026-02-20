@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodeTrust — Live Demo | Scan AI-Generated Code Instantly</title>
-    <meta name="description" content="Try CodeTrust's AI code scanner in your browser. Paste code and see security findings, hallucination detection, and anti-pattern analysis in real-time. No signup required.">
+    <meta name="description"
+        content="Try CodeTrust's AI code scanner in your browser. Paste code and see security findings, hallucination detection, and anti-pattern analysis in real-time. No signup required.">
     <meta name="author" content="Said Borna">
     <link rel="canonical" href="https://codetrust.ai/demo">
     <meta property="og:title" content="CodeTrust — Live Demo">
-    <meta property="og:description" content="Scan AI-generated code for security issues, hallucinations, and anti-patterns. Try it instantly in your browser.">
+    <meta property="og:description"
+        content="Scan AI-generated code for security issues, hallucinations, and anti-patterns. Try it instantly in your browser.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://codetrust.ai/demo">
     <style>
@@ -34,7 +37,11 @@
             --radius: 12px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: var(--sans);
@@ -52,6 +59,7 @@
             border-bottom: 1px solid var(--border);
             background: var(--surface);
         }
+
         .logo {
             display: flex;
             align-items: center;
@@ -61,13 +69,20 @@
             color: var(--accent);
             text-decoration: none;
         }
+
         .logo-icon {
-            width: 28px; height: 28px;
+            width: 28px;
+            height: 28px;
             background: var(--accent);
             border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 14px; font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 800;
         }
+
         .badge {
             font-size: 11px;
             padding: 3px 8px;
@@ -77,21 +92,29 @@
             font-weight: 600;
             letter-spacing: 0.5px;
         }
+
         .header-links {
-            display: flex; gap: 16px; align-items: center;
+            display: flex;
+            gap: 16px;
+            align-items: center;
         }
+
         .header-links a {
             color: var(--text-muted);
             text-decoration: none;
             font-size: 14px;
             transition: color 0.2s;
         }
-        .header-links a:hover { color: var(--text); }
+
+        .header-links a:hover {
+            color: var(--text);
+        }
 
         .hero {
             text-align: center;
             padding: 48px 32px 32px;
         }
+
         .hero h1 {
             font-size: 32px;
             font-weight: 800;
@@ -100,6 +123,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
         .hero p {
             color: var(--text-muted);
             max-width: 600px;
@@ -121,13 +145,16 @@
             background: var(--surface);
             border: 1px solid var(--border);
         }
+
         .panel:first-child {
             border-radius: var(--radius) 0 0 var(--radius);
             border-right: none;
         }
+
         .panel:last-child {
             border-radius: 0 var(--radius) var(--radius) 0;
         }
+
         .panel-header {
             display: flex;
             align-items: center;
@@ -139,6 +166,7 @@
             font-weight: 600;
             color: var(--text-muted);
         }
+
         .lang-select {
             background: var(--surface);
             color: var(--text);
@@ -148,7 +176,10 @@
             font-size: 12px;
             cursor: pointer;
         }
-        .lang-select:focus { outline: 1px solid var(--accent); }
+
+        .lang-select:focus {
+            outline: 1px solid var(--accent);
+        }
 
         textarea#codeInput {
             width: 100%;
@@ -163,14 +194,21 @@
             resize: vertical;
             tab-size: 4;
         }
-        textarea#codeInput:focus { outline: none; }
-        textarea#codeInput::placeholder { color: var(--text-muted); }
+
+        textarea#codeInput:focus {
+            outline: none;
+        }
+
+        textarea#codeInput::placeholder {
+            color: var(--text-muted);
+        }
 
         .results-body {
             padding: 0;
             overflow-y: auto;
             max-height: 500px;
         }
+
         .finding {
             display: flex;
             gap: 12px;
@@ -179,10 +217,25 @@
             transition: background 0.15s;
             cursor: default;
         }
-        .finding:hover { background: var(--surface-2); }
-        .finding.severity-block { border-left: 3px solid var(--block); background: var(--block-bg); }
-        .finding.severity-warn { border-left: 3px solid var(--warn); background: var(--warn-bg); }
-        .finding.severity-info { border-left: 3px solid var(--info); background: var(--info-bg); }
+
+        .finding:hover {
+            background: var(--surface-2);
+        }
+
+        .finding.severity-block {
+            border-left: 3px solid var(--block);
+            background: var(--block-bg);
+        }
+
+        .finding.severity-warn {
+            border-left: 3px solid var(--warn);
+            background: var(--warn-bg);
+        }
+
+        .finding.severity-info {
+            border-left: 3px solid var(--info);
+            background: var(--info-bg);
+        }
 
         .severity-badge {
             flex-shrink: 0;
@@ -195,55 +248,257 @@
             height: fit-content;
             margin-top: 2px;
         }
-        .severity-badge.block { background: var(--block); color: white; }
-        .severity-badge.warn { background: var(--warn); color: #1a1a2e; }
-        .severity-badge.info { background: var(--info); color: white; }
 
-        .finding-content { flex: 1; min-width: 0; }
+        .severity-badge.block {
+            background: var(--block);
+            color: white;
+        }
+
+        .severity-badge.warn {
+            background: var(--warn);
+            color: #1a1a2e;
+        }
+
+        .severity-badge.info {
+            background: var(--info);
+            color: white;
+        }
+
+        .finding-content {
+            flex: 1;
+            min-width: 0;
+        }
+
         .finding-rule {
             font-size: 11px;
             color: var(--text-muted);
             font-family: var(--mono);
             margin-bottom: 2px;
         }
+
         .finding-message {
             font-size: 13px;
             color: var(--text);
             margin-bottom: 4px;
         }
+
         .finding-suggestion {
             font-size: 12px;
             color: var(--safe);
             font-style: italic;
         }
+
         .finding-line {
             font-size: 11px;
             color: var(--text-muted);
             font-family: var(--mono);
         }
 
-        .summary {
-            display: flex;
-            gap: 16px;
-            padding: 12px 16px;
+        .summary-panel {
             border-bottom: 1px solid var(--border);
             background: var(--surface-2);
-            align-items: center;
         }
-        .stat {
+
+        .verdict-row {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: 600;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
         }
-        .stat-dot {
-            width: 8px; height: 8px;
+
+        .verdict-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .verdict-badge {
+            font-size: 12px;
+            font-weight: 800;
+            padding: 5px 14px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .verdict-badge.pass {
+            background: var(--safe);
+            color: #fff;
+        }
+
+        .verdict-badge.warn {
+            background: var(--warn);
+            color: #1a1a2e;
+        }
+
+        .verdict-badge.block {
+            background: var(--block);
+            color: #fff;
+        }
+
+        .verdict-detail {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .verdict-detail strong {
+            color: var(--text);
+        }
+
+        .severity-counts {
+            display: flex;
+            gap: 14px;
+        }
+
+        .sev-count {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .sev-dot {
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
         }
-        .stat-dot.block { background: var(--block); }
-        .stat-dot.warn { background: var(--warn); }
-        .stat-dot.info { background: var(--info); }
+
+        .sev-dot.block { background: var(--block); }
+        .sev-dot.warn { background: var(--warn); }
+        .sev-dot.info { background: var(--info); }
+
+        .drift-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .drift-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+            min-width: 110px;
+        }
+
+        .drift-bar-track {
+            flex: 1;
+            height: 6px;
+            background: var(--surface);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .drift-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        .drift-score {
+            font-size: 12px;
+            font-weight: 700;
+            min-width: 50px;
+            text-align: right;
+            font-family: var(--mono);
+        }
+
+        .category-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 8px;
+            border-right: 1px solid var(--border);
+        }
+
+        .cat-item:last-child {
+            border-right: none;
+        }
+
+        .cat-icon {
+            font-size: 16px;
+        }
+
+        .cat-count {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .cat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .cat-item.has-findings .cat-count {
+            color: var(--warn);
+        }
+
+        .cat-item.has-blocks .cat-count {
+            color: var(--block);
+        }
+
+        .metrics-row {
+            display: flex;
+            gap: 0;
+            padding: 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            border-right: 1px solid var(--border);
+        }
+
+        .metric:last-child {
+            border-right: none;
+        }
+
+        .metric-val {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            font-family: var(--mono);
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .findings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
 
         .empty-state {
             display: flex;
@@ -254,8 +509,15 @@
             color: var(--text-muted);
             gap: 12px;
         }
-        .empty-state .icon { font-size: 48px; opacity: 0.3; }
-        .empty-state p { font-size: 14px; }
+
+        .empty-state .icon {
+            font-size: 48px;
+            opacity: 0.3;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
 
         .safe-result {
             display: flex;
@@ -266,9 +528,20 @@
             color: var(--safe);
             gap: 12px;
         }
-        .safe-result .icon { font-size: 64px; }
-        .safe-result p { font-size: 16px; font-weight: 600; }
-        .safe-result .sub { font-size: 13px; color: var(--text-muted); }
+
+        .safe-result .icon {
+            font-size: 64px;
+        }
+
+        .safe-result p {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .safe-result .sub {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
 
         .cta {
             text-align: center;
@@ -276,20 +549,24 @@
             max-width: 700px;
             margin: 0 auto;
         }
+
         .cta h2 {
             font-size: 24px;
             margin-bottom: 12px;
         }
+
         .cta p {
             color: var(--text-muted);
             margin-bottom: 24px;
         }
+
         .cta-buttons {
             display: flex;
             gap: 12px;
             justify-content: center;
             flex-wrap: wrap;
         }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -303,20 +580,26 @@
             border: none;
             cursor: pointer;
         }
+
         .btn-primary {
             background: var(--accent);
             color: white;
         }
+
         .btn-primary:hover {
             background: #5558e6;
             box-shadow: 0 4px 20px var(--accent-glow);
         }
+
         .btn-secondary {
             background: var(--surface-2);
             color: var(--text);
             border: 1px solid var(--border);
         }
-        .btn-secondary:hover { border-color: var(--accent); }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
 
         .install-code {
             background: var(--surface);
@@ -336,6 +619,7 @@
             gap: 8px;
             flex-wrap: wrap;
         }
+
         .sample-btn {
             font-size: 11px;
             padding: 4px 10px;
@@ -346,6 +630,7 @@
             cursor: pointer;
             transition: all 0.15s;
         }
+
         .sample-btn:hover {
             border-color: var(--accent);
             color: var(--text);
@@ -364,19 +649,28 @@
                 grid-template-columns: 1fr;
                 padding: 0 16px;
             }
+
             .panel:first-child {
                 border-radius: var(--radius) var(--radius) 0 0;
                 border-right: 1px solid var(--border);
                 border-bottom: none;
             }
+
             .panel:last-child {
                 border-radius: 0 0 var(--radius) var(--radius);
             }
-            .hero h1 { font-size: 24px; }
-            .header { padding: 12px 16px; }
+
+            .hero h1 {
+                font-size: 24px;
+            }
+
+            .header {
+                padding: 12px 16px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header class="header">
@@ -394,7 +688,8 @@
 
     <section class="hero">
         <h1>Scan AI-Generated Code — Instantly</h1>
-        <p>Paste code below to detect security issues, AI hallucinations, and anti-patterns. Runs entirely in your browser — no data leaves your machine.</p>
+        <p>Paste code below to detect security issues, AI hallucinations, and anti-patterns. Runs entirely in your
+            browser — no data leaves your machine.</p>
     </section>
 
     <div class="main">
@@ -416,7 +711,8 @@
                     </select>
                 </div>
             </div>
-            <textarea id="codeInput" placeholder="Paste your code here..." spellcheck="false" oninput="debounceScan()"></textarea>
+            <textarea id="codeInput" placeholder="Paste your code here..." spellcheck="false"
+                oninput="debounceScan()"></textarea>
         </div>
 
         <div class="panel">
@@ -424,7 +720,7 @@
                 <span>Findings</span>
                 <span id="scanTime" style="font-size:11px;color:var(--text-muted)"></span>
             </div>
-            <div id="summary" class="summary" style="display:none"></div>
+            <div id="summaryPanel" class="summary-panel" style="display:none"></div>
             <div id="results" class="results-body">
                 <div class="empty-state">
                     <div class="icon">&#128270;</div>
@@ -437,398 +733,507 @@
 
     <section class="cta">
         <h2>This is just a taste</h2>
-        <p>The full CodeTrust platform has 295+ rules, 10 enforcement layers, live registry verification, AI agent interception, and Trust Score tracking.</p>
+        <p>The full CodeTrust platform has 295+ rules, 10 enforcement layers, live registry verification, AI agent
+            interception, and Trust Score tracking.</p>
         <div class="cta-buttons">
-            <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-primary">Install VS Code Extension</a>
+            <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
+                class="btn btn-primary">Install VS Code Extension</a>
             <a href="https://pypi.org/project/codetrust/" class="btn btn-secondary">pip install codetrust</a>
         </div>
         <div class="install-code">pip install codetrust</div>
     </section>
 
     <footer class="footer">
-        &copy; 2026 Said Borna. All rights reserved. &middot; <a href="https://codetrust.ai" style="color:var(--accent);text-decoration:none;">codetrust.ai</a>
+        &copy; 2026 Said Borna. All rights reserved. &middot; <a href="https://codetrust.ai"
+            style="color:var(--accent);text-decoration:none;">codetrust.ai</a>
     </footer>
 
     <script>
-    // CodeTrust Live Demo — Client-side scanning engine
-    // A subset of the full 295+ rule engine, running entirely in the browser.
+        // CodeTrust Live Demo — Client-side scanning engine
+        // A subset of the full 295+ rule engine, running entirely in the browser.
 
-    const RULES = [
-        // Security (BLOCK)
-        {
-            id: "hardcoded_secret",
-            pattern: /(?:password|secret|api_key|api_secret|token|private_key)\s*=\s*["'][^"']{8,}["']/i,
-            severity: "block",
-            message: "Hardcoded secret detected — credentials must never be in source code",
-            suggestion: "Use environment variables: os.environ.get('KEY') or process.env.KEY",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "eval_exec",
-            pattern: /\beval\s*\(/,
-            severity: "block",
-            message: "eval() detected — allows arbitrary code execution",
-            suggestion: "Use safe alternatives: ast.literal_eval(), json.loads(), or structured parsers",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "sql_injection",
-            pattern: /(?:execute|query|cursor\.execute)\s*\([^)]*(?:\+\s*\w|f["']|\.format\(|%\s*\()/,
-            severity: "block",
-            message: "Potential SQL injection — string interpolation in query",
-            suggestion: "Use parameterized queries: cursor.execute('SELECT ? FROM', (param,))",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "unsafe_deserialize",
-            pattern: /(?:pickle|yaml)\.(?:load|loads)\s*\(/,
-            severity: "block",
-            message: "Unsafe deserialization can execute arbitrary code",
-            suggestion: "Use json.loads() or yaml.safe_load() instead",
-            languages: ["python"]
-        },
-        {
-            id: "subprocess_shell",
-            pattern: /subprocess\.\w+\([^)]*shell\s*=\s*True/,
-            severity: "block",
-            message: "subprocess with shell=True enables shell injection attacks",
-            suggestion: "Use shell=False and pass arguments as a list",
-            languages: ["python"]
-        },
-        {
-            id: "os_system",
-            pattern: /os\.system\s*\(/,
-            severity: "block",
-            message: "os.system() runs commands in a shell — vulnerable to injection",
-            suggestion: "Use subprocess.run(['cmd', 'arg'], check=True) instead",
-            languages: ["python"]
-        },
+        const RULES = [
+            // ─────── Security ───────
+            {
+                id: "hardcoded_secret", cat: "security",
+                pattern: /(?:password|secret|api_key|api_secret|token|private_key)\s*=\s*["'][^"']{8,}["']/i,
+                severity: "block",
+                message: "Hardcoded secret detected — credentials must never be in source code",
+                suggestion: "Use environment variables: os.environ.get('KEY') or process.env.KEY",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "eval_exec", cat: "security",
+                pattern: /\beval\s*\(/,
+                severity: "block",
+                message: "eval() detected — allows arbitrary code execution",
+                suggestion: "Use safe alternatives: ast.literal_eval(), json.loads(), or structured parsers",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "sql_injection", cat: "security",
+                pattern: /(?:execute|query|cursor\.execute)\s*\([^)]*(?:\+\s*\w|f["']|\.format\(|%\s*\()/,
+                severity: "block",
+                message: "Potential SQL injection — string interpolation in query",
+                suggestion: "Use parameterized queries: cursor.execute('SELECT ? FROM', (param,))",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "unsafe_deserialize", cat: "security",
+                pattern: /(?:pickle|yaml)\.(?:load|loads)\s*\(/,
+                severity: "block",
+                message: "Unsafe deserialization can execute arbitrary code",
+                suggestion: "Use json.loads() or yaml.safe_load() instead",
+                languages: ["python"]
+            },
+            {
+                id: "subprocess_shell", cat: "security",
+                pattern: /subprocess\.\w+\([^)]*shell\s*=\s*True/,
+                severity: "block",
+                message: "subprocess with shell=True enables shell injection attacks",
+                suggestion: "Use shell=False and pass arguments as a list",
+                languages: ["python"]
+            },
+            {
+                id: "os_system", cat: "security",
+                pattern: /os\.system\s*\(/,
+                severity: "block",
+                message: "os.system() runs commands in a shell — vulnerable to injection",
+                suggestion: "Use subprocess.run(['cmd', 'arg'], check=True) instead",
+                languages: ["python"]
+            },
+            {
+                id: "dangerouslySetInnerHTML", cat: "security",
+                pattern: /dangerouslySetInnerHTML/,
+                severity: "block",
+                message: "dangerouslySetInnerHTML enables XSS attacks",
+                suggestion: "Use a sanitization library like DOMPurify, or render content safely",
+                languages: ["javascript", "typescript"]
+            },
 
-        // AI Hallucinations (BLOCK)
-        {
-            id: "hallucinated_import",
-            pattern: /(?:from|import)\s+(?:utils\.helpers|core\.engine|app\.services|lib\.utils|helpers\.common)\b/,
-            severity: "block",
-            message: "Likely hallucinated import — this module path is commonly fabricated by AI",
-            suggestion: "Verify this module exists in your project before using it",
-            languages: ["python"]
-        },
-        {
-            id: "placeholder_url",
-            pattern: /https?:\/\/(?:example\.com|your-api|my-api|api\.example|localhost:\d+)\/api/,
-            severity: "block",
-            message: "Placeholder URL detected — likely AI-generated, not a real endpoint",
-            suggestion: "Replace with the actual API endpoint from your project configuration",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "fake_api_key",
-            pattern: /["'](?:sk-[a-zA-Z0-9]{20,}|your[_-]?api[_-]?key[_-]?here|REPLACE_WITH|INSERT_KEY|change-me)["']/,
-            severity: "block",
-            message: "Fake or placeholder API key — AI often generates dummy credentials",
-            suggestion: "Load credentials from environment variables or a secrets manager",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "hallucinated_method_chain",
-            pattern: /\.to_dataframe\(\)\.to_json\(\)\.to_csv\(\)|\.fetchAll\(\)\.toArray\(\)\.filter\(\)/,
-            severity: "warn",
-            message: "Suspicious method chain — likely AI-hallucinated API that doesn't exist",
-            suggestion: "Verify each method in the chain exists for the object type",
-            languages: ["python", "javascript", "typescript"]
-        },
+            // ─────── AI Hallucination ───────
+            {
+                id: "hallucinated_import", cat: "hallucination",
+                pattern: /(?:from|import)\s+(?:utils\.helpers|core\.engine|app\.services|lib\.utils|helpers\.common)\b/,
+                severity: "block",
+                message: "Likely hallucinated import — this module path is commonly fabricated by AI",
+                suggestion: "Verify this module exists in your project before using it",
+                languages: ["python"]
+            },
+            {
+                id: "placeholder_url", cat: "hallucination",
+                pattern: /https?:\/\/(?:example\.com|your-api|my-api|api\.example|localhost:\d+)\/api/,
+                severity: "block",
+                message: "Placeholder URL detected — likely AI-generated, not a real endpoint",
+                suggestion: "Replace with the actual API endpoint from your project configuration",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "fake_api_key", cat: "hallucination",
+                pattern: /["'](?:sk-[a-zA-Z0-9]{20,}|your[_-]?api[_-]?key[_-]?here|REPLACE_WITH|INSERT_KEY|change-me)["']/,
+                severity: "block",
+                message: "Fake or placeholder API key — AI often generates dummy credentials",
+                suggestion: "Load credentials from environment variables or a secrets manager",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "hallucinated_method_chain", cat: "hallucination",
+                pattern: /\.to_dataframe\(\)\.to_json\(\)\.to_csv\(\)|\.fetchAll\(\)\.toArray\(\)\.filter\(\)/,
+                severity: "warn",
+                message: "Suspicious method chain — likely AI-hallucinated API that doesn't exist",
+                suggestion: "Verify each method in the chain exists for the object type",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "hallucinated_nonexistent", cat: "hallucination",
+                pattern: /\.get_async\(|response\.to_dataframe\(|client\.fetch_all_sync\(/,
+                severity: "block",
+                message: "Non-existent method call — this API method does not exist on the object",
+                suggestion: "Check the library documentation for the correct method name",
+                languages: ["python", "javascript", "typescript"]
+            },
 
-        // Code Quality (WARN)
-        {
-            id: "bare_except",
-            pattern: /^\s*except\s*:/m,
-            severity: "warn",
-            message: "Bare except catches all exceptions including SystemExit and KeyboardInterrupt",
-            suggestion: "Catch specific exceptions: except (ValueError, TypeError) as e:",
-            languages: ["python"]
-        },
-        {
-            id: "wildcard_import",
-            pattern: /from\s+\w+\s+import\s+\*/,
-            severity: "warn",
-            message: "Wildcard import pollutes namespace and makes dependencies unclear",
-            suggestion: "Import specific names: from module import Class, function",
-            languages: ["python"]
-        },
-        {
-            id: "any_type",
-            pattern: /:\s*Any\b/,
-            severity: "warn",
-            message: "Any type annotation defeats the purpose of type checking",
-            suggestion: "Use a specific type: str, int, list[str], Optional[int], etc.",
-            languages: ["python"]
-        },
-        {
-            id: "print_debug",
-            pattern: /^\s*print\s*\(/m,
-            severity: "warn",
-            message: "print() in production code — use structured logging instead",
-            suggestion: "Use logging.info() or structlog.get_logger()",
-            languages: ["python"]
-        },
-        {
-            id: "console_log",
-            pattern: /console\.(log|debug|warn|error)\s*\(/,
-            severity: "warn",
-            message: "console.log() in production code — use a proper logger",
-            suggestion: "Use a structured logger: winston, pino, or bunyan",
-            languages: ["javascript", "typescript"]
-        },
-        {
-            id: "mutable_default",
-            pattern: /def\s+\w+\s*\([^)]*(?::\s*(?:list|dict|set)\s*=\s*(?:\[\]|\{\}|set\(\)))/,
-            severity: "warn",
-            message: "Mutable default argument — shared across all calls, causes bugs",
-            suggestion: "Use None as default: def foo(items: list | None = None)",
-            languages: ["python"]
-        },
-        {
-            id: "todo_hack",
-            pattern: /(?:TODO|HACK|FIXME|XXX|TEMP|TEMPORARY)\b/,
-            severity: "info",
-            message: "Unresolved TODO/HACK marker — should not be in committed code",
-            suggestion: "Resolve the issue or create a tracked issue/ticket",
-            languages: ["python", "javascript", "typescript", "sql", "dockerfile"]
-        },
-        {
-            id: "magic_number",
-            pattern: /(?:if|while|for|return|==|!=|<=|>=|<|>)\s+(?:0\.\d+|\d{2,})\b/,
-            severity: "info",
-            message: "Magic number — use a named constant for readability",
-            suggestion: "Extract to a constant: MAX_RETRIES = 3",
-            languages: ["python", "javascript", "typescript"]
-        },
-        {
-            id: "datetime_utcnow",
-            pattern: /datetime\.utcnow\(\)/,
-            severity: "warn",
-            message: "datetime.utcnow() is deprecated in Python 3.12+ — returns naive datetime",
-            suggestion: "Use datetime.now(timezone.utc) for timezone-aware datetime",
-            languages: ["python"]
-        },
-        {
-            id: "debug_mode",
-            pattern: /^\s*(?:DEBUG|debug)\s*=\s*True\b/m,
-            severity: "warn",
-            message: "Debug mode hardcoded — must not ship to production",
-            suggestion: "Use environment variable: DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'",
-            languages: ["python"]
-        },
-        {
-            id: "no_timeout",
-            pattern: /requests\.(?:get|post|put|delete|patch)\([^)]*\)(?!.*timeout)/,
-            severity: "warn",
-            message: "HTTP request without timeout — can hang indefinitely",
-            suggestion: "Add timeout parameter: requests.get(url, timeout=30)",
-            languages: ["python"]
-        },
-        {
-            id: "sleep_no_context",
-            pattern: /(?:time\.sleep|asyncio\.sleep)\s*\(\s*\d+\s*\)/,
-            severity: "info",
-            message: "sleep() without explanation — might be a workaround for a race condition",
-            suggestion: "Add a comment explaining why the delay is needed",
-            languages: ["python"]
-        },
+            // ─────── Code Quality ───────
+            {
+                id: "bare_except", cat: "quality",
+                pattern: /^\s*except\s*:/m,
+                severity: "warn",
+                message: "Bare except catches all exceptions including SystemExit and KeyboardInterrupt",
+                suggestion: "Catch specific exceptions: except (ValueError, TypeError) as e:",
+                languages: ["python"]
+            },
+            {
+                id: "wildcard_import", cat: "quality",
+                pattern: /from\s+\w+\s+import\s+\*/,
+                severity: "warn",
+                message: "Wildcard import pollutes namespace and makes dependencies unclear",
+                suggestion: "Import specific names: from module import Class, function",
+                languages: ["python"]
+            },
+            {
+                id: "any_type", cat: "quality",
+                pattern: /:\s*Any\b/,
+                severity: "warn",
+                message: "Any type annotation defeats the purpose of type checking",
+                suggestion: "Use a specific type: str, int, list[str], Optional[int], etc.",
+                languages: ["python"]
+            },
+            {
+                id: "print_debug", cat: "quality",
+                pattern: /^\s*print\s*\(/m,
+                severity: "warn",
+                message: "print() in production code — use structured logging instead",
+                suggestion: "Use logging.info() or structlog.get_logger()",
+                languages: ["python"]
+            },
+            {
+                id: "console_log", cat: "quality",
+                pattern: /console\.(log|debug|warn|error)\s*\(/,
+                severity: "warn",
+                message: "console.log() in production code — use a proper logger",
+                suggestion: "Use a structured logger: winston, pino, or bunyan",
+                languages: ["javascript", "typescript"]
+            },
+            {
+                id: "mutable_default", cat: "quality",
+                pattern: /def\s+\w+\s*\([^)]*(?::\s*(?:list|dict|set)\s*=\s*(?:\[\]|\{\}|set\(\)))/,
+                severity: "warn",
+                message: "Mutable default argument — shared across all calls, causes bugs",
+                suggestion: "Use None as default: def foo(items: list | None = None)",
+                languages: ["python"]
+            },
+            {
+                id: "todo_hack", cat: "quality",
+                pattern: /(?:TODO|HACK|FIXME|XXX|TEMP|TEMPORARY)\b/,
+                severity: "info",
+                message: "Unresolved TODO/HACK marker — should not be in committed code",
+                suggestion: "Resolve the issue or create a tracked issue/ticket",
+                languages: ["python", "javascript", "typescript", "sql", "dockerfile"]
+            },
+            {
+                id: "magic_number", cat: "quality",
+                pattern: /(?:if|while|for|return|==|!=|<=|>=|<|>)\s+(?:0\.\d+|\d{2,})\b/,
+                severity: "info",
+                message: "Magic number — use a named constant for readability",
+                suggestion: "Extract to a constant: MAX_RETRIES = 3",
+                languages: ["python", "javascript", "typescript"]
+            },
+            {
+                id: "datetime_utcnow", cat: "quality",
+                pattern: /datetime\.utcnow\(\)/,
+                severity: "warn",
+                message: "datetime.utcnow() is deprecated in Python 3.12+ — returns naive datetime",
+                suggestion: "Use datetime.now(timezone.utc) for timezone-aware datetime",
+                languages: ["python"]
+            },
+            {
+                id: "debug_mode", cat: "quality",
+                pattern: /^\s*(?:DEBUG|debug)\s*=\s*True\b/m,
+                severity: "warn",
+                message: "Debug mode hardcoded — must not ship to production",
+                suggestion: "Use environment variable: DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'",
+                languages: ["python"]
+            },
+            {
+                id: "no_timeout", cat: "quality",
+                pattern: /requests\.(?:get|post|put|delete|patch)\([^)]*\)(?!.*timeout)/,
+                severity: "warn",
+                message: "HTTP request without timeout — can hang indefinitely",
+                suggestion: "Add timeout parameter: requests.get(url, timeout=30)",
+                languages: ["python"]
+            },
+            {
+                id: "sleep_no_context", cat: "quality",
+                pattern: /(?:time\.sleep|asyncio\.sleep)\s*\(\s*\d+\s*\)/,
+                severity: "info",
+                message: "sleep() without explanation — might be a workaround for a race condition",
+                suggestion: "Add a comment explaining why the delay is needed",
+                languages: ["python"]
+            },
+            {
+                id: "react_index_key", cat: "quality",
+                pattern: /key\s*=\s*\{?\s*\b(?:index|idx|i)\b\s*\}?/,
+                severity: "warn",
+                message: "Using array index as React key — causes rendering bugs",
+                suggestion: "Use a stable unique identifier: key={item.id}",
+                languages: ["javascript", "typescript"]
+            },
 
-        // SQL
-        {
-            id: "sql_select_star",
-            pattern: /SELECT\s+\*\s+FROM/i,
-            severity: "warn",
-            message: "SELECT * retrieves all columns — inefficient and fragile",
-            suggestion: "List specific columns: SELECT id, name, email FROM users",
-            languages: ["sql", "python", "javascript"]
-        },
-        {
-            id: "sql_delete_no_where",
-            pattern: /DELETE\s+FROM\s+\w+\s*(?:;|$)/im,
-            severity: "block",
-            message: "DELETE without WHERE clause — will delete ALL rows",
-            suggestion: "Add a WHERE clause: DELETE FROM table WHERE condition",
-            languages: ["sql", "python"]
-        },
-
-        // Docker
-        {
-            id: "docker_latest",
-            pattern: /^FROM\s+\w[\w./-]*:latest\b/m,
-            severity: "warn",
-            message: "Using :latest tag — builds are not reproducible",
-            suggestion: "Pin to a specific version: FROM python:3.12-slim",
-            languages: ["dockerfile"]
-        },
-
-        // React
-        {
-            id: "dangerouslySetInnerHTML",
-            pattern: /dangerouslySetInnerHTML/,
-            severity: "block",
-            message: "dangerouslySetInnerHTML enables XSS attacks",
-            suggestion: "Use a sanitization library like DOMPurify, or render content safely",
-            languages: ["javascript", "typescript"]
-        },
-        {
-            id: "react_index_key",
-            pattern: /key\s*=\s*\{?\s*(?:index|i|idx)\s*\}?/,
-            severity: "warn",
-            message: "Using array index as React key — causes rendering bugs",
-            suggestion: "Use a stable unique identifier: key={item.id}",
-            languages: ["javascript", "typescript"]
-        }
-    ];
-
-    // Scanning engine
-    function scanCode() {
-        const code = document.getElementById('codeInput').value;
-        const language = document.getElementById('langSelect').value;
-
-        if (!code.trim()) {
-            showEmpty();
-            return;
-        }
-
-        const start = performance.now();
-        const findings = [];
-        const lines = code.split('\n');
-
-        for (const rule of RULES) {
-            if (!rule.languages.includes(language)) continue;
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-                if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
-
-                if (rule.pattern.test(line)) {
-                    findings.push({
-                        rule_id: rule.id,
-                        severity: rule.severity,
-                        message: rule.message,
-                        suggestion: rule.suggestion,
-                        line: i + 1
-                    });
-                    rule.pattern.lastIndex = 0;
-                    break;
-                }
-                rule.pattern.lastIndex = 0;
+            // ─────── DevOps ───────
+            {
+                id: "sql_select_star", cat: "devops",
+                pattern: /SELECT\s+\*\s+FROM/i,
+                severity: "warn",
+                message: "SELECT * retrieves all columns — inefficient and fragile",
+                suggestion: "List specific columns: SELECT id, name, email FROM users",
+                languages: ["sql", "python", "javascript"]
+            },
+            {
+                id: "sql_delete_no_where", cat: "devops",
+                pattern: /DELETE\s+FROM\s+\w+\s*(?:;|$)/im,
+                severity: "block",
+                message: "DELETE without WHERE clause — will delete ALL rows",
+                suggestion: "Add a WHERE clause: DELETE FROM table WHERE condition",
+                languages: ["sql", "python"]
+            },
+            {
+                id: "docker_latest", cat: "devops",
+                pattern: /^FROM\s+\w[\w./-]*:latest\b/m,
+                severity: "warn",
+                message: "Using :latest tag — builds are not reproducible",
+                suggestion: "Pin to a specific version: FROM python:3.12-slim",
+                languages: ["dockerfile"]
+            },
+            {
+                id: "hardcoded_port", cat: "devops",
+                pattern: /^\s*\w*[Pp]ort\w*\s*=\s*\d{4,5}\s*$/m,
+                severity: "warn",
+                message: "Hardcoded port number — use environment variable",
+                suggestion: "Use: PORT = int(os.environ.get('PORT', '8080'))",
+                languages: ["python", "javascript", "typescript"]
             }
-        }
+        ];
 
-        // Multi-line pattern check
-        for (const rule of RULES) {
-            if (!rule.languages.includes(language)) continue;
-            const alreadyFound = findings.some(f => f.rule_id === rule.id);
-            if (alreadyFound) continue;
+        const CAT_META = {
+            security:      { icon: "\uD83D\uDD12", label: "Security" },
+            hallucination: { icon: "\uD83E\uDDE0", label: "Hallucination" },
+            quality:       { icon: "\u2728",       label: "Quality" },
+            devops:        { icon: "\u2699\uFE0F", label: "DevOps" }
+        };
 
-            if (rule.pattern.test(code)) {
-                let lineNum = 1;
-                for (let i = 0; i < lines.length; i++) {
-                    if (rule.pattern.test(lines[i])) {
-                        lineNum = i + 1;
-                        break;
+        // Scanning engine — finds ALL occurrences across all lines
+        function scanCode() {
+            const code = document.getElementById('codeInput').value;
+            const language = document.getElementById('langSelect').value;
+
+            if (!code.trim()) {
+                showEmpty();
+                return;
+            }
+
+            const start = performance.now();
+            const findings = [];
+            const lines = code.split('\n');
+            const linesScanned = lines.length;
+            var rulesChecked = 0;
+
+            for (var ri = 0; ri < RULES.length; ri++) {
+                var rule = RULES[ri];
+                if (!rule.languages.includes(language)) continue;
+                rulesChecked++;
+                var foundLines = {}; // dedupe by line number per rule
+
+                // Per-line check (catches line-scoped patterns)
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    var trimmed = line.trim();
+                    if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
+
+                    rule.pattern.lastIndex = 0;
+                    if (rule.pattern.test(line) && !foundLines[i]) {
+                        foundLines[i] = true;
+                        findings.push({
+                            rule_id: rule.id,
+                            severity: rule.severity,
+                            message: rule.message,
+                            suggestion: rule.suggestion,
+                            cat: rule.cat,
+                            line: i + 1
+                        });
                     }
                     rule.pattern.lastIndex = 0;
                 }
-                rule.pattern.lastIndex = 0;
-                findings.push({
-                    rule_id: rule.id,
-                    severity: rule.severity,
-                    message: rule.message,
-                    suggestion: rule.suggestion,
-                    line: lineNum
-                });
+
+                // Multi-line fallback — only if no per-line matches found
+                if (Object.keys(foundLines).length === 0) {
+                    rule.pattern.lastIndex = 0;
+                    if (rule.pattern.test(code)) {
+                        // Find which line matched
+                        var lineNum = 1;
+                        for (var j = 0; j < lines.length; j++) {
+                            rule.pattern.lastIndex = 0;
+                            if (rule.pattern.test(lines[j])) { lineNum = j + 1; break; }
+                        }
+                        findings.push({
+                            rule_id: rule.id,
+                            severity: rule.severity,
+                            message: rule.message,
+                            suggestion: rule.suggestion,
+                            cat: rule.cat,
+                            line: lineNum
+                        });
+                    }
+                    rule.pattern.lastIndex = 0;
+                }
             }
-            rule.pattern.lastIndex = 0;
+
+            var elapsed = (performance.now() - start).toFixed(1);
+            document.getElementById('scanTime').textContent =
+                elapsed + 'ms';
+
+            renderFindings(findings, linesScanned, rulesChecked, elapsed);
         }
 
-        const elapsed = (performance.now() - start).toFixed(1);
-        document.getElementById('scanTime').textContent =
-            elapsed + 'ms \u00b7 ' + findings.length + ' finding' + (findings.length !== 1 ? 's' : '');
+        function renderFindings(findings, linesScanned, rulesChecked, elapsedMs) {
+            var results = document.getElementById('results');
+            var panel = document.getElementById('summaryPanel');
 
-        renderFindings(findings);
-    }
+            if (findings.length === 0) {
+                panel.style.display = 'none';
+                results.innerHTML =
+                    '<div class="safe-result">' +
+                    '<div class="icon">\u2705</div>' +
+                    '<p>No issues detected</p>' +
+                    '<div class="sub">Scanned ' + linesScanned + ' lines against ' + rulesChecked + ' rules in ' + elapsedMs + 'ms.<br>Install CodeTrust for 295+ rules with live registry verification.</div>' +
+                    '</div>';
+                return;
+            }
 
-    function renderFindings(findings) {
-        const results = document.getElementById('results');
-        const summary = document.getElementById('summary');
+            // ── Counts ──
+            var order = { block: 0, warn: 1, info: 2 };
+            findings.sort(function (a, b) {
+                var d = (order[a.severity] || 9) - (order[b.severity] || 9);
+                return d !== 0 ? d : a.line - b.line;
+            });
 
-        if (findings.length === 0) {
-            summary.style.display = 'none';
-            results.innerHTML =
-                '<div class="safe-result">' +
-                '<div class="icon">&#9989;</div>' +
-                '<p>No issues detected</p>' +
-                '<div class="sub">This code passed ' + RULES.length + ' client-side checks. Install CodeTrust for 295+ rules with registry verification.</div>' +
+            var sev = { block: 0, warn: 0, info: 0 };
+            var cats = { security: 0, hallucination: 0, quality: 0, devops: 0 };
+            var catBlocks = { security: false, hallucination: false, quality: false, devops: false };
+            findings.forEach(function (f) {
+                sev[f.severity]++;
+                if (f.cat && cats.hasOwnProperty(f.cat)) cats[f.cat]++;
+                if (f.severity === 'block' && f.cat) catBlocks[f.cat] = true;
+            });
+
+            // ── Verdict ──
+            var verdict, verdictClass;
+            if (sev.block > 0) {
+                verdict = 'BLOCK';
+                verdictClass = 'block';
+            } else if (sev.warn > 0) {
+                verdict = 'WARN';
+                verdictClass = 'warn';
+            } else {
+                verdict = 'PASS';
+                verdictClass = 'pass';
+            }
+
+            // ── Drift Score (0–100, higher = worse) ──
+            var driftScore = Math.min(100, Math.round(
+                (sev.block * 25) + (sev.warn * 8) + (sev.info * 2)
+            ));
+            var driftGrade;
+            if (driftScore >= 70) driftGrade = 'F';
+            else if (driftScore >= 50) driftGrade = 'D';
+            else if (driftScore >= 30) driftGrade = 'C';
+            else if (driftScore >= 10) driftGrade = 'B';
+            else driftGrade = 'A';
+            var driftColor = driftScore >= 50 ? 'var(--block)' : driftScore >= 20 ? 'var(--warn)' : 'var(--safe)';
+
+            // ── Build summary panel ──
+            var html = '';
+
+            // Row 1: Verdict + severity counts
+            html += '<div class="verdict-row">';
+            html += '<div class="verdict-left">';
+            html += '<span class="verdict-badge ' + verdictClass + '">' + verdict + '</span>';
+            html += '<span class="verdict-detail"><strong>' + findings.length + '</strong> finding' + (findings.length !== 1 ? 's' : '') + ' across ' + linesScanned + ' lines</span>';
+            html += '</div>';
+            html += '<div class="severity-counts">';
+            html += '<span class="sev-count"><span class="sev-dot block"></span>' + sev.block + '</span>';
+            html += '<span class="sev-count"><span class="sev-dot warn"></span>' + sev.warn + '</span>';
+            html += '<span class="sev-count"><span class="sev-dot info"></span>' + sev.info + '</span>';
+            html += '</div>';
+            html += '</div>';
+
+            // Row 2: AI Drift Score bar
+            html += '<div class="drift-row">';
+            html += '<span class="drift-label">AI Drift Score</span>';
+            html += '<div class="drift-bar-track"><div class="drift-bar-fill" style="width:' + driftScore + '%;background:' + driftColor + '"></div></div>';
+            html += '<span class="drift-score" style="color:' + driftColor + '">' + driftScore + '/100 (' + driftGrade + ')</span>';
+            html += '</div>';
+
+            // Row 3: Category breakdown
+            html += '<div class="category-row">';
+            var catOrder = ['security', 'hallucination', 'quality', 'devops'];
+            for (var ci = 0; ci < catOrder.length; ci++) {
+                var key = catOrder[ci];
+                var meta = CAT_META[key];
+                var hasBlk = catBlocks[key] ? ' has-blocks' : (cats[key] > 0 ? ' has-findings' : '');
+                html += '<div class="cat-item' + hasBlk + '">';
+                html += '<span class="cat-icon">' + meta.icon + '</span>';
+                html += '<span class="cat-count">' + cats[key] + '</span>';
+                html += '<span class="cat-label">' + meta.label + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // Row 4: Metrics
+            html += '<div class="metrics-row">';
+            html += '<div class="metric"><div class="metric-val">' + linesScanned + '</div><div class="metric-label">Lines</div></div>';
+            html += '<div class="metric"><div class="metric-val">' + rulesChecked + '</div><div class="metric-label">Rules</div></div>';
+            html += '<div class="metric"><div class="metric-val">' + elapsedMs + 'ms</div><div class="metric-label">Time</div></div>';
+            html += '<div class="metric"><div class="metric-val">' + new Set(findings.map(function(f){return f.rule_id})).size + '</div><div class="metric-label">Unique</div></div>';
+            html += '</div>';
+
+            panel.innerHTML = html;
+            panel.style.display = 'block';
+
+            // ── Findings list with category headers ──
+            var findingsHtml = '<div class="findings-header"><span>Detailed Findings</span><span>' + findings.length + ' total</span></div>';
+
+            findingsHtml += findings.map(function (f) {
+                var catLabel = CAT_META[f.cat] ? CAT_META[f.cat].icon + ' ' + CAT_META[f.cat].label : '';
+                return '<div class="finding severity-' + f.severity + '">' +
+                    '<span class="severity-badge ' + f.severity + '">' + f.severity + '</span>' +
+                    '<div class="finding-content">' +
+                    '<div class="finding-rule">' + f.rule_id + ' \u00b7 <span class="finding-line">line ' + f.line + '</span> \u00b7 ' + catLabel + '</div>' +
+                    '<div class="finding-message">' + escapeHtml(f.message) + '</div>' +
+                    (f.suggestion ? '<div class="finding-suggestion">\uD83D\uDCA1 ' + escapeHtml(f.suggestion) + '</div>' : '') +
+                    '</div></div>';
+            }).join('');
+
+            results.innerHTML = findingsHtml;
+        }
+
+        function showEmpty() {
+            document.getElementById('summaryPanel').style.display = 'none';
+            document.getElementById('results').innerHTML =
+                '<div class="empty-state">' +
+                '<div class="icon">&#128270;</div>' +
+                '<p>Paste or type code to start scanning</p>' +
+                '<p style="font-size:12px">Try loading a sample with the buttons above</p>' +
                 '</div>';
-            return;
+            document.getElementById('scanTime').textContent = '';
         }
 
-        const order = { block: 0, warn: 1, info: 2 };
-        findings.sort(function(a, b) { return (order[a.severity] || 9) - (order[b.severity] || 9); });
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-        const counts = { block: 0, warn: 0, info: 0 };
-        findings.forEach(function(f) { counts[f.severity]++; });
+        // Sample code
+        var SAMPLES = {
+            python: 'import os\nimport requests\nfrom utils.helpers import process_data\n\nAPI_KEY = "sk-proj-abc123def456ghi789"\nDEBUG = True\n\ndef fetch_users(ids: list = []):\n    """Fetch user data from API."""\n    url = "https://api.example.com/api/v1/users"\n    response = requests.get(url + "?ids=" + str(ids))\n    data = eval(response.text)\n    now = datetime.utcnow()\n    try:\n        return data["users"]\n    except:\n        pass\n\n    time.sleep(5)\n    print("Done fetching users")\n',
+            javascript: 'const axios = require(\'axios\');\n\nconst API_SECRET = "super-secret-key-12345678";\n\nasync function getUsers() {\n    console.log("Fetching users...");\n    const response = await axios.get("https://api.example.com/api/users");\n\n    const html = response.data.html;\n    document.getElementById("content").dangerouslySetInnerHTML = html;\n\n    const items = response.data.map((item, index) => {\n        return <div key={index}>{item.name}</div>;\n    });\n\n    return items;\n}\n',
+            hallucination: 'import requests\nfrom core.engine import AIProcessor\nfrom lib.utils import sanitize_input\n\nclient = requests.Session()\nresponse = client.get_async("https://your-api.example.com/api/v2/analyze")\ndata = response.to_dataframe().to_json().to_csv()\n\nAPI_KEY = "your-api-key-here"\nSECRET = "REPLACE_WITH_YOUR_SECRET"\nport = 3001\n\nresult = eval(data)\n'
+        };
 
-        summary.style.display = 'flex';
-        summary.innerHTML =
-            '<div class="stat"><span class="stat-dot block"></span>' + counts.block + ' block</div>' +
-            '<div class="stat"><span class="stat-dot warn"></span>' + counts.warn + ' warn</div>' +
-            '<div class="stat"><span class="stat-dot info"></span>' + counts.info + ' info</div>';
+        function loadSample(name) {
+            var textarea = document.getElementById('codeInput');
+            textarea.value = SAMPLES[name] || SAMPLES.python;
+            var langMap = { python: 'python', javascript: 'javascript', hallucination: 'python' };
+            document.getElementById('langSelect').value = langMap[name] || 'python';
+            scanCode();
+        }
 
-        results.innerHTML = findings.map(function(f) {
-            return '<div class="finding severity-' + f.severity + '">' +
-                '<span class="severity-badge ' + f.severity + '">' + f.severity + '</span>' +
-                '<div class="finding-content">' +
-                '<div class="finding-rule">' + f.rule_id + ' \u00b7 <span class="finding-line">line ' + f.line + '</span></div>' +
-                '<div class="finding-message">' + escapeHtml(f.message) + '</div>' +
-                (f.suggestion ? '<div class="finding-suggestion">\uD83D\uDCA1 ' + escapeHtml(f.suggestion) + '</div>' : '') +
-                '</div></div>';
-        }).join('');
-    }
-
-    function showEmpty() {
-        document.getElementById('summary').style.display = 'none';
-        document.getElementById('results').innerHTML =
-            '<div class="empty-state">' +
-            '<div class="icon">&#128270;</div>' +
-            '<p>Paste or type code to start scanning</p>' +
-            '<p style="font-size:12px">Try loading a sample with the buttons above</p>' +
-            '</div>';
-        document.getElementById('scanTime').textContent = '';
-    }
-
-    function escapeHtml(text) {
-        var div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Sample code
-    var SAMPLES = {
-        python: 'import os\nimport requests\nfrom utils.helpers import process_data\n\nAPI_KEY = "sk-proj-abc123def456ghi789"\nDEBUG = True\n\ndef fetch_users(ids: list = []):\n    """Fetch user data from API."""\n    url = "https://api.example.com/api/v1/users"\n    response = requests.get(url + "?ids=" + str(ids))\n    data = eval(response.text)\n    now = datetime.utcnow()\n    try:\n        return data["users"]\n    except:\n        pass\n\n    time.sleep(5)\n    print("Done fetching users")\n',
-        javascript: 'const axios = require(\'axios\');\n\nconst API_SECRET = "super-secret-key-12345678";\n\nasync function getUsers() {\n    console.log("Fetching users...");\n    const response = await axios.get("https://api.example.com/api/users");\n\n    const html = response.data.html;\n    document.getElementById("content").dangerouslySetInnerHTML = html;\n\n    const items = response.data.map((item, index) => {\n        return <div key={index}>{item.name}</div>;\n    });\n\n    return items;\n}\n',
-        hallucination: 'import requests\nfrom core.engine import AIProcessor\nfrom lib.utils import sanitize_input\n\nclient = requests.Session()\nresponse = client.get_async("https://your-api.example.com/api/v2/analyze")\ndata = response.to_dataframe().to_json().to_csv()\n\nAPI_KEY = "your-api-key-here"\nSECRET = "REPLACE_WITH_YOUR_SECRET"\nport = 3001\n\nresult = eval(data)\n'
-    };
-
-    function loadSample(name) {
-        var textarea = document.getElementById('codeInput');
-        textarea.value = SAMPLES[name] || SAMPLES.python;
-        var langMap = { python: 'python', javascript: 'javascript', hallucination: 'python' };
-        document.getElementById('langSelect').value = langMap[name] || 'python';
-        scanCode();
-    }
-
-    var scanTimer;
-    function debounceScan() {
-        clearTimeout(scanTimer);
-        scanTimer = setTimeout(scanCode, 300);
-    }
+        var scanTimer;
+        function debounceScan() {
+            clearTimeout(scanTimer);
+            scanTimer = setTimeout(scanCode, 300);
+        }
     </script>
 </body>
+
 </html>

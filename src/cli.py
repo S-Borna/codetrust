@@ -3914,7 +3914,7 @@ def _governance_show_setup(project_dir: Path) -> int:
     if modified > 0:
         _echo(f"  {color('✅', GREEN)} {modified} IDE config(s) updated with CodeTrust MCP servers.")
     else:
-        _echo(f"  {color('ℹ️', BLUE)} All detected IDEs already have CodeTrust MCP servers configured.")
+        _echo(f"  {color('i', BLUE)} All detected IDEs already have CodeTrust MCP servers configured.")
 
     _echo(f"\n  {color('Configuration', BOLD)}:\n")
     _echo("    Config file:  .codetrust.toml")

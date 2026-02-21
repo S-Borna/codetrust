@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeTrust Settings</title>
+    <style>
+        :root {
+            --ct-primary: #2563eb;
+            --ct-bg: #0f172a;
+            --ct-surface: #1e293b;
+            --ct-text: #f1f5f9;
+            --ct-text-muted: #94a3b8;
+            --ct-border: #334155;
+            --ct-success: #059669;
+            --ct-radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--ct-bg);
+            color: var(--ct-text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .ct-options {
+            width: 100%;
+            max-width: 520px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .ct-options-subtitle {
+            font-size: 14px;
+            color: var(--ct-text-muted);
+            margin-bottom: 32px;
+        }
+
+        .ct-field {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--ct-text);
+        }
+
+        .ct-hint {
+            font-size: 12px;
+            color: var(--ct-text-muted);
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--ct-surface);
+            border: 1px solid var(--ct-border);
+            border-radius: var(--ct-radius);
+            color: var(--ct-text);
+            font-size: 14px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--ct-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .ct-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .ct-toggle input[type="checkbox"] {
+            width: 40px;
+            height: 22px;
+            appearance: none;
+            background: var(--ct-border);
+            border-radius: 11px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .ct-toggle input[type="checkbox"]::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .ct-toggle input[type="checkbox"]:checked {
+            background: var(--ct-primary);
+        }
+
+        .ct-toggle input[type="checkbox"]:checked::after {
+            transform: translateX(18px);
+        }
+
+        .ct-btn-save {
+            background: var(--ct-primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: var(--ct-radius);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .ct-btn-save:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .ct-saved {
+            display: inline-block;
+            margin-left: 12px;
+            color: var(--ct-success);
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .ct-saved--visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ct-options">
+        <h1>CodeTrust Settings</h1>
+        <p class="ct-options-subtitle">Configure your AI code governance platform</p>
+
+        <div class="ct-field">
+            <label for="api-key">API Key</label>
+            <div class="ct-hint">Get your API key at <a href="https://codetrust.ai" target="_blank"
+                    style="color: var(--ct-primary);">codetrust.ai</a></div>
+            <input type="password" id="api-key" placeholder="ct_live_...">
+        </div>
+
+        <div class="ct-field">
+            <label for="api-url">API URL</label>
+            <div class="ct-hint">Default: https://api.codetrust.ai (change for self-hosted)</div>
+            <input type="url" id="api-url" placeholder="https://api.codetrust.ai">
+        </div>
+
+        <div class="ct-field">
+            <label class="ct-toggle">
+                <input type="checkbox" id="auto-scan" checked>
+                <span>Auto-scan code on page load</span>
+            </label>
+        </div>
+
+        <div class="ct-field">
+            <label class="ct-toggle">
+                <input type="checkbox" id="show-notifications" checked>
+                <span>Show scan notifications</span>
+            </label>
+        </div>
+
+        <div class="ct-field">
+            <label class="ct-toggle">
+                <input type="checkbox" id="verify-imports">
+                <span>Auto-verify imports (requires API key)</span>
+            </label>
+        </div>
+
+        <button class="ct-btn-save" id="btn-save">Save Settings</button>
+        <span class="ct-saved" id="saved-indicator">Saved</span>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+
+</html>

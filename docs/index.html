@@ -121,8 +121,50 @@
             "https://github.com/S-Borna/codetrust",
             "https://pypi.org/project/codetrust/",
             "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
-            "https://github.com/marketplace/actions/codetrust-scan"
+            "https://github.com/marketplace/actions/codetrust-scan",
+            "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety"
         ]
+    }
+    </script>
+
+    <!-- JSON-LD: BrowserExtension for Chrome Web Store -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "CodeTrust — AI Code Safety Scanner",
+        "description": "Chrome extension that scans code for AI hallucinations, security vulnerabilities, and unsafe patterns on GitHub, Stack Overflow, and any code page. 280 rules across 10 enforcement layers. Live registry verification against 8 package registries. Trust Score with drift tracking.",
+        "applicationCategory": "BrowserApplication",
+        "applicationSubCategory": "Developer Tools",
+        "operatingSystem": "Chrome",
+        "browserRequirements": "Google Chrome 88+",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Said Borna"
+        },
+        "softwareVersion": "2.7.0",
+        "downloadUrl": "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety",
+        "featureList": [
+            "Scan code blocks on GitHub, GitLab, Stack Overflow",
+            "Detect AI-hallucinated package imports",
+            "280 security rules across 10 enforcement layers",
+            "Live registry verification against 8 package registries",
+            "Right-click context menu scanning",
+            "Inline results overlay",
+            "Trust Score calculation",
+            "16 programming languages supported"
+        ],
+        "screenshot": "https://codetrust.ai/chrome-extension-screenshot.png",
+        "isPartOf": {
+            "@type": "SoftwareApplication",
+            "name": "CodeTrust",
+            "url": "https://codetrust.ai"
+        }
     }
     </script>
 
@@ -202,6 +244,9 @@
 
     <!-- AI model discovery -->
     <link rel="alternate" type="text/plain" href="https://codetrust.ai/llms.txt" title="LLMs.txt">
+    <link rel="alternate" type="text/plain" href="https://codetrust.ai/llms-full.txt" title="LLMs Full Context">
+    <link rel="alternate" type="application/json" href="https://codetrust.ai/.well-known/ai-plugin.json"
+        title="AI Plugin">
 
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -269,7 +314,8 @@
                 <rect y="9" width="20" height="2" rx="1" />
                 <rect y="15" width="20" height="2" rx="1" />
             </svg>
-            <svg class="icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none">
+            <svg class="icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" style="display:none">
                 <line x1="4" y1="4" x2="16" y2="16" />
                 <line x1="16" y1="4" x2="4" y2="16" />
             </svg>
@@ -283,6 +329,7 @@
             <a href="demo.html">Demo</a>
             <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
             <a href="https://api.codetrust.ai/v1/status" target="_blank">API</a>
+            <a href="https://chrome.google.com/webstore/detail/codetrust-ai-code-safety" target="_blank">Chrome</a>
             <a href="mailto:said@saidborna.com">Contact</a>
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
                 class="topbar-install">Get Extension</a>

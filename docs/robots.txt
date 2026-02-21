@@ -2,8 +2,11 @@
 User-agent: *
 Allow: /
 Allow: /llms.txt
+Allow: /llms-full.txt
 Allow: /openapi.json
 Allow: /sitemap.xml
+Allow: /.well-known/ai-plugin.json
+Allow: /privacy.html
 
 # AI model crawlers — explicitly allowed
 User-agent: GPTBot

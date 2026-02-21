@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeTrust</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="ct-popup">
+        <header class="ct-header">
+            <div class="ct-logo-row">
+                <img src="../icons/icon-32.png" alt="CodeTrust" class="ct-logo">
+                <h1 class="ct-title">CodeTrust</h1>
+                <span class="ct-version">v2.7.0</span>
+            </div>
+            <p class="ct-subtitle">AI Code Governance</p>
+        </header>
+
+        <section class="ct-status" id="status-section">
+            <div class="ct-status-indicator" id="status-indicator">
+                <span class="ct-dot ct-dot--active"></span>
+                <span class="ct-status-text" id="status-text">Ready</span>
+            </div>
+        </section>
+
+        <section class="ct-actions">
+            <button class="ct-btn ct-btn--primary" id="btn-scan-page">
+                <svg class="ct-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                Scan Page Code
+            </button>
+
+            <button class="ct-btn ct-btn--secondary" id="btn-scan-selection">
+                <svg class="ct-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                </svg>
+                Scan Selection
+            </button>
+
+            <button class="ct-btn ct-btn--secondary" id="btn-verify-imports">
+                <svg class="ct-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                Verify Imports
+            </button>
+        </section>
+
+        <section class="ct-results" id="results-section" style="display: none;">
+            <div class="ct-results-header">
+                <h2 class="ct-results-title">Scan Results</h2>
+                <span class="ct-badge" id="findings-count">0</span>
+            </div>
+            <div class="ct-results-body" id="results-body">
+                <!-- Findings will be injected here -->
+            </div>
+            <div class="ct-trust-score" id="trust-score-section" style="display: none;">
+                <div class="ct-score-label">Trust Score</div>
+                <div class="ct-score-value" id="trust-score-value">--</div>
+                <div class="ct-score-bar">
+                    <div class="ct-score-fill" id="trust-score-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="ct-stats" id="stats-section">
+            <div class="ct-stat">
+                <span class="ct-stat-value">280</span>
+                <span class="ct-stat-label">Rules</span>
+            </div>
+            <div class="ct-stat">
+                <span class="ct-stat-value">10</span>
+                <span class="ct-stat-label">Layers</span>
+            </div>
+            <div class="ct-stat">
+                <span class="ct-stat-value">16</span>
+                <span class="ct-stat-label">Languages</span>
+            </div>
+            <div class="ct-stat">
+                <span class="ct-stat-value">8</span>
+                <span class="ct-stat-label">Registries</span>
+            </div>
+        </section>
+
+        <footer class="ct-footer">
+            <a href="https://codetrust.ai" target="_blank" class="ct-link">codetrust.ai</a>
+            <span class="ct-sep">·</span>
+            <a href="https://codetrust.ai/openapi.json" target="_blank" class="ct-link">API Docs</a>
+            <span class="ct-sep">·</span>
+            <a id="btn-options" href="#" class="ct-link">Settings</a>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

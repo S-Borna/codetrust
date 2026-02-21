@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CodeTrust - Screenshot 1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1280px;
+            height: 800px;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+        }
+
+        .browser-chrome {
+            width: 100%;
+            height: 40px;
+            background: #2d2d2d;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red {
+            background: #ff5f57;
+        }
+
+        .dot-yellow {
+            background: #febc2e;
+        }
+
+        .dot-green {
+            background: #28c840;
+        }
+
+        .address-bar {
+            flex: 1;
+            background: #3d3d3d;
+            border-radius: 6px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 6px;
+            color: #ccc;
+            font-size: 13px;
+            margin: 0 30px;
+        }
+
+        .lock-icon {
+            font-size: 11px;
+            color: #4caf50;
+        }
+
+        .page-content {
+            width: 100%;
+            height: 760px;
+            background: #0d1117;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 60px;
+        }
+
+        .github-mock {
+            width: 100%;
+            padding: 0 48px;
+            color: #e6edf3;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .gh-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .gh-repo-name {
+            font-size: 20px;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        .gh-badge {
+            background: #388bfd1a;
+            color: #58a6ff;
+            border: 1px solid #388bfd66;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 12px;
+        }
+
+        .code-block {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .code-header {
+            background: #21262d;
+            padding: 8px 16px;
+            color: #8b949e;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .code-body {
+            padding: 16px;
+            color: #e6edf3;
+            display: flex;
+            gap: 16px;
+        }
+
+        .line-nums {
+            color: #484f58;
+            text-align: right;
+            user-select: none;
+            line-height: 1.7;
+        }
+
+        .code-lines {
+            line-height: 1.7;
+        }
+
+        .kw {
+            color: #ff7b72;
+        }
+
+        .fn {
+            color: #d2a8ff;
+        }
+
+        .str {
+            color: #a5d6ff;
+        }
+
+        .cm {
+            color: #8b949e;
+        }
+
+        .num {
+            color: #79c0ff;
+        }
+
+        /* Popup overlay */
+        .popup-wrapper {
+            position: absolute;
+            top: 60px;
+            right: 80px;
+            filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.8));
+        }
+
+        .popup-arrow {
+            position: absolute;
+            top: -8px;
+            right: 28px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid #1e293b;
+        }
+
+        .popup {
+            width: 360px;
+            background: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            overflow: hidden;
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+        }
+
+        .popup-logo-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .popup-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .popup-title {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .popup-version {
+            font-size: 11px;
+            color: #64748b;
+            background: #1e293b;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+        }
+
+        .popup-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .popup-status {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #0f3d26;
+            border-bottom: 1px solid #334155;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .5
+            }
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #10b981;
+            font-weight: 500;
+        }
+
+        .popup-actions {
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-secondary {
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            font-size: 16px;
+        }
+
+        .popup-stats {
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            border-top: 1px solid #334155;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #3b82f6;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="browser-chrome">
+        <div class="dot dot-red"></div>
+        <div class="dot dot-yellow"></div>
+        <div class="dot dot-green"></div>
+        <div class="address-bar">
+            <span class="lock-icon">🔒</span>
+            <span>github.com/myorg/myproject/blob/main/app.py</span>
+        </div>
+    </div>
+    <div class="page-content">
+        <div class="github-mock">
+            <div class="gh-header">
+                <span class="gh-repo-name">myorg / myproject</span>
+                <span class="gh-badge">Public</span>
+            </div>
+            <div class="code-block">
+                <div class="code-header"><span>app.py</span><span>Python</span></div>
+                <div class="code-body">
+                    <div class="line-nums">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12</div>
+                    <div class="code-lines">
+                        <span class="kw">import</span> <span class="fn">requests</span><br>
+                        <span class="kw">from</span> <span class="fn">flask</span> <span class="kw">import</span> <span
+                            class="str">*</span><br>
+                        <span class="cm"># API configuration</span><br>
+                        API_KEY = <span class="str">"sk-prod-abc123xyz789"</span><br>
+                        SECRET = <span class="str">"supersecret123"</span><br>
+                        <br>
+                        <span class="kw">def</span> <span class="fn">get_data</span>(user_input):<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span
+                            class="fn">eval</span>(user_input)<br>
+                        <br>
+                        <span class="kw">def</span> <span class="fn">run</span>():<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">app</span>.run(debug=<span class="kw">True</span>,
+                        host=<span class="str">"0.0.0.0"</span>)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">subprocess</span>.call(<span class="str">"rm -rf
+                            /"</span>)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="popup-wrapper">
+            <div class="popup-arrow"></div>
+            <div class="popup">
+                <div class="popup-header">
+                    <div class="popup-logo-row">
+                        <div class="popup-icon">🛡️</div>
+                        <span class="popup-title">CodeTrust</span>
+                        <span class="popup-version">v2.7.0</span>
+                    </div>
+                    <div class="popup-subtitle">AI Code Safety Scanner</div>
+                </div>
+                <div class="popup-status">
+                    <div class="status-dot"></div>
+                    <span class="status-text">Ready to scan</span>
+                </div>
+                <div class="popup-actions">
+                    <button class="btn-primary"><span class="btn-icon">🔍</span> Scan Page Code</button>
+                    <button class="btn-secondary"><span class="btn-icon">✂️</span> Scan Selection</button>
+                    <button class="btn-secondary"><span class="btn-icon">✅</span> Verify Imports</button>
+                </div>
+                <div class="popup-stats">
+                    <div class="stat"><span class="stat-value">280</span><span class="stat-label">Rules</span></div>
+                    <div class="stat"><span class="stat-value">10</span><span class="stat-label">Layers</span></div>
+                    <div class="stat"><span class="stat-value">16</span><span class="stat-label">Languages</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -5,6 +5,56 @@ All notable changes to CodeTrust will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — MCP Auto-Injection (Critical bugfix + new feature)
+
+> **Highlight:** This is the most impactful change since the Gateway launch.
+> Without it, AI agents received governance instructions but the MCP servers
+> providing those tools were never registered — governance enforcement was broken.
+
+#### MCP Server Auto-Registration
+
+- **New file: `extension/src/mcp-config-injection.ts`** (588 lines)
+  - Automatically injects both `codetrust` (Guardian) and `codetrust-gateway`
+    (Gateway) MCP server entries into all supported IDE configs on extension activation.
+  - Supported targets: Claude Code (`~/.claude/mcp.json`), Claude Desktop
+    (`claude_desktop_config.json` on macOS), Cursor (`~/.cursor/mcp.json`).
+  - **Idempotent:** only adds missing entries; never overwrites user-configured servers.
+  - **Clean uninstall:** `removeMcpServerConfigs()` removes only auto-injected
+    entries (identified by `_injectedBy` marker).
+  - **File watcher + focus listener:** detects external config disruption
+    (IDE updates, user edits, file deletion) and offers re-injection.
+  - **Debounced:** file watcher (2s) and focus check (10s) to avoid prompt spam.
+  - **Malformed JSON safety:** skips corrupt config files instead of overwriting.
+
+#### Smart Command Detection (3-strategy fallback)
+
+- **Extension + CLI:** both implementations resolve the best MCP server command:
+  1. Console script on PATH (`codetrust-mcp` / `codetrust-gateway-mcp`) — pip install
+  2. `uvx` zero-install — auto-download without pip
+  3. `python3 -m src.server` / `python3 -m src.gateway.server` — source checkout
+  4. Fallback: write console script name (user sees clear startup error)
+- **CLI: `_detect_source_root()`** — walks filesystem upward looking for
+  `pyproject.toml` containing `name = "codetrust"`.
+
+#### CLI MCP Injection
+
+- **`src/cli.py`:** `codetrust setup` and `codetrust governance setup` now
+  automatically inject MCP server configs into all detected IDE configs.
+- **`_inject_mcp_servers()`**: same idempotent logic as extension, using
+  `shutil.which()` for command detection and `json` module for config parsing.
+- Colored terminal output with per-IDE status (✅ added / ⏭️ already present / ⚠️ error).
+
+### Fixed
+
+- **Root cause:** VS Code extension injected behavioral rules (CLAUDE.md,
+  .cursorrules, .windsurfrules) but never registered MCP servers in mcp.json.
+  Agents received instructions to call proxy tools (`codetrust_validate_command`,
+  etc.) that didn't exist at runtime — governance enforcement was completely broken.
+
+---
+
 ## [2.7.0] - 2026-02-20
 
 ### Added — Signature Engine Hardening, min_args Enforcement, Documentation Overhaul

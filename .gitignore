@@ -46,6 +46,7 @@ docker-compose.override.yml
 # Local-only files (plans, notes, secrets)
 .local/
 /SESSION_LOG.md
+/CODEBASE_KNOWLEDGE.md
 
 # CodeTrust runtime artifacts
 .codetrust/

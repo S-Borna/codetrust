@@ -1793,4 +1793,189 @@ Origin: fbaeced5 (2 commits bakom)
 
 ---
 
+## [2026-02-21 — Session Checkpoint] Mobile CSS Hardening + Cache-Busting
+
+### Sammanfattning
+
+Användaren rapporterade att landing page fortfarande var trasig på mobil — text klipptes horisontellt, "CodeTrust" + logo satt ihop, version-badge skar av, knappar överlappade.
+
+**Rotorsak:** Cloudflare CDN servade den **gamla** style.css (före responsive-reglerna) pga `Cache-Control: max-age=86400` (24h) och ingen cache-busting parameter. Browsern fick aldrig den nya CSS:en.
+
+### Åtgärder
+
+1. **Cache-busting** — `style.css` → `style.css?v=2.7.1` i index.html
+2. **Cache-TTL** — `_headers`: 86400s → 3600s + `must-revalidate`
+3. **Global overflow** — `overflow-x: hidden` på `html` + `max-width: 100vw` på `body`
+4. **Hero ≤640px** (hårdnade):
+   - `flex-direction: column !important` på `.hero-logo` och `.hero-actions`
+   - `.hero-content`: `overflow: hidden` + `overflow-wrap: break-word`
+   - `.hero-tagline`: typewriter-animation avaktiverad, `white-space: normal !important`, `width: auto !important`
+   - `.hero-version`: `white-space: normal` + `width: auto` + `max-width: 100%` + `line-height: 1.5`
+   - Mindre fonter: h1 1.65rem (var 1.85), logo-text 2.6rem (var 2.8), sub 0.88rem (var 0.92)
+5. **≤400px** — Ytterligare reduktioner + `.hero-tagline` styling
+6. **≤850px** — `.hero-tagline` font-size + `.hero-version` max-width
+
+### Filer ändrade
+
+- `docs/index.html` — cache-bust param
+- `docs/style.css` — 62 insertions, 14 deletions (2744 rader totalt, braces 417/417 balanserat)
+- `docs/_headers` — cache TTL
+
+### Commits
+
+- `6ff8a1df` — fix: cache-busting + hardened mobile CSS for hero section
+
+### Git-tillstånd
+
+```
+HEAD:  6ff8a1df (main, origin/main)
+Working tree: CLEAN
+```
+
+### Kvarvarande
+
+- [ ] Pusha till origin (`git push origin main`) — flera commits ej pushade
+- [ ] Deploy via Cloudflare Pages (auto efter push)
+- [ ] Testa på riktiga enheter efter deploy
+- [ ] Lokal server fortfarande igång på port 8787
+
+### Testsvit
+
+Senast körda: 1896 pass, 2 skip, ruff clean (v2.7.0-session)
+
+---
+
+## [2026-02-21 — Retroaktiv Checkpoint] Komplett commit-historik fd382686..6ff8a1df
+
+> Dessa 14 commits saknades i SESSION_LOG. Dokumenterat retroaktivt för fullständig spårbarhet.
+
+### Fas 1: v2.7.0 Signature Engine — 2026-02-20 16:27–17:36
+
+| Commit | Tid | Beskrivning |
+|--------|-----|-------------|
+| `fd382686` | 16:27 | **feat: v2.7.0 — signature engine hardening, min_args enforcement, docs overhaul** |
+| `146e2b99` | 17:17 | **fix: CI pipeline — eliminera alla 28 BLOCKs** (datetime FP, max_args bug, docstring tracking, submodule resolution) |
+| `0587ad09` | 17:36 | **chore: regenerera openapi.json (2.6.1→2.7.0) och metrics.json** |
+
+**Scope:** 10 filer, 529 insertions, 128 deletions
+
+**Detaljer:**
+- `src/services/signature_validator.py` — min_args-enforcement, hårdnad felhantering (+105 rader)
+- `src/services/autofix_recipes.py` — refaktorering, 172 rader omstrukturerade
+- `src/rules/signatures.py` — +112 rader signatur-definitioner, nya moduler
+- `src/services/static_analyzer.py` — +20 rader, integrerad signatur-scanning
+- `src/config.py` — version bump
+- CI-fixar: 28 BLOCK-findings eliminerade (datetime false positives, max_args off-by-one, docstring-tracking, submodule-resolution)
+
+### Fas 2: v2.7.0 Release & Publicering — 2026-02-20 18:02–18:44
+
+| Commit | Tid | Beskrivning |
+|--------|-----|-------------|
+| `ac830c32` | 18:02 | **fix: granska alla offentliga material** — ta bort aspirationella claims, fixa inaktuella siffror |
+| `8f177663` | 18:06 | **chore: version bump extension + cli till 2.7.0** |
+| `694d9d5f` | 18:16 | **feat: highlight Signature Validation i README + website moat card** (tag: v2.7.0) |
+| `9d587116` | 18:44 | **chore: add OVSX_PAT, publicera till Open VSX** |
+
+**Scope:** 23+ filer touchade
+
+**Detaljer:**
+- `docs/index.html` — softwareVersion 2.6.1→2.7.0, SOC2-claim-ordval, Ruby/PHP/PowerShell lang chips, badge v2.7.0
+- `README.md` — markera SBOM/Sigstore som planerat (ej implementerat), moat-kort för signaturvalidering
+- `SECURITY.md` — 2.7.x supported, 2.5.x deprecated
+- `docs/compliance/soc2-controls.md` — SBOM planerat, rule count 199→280, test count 1665→1898
+- `docs/sitemap.xml` — alla lastmod-datum uppdaterade till 2026-02-20
+- `extension/package.json` — 2.6.1→2.7.0
+- `extension/CHANGELOG.md` — [2.7.0]-entry med signature validation
+- `extension/README.md` — What's New in 2.7.0, endpoint count 44→45
+- `src/cli.py` — fallback version 2.6.1→2.7.0
+- `.env.example` — OVSX_PAT tillagd
+- **Publicerat:** PyPI ✅, VS Code Marketplace ✅, Open VSX ✅
+
+### Fas 3: Security Audit — 2026-02-20 20:21
+
+| Commit | Tid | Beskrivning |
+|--------|-----|-------------|
+| `7b899123` | 20:21 | **security+web: härda auth, WebSocket, input validation, CORS; förbättra GlobalDex-score** |
+
+**Scope:** 23 filer, 3079 insertions, 2452 deletions (netto +627 rader)
+
+**10 säkerhetsfixar (P0–P2):**
+
+| Prio | Fix | Fil |
+|------|-----|-----|
+| P0-1 | JWT secret enforcement — kräv ≥32 tecken, blockera weak secrets | `src/services/auth.py` |
+| P0-2 | Auth på audit endpoint | `src/api.py` |
+| P1-1 | WebSocket — max connections, message limits, idle timeout | `src/server.py` |
+| P1-2 | Org membership auth — kontrollera org-tillhörighet | `src/api.py` |
+| P1-3 | Token revocation + `/v1/auth/logout` (endpoint 46) | `src/services/auth.py`, `src/api.py` |
+| P2-1 | Input validation — bounded string lengths, strict ints | `src/models/requests.py` |
+| P2-2 | `extra="forbid"` på alla request models | `src/models/requests.py` |
+| P2-3 | Path traversal guard på file_path-fält | `src/models/requests.py` |
+| P2-4 | CORS — explicit allowed_origins | `src/api.py` |
+| P2-5 | OIDC state parameter validation | `src/api.py` |
+
+**GlobalDex-förbättringar (i samma commit):**
+- `docs/index.html` — heading hierarchy (h5→h3), CSS externaliserat till style.css
+- `docs/style.css` — skapad (2171 rader), all inline CSS extraherad
+- `docs/404.html` — custom felsida
+- `docs/feed.xml` — RSS-feed med 4 releases
+- `docs/_headers` — CSP + HSTS + cache-headers
+- `docs/sitemap.xml` — uppdaterad med nya sidor
+
+### Fas 4: GlobalDex Badge & Docs Cleanup — 2026-02-20 20:27–21:18
+
+| Commit | Tid | Beskrivning |
+|--------|-----|-------------|
+| `3da387af` | 20:27 | **chore: formatter whitespace cleanup i docs HTML** |
+| `9e4e9942` | 20:29 | **chore: add GlobalDex badge till footer och README** |
+| `4faa5f56` | 20:31 | **fix: uppdatera api_endpoints 45→46 i alla docs** (pga /v1/auth/logout) |
+| `11669e42` | 21:18 | **chore: formatera GlobalDex badge-länk i footer** |
+
+**Scope:** 10 filer, ~50 insertions
+
+**Berörda filer:**
+- `README.md`, `docs/index.html`, `docs/sitemap.xml`, `SPEC.md`, `PLAN.md`, `PRODUCT.md`, `pyproject.toml`, `extension/README.md`, `metrics.json`
+
+### Fas 5: Mobile Responsiveness — 2026-02-20 21:31–22:07
+
+| Commit | Tid | Beskrivning |
+|--------|-----|-------------|
+| `74a65cec` | 21:31 | **feat: comprehensive mobile responsiveness for codetrust.ai** |
+| `6ff8a1df` | 22:07 | **fix: cache-busting + hardened mobile CSS** |
+
+**Scope:** `docs/style.css` +584 rader (2171→2744), `docs/index.html` +43 rader, `docs/_headers` ändrad
+
+**Detaljer:**
+- 4 CSS-breakpoints: 1024px, 850px, 640px, 400px
+- Fullskärms-mobilnav: hamburger↔X toggle, ESC-close, outside-click, body scroll lock
+- Alla grid-layouter responsiva (moats, dashboard, install, enterprise, rules)
+- `white-space: nowrap` overflow fixat på hero-sub, section-desc, narrative heading, hero-tagline, hero-version
+- Touch-enheter: inaktiverade hover-effekter, 48px min touch targets
+- Landscape-telefoner, reduced motion, print stylesheet
+- Cache-busting: `style.css?v=2.7.1` (CDN servade gammal CSS)
+- CSS Cache-Control: 24h → 1h + must-revalidate
+
+### Sammanfattning av hela perioden
+
+```
+Commits:     14 (fd382686..6ff8a1df)
+Datum:       2026-02-20 16:27 – 22:07 (5h 40min)
+Netto:       ~4400 insertions, ~2600 deletions
+Tag:         v2.7.0 på 694d9d5f
+Publicerat:  PyPI, VS Code Marketplace, Open VSX
+Endpoints:   45 → 46 (/v1/auth/logout)
+Regler:      275 → 280
+Tester:      1896 pass, 2 skip
+```
+
+### Git-tillstånd
+
+```
+HEAD:    6ff8a1df (main, origin/main)
+Tag:     v2.7.0 (694d9d5f)
+Working: CLEAN
+```
+
+---
+
 <!-- NEXT SESSION: Publish v2.6.1, verify on PyPI, yank old releases -->

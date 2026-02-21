@@ -3737,24 +3737,186 @@ def cmd_pr_risk(args: argparse.Namespace) -> int:
 # --- Governance command ---
 
 
+# ── MCP config injection constants ──────────────────────────────────────────────
+
+GUARDIAN_SERVER_NAME = "codetrust"
+GATEWAY_SERVER_NAME = "codetrust-gateway"
+GUARDIAN_COMMAND = "codetrust-mcp"
+GATEWAY_COMMAND = "codetrust-gateway-mcp"
+GUARDIAN_MODULE = "src.server"
+GATEWAY_MODULE = "src.gateway.server"
+MCP_INJECTION_MARKER = "codetrust-auto-injected"
+PYPI_PACKAGE_NAME = "codetrust"
+
+
+def _get_mcp_targets() -> list[tuple[str, Path]]:
+    """Return list of (display_name, config_path) for all IDE MCP config targets."""
+    home = Path.home()
+    targets: list[tuple[str, Path]] = [
+        ("Claude Code", home / ".claude" / "mcp.json"),
+        ("Cursor", home / ".cursor" / "mcp.json"),
+    ]
+    if sys.platform == "darwin":
+        targets.append((
+            "Claude Desktop",
+            home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
+        ))
+    return targets
+
+
+def _detect_source_root() -> Path | None:
+    """Detect the CodeTrust source repository root from cwd or parents.
+
+    Looks for a pyproject.toml containing 'name = \"codetrust\"'.
+    """
+    cwd = Path.cwd()
+    for candidate in [cwd, *cwd.parents]:
+        pyproject = candidate / "pyproject.toml"
+        if pyproject.is_file():
+            try:
+                content = pyproject.read_text()
+                if 'name = "codetrust"' in content:
+                    return candidate
+            except OSError:
+                continue
+        # Stop at filesystem root or home
+        if candidate == Path.home() or candidate == candidate.parent:
+            break
+    return None
+
+
+def _resolve_server_entry(
+    console_script: str,
+    module_path: str,
+) -> dict[str, object]:
+    """Resolve the best available MCP server entry config.
+
+    Falls through strategies in priority order:
+      1. Console script on PATH (pip install — fastest)
+      2. uvx zero-install (uv available, no pip needed)
+      3. python3 -m module (source repo in cwd)
+      4. Fallback to console script name (user sees startup error)
+
+    Returns:
+        Dict suitable for a mcpServers entry in mcp.json.
+    """
+    # Strategy 1: Console script on PATH
+    if shutil.which(console_script):
+        _echo(f"    → '{console_script}' found on PATH")
+        return {
+            "command": console_script,
+            "_injectedBy": MCP_INJECTION_MARKER,
+        }
+
+    # Strategy 2: uvx zero-install
+    if shutil.which("uvx"):
+        _echo(f"    → '{console_script}' not on PATH, using uvx zero-install")
+        return {
+            "command": "uvx",
+            "args": ["--from", PYPI_PACKAGE_NAME, console_script],
+            "_injectedBy": MCP_INJECTION_MARKER,
+        }
+
+    # Strategy 3: python3 -m with current directory as source root
+    source_root = _detect_source_root()
+    python_cmd = "python" if sys.platform == "win32" else "python3"
+    if source_root and shutil.which(python_cmd):
+        _echo(f"    → Using '{python_cmd} -m {module_path}' with cwd={source_root}")
+        return {
+            "command": python_cmd,
+            "args": ["-m", module_path],
+            "cwd": str(source_root),
+            "_injectedBy": MCP_INJECTION_MARKER,
+        }
+
+    # Fallback: write console script name — user will see startup error
+    _echo(f"    → WARNING: '{console_script}' not found, writing anyway")
+    return {
+        "command": console_script,
+        "_injectedBy": MCP_INJECTION_MARKER,
+    }
+
+
+def _inject_mcp_servers() -> int:
+    """Inject CodeTrust MCP servers into all detected IDE configs.
+
+    Idempotent: only adds entries that are missing. Never overwrites
+    existing server configs (user may have custom args/env).
+
+    Auto-detects the best command strategy:
+      1. Console script on PATH (pip install)
+      2. uvx zero-install
+      3. python3 -m module (source checkout)
+
+    Returns:
+        Number of IDE configs that were modified.
+    """
+    targets = _get_mcp_targets()
+    modified_count = 0
+
+    for display_name, config_path in targets:
+        if not config_path.parent.exists():
+            _echo(f"  {color('⏭️', BLUE)} {display_name} — directory not found, skipping")
+            continue
+
+        # Read existing config
+        config: dict[str, object] = {}
+        if config_path.is_file():
+            try:
+                raw = config_path.read_text().strip()
+                if raw:
+                    config = json.loads(raw)
+            except (json.JSONDecodeError, OSError):
+                _echo(f"  {color('⚠️', YELLOW)} {display_name} — could not parse config, skipping")
+                continue
+
+        servers: dict[str, object] = config.get("mcpServers", {})  # type: ignore[assignment]
+        if not isinstance(servers, dict):
+            servers = {}
+
+        modified = False
+
+        if GUARDIAN_SERVER_NAME not in servers:
+            servers[GUARDIAN_SERVER_NAME] = _resolve_server_entry(
+                GUARDIAN_COMMAND, GUARDIAN_MODULE,
+            )
+            _echo(f"  {color('✅', GREEN)} {display_name} — added '{GUARDIAN_SERVER_NAME}' server")
+            modified = True
+        else:
+            _echo(f"  {color('⏭️', BLUE)} {display_name} — '{GUARDIAN_SERVER_NAME}' already present")
+
+        if GATEWAY_SERVER_NAME not in servers:
+            servers[GATEWAY_SERVER_NAME] = _resolve_server_entry(
+                GATEWAY_COMMAND, GATEWAY_MODULE,
+            )
+            _echo(f"  {color('✅', GREEN)} {display_name} — added '{GATEWAY_SERVER_NAME}' server")
+            modified = True
+        else:
+            _echo(f"  {color('⏭️', BLUE)} {display_name} — '{GATEWAY_SERVER_NAME}' already present")
+
+        if modified:
+            config["mcpServers"] = servers
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text(json.dumps(config, indent=2) + "\n")
+            modified_count += 1
+
+    return modified_count
+
+
 def _governance_show_setup(project_dir: Path) -> int:
-    """Display MCP gateway setup instructions."""
+    """Inject MCP servers into IDE configs and show governance setup status."""
     _echo(f"\n{color('🛡️  CodeTrust Gateway — MCP Setup', BOLD)}\n")
-    _echo("  Add to your AI client's MCP configuration:\n")
-    _echo(f"  {color('Claude Desktop', BOLD)} (~/.claude/claude_desktop_config.json):\n")
-    _echo('  {')
-    _echo('    "mcpServers": {')
-    _echo('      "codetrust-gateway": {')
-    _echo('        "command": "python",')
-    _echo('        "args": ["-m", "src.gateway.server"],')
-    _echo(f'        "cwd": "{project_dir}"')
-    _echo('      }')
-    _echo('    }')
-    _echo('  }\n')
-    _echo(f"  {color('Cursor', BOLD)} (.cursorrules already installed):\n")
-    _echo("  The gateway works alongside .cursorrules enforcement.")
-    _echo("  For full interception, add the MCP server config above.\n")
-    _echo(f"  {color('Configuration', BOLD)}:\n")
+    _echo(f"  {color('Injecting MCP server configs into detected IDEs...', BOLD)}\n")
+
+    modified = _inject_mcp_servers()
+
+    _echo()
+    if modified > 0:
+        _echo(f"  {color('✅', GREEN)} {modified} IDE config(s) updated with CodeTrust MCP servers.")
+    else:
+        _echo(f"  {color('ℹ️', BLUE)} All detected IDEs already have CodeTrust MCP servers configured.")
+
+    _echo(f"\n  {color('Configuration', BOLD)}:\n")
     _echo("    Config file:  .codetrust.toml")
     _echo("    Audit log:    .codetrust/audit.jsonl")
     _echo("    Env override: CODETRUST_GOVERNANCE_MODE=enforce|audit|off\n")
@@ -4078,6 +4240,12 @@ def cmd_setup(args: argparse.Namespace) -> int:
     if _setup_install_vscode_settings(project_dir, force=force):
         installed += 1
     if _setup_install_cursorrules(project_dir, force=force):
+        installed += 1
+
+    # Inject MCP server configs into all detected IDEs
+    _echo(f"\n  {color('MCP Server Registration:', BOLD)}\n")
+    mcp_modified = _inject_mcp_servers()
+    if mcp_modified > 0:
         installed += 1
 
     _setup_print_summary(installed)

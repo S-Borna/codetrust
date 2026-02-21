@@ -5,6 +5,20 @@ For the full platform history (API/CLI/Action/MCP), see the repo root CHANGELOG.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **MCP Auto-Injection** — new `mcp-config-injection.ts` (588 lines) automatically registers both Guardian and Gateway MCP servers in Claude Code, Claude Desktop, and Cursor config files on extension activation
+- **Smart Command Detection** — 3-strategy fallback (PATH → uvx → python3 -m) resolves the best available MCP server command for each IDE
+- **File Watcher + Focus Listener** — detects external config disruption and offers re-injection with debounce (2s file / 10s focus)
+- **Clean Uninstall** — `removeMcpServerConfigs()` removes only auto-injected entries on deactivation
+- **Malformed JSON Safety** — skips corrupt mcp.json files instead of overwriting
+
+### Fixed
+
+- **Critical:** Extension injected governance instructions (CLAUDE.md, .cursorrules) but never registered MCP servers — agents saw proxy tool instructions but tools didn't exist at runtime. Governance enforcement was completely broken.
+
 ## [2.7.0] - 2026-02-20
 
 ### Added

@@ -25,6 +25,7 @@ import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 import { sendTelemetry } from "./telemetry";
 import { injectUniversalInstructions, removeUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
+import { injectMcpServerConfigs, removeMcpServerConfigs, watchForMcpConfigDisruption } from "./mcp-config-injection";
 
 // ─────────────────────────────────────────────────────────────────
 //  Copilot global instruction injection
@@ -173,10 +174,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void maybePromptGuidedOnboarding(context, outputChannel);
     void injectCopilotInstructions(context, outputChannel);
     void injectUniversalInstructions(outputChannel);
+    void injectMcpServerConfigs(outputChannel);
 
     // Watch for IDE updates that overwrite injected rules, or new IDEs installed after CodeTrust
     const watchDisposables = watchForGovernanceDisruption(outputChannel);
     context.subscriptions.push(...watchDisposables);
+
+    // Watch for MCP config files being modified (server entries removed)
+    const mcpWatchDisposables = watchForMcpConfigDisruption(outputChannel);
+    context.subscriptions.push(...mcpWatchDisposables);
 
     const deps: CommandDeps = {
         client,
@@ -389,6 +395,7 @@ export function deactivate(): void {
     const outputChannel = vscode.window.createOutputChannel("CodeTrust");
     void removeCopilotInstructions(outputChannel);
     removeUniversalInstructions(outputChannel);
+    removeMcpServerConfigs(outputChannel);
 }
 
 /** Build language selectors for code action registration. */

@@ -438,6 +438,8 @@ class GovernancePolicySnapshotResponse(BaseModel):
     signature: str
     issued_at: str
     version: str
+    session_id: str
+    policy_hash: str
     audit_logged: bool
 
 

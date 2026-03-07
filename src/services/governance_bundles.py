@@ -25,6 +25,12 @@ def _sign_payload(payload: dict[str, object], secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def _policy_hash(policy: dict[str, object]) -> str:
+    """Return deterministic SHA-256 hash of a policy object."""
+    canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _base_policy() -> dict[str, object]:
     """Return base governance policy shared by all bundles."""
     return {
@@ -113,6 +119,7 @@ def build_signed_snapshot(
         "snapshot_id": f"gps_{uuid.uuid4().hex[:16]}",
         "bundle_id": bundle_id,
         "policy": policy,
+        "policy_hash": _policy_hash(policy),
         "issued_at": issued_at,
         "version": version,
         "coverage_model": COVERAGE_MODEL_VERSION,

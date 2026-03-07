@@ -43,7 +43,7 @@ bar_y = 114
 draw.rounded_rectangle([28, bar_y, W - 28, bar_y + 26], radius=5,
                         fill=(10, 30, 10), outline=(34, 197, 94, 80))
 draw.text((W // 2, bar_y + 13),
-          'v2.7.0 — 1,898 tests — 10 layers — 280 rules — 46 endpoints',
+          'v2.8.0 — 1,898 tests — 10 layers — 280 rules — 46 endpoints',
           fill=(34, 197, 94), font=font_stats, anchor='mm')
 
 # Headline

@@ -64,6 +64,10 @@ OPEN_VSX_EXTENSION_NAME: str = "codetrust"
 PEPY_API_URL_TEMPLATE: str = "https://api.pepy.tech/api/v2/projects/{project}"
 PEPY_PROJECT: str = "codetrust"
 
+PUBLIC_STATS_SCHEMA_VERSION: str = "2.8.0"
+PUBLIC_STATS_SOURCE_OF_TRUTH: str = "/v1/stats/public"
+COVERAGE_MODEL_NAME: str = "coverage-v1"
+
 
 class TelemetryIngestEvent(BaseModel):
     """Anonymous telemetry event payload.
@@ -735,6 +739,82 @@ def _build_quality_stats(
     }
 
 
+def _build_surface_coverage(
+    *,
+    events: int,
+    enforced_events: int,
+) -> dict[str, object]:
+    """Build score details for a single surface."""
+    if events <= 0:
+        return {
+            "events": 0,
+            "enforced_events": 0,
+            "enforced": False,
+            "score": 0,
+            "status": "inactive",
+        }
+
+    enforced = enforced_events > 0
+    score = 100 if enforced else 60
+    status = "enforced" if enforced else "observed"
+    return {
+        "events": events,
+        "enforced_events": max(0, min(events, enforced_events)),
+        "enforced": enforced,
+        "score": score,
+        "status": status,
+    }
+
+
+def _build_governance_coverage(
+    usage: dict[str, object],
+    impact: dict[str, object],
+) -> dict[str, object]:
+    """Build governance coverage score across integration surfaces."""
+    scans_by_source = usage.get("scans_by_source", {})
+    if not isinstance(scans_by_source, dict):
+        scans_by_source = {}
+
+    gateway_events = (
+        int(impact.get("gateway_commands_blocked", 0))
+        + int(impact.get("gateway_commands_allowed", 0))
+        + int(impact.get("gateway_commands_warned", 0))
+    )
+    ci_runs = int(impact.get("ci_runs_total", 0))
+
+    surfaces: dict[str, dict[str, object]] = {
+        "cli": _build_surface_coverage(
+            events=int(scans_by_source.get("cli", 0)),
+            enforced_events=int(scans_by_source.get("cli", 0)),
+        ),
+        "vscode": _build_surface_coverage(
+            events=int(scans_by_source.get("vscode", 0)),
+            enforced_events=int(scans_by_source.get("vscode", 0)),
+        ),
+        "mcp": _build_surface_coverage(
+            events=int(scans_by_source.get("mcp", 0)),
+            enforced_events=min(int(scans_by_source.get("mcp", 0)), gateway_events),
+        ),
+        "github_action": _build_surface_coverage(
+            events=int(scans_by_source.get("github_action", 0)),
+            enforced_events=min(int(scans_by_source.get("github_action", 0)), ci_runs),
+        ),
+        "cloud_api": _build_surface_coverage(
+            events=int(scans_by_source.get("cloud_api", 0)),
+            enforced_events=int(scans_by_source.get("cloud_api", 0)),
+        ),
+    }
+
+    active_scores = [int(v["score"]) for v in surfaces.values() if int(v["events"]) > 0]
+    overall_score = round(sum(active_scores) / len(active_scores)) if active_scores else 0
+    return {
+        "model": COVERAGE_MODEL_NAME,
+        "overall_score": overall_score,
+        "active_surfaces": len(active_scores),
+        "surfaces": surfaces,
+    }
+
+
 async def build_public_stats(
     *,
     r: redis.Redis,
@@ -754,12 +834,19 @@ async def build_public_stats(
     layers = await _fetch_layer_distribution(r)
     top_rules = await _fetch_top_rules(r)
 
+    usage = _build_usage_stats(kv, active_total, active_today, scans_last_hour)
+    impact = _build_impact_stats(kv)
+    coverage = _build_governance_coverage(usage, impact)
+
     stats: dict[str, object] = {
+        "schema_version": PUBLIC_STATS_SCHEMA_VERSION,
+        "source_of_truth": PUBLIC_STATS_SOURCE_OF_TRUTH,
         "updated_at": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
         "distribution": _build_distribution_stats(kv),
-        "usage": _build_usage_stats(kv, active_total, active_today, scans_last_hour),
-        "impact": _build_impact_stats(kv),
+        "usage": usage,
+        "impact": impact,
         "quality": _build_quality_stats(kv, top_rules),
+        "coverage": coverage,
         "languages": languages,
         "layers": layers,
     }

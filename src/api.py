@@ -43,6 +43,7 @@ from src.models.requests import (
     CrossFileScanRequest,
     DeepScanRequest,
     GithubAuthRequest,
+    GovernancePolicySnapshotRequest,
     LicenseScanRequest,
     OIDCCallbackRequest,
     RefreshRequest,
@@ -61,7 +62,10 @@ from src.models.responses import (
     AstScanResponse,
     DeepScanResponse,
     Finding,
+    GovernancePolicyBundleResponse,
+    GovernancePolicySnapshotResponse,
     HealthResponse,
+    PublicStatsResponse,
     RevokeResponse,
     SandboxResponse,
     ScanHistoryResponse,
@@ -776,12 +780,29 @@ _FALLBACK_STATS_BASE: dict[str, int] = {
 }
 
 
-async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
-    """Build public stats from Redis with backwards-compatible flat keys."""
-    from src.services.telemetry import build_public_stats
+def _coerce_stats_contract(stats: dict[str, object]) -> dict[str, object]:
+    """Ensure stats payload includes required contract metadata."""
+    out = dict(stats)
+    out.setdefault("schema_version", settings.version)
+    out.setdefault("source_of_truth", "/v1/stats/public")
+    out.setdefault("coverage", {
+        "model": "coverage-v1",
+        "overall_score": 0,
+        "active_surfaces": 0,
+        "surfaces": {
+            "cli": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+            "vscode": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+            "mcp": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+            "github_action": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+            "cloud_api": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+        },
+    })
+    return out
 
-    stats = await build_public_stats(r=redis_client, use_cache=True)
-    legacy: dict[str, int] = {
+
+def _build_legacy_public_stats(stats: dict[str, object]) -> dict[str, int]:
+    """Build legacy top-level counters from nested stats payload."""
+    return {
         "total_scans": int(stats.get("usage", {}).get("total_scans", 0)),
         "hallucinated_packages_prevented": int(
             stats.get("impact", {}).get("hallucinations_caught", 0),
@@ -805,6 +826,14 @@ async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
             stats.get("distribution", {}).get("open_vsx", {}).get("downloads", 0),
         ),
     }
+
+
+async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
+    """Build public stats from Redis with backwards-compatible flat keys."""
+    from src.services.telemetry import build_public_stats
+
+    stats = _coerce_stats_contract(await build_public_stats(r=redis_client, use_cache=True))
+    legacy = _build_legacy_public_stats(stats)
     return {**legacy, "stats": stats}
 
 
@@ -812,7 +841,7 @@ async def _build_fallback_public_stats(
     db: DatabaseService | None,
     cache: CacheService | None,
     http_client: httpx.AsyncClient | None,
-) -> dict[str, int]:
+) -> dict[str, object]:
     """Build public stats from database and external APIs."""
     from src.services.public_stats import (
         get_marketplace_stats,
@@ -830,17 +859,154 @@ async def _build_fallback_public_stats(
             logger.warning("public_stats_failed", error=str(exc))
 
     if cache is None or http_client is None:
-        return base
+        stats: dict[str, object] = {
+            "schema_version": settings.version,
+            "source_of_truth": "/v1/stats/public",
+            "updated_at": "",
+            "distribution": {
+                "pypi": {
+                    "downloads_today": base.get("pypi_downloads_last_day", 0),
+                    "downloads_this_week": base.get("pypi_downloads_last_week", 0),
+                    "downloads_this_month": base.get("pypi_downloads_last_month", 0),
+                    "downloads_total": base.get("pypi_downloads_total", 0),
+                },
+                "marketplace": {
+                    "installs": base.get("marketplace_installs", 0),
+                    "downloads": base.get("marketplace_downloads", 0),
+                    "updates": base.get("marketplace_updates", 0),
+                },
+                "open_vsx": {"downloads": base.get("openvsx_downloads", 0)},
+            },
+            "usage": {
+                "total_scans": base.get("total_scans", 0),
+                "scans_today": 0,
+                "scans_last_hour": 0,
+                "scans_by_source": {
+                    "cli": 0,
+                    "vscode": 0,
+                    "mcp": 0,
+                    "github_action": 0,
+                    "cloud_api": 0,
+                },
+                "total_files_scanned": 0,
+                "total_findings": 0,
+                "findings_by_severity": {"BLOCK": 0, "WARN": 0, "INFO": 0},
+                "unique_installations_total": 0,
+                "unique_installations_today": 0,
+            },
+            "impact": {
+                "hallucinations_caught": base.get("hallucinated_packages_prevented", 0),
+                "gateway_commands_blocked": base.get("destructive_commands_blocked", 0),
+                "gateway_commands_allowed": 0,
+                "gateway_commands_warned": 0,
+                "imports_verified": 0,
+                "docker_images_verified": 0,
+                "fixes_applied": 0,
+                "fix_files_changed": 0,
+                "fix_lines_changed": 0,
+                "pr_gates_passed": 0,
+                "pr_gates_failed": 0,
+                "ci_runs_total": 0,
+                "ci_gates_passed": 0,
+                "ci_gates_failed": 0,
+            },
+            "quality": {
+                "average_trust_score": 0,
+                "trend_distribution": {"improving": 0, "stable": 0, "degrading": 0},
+                "top_rules_triggered": [],
+            },
+            "coverage": {
+                "model": "coverage-v1",
+                "overall_score": 0,
+                "active_surfaces": 0,
+                "surfaces": {
+                    "cli": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                    "vscode": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                    "mcp": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                    "github_action": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                    "cloud_api": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                },
+            },
+            "languages": {},
+            "layers": {},
+        }
+        return {**_build_legacy_public_stats(stats), "stats": stats}
 
     pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
     pepy = await get_pepy_download_stats(http_client=http_client, cache=cache)
     marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
     openvsx = await get_open_vsx_stats(http_client=http_client, cache=cache)
-    return {**base, **pypi, **pepy, **marketplace, **openvsx}
+    merged = {**base, **pypi, **pepy, **marketplace, **openvsx}
+    stats = {
+        "schema_version": settings.version,
+        "source_of_truth": "/v1/stats/public",
+        "updated_at": "",
+        "distribution": {
+            "pypi": {
+                "downloads_today": merged.get("pypi_downloads_last_day", 0),
+                "downloads_this_week": merged.get("pypi_downloads_last_week", 0),
+                "downloads_this_month": merged.get("pypi_downloads_last_month", 0),
+                "downloads_total": merged.get("pypi_downloads_total", 0),
+            },
+            "marketplace": {
+                "installs": merged.get("marketplace_installs", 0),
+                "downloads": merged.get("marketplace_downloads", 0),
+                "updates": merged.get("marketplace_updates", 0),
+            },
+            "open_vsx": {"downloads": merged.get("openvsx_downloads", 0)},
+        },
+        "usage": {
+            "total_scans": merged.get("total_scans", 0),
+            "scans_today": 0,
+            "scans_last_hour": 0,
+            "scans_by_source": {"cli": 0, "vscode": 0, "mcp": 0, "github_action": 0, "cloud_api": 0},
+            "total_files_scanned": 0,
+            "total_findings": 0,
+            "findings_by_severity": {"BLOCK": 0, "WARN": 0, "INFO": 0},
+            "unique_installations_total": 0,
+            "unique_installations_today": 0,
+        },
+        "impact": {
+            "hallucinations_caught": merged.get("hallucinated_packages_prevented", 0),
+            "gateway_commands_blocked": merged.get("destructive_commands_blocked", 0),
+            "gateway_commands_allowed": 0,
+            "gateway_commands_warned": 0,
+            "imports_verified": 0,
+            "docker_images_verified": 0,
+            "fixes_applied": 0,
+            "fix_files_changed": 0,
+            "fix_lines_changed": 0,
+            "pr_gates_passed": 0,
+            "pr_gates_failed": 0,
+            "ci_runs_total": 0,
+            "ci_gates_passed": 0,
+            "ci_gates_failed": 0,
+        },
+        "quality": {
+            "average_trust_score": 0,
+            "trend_distribution": {"improving": 0, "stable": 0, "degrading": 0},
+            "top_rules_triggered": [],
+        },
+        "coverage": {
+            "model": "coverage-v1",
+            "overall_score": 0,
+            "active_surfaces": 0,
+            "surfaces": {
+                "cli": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                "vscode": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                "mcp": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                "github_action": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+                "cloud_api": {"events": 0, "enforced_events": 0, "enforced": False, "score": 0, "status": "inactive"},
+            },
+        },
+        "languages": {},
+        "layers": {},
+    }
+    return {**_build_legacy_public_stats(stats), "stats": stats}
 
 
-@app.get("/v1/stats/public")
-async def public_stats(request: Request) -> dict:
+@app.get("/v1/stats/public", response_model=PublicStatsResponse)
+async def public_stats(request: Request) -> PublicStatsResponse:
     """Public aggregate stats for landing page — no auth required."""
     db = getattr(request.app.state, "db", None)
     cache = getattr(request.app.state, "cache", None)
@@ -848,9 +1014,9 @@ async def public_stats(request: Request) -> dict:
 
     redis_client = cache.raw_client() if cache is not None else None
     if redis_client is not None:
-        return await _build_redis_public_stats(redis_client)
+        return PublicStatsResponse.model_validate(await _build_redis_public_stats(redis_client))
 
-    return await _build_fallback_public_stats(db, cache, http_client)
+    return PublicStatsResponse.model_validate(await _build_fallback_public_stats(db, cache, http_client))
 
 
 async def _collect_telemetry_batch(
@@ -2396,6 +2562,73 @@ async def _handle_stripe_event(
             user = await db.get_user_by_stripe_customer_id(customer_id)
             if user is not None:
                 await db.update_user_plan(user.id, "free")
+
+
+@app.get(
+    "/v1/governance/policy-bundles",
+    response_model=list[GovernancePolicyBundleResponse],
+)
+async def governance_policy_bundles(
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[GovernancePolicyBundleResponse]:
+    """Return tenant-aware governance bundles with signatures."""
+    del auth
+    from src.services.governance_bundles import list_signed_bundles
+
+    secret = settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
+    bundles = list_signed_bundles(secret=secret, version=settings.version)
+    return [GovernancePolicyBundleResponse.model_validate(bundle) for bundle in bundles]
+
+
+@app.post(
+    "/v1/governance/policy-snapshot",
+    response_model=GovernancePolicySnapshotResponse,
+)
+async def governance_policy_snapshot(
+    request: Request,
+    req: GovernancePolicySnapshotRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernancePolicySnapshotResponse:
+    """Create signed governance policy snapshot and append audit trail entry."""
+    from src.gateway.audit import AuditEntry, AuditLogger
+    from src.services.governance_bundles import build_signed_snapshot
+
+    secret = settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
+    snapshot = build_signed_snapshot(
+        bundle_id=req.bundle_id,
+        overrides=req.overrides,
+        secret=secret,
+        version=settings.version,
+    )
+
+    audit_path = os.path.join(os.getcwd(), ".codetrust", "audit.jsonl")
+    audit_logger = AuditLogger(audit_path)
+    audit_logger.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="governance_policy_snapshot",
+        verdict="ALLOW",
+        rule_id="policy_snapshot_signed",
+        original_action=req.bundle_id,
+        message="Signed governance snapshot created",
+        suggestion="Apply snapshot through org policy automation",
+        agent_id=auth.user_id,
+        workspace=str(os.getcwd()),
+        metadata={
+            "snapshot_id": snapshot["snapshot_id"],
+            "signature": snapshot["signature"],
+            "issued_at": snapshot["issued_at"],
+        },
+    ))
+
+    return GovernancePolicySnapshotResponse(
+        snapshot_id=str(snapshot["snapshot_id"]),
+        bundle_id=req.bundle_id,
+        policy=dict(snapshot["policy"]),
+        signature=str(snapshot["signature"]),
+        issued_at=str(snapshot["issued_at"]),
+        version=settings.version,
+        audit_logged=True,
+    )
 
 
 # --- Auth: GitHub OAuth + JWT ---

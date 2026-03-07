@@ -229,6 +229,218 @@ class UsageStatsResponse(BaseModel):
     period_days: int
 
 
+class PublicStatsDistributionPyPIResponse(BaseModel):
+    """PyPI distribution metrics."""
+
+    model_config = ConfigDict(strict=True)
+
+    downloads_today: int
+    downloads_this_week: int
+    downloads_this_month: int
+    downloads_total: int
+
+
+class PublicStatsDistributionMarketplaceResponse(BaseModel):
+    """VS Code Marketplace distribution metrics."""
+
+    model_config = ConfigDict(strict=True)
+
+    installs: int
+    downloads: int
+    updates: int
+
+
+class PublicStatsDistributionOpenVsxResponse(BaseModel):
+    """Open VSX distribution metrics."""
+
+    model_config = ConfigDict(strict=True)
+
+    downloads: int
+
+
+class PublicStatsDistributionResponse(BaseModel):
+    """Distribution section of public telemetry."""
+
+    model_config = ConfigDict(strict=True)
+
+    pypi: PublicStatsDistributionPyPIResponse
+    marketplace: PublicStatsDistributionMarketplaceResponse
+    open_vsx: PublicStatsDistributionOpenVsxResponse
+
+
+class PublicStatsScansBySourceResponse(BaseModel):
+    """Scans grouped by source surface."""
+
+    model_config = ConfigDict(strict=True)
+
+    cli: int
+    vscode: int
+    mcp: int
+    github_action: int
+    cloud_api: int
+
+
+class PublicStatsFindingsBySeverityResponse(BaseModel):
+    """Findings grouped by severity."""
+
+    model_config = ConfigDict(strict=True)
+
+    BLOCK: int
+    WARN: int
+    INFO: int
+
+
+class PublicStatsUsageResponse(BaseModel):
+    """Usage section of public telemetry."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_scans: int
+    scans_today: int
+    scans_last_hour: int
+    scans_by_source: PublicStatsScansBySourceResponse
+    total_files_scanned: int
+    total_findings: int
+    findings_by_severity: PublicStatsFindingsBySeverityResponse
+    unique_installations_total: int
+    unique_installations_today: int
+
+
+class PublicStatsImpactResponse(BaseModel):
+    """Impact section of public telemetry."""
+
+    model_config = ConfigDict(strict=True)
+
+    hallucinations_caught: int
+    gateway_commands_blocked: int
+    gateway_commands_allowed: int
+    gateway_commands_warned: int
+    imports_verified: int
+    docker_images_verified: int
+    fixes_applied: int
+    fix_files_changed: int
+    fix_lines_changed: int
+    pr_gates_passed: int
+    pr_gates_failed: int
+    ci_runs_total: int
+    ci_gates_passed: int
+    ci_gates_failed: int
+
+
+class PublicStatsTopRuleResponse(BaseModel):
+    """Single top-triggered rule entry."""
+
+    model_config = ConfigDict(strict=True)
+
+    rule: str
+    count: int
+
+
+class PublicStatsTrendDistributionResponse(BaseModel):
+    """Trust trend distribution."""
+
+    model_config = ConfigDict(strict=True)
+
+    improving: int
+    stable: int
+    degrading: int
+
+
+class PublicStatsQualityResponse(BaseModel):
+    """Quality section of public telemetry."""
+
+    model_config = ConfigDict(strict=True)
+
+    average_trust_score: int
+    trend_distribution: PublicStatsTrendDistributionResponse
+    top_rules_triggered: list[PublicStatsTopRuleResponse]
+
+
+class GovernanceCoverageSurfaceResponse(BaseModel):
+    """Coverage details for a single surface."""
+
+    model_config = ConfigDict(strict=True)
+
+    events: int
+    enforced_events: int
+    enforced: bool
+    score: int
+    status: str
+
+
+class GovernanceCoverageResponse(BaseModel):
+    """Governance coverage scorecard across product surfaces."""
+
+    model_config = ConfigDict(strict=True)
+
+    model: str
+    overall_score: int
+    active_surfaces: int
+    surfaces: dict[str, GovernanceCoverageSurfaceResponse]
+
+
+class PublicStatsNestedResponse(BaseModel):
+    """Nested, schema-versioned public stats contract."""
+
+    model_config = ConfigDict(strict=True)
+
+    schema_version: str
+    source_of_truth: str
+    updated_at: str
+    distribution: PublicStatsDistributionResponse
+    usage: PublicStatsUsageResponse
+    impact: PublicStatsImpactResponse
+    quality: PublicStatsQualityResponse
+    coverage: GovernanceCoverageResponse
+    languages: dict[str, int]
+    layers: dict[str, int]
+
+
+class PublicStatsResponse(BaseModel):
+    """Backward-compatible envelope for /v1/stats/public."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_scans: int
+    hallucinated_packages_prevented: int
+    destructive_commands_blocked: int
+    pypi_downloads_last_week: int
+    pypi_downloads_total: int
+    marketplace_installs: int
+    marketplace_downloads: int
+    openvsx_downloads: int
+    stats: PublicStatsNestedResponse
+
+
+class GovernancePolicyBundleResponse(BaseModel):
+    """Tenant policy bundle with signed metadata."""
+
+    model_config = ConfigDict(strict=True)
+
+    bundle_id: str
+    name: str
+    target_tier: str
+    description: str
+    policy: dict[str, object]
+    signature: str
+    issued_at: str
+    version: str
+
+
+class GovernancePolicySnapshotResponse(BaseModel):
+    """Signed governance snapshot for audit and reproducibility."""
+
+    model_config = ConfigDict(strict=True)
+
+    snapshot_id: str
+    bundle_id: str
+    policy: dict[str, object]
+    signature: str
+    issued_at: str
+    version: str
+    audit_logged: bool
+
+
 class UserProfileResponse(BaseModel):
     """User profile info for the dashboard."""
 

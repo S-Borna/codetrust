@@ -6,6 +6,7 @@ Since FastMCP tools are async functions, we test them directly.
 
 from __future__ import annotations
 
+import importlib
 import json
 
 import pytest
@@ -203,3 +204,67 @@ class TestGatewayMain:
         from src.gateway.server import main
 
         assert callable(main)
+
+
+class TestPolicyIntegrity:
+    @pytest.mark.asyncio()
+    async def test_tampered_policy_file_blocks_actions(self, monkeypatch, tmp_path) -> None:
+        """Tampered policy artifact should block gateway actions in enforce mode."""
+        from src.gateway.policy_integrity import create_policy_integrity_manifest
+
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n',
+            encoding="utf-8",
+        )
+        (tmp_path / "CLAUDE.md").write_text("base policy", encoding="utf-8")
+        create_policy_integrity_manifest(
+            tmp_path,
+            sign_key="integrity-sign-key",
+            version="2.8.0",
+        )
+
+        (tmp_path / "CLAUDE.md").write_text("tampered policy", encoding="utf-8")
+
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+        monkeypatch.setenv("CODETRUST_GOVERNANCE_MODE", "enforce")
+        monkeypatch.setenv("CODETRUST_RULES_HMAC_SECRET", "integrity-sign-key")
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        result = await gateway_server.validate_command("ls -la")
+        data = json.loads(result)
+
+        assert data["verdict"] == "BLOCK"
+        assert data["rule_id"] == "gateway_policy_integrity_hash_mismatch"
+        assert data["root_cause"]
+        assert data["safe_fix"]
+
+    @pytest.mark.asyncio()
+    async def test_valid_manifest_allows_gateway_actions(self, monkeypatch, tmp_path) -> None:
+        """Valid policy integrity manifest should not block safe actions."""
+        from src.gateway.policy_integrity import create_policy_integrity_manifest
+
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n',
+            encoding="utf-8",
+        )
+        (tmp_path / "CLAUDE.md").write_text("trusted policy", encoding="utf-8")
+        create_policy_integrity_manifest(
+            tmp_path,
+            sign_key="integrity-sign-key",
+            version="2.8.0",
+        )
+
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+        monkeypatch.setenv("CODETRUST_GOVERNANCE_MODE", "enforce")
+        monkeypatch.setenv("CODETRUST_RULES_HMAC_SECRET", "integrity-sign-key")
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        result = await gateway_server.validate_command("ls -la")
+        data = json.loads(result)
+
+        assert data["verdict"] in ("ALLOW", "WARN")
+        assert data.get("rule_id") != "gateway_policy_integrity_hash_mismatch"

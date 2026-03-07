@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from dataclasses import asdict
 
 import structlog
 from mcp.server.fastmcp import FastMCP
@@ -38,11 +39,13 @@ from src.config import settings
 from src.gateway.audit import AuditEntry, AuditLogger
 from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import GovernancePolicy, PolicyEngine
+from src.gateway.policy_integrity import PolicyIntegrityResult, verify_policy_integrity
 from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
 
 SECONDS_PER_HOUR: int = 3_600
+POLICY_INTEGRITY_CACHE_TTL_SECONDS: float = 5.0
 
 # ═══════════════════════════════════════════════════════════════
 #  Initialize gateway components
@@ -88,8 +91,97 @@ _audit = AuditLogger(
 
 _session_id = f"gateway-{int(time.time())}"
 _agent_id = os.environ.get("CODETRUST_AGENT_ID", _detect_agent())
+_last_integrity_check_at: float = 0.0
+_last_integrity_result: PolicyIntegrityResult | None = None
 
 gateway = FastMCP("codetrust-gateway")
+
+
+def _resolve_policy_sign_key() -> str:
+    """Resolve signing key with env precedence for runtime/test consistency."""
+    env_key = os.environ.get("CODETRUST_RULES_HMAC_SECRET")
+    if env_key:
+        return env_key
+    return settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
+
+
+def _evaluate_policy_integrity(force: bool = False) -> PolicyIntegrityResult:
+    """Evaluate policy integrity with short-lived cache."""
+    global _last_integrity_check_at, _last_integrity_result
+
+    now = time.time()
+    if (
+        not force
+        and _last_integrity_result is not None
+        and (now - _last_integrity_check_at) < POLICY_INTEGRITY_CACHE_TTL_SECONDS
+    ):
+        return _last_integrity_result
+
+    result = verify_policy_integrity(_workspace, sign_key=_resolve_policy_sign_key())
+    _last_integrity_check_at = now
+    _last_integrity_result = result
+    return result
+
+
+def _audit_policy_integrity(result: PolicyIntegrityResult, *, action: str) -> None:
+    """Record policy-integrity checks in audit log."""
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="policy_integrity",
+        verdict=result.verdict,
+        rule_id=result.rule_id,
+        original_action=action,
+        message=result.message,
+        suggestion=result.suggestion,
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+        metadata=asdict(result).get("metadata", {}),
+    ))
+
+
+def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None:
+    """Return blocking payload if policy integrity fails in enforce mode."""
+    result = _evaluate_policy_integrity()
+
+    if result.verdict == "ALLOW":
+        return None
+
+    _audit_policy_integrity(result, action="gateway_integrity_guard")
+
+    if result.verdict == "WARN":
+        return None
+
+    if not _engine.active:
+        return None
+
+    if proxy:
+        return {
+            "status": _BLOCKED_PREFIX,
+            "verdict": "BLOCK",
+            "rule_id": result.rule_id,
+            "message": result.message,
+            "suggestion": result.suggestion,
+            "root_cause": result.message,
+            "safe_fix": result.suggestion,
+            "instruction": (
+                "MANDATORY: Do NOT proceed with the native tool. "
+                "Policy integrity must pass before any action is allowed."
+            ),
+        }
+
+    return {
+        "verdict": "BLOCK",
+        "action_type": "policy_integrity",
+        "original_action": "gateway_integrity_guard",
+        "rule_id": result.rule_id,
+        "message": result.message,
+        "suggestion": result.suggestion,
+        "root_cause": result.message,
+        "safe_fix": result.suggestion,
+        "action": "BLOCKED — Policy integrity check failed.",
+        "alternative": result.suggestion,
+    }
 
 
 def _emit_gateway_telemetry(*, result: InterceptResult, effective_verdict: str) -> None:
@@ -136,6 +228,11 @@ async def validate_command(command: str) -> str:
         JSON with verdict (ALLOW/WARN/BLOCK), message, and suggestion.
     """
     logger.info("gateway_validate_command", command=command[:100])
+
+    integrity_block = _integrity_block_payload()
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_terminal(command)
 
     # In audit mode, never actually block
@@ -182,6 +279,11 @@ async def validate_file_write(
         JSON with verdict and any findings.
     """
     logger.info("gateway_validate_file_write", path=path)
+
+    integrity_block = _integrity_block_payload()
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_file_write(path, content)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
@@ -211,6 +313,11 @@ async def validate_file_delete(path: str) -> str:
         JSON with verdict.
     """
     logger.info("gateway_validate_file_delete", path=path)
+
+    integrity_block = _integrity_block_payload()
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_file_delete(path)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
@@ -238,6 +345,11 @@ async def validate_package(
         JSON with verdict and warnings.
     """
     logger.info("gateway_validate_package", package=package, registry=registry)
+
+    integrity_block = _integrity_block_payload()
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_package_install(package, registry=registry)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
@@ -313,6 +425,11 @@ async def proxy_run_in_terminal(command: str) -> str:
         JSON with status (APPROVED/BLOCKED), verdict, and instruction.
     """
     logger.info("proxy_run_in_terminal", command=command[:120])
+
+    integrity_block = _integrity_block_payload(proxy=True)
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_terminal(command)
     return _proxy_result(result)
 
@@ -333,6 +450,11 @@ async def proxy_create_file(path: str, content: str) -> str:
         JSON with status (APPROVED/BLOCKED), verdict, and instruction.
     """
     logger.info("proxy_create_file", path=path)
+
+    integrity_block = _integrity_block_payload(proxy=True)
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_file_write(path, content)
     return _proxy_result(result)
 
@@ -358,6 +480,11 @@ async def proxy_replace_string_in_file(
         JSON with status (APPROVED/BLOCKED), verdict, and instruction.
     """
     logger.info("proxy_replace_string_in_file", path=path)
+
+    integrity_block = _integrity_block_payload(proxy=True)
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     # Validate the incoming new content as a file write
     combined_content = f"{old_string}\n---replaced-by---\n{new_string}"
     result = _interceptor.check_file_write(path, combined_content)
@@ -380,6 +507,11 @@ async def proxy_edit_notebook(path: str, new_code: str) -> str:
         JSON with status (APPROVED/BLOCKED), verdict, and instruction.
     """
     logger.info("proxy_edit_notebook", path=path)
+
+    integrity_block = _integrity_block_payload(proxy=True)
+    if integrity_block is not None:
+        return json.dumps(integrity_block, indent=2)
+
     result = _interceptor.check_file_write(path, new_code)
     return _proxy_result(result)
 
@@ -547,11 +679,16 @@ async def list_gateway_rules() -> str:
 
 def main() -> None:
     """Run the gateway MCP server."""
+    startup_integrity = _evaluate_policy_integrity(force=True)
+    _audit_policy_integrity(startup_integrity, action="gateway_startup_integrity")
+
     logger.info(
         "gateway_starting",
         mode=_engine.config.mode.value,
         workspace=_workspace,
         policies=len(_engine.get_policies()),
+        policy_integrity_verdict=startup_integrity.verdict,
+        policy_integrity_rule=startup_integrity.rule_id,
     )
     gateway.run()
 

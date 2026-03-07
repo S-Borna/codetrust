@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Release preparation placeholder.
+
+## [2.8.0] - 2026-03-07
+
+### Added
+
 - **MCP Auto-Injection** — new `mcp-config-injection.ts` (588 lines) automatically registers both Guardian and Gateway MCP servers in Claude Code, Claude Desktop, and Cursor config files on extension activation
 - **Smart Command Detection** — 3-strategy fallback (PATH → uvx → python3 -m) resolves the best available MCP server command for each IDE
 - **File Watcher + Focus Listener** — detects external config disruption and offers re-injection with debounce (2s file / 10s focus)
@@ -18,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Critical:** Extension injected governance instructions (CLAUDE.md, .cursorrules) but never registered MCP servers — agents saw proxy tool instructions but tools didn't exist at runtime. Governance enforcement was completely broken.
+- **IDE config messaging polish:** corrected icon/character rendering in setup output to avoid ambiguous status signals.
 
 ## [2.7.0] - 2026-02-20
 

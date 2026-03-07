@@ -157,6 +157,8 @@ async def validate_command(command: str) -> str:
             **result_dict,
             "action": "BLOCKED — Do not execute this command.",
             "alternative": result.suggestion,
+            "root_cause": result.root_cause or result.message,
+            "safe_fix": result.safe_fix or result.suggestion,
         }, indent=2)
 
     return json.dumps(result_dict, indent=2)
@@ -277,6 +279,8 @@ def _proxy_result(result: InterceptResult) -> str:
             "rule_id": result.rule_id,
             "message": result.message,
             "suggestion": result.suggestion,
+            "root_cause": result.root_cause or result.message,
+            "safe_fix": result.safe_fix or result.suggestion,
             "instruction": (
                 "MANDATORY: Do NOT proceed with the native tool. "
                 "This action is blocked by CodeTrust governance policy."

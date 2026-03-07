@@ -42,6 +42,8 @@ class InterceptResult:
     rule_id: str = ""
     message: str = ""
     suggestion: str = ""
+    root_cause: str = ""
+    safe_fix: str = ""
     metadata: dict = field(default_factory=dict)
 
     @property
@@ -49,6 +51,8 @@ class InterceptResult:
         return self.verdict == Verdict.BLOCK
 
     def to_dict(self) -> dict:
+        root_cause = self.root_cause or self.message
+        safe_fix = self.safe_fix or self.suggestion
         return {
             "verdict": self.verdict.value,
             "action_type": self.action_type.value,
@@ -56,6 +60,8 @@ class InterceptResult:
             "rule_id": self.rule_id,
             "message": self.message,
             "suggestion": self.suggestion,
+            "root_cause": root_cause,
+            "safe_fix": safe_fix,
         }
 
 
@@ -541,6 +547,27 @@ _TERMINAL_RULES: list[dict] = [
         ),
         "severity": Verdict.WARN,
     },
+    {
+        "id": "gateway_policy_bypass_flags",
+        "pattern": (
+            r"(?:--no-verify-imports|--no-verify-signatures|"
+            r"--disable-governance|governance\s+--mode\s+off|"
+            r"CODETRUST_GOVERNANCE_MODE\s*=\s*off)"
+        ),
+        "message": "Attempt to bypass CodeTrust governance or verification flags.",
+        "suggestion": "Keep governance/verification enabled and fix the underlying findings.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_stealth_exfil_chain",
+        "pattern": (
+            r"(?:tar|zip)\s+.*(?:\||&&)\s*(?:curl|wget)\s+.*"
+            r"(?:--upload-file|--data-binary\s+@|-F\s+[^\s=]+=@)"
+        ),
+        "message": "Archive-and-upload chain detected. Potential stealth data exfiltration.",
+        "suggestion": "Split steps, inspect archive contents, and require explicit user approval.",
+        "severity": Verdict.BLOCK,
+    },
 ]
 
 # ═══════════════════════════════════════════════════════════════
@@ -694,6 +721,25 @@ _CONTENT_RULES: list[dict] = [
         "suggestion": "Use Python file I/O instead of os.system with heredoc.",
         "severity": Verdict.BLOCK,
     },
+    {
+        "id": "gateway_content_prompt_injection",
+        "pattern": (
+            r"(?i)(ignore\s+previous\s+instructions|"
+            r"system\s*prompt\s*override|"
+            r"developer\s*mode\s*enabled|"
+            r"do\s+not\s+follow\s+safety\s+rules)"
+        ),
+        "message": "Prompt-injection directive detected in file content.",
+        "suggestion": "Remove the injection payload and keep explicit safety constraints.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_content_policy_bypass",
+        "pattern": r"(?i)(disable\s+codetrust|skip\s+governance|bypass\s+policy\s+checks)",
+        "message": "Policy-bypass instruction detected in file content.",
+        "suggestion": "Use policy exceptions through approved governance snapshots only.",
+        "severity": Verdict.BLOCK,
+    },
 
     # ═══════════════════════════════════════════════════════════════
     #  CONTENT: Root-cause enforcement
@@ -833,6 +879,8 @@ class CommandInterceptor:
                     rule_id=rule["id"],
                     message=rule["message"],
                     suggestion=rule["suggestion"],
+                    root_cause=rule["message"],
+                    safe_fix=rule["suggestion"],
                 )
 
         return InterceptResult(
@@ -878,6 +926,8 @@ class CommandInterceptor:
                         rule_id=rule["id"],
                         message=rule["message"],
                         suggestion=rule["suggestion"],
+                        root_cause=rule["message"],
+                        safe_fix=rule["suggestion"],
                         metadata={"file": path},
                     )
                     if rule["severity"] == Verdict.BLOCK:
@@ -945,6 +995,8 @@ class CommandInterceptor:
                     rule_id="gateway_delete_protected",
                     message=f"Cannot delete protected file: {protected}",
                     suggestion="Protected files require manual deletion.",
+                    root_cause=f"Deletion target matched protected path: {protected}",
+                    safe_fix="Keep file in place or perform explicit manual deletion outside automation.",
                 )
 
         return InterceptResult(
@@ -968,6 +1020,8 @@ class CommandInterceptor:
                     rule_id="gateway_suspicious_package",
                     message=msg,
                     suggestion=f"Verify '{package}' exists on {registry} before installing.",
+                    root_cause=msg,
+                    safe_fix=f"Verify '{package}' on {registry} and use a known trusted package name.",
                     metadata={"registry": registry},
                 )
         return None

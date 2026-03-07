@@ -222,6 +222,15 @@ class UpdateOrgPolicyRequest(BaseModel):
     max_high_vulns: int = Field(default=0, ge=0)
 
 
+class GovernancePolicySnapshotRequest(BaseModel):
+    """Request to create a signed governance snapshot from a policy bundle."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    bundle_id: str = Field(..., pattern=r"^(startup|team|enterprise)$")
+    overrides: dict[str, object] = Field(default_factory=dict)
+
+
 # --- MCP-specific input models (for local server) ---
 
 

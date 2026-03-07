@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.7.0"
+    "version": "2.8.0"
   },
   "paths": {
     "/v1/status": {
@@ -79,9 +79,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Public Stats V1 Stats Public Get"
+                  "$ref": "#/components/schemas/PublicStatsResponse"
                 }
               }
             }
@@ -135,6 +133,11 @@
         "summary": "Governance Audit",
         "description": "Query the governance audit log.\n\nReturns recent audit entries and aggregate statistics.\nReads from .codetrust/audit.jsonl in the workspace.\n\nArgs:\n    hours: How many hours back to search (default: 24).\n    verdict: Filter by verdict: ALLOW, WARN, BLOCK.\n    limit: Maximum entries to return (default: 100).\n\nReturns:\n    Dict with entries list and stats summary.",
         "operationId": "governance_audit_v1_governance_audit_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "hours",
@@ -859,7 +862,7 @@
     "/v1/orgs/{org_id}": {
       "get": {
         "summary": "Get Org",
-        "description": "Get organization details.",
+        "description": "Get organization details. Requires membership.",
         "operationId": "get_org_v1_orgs__org_id__get",
         "security": [
           {
@@ -951,7 +954,7 @@
     "/v1/orgs/{org_id}/members": {
       "get": {
         "summary": "List Members",
-        "description": "List members of an organization.",
+        "description": "List members of an organization. Requires membership.",
         "operationId": "list_members_v1_orgs__org_id__members_get",
         "security": [
           {
@@ -1178,7 +1181,7 @@
     "/v1/orgs/{org_id}/policy": {
       "get": {
         "summary": "Get Policy",
-        "description": "Get organization policy settings.",
+        "description": "Get organization policy settings. Requires membership.",
         "operationId": "get_policy_v1_orgs__org_id__policy_get",
         "security": [
           {
@@ -1603,6 +1606,78 @@
         }
       }
     },
+    "/v1/governance/policy-bundles": {
+      "get": {
+        "summary": "Governance Policy Bundles",
+        "description": "Return tenant-aware governance bundles with signatures.",
+        "operationId": "governance_policy_bundles_v1_governance_policy_bundles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GovernancePolicyBundleResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Governance Policy Bundles V1 Governance Policy Bundles Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/policy-snapshot": {
+      "post": {
+        "summary": "Governance Policy Snapshot",
+        "description": "Create signed governance policy snapshot and append audit trail entry.",
+        "operationId": "governance_policy_snapshot_v1_governance_policy_snapshot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernancePolicySnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernancePolicySnapshotResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
     "/v1/auth/github": {
       "post": {
         "summary": "Github Auth",
@@ -1645,7 +1720,7 @@
     "/v1/auth/refresh": {
       "post": {
         "summary": "Refresh Token",
-        "description": "Refresh an expiring JWT token.",
+        "description": "Refresh an expiring JWT token. Revokes the old token.",
         "operationId": "refresh_token_v1_auth_refresh_post",
         "requestBody": {
           "content": {
@@ -1679,6 +1754,34 @@
             }
           }
         }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "description": "Revoke the current JWT token (logout).",
+        "operationId": "logout_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object",
+                  "title": "Response Logout V1 Auth Logout Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/profile": {
@@ -1751,7 +1854,7 @@
     "/v1/auth/oidc/callback": {
       "post": {
         "summary": "Oidc Callback",
-        "description": "Exchange an OIDC authorization code for a CodeTrust JWT.\n\nThe OIDC IdP redirects back with a code; this endpoint:\n1. Exchanges the code for tokens at the IdP\n2. Extracts user info from the ID token\n3. Creates or updates the user in the database\n4. Returns a CodeTrust JWT for dashboard sessions",
+        "description": "Exchange an OIDC authorization code for a CodeTrust JWT.\n\nThe OIDC IdP redirects back with a code; this endpoint:\n1. Validates the state parameter against server-side store\n2. Exchanges the code for tokens at the IdP\n3. Extracts user info from the ID token\n4. Creates or updates the user in the database\n5. Returns a CodeTrust JWT for dashboard sessions",
         "operationId": "oidc_callback_v1_auth_oidc_callback_post",
         "requestBody": {
           "content": {
@@ -1857,6 +1960,7 @@
             "default": "member"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "user_id"
@@ -1942,6 +2046,7 @@
           },
           "filename": {
             "type": "string",
+            "maxLength": 500,
             "title": "Filename",
             "default": "untitled"
           },
@@ -1964,6 +2069,7 @@
             "default": 10
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code",
@@ -2049,20 +2155,24 @@
           },
           "github_owner": {
             "type": "string",
+            "maxLength": 100,
             "title": "Github Owner",
             "default": ""
           },
           "github_repo": {
             "type": "string",
+            "maxLength": 200,
             "title": "Github Repo",
             "default": ""
           },
           "github_base_branch": {
             "type": "string",
+            "maxLength": 200,
             "title": "Github Base Branch",
             "default": "main"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "files"
@@ -2078,6 +2188,7 @@
             "title": "Plan"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "plan"
@@ -2094,6 +2205,7 @@
             "default": "Default"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "CreateApiKeyRequest",
         "description": "Request to create a new API key."
@@ -2107,6 +2219,7 @@
             "title": "Name"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -2126,6 +2239,7 @@
             "description": "Map of filename -> file content"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "files"
@@ -2143,6 +2257,7 @@
           },
           "filename": {
             "type": "string",
+            "maxLength": 500,
             "title": "Filename",
             "default": "untitled"
           },
@@ -2178,15 +2293,18 @@
           },
           "dockerfile_content": {
             "type": "string",
+            "maxLength": 100000,
             "title": "Dockerfile Content",
             "default": ""
           },
           "requirements_content": {
             "type": "string",
+            "maxLength": 100000,
             "title": "Requirements Content",
             "default": ""
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -2276,16 +2394,19 @@
         "properties": {
           "image": {
             "type": "string",
+            "maxLength": 200,
             "title": "Image",
             "description": "Image name, e.g. 'python' or 'nginx'"
           },
           "tag": {
             "type": "string",
+            "maxLength": 200,
             "title": "Tag",
             "description": "Tag, e.g. '3.12-slim'",
             "default": "latest"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "image"
@@ -2397,12 +2518,195 @@
             "title": "Code"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
         ],
         "title": "GithubAuthRequest",
         "description": "Request to exchange a GitHub OAuth code for a JWT."
+      },
+      "GovernanceCoverageResponse": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "overall_score": {
+            "type": "integer",
+            "title": "Overall Score"
+          },
+          "active_surfaces": {
+            "type": "integer",
+            "title": "Active Surfaces"
+          },
+          "surfaces": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GovernanceCoverageSurfaceResponse"
+            },
+            "type": "object",
+            "title": "Surfaces"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "overall_score",
+          "active_surfaces",
+          "surfaces"
+        ],
+        "title": "GovernanceCoverageResponse",
+        "description": "Governance coverage scorecard across product surfaces."
+      },
+      "GovernanceCoverageSurfaceResponse": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "enforced_events": {
+            "type": "integer",
+            "title": "Enforced Events"
+          },
+          "enforced": {
+            "type": "boolean",
+            "title": "Enforced"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "enforced_events",
+          "enforced",
+          "score",
+          "status"
+        ],
+        "title": "GovernanceCoverageSurfaceResponse",
+        "description": "Coverage details for a single surface."
+      },
+      "GovernancePolicyBundleResponse": {
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "title": "Bundle Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "target_tier": {
+            "type": "string",
+            "title": "Target Tier"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Policy"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature"
+          },
+          "issued_at": {
+            "type": "string",
+            "title": "Issued At"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bundle_id",
+          "name",
+          "target_tier",
+          "description",
+          "policy",
+          "signature",
+          "issued_at",
+          "version"
+        ],
+        "title": "GovernancePolicyBundleResponse",
+        "description": "Tenant policy bundle with signed metadata."
+      },
+      "GovernancePolicySnapshotRequest": {
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^(startup|team|enterprise)$",
+            "title": "Bundle Id"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Overrides"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bundle_id"
+        ],
+        "title": "GovernancePolicySnapshotRequest",
+        "description": "Request to create a signed governance snapshot from a policy bundle."
+      },
+      "GovernancePolicySnapshotResponse": {
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "title": "Snapshot Id"
+          },
+          "bundle_id": {
+            "type": "string",
+            "title": "Bundle Id"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Policy"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature"
+          },
+          "issued_at": {
+            "type": "string",
+            "title": "Issued At"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "audit_logged": {
+            "type": "boolean",
+            "title": "Audit Logged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "bundle_id",
+          "policy",
+          "signature",
+          "issued_at",
+          "version",
+          "audit_logged"
+        ],
+        "title": "GovernancePolicySnapshotResponse",
+        "description": "Signed governance snapshot for audit and reproducibility."
       },
       "HTTPValidationError": {
         "properties": {
@@ -2477,6 +2781,7 @@
             "title": "Packages"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "language",
@@ -2500,6 +2805,7 @@
             "default": ""
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -2563,14 +2869,475 @@
         "title": "PackageResult",
         "description": "Result for a single package verification."
       },
+      "PublicStatsDistributionMarketplaceResponse": {
+        "properties": {
+          "installs": {
+            "type": "integer",
+            "title": "Installs"
+          },
+          "downloads": {
+            "type": "integer",
+            "title": "Downloads"
+          },
+          "updates": {
+            "type": "integer",
+            "title": "Updates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installs",
+          "downloads",
+          "updates"
+        ],
+        "title": "PublicStatsDistributionMarketplaceResponse",
+        "description": "VS Code Marketplace distribution metrics."
+      },
+      "PublicStatsDistributionOpenVsxResponse": {
+        "properties": {
+          "downloads": {
+            "type": "integer",
+            "title": "Downloads"
+          }
+        },
+        "type": "object",
+        "required": [
+          "downloads"
+        ],
+        "title": "PublicStatsDistributionOpenVsxResponse",
+        "description": "Open VSX distribution metrics."
+      },
+      "PublicStatsDistributionPyPIResponse": {
+        "properties": {
+          "downloads_today": {
+            "type": "integer",
+            "title": "Downloads Today"
+          },
+          "downloads_this_week": {
+            "type": "integer",
+            "title": "Downloads This Week"
+          },
+          "downloads_this_month": {
+            "type": "integer",
+            "title": "Downloads This Month"
+          },
+          "downloads_total": {
+            "type": "integer",
+            "title": "Downloads Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "downloads_today",
+          "downloads_this_week",
+          "downloads_this_month",
+          "downloads_total"
+        ],
+        "title": "PublicStatsDistributionPyPIResponse",
+        "description": "PyPI distribution metrics."
+      },
+      "PublicStatsDistributionResponse": {
+        "properties": {
+          "pypi": {
+            "$ref": "#/components/schemas/PublicStatsDistributionPyPIResponse"
+          },
+          "marketplace": {
+            "$ref": "#/components/schemas/PublicStatsDistributionMarketplaceResponse"
+          },
+          "open_vsx": {
+            "$ref": "#/components/schemas/PublicStatsDistributionOpenVsxResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pypi",
+          "marketplace",
+          "open_vsx"
+        ],
+        "title": "PublicStatsDistributionResponse",
+        "description": "Distribution section of public telemetry."
+      },
+      "PublicStatsFindingsBySeverityResponse": {
+        "properties": {
+          "BLOCK": {
+            "type": "integer",
+            "title": "Block"
+          },
+          "WARN": {
+            "type": "integer",
+            "title": "Warn"
+          },
+          "INFO": {
+            "type": "integer",
+            "title": "Info"
+          }
+        },
+        "type": "object",
+        "required": [
+          "BLOCK",
+          "WARN",
+          "INFO"
+        ],
+        "title": "PublicStatsFindingsBySeverityResponse",
+        "description": "Findings grouped by severity."
+      },
+      "PublicStatsImpactResponse": {
+        "properties": {
+          "hallucinations_caught": {
+            "type": "integer",
+            "title": "Hallucinations Caught"
+          },
+          "gateway_commands_blocked": {
+            "type": "integer",
+            "title": "Gateway Commands Blocked"
+          },
+          "gateway_commands_allowed": {
+            "type": "integer",
+            "title": "Gateway Commands Allowed"
+          },
+          "gateway_commands_warned": {
+            "type": "integer",
+            "title": "Gateway Commands Warned"
+          },
+          "imports_verified": {
+            "type": "integer",
+            "title": "Imports Verified"
+          },
+          "docker_images_verified": {
+            "type": "integer",
+            "title": "Docker Images Verified"
+          },
+          "fixes_applied": {
+            "type": "integer",
+            "title": "Fixes Applied"
+          },
+          "fix_files_changed": {
+            "type": "integer",
+            "title": "Fix Files Changed"
+          },
+          "fix_lines_changed": {
+            "type": "integer",
+            "title": "Fix Lines Changed"
+          },
+          "pr_gates_passed": {
+            "type": "integer",
+            "title": "Pr Gates Passed"
+          },
+          "pr_gates_failed": {
+            "type": "integer",
+            "title": "Pr Gates Failed"
+          },
+          "ci_runs_total": {
+            "type": "integer",
+            "title": "Ci Runs Total"
+          },
+          "ci_gates_passed": {
+            "type": "integer",
+            "title": "Ci Gates Passed"
+          },
+          "ci_gates_failed": {
+            "type": "integer",
+            "title": "Ci Gates Failed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hallucinations_caught",
+          "gateway_commands_blocked",
+          "gateway_commands_allowed",
+          "gateway_commands_warned",
+          "imports_verified",
+          "docker_images_verified",
+          "fixes_applied",
+          "fix_files_changed",
+          "fix_lines_changed",
+          "pr_gates_passed",
+          "pr_gates_failed",
+          "ci_runs_total",
+          "ci_gates_passed",
+          "ci_gates_failed"
+        ],
+        "title": "PublicStatsImpactResponse",
+        "description": "Impact section of public telemetry."
+      },
+      "PublicStatsNestedResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "source_of_truth": {
+            "type": "string",
+            "title": "Source Of Truth"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/PublicStatsDistributionResponse"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/PublicStatsUsageResponse"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/PublicStatsImpactResponse"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/PublicStatsQualityResponse"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/GovernanceCoverageResponse"
+          },
+          "languages": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Languages"
+          },
+          "layers": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Layers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "source_of_truth",
+          "updated_at",
+          "distribution",
+          "usage",
+          "impact",
+          "quality",
+          "coverage",
+          "languages",
+          "layers"
+        ],
+        "title": "PublicStatsNestedResponse",
+        "description": "Nested, schema-versioned public stats contract."
+      },
+      "PublicStatsQualityResponse": {
+        "properties": {
+          "average_trust_score": {
+            "type": "integer",
+            "title": "Average Trust Score"
+          },
+          "trend_distribution": {
+            "$ref": "#/components/schemas/PublicStatsTrendDistributionResponse"
+          },
+          "top_rules_triggered": {
+            "items": {
+              "$ref": "#/components/schemas/PublicStatsTopRuleResponse"
+            },
+            "type": "array",
+            "title": "Top Rules Triggered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "average_trust_score",
+          "trend_distribution",
+          "top_rules_triggered"
+        ],
+        "title": "PublicStatsQualityResponse",
+        "description": "Quality section of public telemetry."
+      },
+      "PublicStatsResponse": {
+        "properties": {
+          "total_scans": {
+            "type": "integer",
+            "title": "Total Scans"
+          },
+          "hallucinated_packages_prevented": {
+            "type": "integer",
+            "title": "Hallucinated Packages Prevented"
+          },
+          "destructive_commands_blocked": {
+            "type": "integer",
+            "title": "Destructive Commands Blocked"
+          },
+          "pypi_downloads_last_week": {
+            "type": "integer",
+            "title": "Pypi Downloads Last Week"
+          },
+          "pypi_downloads_total": {
+            "type": "integer",
+            "title": "Pypi Downloads Total"
+          },
+          "marketplace_installs": {
+            "type": "integer",
+            "title": "Marketplace Installs"
+          },
+          "marketplace_downloads": {
+            "type": "integer",
+            "title": "Marketplace Downloads"
+          },
+          "openvsx_downloads": {
+            "type": "integer",
+            "title": "Openvsx Downloads"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PublicStatsNestedResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_scans",
+          "hallucinated_packages_prevented",
+          "destructive_commands_blocked",
+          "pypi_downloads_last_week",
+          "pypi_downloads_total",
+          "marketplace_installs",
+          "marketplace_downloads",
+          "openvsx_downloads",
+          "stats"
+        ],
+        "title": "PublicStatsResponse",
+        "description": "Backward-compatible envelope for /v1/stats/public."
+      },
+      "PublicStatsScansBySourceResponse": {
+        "properties": {
+          "cli": {
+            "type": "integer",
+            "title": "Cli"
+          },
+          "vscode": {
+            "type": "integer",
+            "title": "Vscode"
+          },
+          "mcp": {
+            "type": "integer",
+            "title": "Mcp"
+          },
+          "github_action": {
+            "type": "integer",
+            "title": "Github Action"
+          },
+          "cloud_api": {
+            "type": "integer",
+            "title": "Cloud Api"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cli",
+          "vscode",
+          "mcp",
+          "github_action",
+          "cloud_api"
+        ],
+        "title": "PublicStatsScansBySourceResponse",
+        "description": "Scans grouped by source surface."
+      },
+      "PublicStatsTopRuleResponse": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule",
+          "count"
+        ],
+        "title": "PublicStatsTopRuleResponse",
+        "description": "Single top-triggered rule entry."
+      },
+      "PublicStatsTrendDistributionResponse": {
+        "properties": {
+          "improving": {
+            "type": "integer",
+            "title": "Improving"
+          },
+          "stable": {
+            "type": "integer",
+            "title": "Stable"
+          },
+          "degrading": {
+            "type": "integer",
+            "title": "Degrading"
+          }
+        },
+        "type": "object",
+        "required": [
+          "improving",
+          "stable",
+          "degrading"
+        ],
+        "title": "PublicStatsTrendDistributionResponse",
+        "description": "Trust trend distribution."
+      },
+      "PublicStatsUsageResponse": {
+        "properties": {
+          "total_scans": {
+            "type": "integer",
+            "title": "Total Scans"
+          },
+          "scans_today": {
+            "type": "integer",
+            "title": "Scans Today"
+          },
+          "scans_last_hour": {
+            "type": "integer",
+            "title": "Scans Last Hour"
+          },
+          "scans_by_source": {
+            "$ref": "#/components/schemas/PublicStatsScansBySourceResponse"
+          },
+          "total_files_scanned": {
+            "type": "integer",
+            "title": "Total Files Scanned"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "findings_by_severity": {
+            "$ref": "#/components/schemas/PublicStatsFindingsBySeverityResponse"
+          },
+          "unique_installations_total": {
+            "type": "integer",
+            "title": "Unique Installations Total"
+          },
+          "unique_installations_today": {
+            "type": "integer",
+            "title": "Unique Installations Today"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_scans",
+          "scans_today",
+          "scans_last_hour",
+          "scans_by_source",
+          "total_files_scanned",
+          "total_findings",
+          "findings_by_severity",
+          "unique_installations_total",
+          "unique_installations_today"
+        ],
+        "title": "PublicStatsUsageResponse",
+        "description": "Usage section of public telemetry."
+      },
       "RefreshRequest": {
         "properties": {
           "token": {
             "type": "string",
+            "maxLength": 4096,
             "minLength": 1,
             "title": "Token"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "token"
@@ -2631,10 +3398,12 @@
           },
           "filename": {
             "type": "string",
+            "maxLength": 500,
             "title": "Filename",
             "default": "untitled"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code",
@@ -2784,6 +3553,7 @@
           },
           "filename": {
             "type": "string",
+            "maxLength": 500,
             "title": "Filename",
             "default": "untitled"
           },
@@ -2792,6 +3562,7 @@
             "description": "Language for signature lookup"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code",
@@ -2857,6 +3628,7 @@
           },
           "filename": {
             "type": "string",
+            "maxLength": 500,
             "title": "Filename",
             "default": "untitled"
           },
@@ -2871,6 +3643,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -2971,6 +3744,7 @@
             "title": "Role"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "role"
@@ -3016,6 +3790,7 @@
             "default": 0
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "UpdateOrgPolicyRequest",
         "description": "Request to update organization policy settings."
@@ -3191,6 +3966,7 @@
             "title": "Images"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "images"
@@ -3246,11 +4022,13 @@
           },
           "requirements": {
             "type": "string",
+            "maxLength": 100000,
             "title": "Requirements",
             "description": "Raw requirements.txt / package.json content for version pinning",
             "default": ""
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "language",
@@ -3340,6 +4118,7 @@
             "description": "Optional package -> version mapping for precise matching"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "language",

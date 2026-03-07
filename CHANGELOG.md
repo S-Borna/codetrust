@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release preparation placeholder.
+
+---
+
+## [2.8.0] - 2026-03-07
+
 ### Added — MCP Auto-Injection (Critical bugfix + new feature)
 
 > **Highlight:** This is the most impactful change since the Gateway launch.
@@ -52,6 +60,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   .cursorrules, .windsurfrules) but never registered MCP servers in mcp.json.
   Agents received instructions to call proxy tools (`codetrust_validate_command`,
   etc.) that didn't exist at runtime — governance enforcement was completely broken.
+
+### Added — New Distribution & Web Presence Builds
+
+- **Chrome extension delivery channel** added under `chrome-extension/`:
+  manifest, popup/options/content/background scripts, icons, store assets, and
+  packaged artifact (`codetrust-chrome-extension.zip`).
+- **Discovery & search distribution assets** added for web indexability and AI
+  discoverability: `docs/llms.txt`, `docs/llms-full.txt`, `docs/feed.xml`,
+  `docs/robots.txt`, `docs/sitemap.xml`, and verification files.
+- **IndexNow ping utility** added (`scripts/indexnow-ping.mjs`) for search
+  engine update propagation.
+
+### Changed
+
+- **Website and docs surface updated** (`docs/index.html`, `docs/style.css`,
+  `docs/privacy.html`, headers and metadata files) for improved telemetry
+  presentation, SEO clarity, and mobile responsiveness.
+- **API/web security posture hardened** in the FastAPI surface and middleware,
+  including auth flow updates, websocket guardrails, and IP/rate-limit handling.
+
+### Fixed
+
+- **Website telemetry/details alignment** fixes for public-facing counters,
+  copy consistency, and sitemap URL correctness.
+- **IDE configuration UX polish** in extension messaging (icon and status copy
+  corrections) to reduce ambiguity during setup.
 
 ---
 

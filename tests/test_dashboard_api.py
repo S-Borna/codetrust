@@ -215,7 +215,7 @@ def client_with_db(tmp_path: object) -> "TestClient":
 
     # Create a real DB service with SQLite for testing
     db = DatabaseService("sqlite+aiosqlite:///:memory:")
-    loop = asyncio.new_event_loop()
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     loop.run_until_complete(db.create_tables())
     loop.close()
     app.state.db = db
@@ -435,6 +435,68 @@ class TestTelemetryEndpoints:
         # Legacy keys still present for website counters
         assert data["total_scans"] >= 1
         assert "stats" in data
+
+    def test_public_stats_exposes_contract_metadata(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """GET /v1/stats/public returns the typed contract metadata fields."""
+        resp = client_with_db.get("/v1/stats/public")
+        assert resp.status_code == 200, resp.text
+
+        data = resp.json()
+        assert "stats" in data
+
+        stats = data["stats"]
+        assert "schema_version" in stats
+        assert "source_of_truth" in stats
+        assert "distribution" in stats
+        assert "usage" in stats
+        assert "impact" in stats
+        assert "quality" in stats
+        assert "coverage" in stats
+
+        coverage = stats["coverage"]
+        assert "overall_score" in coverage
+        assert "active_surfaces" in coverage
+        assert "surfaces" in coverage
+
+
+class TestGovernanceBundleEndpoints:
+    """Tests for governance policy bundle and snapshot endpoints."""
+
+    def test_governance_policy_bundles_returns_signed_bundles(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """GET /v1/governance/policy-bundles returns versioned signed bundles."""
+        resp = client_with_db.get("/v1/governance/policy-bundles")
+        assert resp.status_code == 200, resp.text
+        bundles = resp.json()
+
+        assert isinstance(bundles, list)
+        assert len(bundles) >= 3
+        first = bundles[0]
+        assert "bundle_id" in first
+        assert "signature" in first
+        assert "version" in first
+        assert "policy" in first
+
+    def test_governance_policy_snapshot_signs_policy(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """POST /v1/governance/policy-snapshot returns a signed snapshot."""
+        resp = client_with_db.post(
+            "/v1/governance/policy-snapshot",
+            json={"bundle_id": "team", "overrides": {"retention_days": 120}},
+        )
+        assert resp.status_code == 200, resp.text
+
+        data = resp.json()
+        assert data["bundle_id"] == "team"
+        assert data["audit_logged"] is True
+        assert data["signature"]
+        assert "snapshot_id" in data
+        assert "issued_at" in data
+        assert data["policy"]["retention_days"] == 120
 
 
 # --- Database unavailable tests ---

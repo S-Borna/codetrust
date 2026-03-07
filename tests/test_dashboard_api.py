@@ -496,6 +496,8 @@ class TestGovernanceBundleEndpoints:
         assert data["signature"]
         assert "snapshot_id" in data
         assert "issued_at" in data
+        assert data["session_id"]
+        assert len(data["policy_hash"]) == 64
         assert data["policy"]["retention_days"] == 120
 
 

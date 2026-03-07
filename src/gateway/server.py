@@ -39,7 +39,11 @@ from src.config import settings
 from src.gateway.audit import AuditEntry, AuditLogger
 from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import GovernancePolicy, PolicyEngine
-from src.gateway.policy_integrity import PolicyIntegrityResult, verify_policy_integrity
+from src.gateway.policy_integrity import (
+    PolicyIntegrityResult,
+    get_policy_manifest_hash,
+    verify_policy_integrity,
+)
 from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
@@ -125,6 +129,7 @@ def _evaluate_policy_integrity(force: bool = False) -> PolicyIntegrityResult:
 
 def _audit_policy_integrity(result: PolicyIntegrityResult, *, action: str) -> None:
     """Record policy-integrity checks in audit log."""
+    attestation = _build_attestation(result)
     _audit.log(AuditEntry(
         timestamp=time.time(),
         action_type="policy_integrity",
@@ -136,8 +141,41 @@ def _audit_policy_integrity(result: PolicyIntegrityResult, *, action: str) -> No
         session_id=_session_id,
         agent_id=_agent_id,
         workspace=_workspace,
-        metadata=asdict(result).get("metadata", {}),
+        metadata={
+            **asdict(result).get("metadata", {}),
+            "attestation": attestation,
+        },
     ))
+
+
+def _build_attestation(result: PolicyIntegrityResult | None = None) -> dict[str, str]:
+    """Build runtime attestation payload for gateway responses and audit metadata."""
+    integrity = result if result is not None else _evaluate_policy_integrity()
+    return {
+        "session_id": _session_id,
+        "policy_hash": get_policy_manifest_hash(_workspace),
+        "policy_verdict": integrity.verdict,
+        "policy_rule_id": integrity.rule_id,
+    }
+
+
+def _attach_attestation_payload(
+    payload: dict[str, object],
+    *,
+    result: PolicyIntegrityResult | None = None,
+) -> dict[str, object]:
+    """Attach attestation block to response payload."""
+    payload["attestation"] = _build_attestation(result)
+    return payload
+
+
+def _attach_attestation_metadata(result: InterceptResult) -> None:
+    """Attach attestation metadata to intercept result for audit trail."""
+    attestation = _build_attestation()
+    result.metadata = {
+        **result.metadata,
+        "attestation": attestation,
+    }
 
 
 def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None:
@@ -156,7 +194,7 @@ def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None
         return None
 
     if proxy:
-        return {
+        return _attach_attestation_payload({
             "status": _BLOCKED_PREFIX,
             "verdict": "BLOCK",
             "rule_id": result.rule_id,
@@ -168,9 +206,9 @@ def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None
                 "MANDATORY: Do NOT proceed with the native tool. "
                 "Policy integrity must pass before any action is allowed."
             ),
-        }
+        }, result=result)
 
-    return {
+    return _attach_attestation_payload({
         "verdict": "BLOCK",
         "action_type": "policy_integrity",
         "original_action": "gateway_integrity_guard",
@@ -181,7 +219,7 @@ def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None
         "safe_fix": result.suggestion,
         "action": "BLOCKED — Policy integrity check failed.",
         "alternative": result.suggestion,
-    }
+    }, result=result)
 
 
 def _emit_gateway_telemetry(*, result: InterceptResult, effective_verdict: str) -> None:
@@ -234,6 +272,7 @@ async def validate_command(command: str) -> str:
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_terminal(command)
+    _attach_attestation_metadata(result)
 
     # In audit mode, never actually block
     effective_verdict = result.verdict.value
@@ -250,15 +289,15 @@ async def validate_command(command: str) -> str:
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
     if result.blocked and _engine.active:
-        return json.dumps({
+        return json.dumps(_attach_attestation_payload({
             **result_dict,
             "action": "BLOCKED — Do not execute this command.",
             "alternative": result.suggestion,
             "root_cause": result.root_cause or result.message,
             "safe_fix": result.safe_fix or result.suggestion,
-        }, indent=2)
+        }), indent=2)
 
-    return json.dumps(result_dict, indent=2)
+    return json.dumps(_attach_attestation_payload(result_dict), indent=2)
 
 
 @gateway.tool(name="codetrust_validate_file_write")
@@ -285,6 +324,7 @@ async def validate_file_write(
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_file_write(path, content)
+    _attach_attestation_metadata(result)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
@@ -297,7 +337,7 @@ async def validate_file_write(
 
     _emit_gateway_telemetry(result=result, effective_verdict=effective_verdict)
 
-    return json.dumps(result_dict, indent=2)
+    return json.dumps(_attach_attestation_payload(result_dict), indent=2)
 
 
 @gateway.tool(name="codetrust_validate_file_delete")
@@ -319,12 +359,13 @@ async def validate_file_delete(path: str) -> str:
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_file_delete(path)
+    _attach_attestation_metadata(result)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
     _emit_gateway_telemetry(result=result, effective_verdict=result.verdict.value)
 
-    return json.dumps(result.to_dict(), indent=2)
+    return json.dumps(_attach_attestation_payload(result.to_dict()), indent=2)
 
 
 @gateway.tool(name="codetrust_validate_package")
@@ -351,12 +392,13 @@ async def validate_package(
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_package_install(package, registry=registry)
+    _attach_attestation_metadata(result)
 
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
     _emit_gateway_telemetry(result=result, effective_verdict=result.verdict.value)
 
-    return json.dumps(result.to_dict(), indent=2)
+    return json.dumps(_attach_attestation_payload(result.to_dict()), indent=2)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -377,6 +419,7 @@ _BLOCKED_PREFIX = "BLOCKED"
 
 def _proxy_result(result: InterceptResult) -> str:
     """Serialise a proxy intercept result with APPROVED / BLOCKED header."""
+    _attach_attestation_metadata(result)
     effective_verdict = result.verdict.value
     if _engine.auditing and result.verdict == Verdict.BLOCK:
         effective_verdict = "WARN"
@@ -385,7 +428,7 @@ def _proxy_result(result: InterceptResult) -> str:
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
 
     if result.blocked and _engine.active:
-        return json.dumps({
+        return json.dumps(_attach_attestation_payload({
             "status": _BLOCKED_PREFIX,
             "verdict": "BLOCK",
             "rule_id": result.rule_id,
@@ -397,9 +440,9 @@ def _proxy_result(result: InterceptResult) -> str:
                 "MANDATORY: Do NOT proceed with the native tool. "
                 "This action is blocked by CodeTrust governance policy."
             ),
-        }, indent=2)
+        }), indent=2)
 
-    return json.dumps({
+    return json.dumps(_attach_attestation_payload({
         "status": _APPROVED_PREFIX,
         "verdict": effective_verdict,
         "rule_id": result.rule_id,
@@ -407,7 +450,7 @@ def _proxy_result(result: InterceptResult) -> str:
         "instruction": (
             "You may now call the native tool with the EXACT same parameters."
         ),
-    }, indent=2)
+    }), indent=2)
 
 
 @gateway.tool(name="codetrust_run_in_terminal")

@@ -117,6 +117,14 @@ OIDC_STATE_TTL_SECS: int = 600  # 10 minutes for OIDC flow
 MAX_WS_CLIENTS: int = 50
 WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 
+
+def _resolve_attestation_session_id(request: Request) -> str:
+    """Resolve runtime attestation session ID from header or generate one."""
+    header_value = request.headers.get("X-CodeTrust-Session-ID", "").strip()
+    if header_value:
+        return header_value[:128]
+    return f"api-{int(time.time() * 1000)}"
+
 # --- Auth Context ---
 
 
@@ -2600,6 +2608,7 @@ async def governance_policy_snapshot(
         secret=secret,
         version=settings.version,
     )
+    session_id = _resolve_attestation_session_id(request)
 
     audit_path = os.path.join(os.getcwd(), ".codetrust", "audit.jsonl")
     audit_logger = AuditLogger(audit_path)
@@ -2611,11 +2620,13 @@ async def governance_policy_snapshot(
         original_action=req.bundle_id,
         message="Signed governance snapshot created",
         suggestion="Apply snapshot through org policy automation",
+        session_id=session_id,
         agent_id=auth.user_id,
         workspace=str(os.getcwd()),
         metadata={
             "snapshot_id": snapshot["snapshot_id"],
             "signature": snapshot["signature"],
+            "policy_hash": snapshot["policy_hash"],
             "issued_at": snapshot["issued_at"],
         },
     ))
@@ -2627,6 +2638,8 @@ async def governance_policy_snapshot(
         signature=str(snapshot["signature"]),
         issued_at=str(snapshot["issued_at"]),
         version=settings.version,
+        session_id=session_id,
+        policy_hash=str(snapshot["policy_hash"]),
         audit_logged=True,
     )
 

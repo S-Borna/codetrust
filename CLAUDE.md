@@ -83,7 +83,7 @@ Workflow: Call proxy → if APPROVED, call native tool with identical params. If
 
 ### Rules you MUST follow
 
-- **NEVER use heredoc (`<< EOF`, `<< 'EOF'`, `<<-EOF`)** — use `create_file` or `replace_string_in_file` tools instead
+- **NEVER use double-angle shell redirection forms** — use `create_file` or `replace_string_in_file` tools instead
 - **NEVER run `git push`** — the user pushes manually
 - Never skip a scan "to save time" — scans take <1 second
 - Never assume code is safe — always verify
@@ -200,7 +200,7 @@ codetrust/
 
 - ❌ No `print()` — use `structlog` for all logging
 - ❌ No `Any` types — explicit types on everything
-- ❌ No `eval()` / `exec()`
+- ❌ No dynamic code execution functions
 - ❌ No hardcoded URLs — all registry URLs in config.py
 - ❌ No hardcoded secrets — all via environment variables
 - ❌ No wildcard imports

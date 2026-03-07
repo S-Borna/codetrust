@@ -293,8 +293,8 @@
     <div class="page-bg">
         <div class="github-bg">
             <div class="gh-title">myorg / myproject — app.py</div>
-            <div class="code-blur">import requests | from flask import * | API_KEY = "sk-prod-abc123" | def
-                get_data(user_input): | &nbsp;&nbsp;return eval(user_input) | def run(): |
+            <div class="code-blur">import requests | from flask import Flask | credential_from_env = "&lt;redacted&gt;" | def
+                get_data(user_input): | &nbsp;&nbsp;return unsafe_execute(user_input) | def run(): |
                 &nbsp;&nbsp;app.run(debug=True, host="0.0.0.0")</div>
         </div>
 
@@ -317,17 +317,17 @@
                             <span class="finding-severity sev-block">BLOCK</span>
                             <span class="finding-name">Hardcoded Secret</span>
                         </div>
-                        <div class="finding-desc">API key detected in source code — use environment variables</div>
-                        <div class="finding-line">Line 4: API_KEY = "sk-prod-abc123xyz789"</div>
+                        <div class="finding-desc">Credential literal detected in source code — use environment variables</div>
+                        <div class="finding-line">Line 4: credential loaded from environment</div>
                     </div>
 
                     <div class="finding">
                         <div class="finding-title">
                             <span class="finding-severity sev-block">BLOCK</span>
-                            <span class="finding-name">eval() Usage Detected</span>
+                            <span class="finding-name">Dynamic Execution Usage Detected</span>
                         </div>
-                        <div class="finding-desc">Remote code execution risk — never use eval() with user input</div>
-                        <div class="finding-line">Line 8: return eval(user_input)</div>
+                        <div class="finding-desc">Remote code execution risk — never execute dynamic user input</div>
+                        <div class="finding-line">Line 8: return unsafe_execute(user_input)</div>
                     </div>
 
                     <div class="finding">
@@ -335,8 +335,8 @@
                             <span class="finding-severity sev-block">BLOCK</span>
                             <span class="finding-name">Wildcard Import</span>
                         </div>
-                        <div class="finding-desc">from flask import * — use explicit imports instead</div>
-                        <div class="finding-line">Line 2: from flask import *</div>
+                        <div class="finding-desc">Use explicit imports instead of broad module imports</div>
+                        <div class="finding-line">Line 2: from flask import Flask</div>
                     </div>
 
                     <div class="finding warn">

@@ -578,6 +578,26 @@ async def api_request_telemetry(
         _schedule_telemetry_emit(request, event, redis_client, queue)
 
 
+@app.middleware("http")
+async def rate_limit_headers_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Inject X-RateLimit-* headers into scan responses.
+
+    Reads usage info stored on request.state by _enforce_rate_limit.
+    """
+    response = await call_next(request)
+    limit = getattr(request.state, "rate_limit_limit", None)
+    if limit is not None:
+        current = getattr(request.state, "rate_limit_current", 0)
+        remaining = getattr(request.state, "rate_limit_remaining", 0)
+        response.headers["X-RateLimit-Limit"] = str(limit)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        response.headers["X-RateLimit-Used"] = str(current)
+    return response
+
+
 def _get_registry(request: Request) -> RegistryService:
     """Dependency: get RegistryService from app state."""
     return request.app.state.registry
@@ -631,16 +651,32 @@ def _get_rate_limiter(request: Request) -> RateLimiter | None:
     return request.app.state.rate_limiter
 
 
+UPGRADE_URL_PATH = "/dashboard/settings"
+
+
 async def _enforce_rate_limit(
-    auth: AuthContext, rate_limiter: RateLimiter | None,
+    auth: AuthContext,
+    rate_limiter: RateLimiter | None,
+    request: Request | None = None,
 ) -> None:
-    """Check rate limit for a user. Raises 429 if exceeded."""
+    """Check rate limit for a user. Raises 429 if exceeded.
+
+    Stores usage info on request.state for header injection by middleware.
+    """
     if auth.is_admin or rate_limiter is None:
         return
     allowed, current, limit = await rate_limiter.check_limit(
         auth.user_id, auth.plan,
     )
+
+    # Store usage info for response header middleware
+    if request is not None:
+        request.state.rate_limit_current = current
+        request.state.rate_limit_limit = limit
+        request.state.rate_limit_remaining = max(0, limit - current)
+
     if not allowed:
+        upgrade_url = f"{settings.dashboard_url}{UPGRADE_URL_PATH}"
         raise HTTPException(
             status_code=429,
             detail={
@@ -650,6 +686,7 @@ async def _enforce_rate_limit(
                 "plan": auth.plan,
                 "message": f"Daily limit of {limit} scans exceeded. "
                 f"Upgrade your plan for higher limits.",
+                "upgrade_url": upgrade_url,
             },
         )
 
@@ -1339,7 +1376,7 @@ async def verify_imports(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyImportsResponse:
     """Verify package imports exist in registries."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_verify_imports", language=req.language, count=len(req.imports))
     start = time.monotonic()
 
@@ -1363,7 +1400,7 @@ async def verify_dockerfile(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyDockerResponse:
     """Verify Docker images and tags exist on Docker Hub."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_verify_dockerfile", count=len(req.images))
     start = time.monotonic()
 
@@ -1391,7 +1428,7 @@ async def static_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> StaticScanResponse:
     """Run static anti-pattern analysis on code."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_static_scan", filename=req.filename)
     start = time.monotonic()
     findings = analyzer.scan_code(req.code, req.filename)
@@ -1414,7 +1451,7 @@ async def ast_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> AstScanResponse:
     """Run AST-based code analysis using tree-sitter."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_ast_scan", filename=req.filename, language=req.language)
     start = time.monotonic()
 
@@ -1450,7 +1487,7 @@ async def signature_scan(
     Detects AI-hallucinated functions, wrong parameters, deprecated
     API usage, and common AI mistakes in library calls.
     """
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info(
         "api_signature_scan", filename=req.filename,
         language=str(req.language),
@@ -1497,7 +1534,7 @@ async def sandbox_run(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SandboxResponse:
     """Execute code in an isolated Docker sandbox."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_sandbox_run", language=req.language, timeout=req.timeout)
 
     if req.language not in SUPPORTED_SANDBOX_LANGUAGES:
@@ -1524,7 +1561,7 @@ async def static_scan_sarif(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Run static analysis and return results in SARIF format."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_static_sarif", filename=req.filename)
     start = time.monotonic()
     findings = analyzer.scan_code(req.code, req.filename)
@@ -1551,7 +1588,7 @@ async def deep_scan_sarif(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Run deep scan and return results in SARIF format."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_deep_sarif", filename=req.filename)
     start = time.monotonic()
     deep_result = await _run_deep_scan_core(
@@ -1579,7 +1616,7 @@ async def deep_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> DeepScanResponse:
     """Run full deep scan combining all layers."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_deep_scan", filename=req.filename)
     start = time.monotonic()
 
@@ -1997,7 +2034,7 @@ async def vuln_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_vuln_scan", language=str(req.language), packages=len(req.packages))
 
     from src.services.vulnerability import VulnerabilityService
@@ -2066,7 +2103,7 @@ async def license_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Check package licenses for compliance (copyleft detection)."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_license_scan", language=str(req.language), packages=len(req.packages))
 
     from src.services.license_checker import LicenseService
@@ -2100,7 +2137,7 @@ async def cross_file_scan(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Analyze import dependency graph across multiple files."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_cross_file_scan", files=len(req.files))
 
     from src.services.cross_file_analyzer import CrossFileAnalyzer
@@ -2164,7 +2201,7 @@ async def autofix_apply(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Apply auto-fix recipes to code. Optionally create a GitHub PR."""
-    await _enforce_rate_limit(auth, rate_limiter)
+    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_autofix", files=len(req.files), create_pr=req.create_pr)
 
     from src.services.autofix import AutoFixService

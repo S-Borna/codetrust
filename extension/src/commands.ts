@@ -7,6 +7,7 @@
 
 import * as vscode from "vscode";
 import { ApiClient, ApiError } from "./api-client";
+import type { RateLimitInfo } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
 import { scanCodeOffline } from "./embedded-scanner";
@@ -401,8 +402,14 @@ async function runStaticScan(
             offline_used: false,
             duration_ms: Date.now() - startedAtMs,
         });
+
+        // Check rate limit headers and warn if near limit
+        checkRateLimitWarning(deps, deps.client.lastRateLimit);
     } catch (err) {
         logApiError(deps, err);
+        if (err instanceof ApiError && err.statusCode === 429) {
+            showRateLimitBlockedNotification();
+        }
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
             `  API unavailable — using embedded scanner (49 rules)`,
@@ -502,8 +509,14 @@ async function runDeepScan(
             api_latency_ms: response.latency_ms,
             import_results_count: response.import_results.length,
         });
+
+        // Check rate limit headers and warn if near limit
+        checkRateLimitWarning(deps, deps.client.lastRateLimit);
     } catch (err) {
         logApiError(deps, err);
+        if (err instanceof ApiError && err.statusCode === 429) {
+            showRateLimitBlockedNotification();
+        }
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
             `  API unavailable — falling back to embedded scanner (49 rules)`,
@@ -608,7 +621,7 @@ function apiErrorHint(statusCode: number): string {
         return "Forbidden — credentials are valid but lack access";
     }
     if (statusCode === 429) {
-        return "Rate limited — slow down or upgrade plan";
+        return "Rate limited — daily scan limit exceeded";
     }
     if (statusCode >= 500) {
         return "Server error — try again or switch to offline scan";
@@ -617,6 +630,50 @@ function apiErrorHint(statusCode: number): string {
         return "Network error/timeout — check codetrust.apiUrl";
     }
     return "Request failed";
+}
+
+const UPGRADE_URL = "https://app.codetrust.ai/dashboard/settings";
+const RATE_LIMIT_WARNING_THRESHOLD = 0.8;
+let rateLimitWarningShown = false;
+
+/** Show upgrade notification when rate limit is near or exceeded. */
+function checkRateLimitWarning(
+    deps: CommandDeps,
+    rateLimit: RateLimitInfo | null,
+): void {
+    if (!rateLimit || rateLimit.limit === 0) {
+        return;
+    }
+    const usageRatio = rateLimit.used / rateLimit.limit;
+    if (usageRatio >= RATE_LIMIT_WARNING_THRESHOLD && !rateLimitWarningShown) {
+        rateLimitWarningShown = true;
+        const remaining = rateLimit.remaining;
+        const msg = remaining > 0
+            ? `CodeTrust: ${remaining} scans remaining today (${rateLimit.used}/${rateLimit.limit}). Upgrade for more.`
+            : `CodeTrust: Daily scan limit reached (${rateLimit.limit}). Upgrade for more scans.`;
+        vscode.window.showWarningMessage(msg, "Upgrade to Pro").then((choice) => {
+            if (choice === "Upgrade to Pro") {
+                vscode.env.openExternal(vscode.Uri.parse(UPGRADE_URL));
+            }
+        });
+        deps.outputChannel.appendLine(`  Rate limit warning: ${rateLimit.used}/${rateLimit.limit} scans used today`);
+    }
+    // Reset warning flag at start of new day (when used resets to low)
+    if (usageRatio < RATE_LIMIT_WARNING_THRESHOLD) {
+        rateLimitWarningShown = false;
+    }
+}
+
+/** Show clickable upgrade notification on 429 rate limit error. */
+function showRateLimitBlockedNotification(): void {
+    vscode.window.showErrorMessage(
+        "CodeTrust: Daily scan limit exceeded. Upgrade to Pro for 10,000 scans/day.",
+        "Upgrade to Pro",
+    ).then((choice) => {
+        if (choice === "Upgrade to Pro") {
+            vscode.env.openExternal(vscode.Uri.parse(UPGRADE_URL));
+        }
+    });
 }
 
 function truncate(text: string, maxLen: number): string {

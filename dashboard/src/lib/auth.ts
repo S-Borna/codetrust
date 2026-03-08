@@ -38,9 +38,12 @@ export const authOptions: NextAuthOptions = {
                 // Fetch plan from DB
                 const dbUser = await prisma.user.findUnique({
                     where: { id: user.id },
-                    select: { plan: true },
+                    select: { plan: true, stripeId: true },
                 });
                 session.user.plan = dbUser?.plan || "free";
+                // Use stripeId as API key proxy or generate deterministic key
+                // The API key is the user's backend auth credential
+                session.user.apiKey = process.env.CODETRUST_API_KEY || dbUser?.stripeId || "";
             }
             return session;
         },

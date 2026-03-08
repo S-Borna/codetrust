@@ -164,3 +164,253 @@ export const apiClient = {
 };
 
 export type { ScanLog, ScanHistoryResponse, UsageDay, UsageStatsResponse, ApiKeyInfo, ApiKeyCreated };
+
+// --- Governance types ---
+
+interface GovernanceAuditEntry {
+    timestamp: number;
+    action_type: string;
+    verdict: string;
+    rule_id: string;
+    original_action: string;
+    message: string;
+    agent_id: string;
+    session_id: string;
+}
+
+interface GovernanceAuditStats {
+    total: number;
+    by_verdict: Record<string, number>;
+    by_action_type: Record<string, number>;
+    top_rules: { rule_id: string; count: number }[];
+}
+
+interface GovernanceAuditResponse {
+    entries: GovernanceAuditEntry[];
+    stats: GovernanceAuditStats;
+}
+
+interface GovernancePosture {
+    session_id: string;
+    agent_id: string;
+    mode: string;
+    enabled: boolean;
+    trusted_execution_mode: boolean;
+    deny_native_execution: boolean;
+    require_allow_reason: boolean;
+    session_binding_enforced: boolean;
+    anti_bypass_enabled: boolean;
+    control_plane_ready: boolean;
+    policy_integrity: {
+        verdict: string;
+        rule_id: string;
+        policy_hash: string;
+    };
+    pending_approvals: number;
+    active_exceptions: number;
+}
+
+interface GovernancePendingApproval {
+    request_id: string;
+    rule_id: string;
+    action_type: string;
+    original_action: string;
+    action_fingerprint: string;
+    requested_at: number;
+    expires_at: number;
+    session_id: string;
+    agent_id: string;
+}
+
+interface GovernanceException {
+    exception_id: string;
+    rule_id: string;
+    action_type: string;
+    action_fingerprint: string;
+    reason: string;
+    approver: string;
+    approver_role: string;
+    created_at: number;
+    expires_at: number;
+    revoked_at: number;
+    revoked_by: string;
+    session_id: string;
+    agent_id: string;
+}
+
+interface GovernanceApproveResult {
+    approved: boolean;
+    exception_id: string;
+    expires_at: number;
+}
+
+interface GovernancePolicyBundle {
+    bundle_id: string;
+    name: string;
+    target_tier: string;
+    description: string;
+    policy: Record<string, unknown>;
+    signature: string;
+    issued_at: string;
+    version: string;
+}
+
+interface GovernanceSimulationOutcome {
+    command: string;
+    verdict: string;
+    rule_id: string;
+    message: string;
+}
+
+interface GovernanceSimulationResponse {
+    bundle_id: string;
+    outcomes: GovernanceSimulationOutcome[];
+}
+
+export const governanceClient = {
+    async getAudit(
+        apiKey: string,
+        hours = 24,
+        verdict?: string,
+        limit = 100,
+    ): Promise<GovernanceAuditResponse> {
+        try {
+            const params = new URLSearchParams({
+                hours: String(hours),
+                limit: String(limit),
+            });
+            if (verdict) params.set("verdict", verdict);
+            return await apiFetch<GovernanceAuditResponse>(
+                `/v1/governance/audit?${params.toString()}`,
+                apiKey,
+            );
+        } catch {
+            return {
+                entries: [],
+                stats: { total: 0, by_verdict: {}, by_action_type: {}, top_rules: [] },
+            };
+        }
+    },
+
+    async getPosture(apiKey: string): Promise<GovernancePosture | null> {
+        try {
+            return await apiFetch<GovernancePosture>(
+                "/v1/governance/posture",
+                apiKey,
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async listApprovals(apiKey: string): Promise<GovernancePendingApproval[]> {
+        try {
+            return await apiFetch<GovernancePendingApproval[]>(
+                "/v1/governance/approvals",
+                apiKey,
+            );
+        } catch {
+            return [];
+        }
+    },
+
+    async approveAction(
+        apiKey: string,
+        requestId: string,
+        approver: string,
+        reason: string,
+        approverRole = "owner",
+        ttlMinutes?: number,
+    ): Promise<GovernanceApproveResult | null> {
+        try {
+            const body: Record<string, unknown> = {
+                approver,
+                approver_role: approverRole,
+                reason,
+            };
+            if (ttlMinutes !== undefined) body.ttl_minutes = ttlMinutes;
+            return await apiFetch<GovernanceApproveResult>(
+                `/v1/governance/approvals/${requestId}/approve`,
+                apiKey,
+                { method: "POST", body: JSON.stringify(body) },
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async listExceptions(apiKey: string): Promise<GovernanceException[]> {
+        try {
+            return await apiFetch<GovernanceException[]>(
+                "/v1/governance/exceptions",
+                apiKey,
+            );
+        } catch {
+            return [];
+        }
+    },
+
+    async revokeException(
+        apiKey: string,
+        exceptionId: string,
+    ): Promise<boolean> {
+        try {
+            await apiFetch(
+                `/v1/governance/exceptions/${exceptionId}`,
+                apiKey,
+                { method: "DELETE" },
+            );
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    async listPolicyBundles(
+        apiKey: string,
+    ): Promise<GovernancePolicyBundle[]> {
+        try {
+            return await apiFetch<GovernancePolicyBundle[]>(
+                "/v1/governance/policy-bundles",
+                apiKey,
+            );
+        } catch {
+            return [];
+        }
+    },
+
+    async simulatePolicy(
+        apiKey: string,
+        bundleId: string,
+        commands: string[],
+    ): Promise<GovernanceSimulationResponse | null> {
+        try {
+            return await apiFetch<GovernanceSimulationResponse>(
+                "/v1/governance/simulate-policy",
+                apiKey,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        bundle_id: bundleId,
+                        commands,
+                    }),
+                },
+            );
+        } catch {
+            return null;
+        }
+    },
+};
+
+export type {
+    GovernanceAuditEntry,
+    GovernanceAuditStats,
+    GovernanceAuditResponse,
+    GovernancePosture,
+    GovernancePendingApproval,
+    GovernanceException,
+    GovernanceApproveResult,
+    GovernancePolicyBundle,
+    GovernanceSimulationOutcome,
+    GovernanceSimulationResponse,
+};

@@ -44,6 +44,13 @@ def _base_policy() -> dict[str, object]:
         "verify_before_install": True,
         "block_suspicious_packages": True,
         "scan_before_write": True,
+        "trusted_execution_mode": False,
+        "deny_native_execution": False,
+        "require_allow_reason": False,
+        "session_binding_required": True,
+        "anti_bypass_checks": True,
+        "allow_reason_min_length": 12,
+        "allowed_approver_roles": ["owner", "admin", "security"],
         "protected_paths": ["LICENSE", ".env", ".env.production"],
         "disabled_rules": [],
     }
@@ -61,13 +68,25 @@ def _build_policy_bundle(bundle_id: str) -> dict[str, object]:
         policy["mode"] = "enforce"
         policy["block_sudo"] = False
         policy["retention_days"] = 90
+        policy["trusted_execution_mode"] = True
+        policy["require_allow_reason"] = True
         return policy
     policy["mode"] = "enforce"
     policy["block_sudo"] = True
     policy["retention_days"] = 365
+    policy["trusted_execution_mode"] = True
+    policy["deny_native_execution"] = True
+    policy["require_allow_reason"] = True
     policy["require_signed_snapshots"] = True
     policy["require_webhook_on_block"] = True
     return policy
+
+
+def get_bundle_policy(bundle_id: str) -> dict[str, object]:
+    """Return a copy of the policy bundle by identifier."""
+    if bundle_id not in BUNDLE_IDS:
+        raise ValueError(f"unsupported_bundle_id:{bundle_id}")
+    return dict(_build_policy_bundle(bundle_id))
 
 
 def _bundle_meta(bundle_id: str) -> tuple[str, str]:

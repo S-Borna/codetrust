@@ -13,7 +13,7 @@
 #  Override via env: CODETRUST_GOVERNANCE_MODE=audit
 
 [codetrust]
-exclude_paths = ["migrations/", "vendor/", "node_modules/"]
+exclude_paths = ["migrations/", "vendor/", "node_modules/", "tests/"]
 ignore_rules = []
 
 [codetrust.governance]

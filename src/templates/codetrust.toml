@@ -66,6 +66,39 @@ enabled = true
 path = ".codetrust/audit.jsonl"
 
 # ───────────────────────────────────────────────────────────────
+#  Trusted Execution / Zero-Slop Enforcement
+# ───────────────────────────────────────────────────────────────
+#  When enabled, every actionable operation must go through
+#  codetrust_* proxy tools, with explicit allow_reason.
+
+[codetrust.governance.trusted_execution]
+enabled = false
+deny_native_execution = false
+require_allow_reason = false
+allow_reason_min_length = 12
+session_binding_required = true
+anti_bypass_checks = true
+
+# ───────────────────────────────────────────────────────────────
+#  Approval & Exception Governance
+# ───────────────────────────────────────────────────────────────
+
+[codetrust.governance.approval]
+required_rules = [
+	"gateway_git_push",
+	"gateway_git_force_push",
+	"gateway_curl_pipe_sh",
+	"gateway_rm_rf_root",
+	"gateway_rm_rf_home",
+	"gateway_heredoc",
+]
+allowed_roles = ["owner", "admin", "security"]
+ttl_minutes = 30
+
+[codetrust.governance.exceptions]
+ttl_minutes = 60
+
+# ───────────────────────────────────────────────────────────────
 #  Disable specific rules (by rule_id)
 # ───────────────────────────────────────────────────────────────
 #  Uncomment any rule to disable it:

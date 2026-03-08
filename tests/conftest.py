@@ -14,7 +14,7 @@ def _disable_api_key_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     """Force unauthenticated mode in tests.
 
     Some developer environments may have CODETRUST_API_KEY set, which would
-    make many endpoint tests fail with 401. Individual tests can still
+    make many endpoint tests fail with unauthorized responses. Individual tests can still
     override settings.api_key explicitly when exercising auth.
     """
 

@@ -5,14 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "codetrust"
 version = "2.8.0"
-description = "AI code safety platform — 286 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (82 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks safety drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 60 API endpoints, 27 MCP tools, 1937 tests. CLI, VS Code extension, GitHub Action, MCP server."
+description = "AI Governance Enforcement Platform — 286 rules, 10 enforcement layers, 5 enterprise services. AI Governance Gateway blocks destructive AI agent actions (82 real-time rules). Hallucination Detection verifies imports against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist. Trust Score tracks governance drift. CVE scanning, license compliance, cross-file analysis, auto-fix PRs, RBAC. 60 API endpoints, 27 MCP tools, 1937 tests. CLI, VS Code extension, GitHub Action, MCP server."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"
 authors = [
     { name = "Said Borna", email = "contact@codetrust.ai" },
 ]
-keywords = ["mcp", "ai-safety", "governance", "code-quality", "verification", "hallucination", "claude-code", "cursor", "devops", "react", "kubernetes", "sarif", "security"]
+keywords = ["mcp", "ai-governance", "governance", "code-quality", "verification", "hallucination", "claude-code", "cursor", "devops", "react", "kubernetes", "sarif", "security"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

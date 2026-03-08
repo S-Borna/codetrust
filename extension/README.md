@@ -1,4 +1,4 @@
-# CodeTrust — AI Code Safety for VS Code
+# CodeTrust — AI Governance Enforcement for VS Code
 
 **Stop AI-generated code from reaching production unchecked.**
 

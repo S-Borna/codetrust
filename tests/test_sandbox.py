@@ -1,6 +1,7 @@
 """Tests for sandbox execution service (Layer 4)."""
 
 import asyncio
+from http import HTTPStatus
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -791,8 +792,8 @@ class TestSandboxAPIEndpoint:
             "code": "SELECT 1",
             "language": "sql",
         })
-        # Should get 422 (validation error) or 200 with error
-        assert resp.status_code in (200, 422)
+        # Should get validation error or success-with-error payload.
+        assert resp.status_code in (HTTPStatus.OK, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_deep_scan_includes_sandbox_fields(
         self, client: TestClient,

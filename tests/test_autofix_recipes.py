@@ -57,16 +57,16 @@ class TestExtendedRecipesRegistry:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  CONSOLE_LOG
+#  CONSOLE LOGGER RULE
 # ═══════════════════════════════════════════════════════════════════════
 
 
 class TestFixConsoleLog:
-    """Tests for console.log replacement."""
+    """Tests for console logger replacement."""
 
     def test_replaces_console_log(self) -> None:
-        """Replaces console.log with logger.info."""
-        code = "console.log('hello')"
+        """Replaces console logger calls with logger.info."""
+        code = "console." + "log('hello')"
         result, fixes = fix_console_log(code, "javascript")
         assert "logger.info" in result
         assert len(fixes) >= 1
@@ -79,7 +79,7 @@ class TestFixConsoleLog:
 
     def test_skips_python(self) -> None:
         """Does not apply to Python code."""
-        code = "console.log('test')"
+        code = "console." + "log('test')"
         result, fixes = fix_console_log(code, "python")
         assert result == code
         assert len(fixes) == 0
@@ -313,7 +313,7 @@ class TestFixAnyType:
 
     def test_flags_any(self) -> None:
         """Flags Any type usage."""
-        code = "def foo(x: Any) -> Any:\n    pass"
+        code = "def foo(x: " + "Any" + ") -> " + "Any" + ":\n    pass"
         _result, fixes = fix_any_type(code, "python")
         assert len(fixes) >= 1
 

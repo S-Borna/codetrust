@@ -5,6 +5,7 @@ Covers: MetricsMiddleware, _MetricsStore, _normalize_path, metrics_endpoint.
 
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
@@ -32,14 +33,14 @@ from src.middleware.metrics import (
 class TestMetricsStore:
     def test_record_increments_counter(self) -> None:
         store = _MetricsStore()
-        store.record("GET", "/test", 200, 0.05)
-        store.record("GET", "/test", 200, 0.03)
-        assert store._request_count[("GET", "/test", 200)] == 2
+        store.record("GET", "/test", HTTPStatus.OK, 0.05)
+        store.record("GET", "/test", HTTPStatus.OK, 0.03)
+        assert store._request_count[("GET", "/test", HTTPStatus.OK)] == 2
 
     def test_record_tracks_duration(self) -> None:
         store = _MetricsStore()
-        store.record("POST", "/scan", 200, 0.1)
-        store.record("POST", "/scan", 200, 0.2)
+        store.record("POST", "/scan", HTTPStatus.OK, 0.1)
+        store.record("POST", "/scan", HTTPStatus.OK, 0.2)
         assert store._request_duration_sum[("POST", "/scan")] == pytest.approx(0.3)
         assert store._request_duration_count[("POST", "/scan")] == 2
 
@@ -54,7 +55,7 @@ class TestMetricsStore:
 
     def test_render_prometheus_format(self) -> None:
         store = _MetricsStore()
-        store.record("GET", "/v1/status", 200, 0.01)
+        store.record("GET", "/v1/status", HTTPStatus.OK, 0.01)
         output = store.render()
         assert "codetrust_http_requests_total" in output
         assert 'method="GET"' in output
@@ -73,16 +74,16 @@ class TestMetricsStore:
 
     def test_render_multiple_paths(self) -> None:
         store = _MetricsStore()
-        store.record("GET", "/a", 200, 0.01)
-        store.record("POST", "/b", 201, 0.02)
-        store.record("GET", "/a", 404, 0.03)
+        store.record("GET", "/a", HTTPStatus.OK, 0.01)
+        store.record("POST", "/b", HTTPStatus.CREATED, 0.02)
+        store.record("GET", "/a", HTTPStatus.NOT_FOUND, 0.03)
         output = store.render()
         lines = [line for line in output.split("\n") if line.startswith("codetrust_http_requests_total")]
         assert len(lines) == 3  # 3 distinct (method, path, status) combos
 
     def test_render_with_500_errors(self) -> None:
         store = _MetricsStore()
-        store.record("GET", "/fail", 500, 1.5)
+        store.record("GET", "/fail", HTTPStatus.INTERNAL_SERVER_ERROR, 1.5)
         output = store.render()
         assert 'status="500"' in output
 

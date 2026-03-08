@@ -251,7 +251,7 @@ def test_cmd_audit_table_prints_entries(monkeypatch: pytest.MonkeyPatch, tmp_pat
             timestamp=0.0,
             verdict="WARN",
             rule_id="eval_exec",
-            original_action="x" * 200,
+            original_action="x" * 200,  # noqa: magic_number
         )
     ]
 

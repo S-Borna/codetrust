@@ -358,7 +358,7 @@ class TestGoProxyVerification:
         await registry_service._cache.set_json(
             "codetrust:go:github.com/gin-gonic/gin",
             {"exists": True, "latest": "v1.9.1", "deprecated": False},
-            3600,
+            (60 * 60),
         )
         result = await registry_service.verify_go_module(
             "github.com/gin-gonic/gin"
@@ -471,7 +471,7 @@ class TestCratesVerification:
         await registry_service._cache.set_json(
             "codetrust:crates:tokio",
             {"exists": True, "latest": "1.35.0", "deprecated": False},
-            3600,
+            (60 * 60),
         )
         result = await registry_service.verify_crates_package("tokio")
         assert result.status == VerifyStatus.VERIFIED

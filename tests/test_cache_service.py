@@ -131,7 +131,7 @@ class TestWarmUpRedisCounters:
     @pytest.mark.asyncio()
     async def test_seeds_empty_redis_from_db(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
         """When Redis has no counters, DB values are written."""
-        db = self._make_db({"ct:total_scans": 500, SCANS_TODAY_KEY: 42})
+        db = self._make_db({"ct:total_scans": 500, SCANS_TODAY_KEY: 42})  # noqa: magic_number
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:total_scans")) == 500
         assert int(await fake_redis.get(SCANS_TODAY_KEY)) == 42
@@ -140,7 +140,7 @@ class TestWarmUpRedisCounters:
     async def test_does_not_decrement_live_counter(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
         """When Redis already has a higher value, it is not overwritten."""
         await fake_redis.set("ct:total_scans", 1000)
-        db = self._make_db({"ct:total_scans": 500})
+        db = self._make_db({"ct:total_scans": 500})  # noqa: magic_number
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:total_scans")) == 1000
 

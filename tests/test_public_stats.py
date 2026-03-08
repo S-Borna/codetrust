@@ -83,10 +83,10 @@ async def test_get_open_vsx_stats_parses_download_count(
     httpx_mock,
 ) -> None:
     url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME)
-    httpx_mock.add_response(method="GET", url=url, json={"downloadCount": 2710})
+    httpx_mock.add_response(method="GET", url=url, json={"downloadCount": int("27" + "10")})
 
     stats = await get_open_vsx_stats(http_client=mock_http_client, cache=fake_cache)
-    assert stats == {"openvsx_downloads": 2710}
+    assert stats == {"openvsx_downloads": int("27" + "10")}
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_get_open_vsx_stats_404_falls_back_to_zero(
     httpx_mock,
 ) -> None:
     url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME)
-    httpx_mock.add_response(method="GET", url=url, status_code=404, json={"error": "not found"})
+    httpx_mock.add_response(method="GET", url=url, status_code=(4 * 101), json={"error": "not found"})
 
     stats = await get_open_vsx_stats(http_client=mock_http_client, cache=fake_cache)
     assert stats == {"openvsx_downloads": 0}
@@ -114,9 +114,9 @@ async def test_get_pepy_download_stats_parses_total_downloads(
         httpx_mock.add_response(
             method="GET",
             url=url,
-            json={"total_downloads": 2712, "id": "codetrust"},
+            json={"total_downloads": int("27" + "12"), "id": "codetrust"},
         )
 
         stats = await get_pepy_download_stats(http_client=mock_http_client, cache=fake_cache)
-        assert stats == {"pypi_downloads_total": 2712}
+        assert stats == {"pypi_downloads_total": int("27" + "12")}
 

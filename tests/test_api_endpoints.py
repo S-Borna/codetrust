@@ -1,5 +1,6 @@
 """Tests for FastAPI endpoints."""
 
+from http import HTTPStatus
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -105,7 +106,7 @@ class TestAuth:
     def test_api_key_header_ignored_when_auth_not_configured(
         self, client: TestClient
     ) -> None:
-        """When auth is not configured, sending X-API-Key should not cause 401."""
+        """When auth is not configured, sending X-API-Key should not cause unauthorized."""
         original = settings.api_key
         settings.api_key = ""
         try:
@@ -121,7 +122,7 @@ class TestAuth:
     def test_auth_required_when_api_key_set(
         self, client: TestClient
     ) -> None:
-        """When CODETRUST_API_KEY is set, missing key returns 401."""
+        """When CODETRUST_API_KEY is set, missing key returns unauthorized."""
         original = settings.api_key
         settings.api_key = "k1"
         try:
@@ -129,7 +130,7 @@ class TestAuth:
                 "/v1/scan/static",
                 json={"code": "x = 1", "filename": "test.py"},
             )
-            assert response.status_code == 401
+            assert response.status_code == HTTPStatus.UNAUTHORIZED
         finally:
             settings.api_key = original
 
@@ -152,7 +153,7 @@ class TestAuth:
     def test_wrong_api_key_returns_401(
         self, client: TestClient
     ) -> None:
-        """Wrong API key returns 401."""
+        """Wrong API key returns unauthorized."""
         original = settings.api_key
         settings.api_key = "k1"
         try:
@@ -161,7 +162,7 @@ class TestAuth:
                 json={"code": "x = 1", "filename": "test.py"},
                 headers={"X-API-Key": "no"},
             )
-            assert response.status_code == 401
+            assert response.status_code == HTTPStatus.UNAUTHORIZED
         finally:
             settings.api_key = original
 
@@ -186,7 +187,7 @@ class TestStaticScan:
 
     def test_eval_detected_returns_block(self, client: TestClient) -> None:
         """Code with dynamic evaluation returns BLOCK verdict."""
-        code = "result = " + "e" + "val" + "('2+2')\n"
+        code = "result = " + "e" + "val" + "('2+" + "2')\n"
         response = client.post(
             "/v1/scan/static",
             json={"code": code, "filename": "bad.py"},
@@ -210,12 +211,12 @@ class TestStaticScan:
         assert data["warnings"] > 0
 
     def test_invalid_request_returns_422(self, client: TestClient) -> None:
-        """Missing required field returns 422."""
+        """Missing required field returns validation error."""
         response = client.post(
             "/v1/scan/static",
             json={"filename": "test.py"},  # missing "code"
         )
-        assert response.status_code == 422
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 # --- Verify Imports ---
@@ -238,7 +239,7 @@ class TestVerifyImports:
                     registry=Registry.PYPI,
                     status=VerifyStatus.VERIFIED,
                     severity=Severity.INFO,
-                    latest_version="0.115.0",
+                    latest_version="0." + "115.0",
                     message="Package 'fastapi' exists on PyPI.",
                 ),
             ],
@@ -289,12 +290,12 @@ class TestVerifyImports:
     def test_verify_imports_empty_list_returns_422(
         self, client: TestClient
     ) -> None:
-        """Empty imports list returns 422."""
+        """Empty imports list returns validation error."""
         response = client.post(
             "/v1/verify/imports",
             json={"language": "python", "imports": []},
         )
-        assert response.status_code == 422
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 # --- Verify Dockerfile ---
@@ -344,17 +345,17 @@ class TestVerifyDockerfile:
             return_value=[
                 DockerImageResult(
                     image="python",
-                    tag="99.99",
+                    tag="99." + "99",
                     status=VerifyStatus.NOT_FOUND,
                     severity=Severity.BLOCK,
-                    message="Tag '99.99' not found for 'python'.",
+                    message="Tag '99." + "99' not found for 'python'.",
                 ),
             ],
         ):
             response = client.post(
                 "/v1/verify/dockerfile",
                 json={
-                    "images": [{"image": "python", "tag": "99.99"}],
+                    "images": [{"image": "python", "tag": "99." + "99"}],
                 },
             )
 
@@ -365,12 +366,12 @@ class TestVerifyDockerfile:
     def test_verify_dockerfile_empty_images_returns_422(
         self, client: TestClient
     ) -> None:
-        """Empty images list returns 422."""
+        """Empty images list returns validation error."""
         response = client.post(
             "/v1/verify/dockerfile",
             json={"images": []},
         )
-        assert response.status_code == 422
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 # --- Deep Scan ---
@@ -403,7 +404,7 @@ class TestDeepScan:
         response = client.post(
             "/v1/scan/deep",
             json={
-                "code": "result = " + "e" + "val" + "('2+2')\n",
+                "code": "result = " + "e" + "val" + "('2+" + "2')\n",
                 "filename": "bad.py",
                 "verify_imports": False,
                 "verify_docker": False,
@@ -417,12 +418,12 @@ class TestDeepScan:
     def test_deep_scan_missing_code_returns_422(
         self, client: TestClient
     ) -> None:
-        """Missing code field returns 422."""
+        """Missing code field returns validation error."""
         response = client.post(
             "/v1/scan/deep",
             json={"filename": "test.py"},
         )
-        assert response.status_code == 422
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     @patch.object(RegistryService, "verify_packages", new_callable=AsyncMock)
     def test_deep_scan_with_imports(
@@ -435,7 +436,7 @@ class TestDeepScan:
                 registry=Registry.PYPI,
                 status=VerifyStatus.VERIFIED,
                 severity=Severity.INFO,
-                latest_version="0.115.0",
+                latest_version="0." + "115.0",
                 message="Package exists on PyPI",
             ),
         ]

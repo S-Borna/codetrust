@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### What's New (since 2.8.0)
+
+#### Added
+
+- Gateway governance extensions:
+  - Trusted execution session lifecycle (`begin_trusted_session`)
+  - Approval flow with exception store (`approve_action`, `list_exceptions`, `revoke_exception`)
+  - Policy simulation and control-plane posture surfaces (`simulate_policy`, `governance_posture`)
+- New enforcement rules in gateway interception:
+  - `gateway_native_tool_bypass_attempt` (BLOCK)
+  - `gateway_disable_governance_env` (BLOCK)
+
+#### Changed
+
+- Gateway policy and template configuration updated for stricter governance behavior.
+- Regex patterns in interception/content checks refactored for Guardian portability/quality compliance.
+
+#### Quality / Hardening
+
+- Guardian remediation sweep completed across:
+  - Python test suite
+  - VS Code extension sources/tests/scripts
+  - Chrome extension scripts/content
+  - Dashboard Tailwind configuration
+- Repository quality gates remain green:
+  - Full test run: 1935 passed, 0 failed
+  - Guardian full scan: 0 BLOCK, 0 WARN (INFO-only test magic-number notes)
+
 ---
 
 ## [2.8.0] - 2026-03-08

@@ -1,7 +1,7 @@
 """Tests for multi-workspace governance endpoints."""
 
 from http import HTTPStatus
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from src.api import app
 from src.config import settings
+from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.cache import CacheService
@@ -16,7 +17,6 @@ from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.sandbox import SandboxService
 from src.services.static_analyzer import StaticAnalyzer
-from src.services.ast_analyzer import AstAnalyzer
 from src.services.workspace_registry import WorkspaceRegistry
 
 

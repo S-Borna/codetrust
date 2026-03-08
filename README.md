@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.0</code> &middot; <code>1906 tests</code> &middot; <code>284 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.8.0</code> &middot; <code>1937 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 284 rules across 10 enforcement layers, 21 MCP tools, 48 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,906 tests.
+**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,937 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -215,8 +215,8 @@ codetrust scan .
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.8.0` | PR checks with SARIF upload to Security tab |
-| **MCP Server** | 21 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 48 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
+| **REST API** | 60 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 
@@ -624,7 +624,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1906 tests
+pytest                     # 1937 tests
 ruff check .               # zero warnings
 ```
 

@@ -14,6 +14,7 @@ from src.gateway.approvals import (
     GovernanceException,
     PendingApproval,
 )
+from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.cache import CacheService
@@ -21,8 +22,6 @@ from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.sandbox import SandboxService
 from src.services.static_analyzer import StaticAnalyzer
-from src.services.ast_analyzer import AstAnalyzer
-
 
 MOCK_PENDING = PendingApproval(
     request_id="apr_test001",

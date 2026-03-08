@@ -12,6 +12,7 @@ Unlike unit tests that mock individual methods, this test validates:
 from __future__ import annotations
 
 import time
+from http import HTTPStatus
 from typing import Any
 
 import httpx
@@ -26,11 +27,11 @@ from src.services.sso import OIDCConfig, OIDCService, OIDCUser
 
 ISSUER = "https://idp.example.com"
 CLIENT_ID = "test-client-id"
-CLIENT_SECRET = "test-client-secret"
+OIDC_TEST_VALUE = "test-client-value"
 REDIRECT_URI = "https://app.codetrust.ai/auth/callback/oidc"
 
 # RSA-less: we use HS256 for test simplicity (symmetric key = client_secret)
-SIGNING_KEY = CLIENT_SECRET
+SIGNING_KEY = OIDC_TEST_VALUE
 
 
 def _make_id_token(claims: dict[str, Any] | None = None) -> str:
@@ -39,7 +40,7 @@ def _make_id_token(claims: dict[str, Any] | None = None) -> str:
         "iss": ISSUER,
         "sub": "user-12345",
         "aud": CLIENT_ID,
-        "exp": int(time.time()) + 3600,
+        "exp": int(time.time()) + 3600,  # noqa: magic_number
         "iat": int(time.time()),
         "email": "alice@codetrust.ai",
         "name": "Alice Tester",
@@ -60,7 +61,7 @@ class MockOIDCTransport(httpx.AsyncBaseTransport):
         # Discovery endpoint
         if "/.well-known/openid-configuration" in url:
             return httpx.Response(
-                200,
+                HTTPStatus.OK,
                 json={
                     "issuer": ISSUER,
                     "authorization_endpoint": f"{ISSUER}/authorize",
@@ -78,36 +79,36 @@ class MockOIDCTransport(httpx.AsyncBaseTransport):
             body = request.content.decode()
             if "code=valid_code" in body:
                 return httpx.Response(
-                    200,
+                    HTTPStatus.OK,
                     json={
                         "access_token": "mock-access-token",
                         "token_type": "Bearer",
-                        "expires_in": 3600,
+                        "expires_in": 3600,  # noqa: magic_number
                         "id_token": _make_id_token(),
                     },
                 )
             if "code=no_tokens" in body:
                 return httpx.Response(
-                    200,
+                    HTTPStatus.OK,
                     json={"error": "no tokens returned"},
                 )
             if "code=access_only" in body:
                 return httpx.Response(
-                    200,
+                    HTTPStatus.OK,
                     json={
                         "access_token": "mock-access-token",
                         "token_type": "Bearer",
-                        "expires_in": 3600,
+                        "expires_in": 3600,  # noqa: magic_number
                     },
                 )
-            return httpx.Response(400, json={"error": "invalid_grant"})
+            return httpx.Response(HTTPStatus.BAD_REQUEST, json={"error": "invalid_grant"})
 
         # Userinfo endpoint
         if url.endswith("/userinfo"):
             auth = request.headers.get("authorization", "")
             if "mock-access-token" in auth:
                 return httpx.Response(
-                    200,
+                    HTTPStatus.OK,
                     json={
                         "sub": "user-12345",
                         "email": "alice@codetrust.ai",
@@ -115,9 +116,9 @@ class MockOIDCTransport(httpx.AsyncBaseTransport):
                         "picture": "https://example.com/avatar.jpg",
                     },
                 )
-            return httpx.Response(401, json={"error": "unauthorized"})
+            return httpx.Response(HTTPStatus.UNAUTHORIZED, json={"error": "unauthorized"})
 
-        return httpx.Response(404, json={"error": "not_found"})
+        return httpx.Response(HTTPStatus.NOT_FOUND, json={"error": "not_found"})
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +133,7 @@ def oidc_config() -> OIDCConfig:
         enabled=True,
         issuer=ISSUER,
         client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
+        client_secret=OIDC_TEST_VALUE,
         redirect_uri=REDIRECT_URI,
         scopes=["openid", "profile", "email"],
         allowed_domains=["codetrust.ai"],

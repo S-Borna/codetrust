@@ -118,7 +118,9 @@ from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.sso import OIDCConfig, OIDCService
 from src.services.static_analyzer import StaticAnalyzer
 from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
+from src.services.unified_session import UnifiedSessionStore
 from src.services.vulnerability import VulnScanResponse
+from src.services.workspace_registry import WorkspaceRegistry
 from src.utils.parsers import (
     extract_cpp_includes,
     extract_csharp_imports,
@@ -2901,10 +2903,8 @@ async def governance_revoke_exception(
 # --- Governance: Multi-Workspace Aggregation ---
 
 
-def _get_workspace_registry() -> "WorkspaceRegistry":
+def _get_workspace_registry() -> WorkspaceRegistry:
     """Get or create the workspace registry singleton."""
-    from src.services.workspace_registry import WorkspaceRegistry
-
     if not hasattr(app.state, "workspace_registry"):
         app.state.workspace_registry = WorkspaceRegistry()
     return app.state.workspace_registry
@@ -3007,10 +3007,8 @@ async def governance_unregister_workspace(
 # --- Governance: Unified Session Token ---
 
 
-def _get_session_store() -> "UnifiedSessionStore":
+def _get_session_store() -> UnifiedSessionStore:
     """Get or create the unified session store singleton."""
-    from src.services.unified_session import UnifiedSessionStore
-
     if not hasattr(app.state, "session_store"):
         app.state.session_store = UnifiedSessionStore()
     return app.state.session_store

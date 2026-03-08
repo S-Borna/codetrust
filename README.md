@@ -50,7 +50,7 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 The Gateway intercepts AI agent actions **before execution** — not scanning files after the fact. Terminal commands, file writes, and package installs are validated against configurable policies in real-time.
 
-76 interception rules across 11 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, AI agent enforcement, resource abuse, and root-cause enforcement — plus content rules for file writes.
+82 interception rules across 11 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, AI agent enforcement, resource abuse, and root-cause enforcement — plus content rules for file writes.
 
 All rules are configurable. Any rule can be disabled per-project.
 
@@ -144,7 +144,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**204 scan rules + 80 gateway rules = 284 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**204 scan rules + 82 gateway rules = 286 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 

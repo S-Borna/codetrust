@@ -251,6 +251,33 @@ class GovernanceApproveRequest(BaseModel):
     ttl_minutes: int | None = Field(default=None, ge=1, le=1440)
 
 
+class GovernanceRegisterWorkspaceRequest(BaseModel):
+    """Request to register a workspace for multi-workspace aggregation."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    workspace_id: str = Field(..., min_length=1, max_length=200)
+    workspace_name: str = Field(..., min_length=1, max_length=200)
+    agent_id: str = Field(default="unknown", max_length=100)
+    posture: dict[str, object] = Field(default_factory=dict)
+
+
+class GovernanceUnifiedSessionRequest(BaseModel):
+    """Request to issue a unified cross-surface session token."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    surfaces: list[str] = Field(
+        ...,
+        min_length=1,
+        max_length=5,
+        description="Surfaces to bind: ide, cli, ci, api",
+    )
+    agent_id: str = Field(default="unknown", max_length=100)
+    workspace_id: str = Field(default="", max_length=200)
+    ttl_minutes: int = Field(default=60, ge=1, le=1440)
+
+
 # --- MCP-specific input models (for local server) ---
 
 

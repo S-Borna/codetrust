@@ -473,6 +473,75 @@ class GovernancePolicyIntegrityResponse(BaseModel):
     policy_hash: str
 
 
+class GovernanceWorkspacePostureResponse(BaseModel):
+    """Posture summary for a single workspace in multi-workspace view."""
+
+    model_config = ConfigDict(strict=True)
+
+    workspace_id: str = Field(..., description="Unique workspace identifier")
+    workspace_name: str = Field(..., description="Human-readable workspace name")
+    agent_id: str = Field(default="unknown", description="Last-seen agent ID")
+    enabled: bool = Field(default=False, description="Governance engine enabled")
+    mode: str = Field(default="audit", description="Governance mode")
+    control_plane_ready: bool = Field(default=False)
+    policy_hash: str = Field(default="", description="Current policy manifest hash")
+    policy_verdict: str = Field(default="UNKNOWN", description="Policy integrity verdict")
+    pending_approvals: int = Field(default=0)
+    active_exceptions: int = Field(default=0)
+    drift_count: int = Field(default=0, description="Number of drift violations")
+    last_seen_at: float = Field(default=0.0, description="Unix timestamp of last telemetry")
+
+
+class GovernanceWorkspaceAggregateResponse(BaseModel):
+    """Aggregated multi-workspace governance overview."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_workspaces: int = Field(default=0)
+    healthy_count: int = Field(default=0, description="Workspaces with zero drift")
+    drifted_count: int = Field(default=0, description="Workspaces with drift > 0")
+    disabled_count: int = Field(default=0, description="Workspaces with governance off")
+    total_pending_approvals: int = Field(default=0)
+    total_active_exceptions: int = Field(default=0)
+    workspaces: list[GovernanceWorkspacePostureResponse] = Field(default_factory=list)
+
+
+class GovernanceUnifiedSessionResponse(BaseModel):
+    """Unified session token that spans IDE, CLI, CI, and API surfaces."""
+
+    model_config = ConfigDict(strict=True)
+
+    session_token: str = Field(..., description="Unified cross-surface session token")
+    surfaces: list[str] = Field(
+        default_factory=list,
+        description="Surfaces bound to this token (ide, cli, ci, api)",
+    )
+    issued_at: float = Field(..., description="Unix timestamp when token was issued")
+    expires_at: float = Field(..., description="Unix timestamp when token expires")
+    agent_id: str = Field(default="unknown")
+    workspace_id: str = Field(default="")
+    audit_chain_id: str = Field(
+        ...,
+        description="Stable chain ID linking all audit entries from this session",
+    )
+
+
+class GovernanceSessionStatusResponse(BaseModel):
+    """Status of a unified session token."""
+
+    model_config = ConfigDict(strict=True)
+
+    valid: bool
+    session_token: str
+    surfaces: list[str]
+    issued_at: float
+    expires_at: float
+    remaining_seconds: float
+    agent_id: str
+    workspace_id: str
+    audit_chain_id: str
+
+
 class GovernancePostureResponse(BaseModel):
     """Machine-readable governance posture for control-plane consumers."""
 

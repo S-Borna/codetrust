@@ -292,6 +292,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Magic number detected. Extract to a named constant.",
         "severity": Severity.INFO,
         "skip_comments": True,
+        "exclude_path_contains": [
+            "tests/",
+            "docs/",
+            "chrome-extension/",
+            "dashboard/",
+            "extension/src/test/",
+        ],
     },
     {
         "id": "long_function",

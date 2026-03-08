@@ -420,9 +420,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         import sys
         sys.exit(1)
 
-    from src.services.license_guard import validate_license
+    from src.services.license_guard import validate_license, LicenseStatus
 
-    license_status = await validate_license(settings.api_key)
+    # The API server IS the license server — it should not validate
+    # against itself (circular dependency). Use license_key for client
+    # license validation endpoint only. Server always runs fully licensed.
+    if settings.license_key:
+        license_status = await validate_license(settings.license_key)
+    else:
+        # Server-side: grant full access (this IS the authoritative server)
+        license_status = LicenseStatus(
+            valid=True,
+            plan="enterprise",
+            license_key="server-self",
+        )
     app.state.license_status = license_status
     if not license_status.valid:
         if settings.production_mode:

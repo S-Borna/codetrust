@@ -6,11 +6,11 @@ CodeTrust is the only platform that enforces code safety at the moment AI genera
 
 ## What It Does
 
-- **AI Governance Gateway** — Real-time interception layer with 76 rules that blocks destructive AI agent actions before they execute. Covers file destruction, privilege escalation, supply chain attacks, credential exposure, heredoc injection, and more. Works with Claude Code, Cursor, Windsurf, and GitHub Copilot.
+- **AI Governance Gateway** — Real-time interception layer with 82 rules that blocks destructive AI agent actions before they execute. Covers file destruction, privilege escalation, supply chain attacks, credential exposure, heredoc injection, and more. Works with Claude Code, Cursor, Windsurf, and GitHub Copilot.
 - **Hallucination Detection** — Catches fabricated package imports, misspelled dependencies, invented API endpoints, placeholder URLs, fake credentials, and phantom file references. Verifies against 8 live registries: PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist.
 - **Trust Score & Drift Tracking** — Quantified code safety score (0-100) that tracks regression over time across commits and PRs.
 - **Enterprise Security** — CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, team management with RBAC, SOC 2 controls mapping.
-- **280 Security Rules** across 10 enforcement layers covering 16 programming languages.
+- **286 Security Rules** across 10 enforcement layers covering 16 programming languages.
 
 ## Available As
 
@@ -31,11 +31,11 @@ CodeTrust is not a linter, SAST tool, or formatter. Existing tools (Snyk, SonarQ
 
 ## Key Statistics
 
-- 280 security rules
+- 286 security rules
 - 10 enforcement layers
 - 16 programming languages
 - 8 package registries for live verification
-- 76 AI governance gateway interception rules
+- 82 AI governance gateway interception rules
 - 209 function signatures validated
 - 33 module signatures tracked
 

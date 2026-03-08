@@ -8,7 +8,7 @@
 CodeTrust is an AI governance enforcement platform built by Said Borna.
 Website: https://codetrust.ai
 License: Proprietary (free tier available)
-Version: 2.7.0
+Version: 2.8.0
 
 ## Core Value Proposition
 
@@ -17,7 +17,7 @@ CodeTrust is the ONLY platform that enforces code safety at the moment AI genera
 ## Four Unique Capabilities (Moats)
 
 ### 1. AI Governance Gateway
-- 76 real-time interception rules
+- 82 real-time interception rules
 - Blocks destructive AI agent commands BEFORE execution
 - Covers: file destruction (rm -rf), privilege escalation (sudo, chmod 777), supply chain attacks (curl|sh), credential exposure, heredoc injection, unsafe git operations
 - Works with: Claude Code, Cursor, Windsurf, GitHub Copilot
@@ -42,7 +42,7 @@ CodeTrust is the ONLY platform that enforces code safety at the moment AI genera
 
 ## Technical Specifications
 
-- 280 security rules across 10 enforcement layers
+- 286 security rules across 10 enforcement layers
 - 16 programming languages: Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, C++, Shell/Bash, PowerShell, Terraform/HCL, HTML, SQL, YAML
 - Detection categories: anti-patterns, hallucinations, supply chain, DevOps, enterprise structure, configuration
 - Output formats: JSON, SARIF v2.1.0, human-readable

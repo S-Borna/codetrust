@@ -2,9 +2,9 @@
 
 **Stop AI-generated code from reaching production unchecked.**
 
-284 rules across 10 enforcement layers. Four capabilities no linter, SAST tool, or formatter has:
+286 rules across 10 enforcement layers. Four capabilities no linter, SAST tool, or formatter has:
 
-1. **AI Governance Gateway** — 80 real-time interception rules block destructive AI agent actions *before* they execute
+1. **AI Governance Gateway** — 82 real-time interception rules block destructive AI agent actions *before* they execute
 2. **Hallucination Detection** — Live verification of every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist
 3. **Trust Score & Drift Tracking** — Baseline your codebase and detect safety regression over time
 4. **Universal IDE Injection** — governance rules injected into every AI IDE globally on install; active monitoring detects and recovers from disruptions
@@ -22,7 +22,7 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 - **Typed Public Stats Contract** — `/v1/stats/public` now ships a schema-versioned nested contract plus backward-compatible top-level counters
 - **Tenant Policy Bundles & Signed Snapshots** — `/v1/governance/policy-bundles` and `/v1/governance/policy-snapshot`
 - **Explainable Gateway BLOCKs** — blocked responses include `root_cause` and `safe_fix`
-- **21 MCP tools, 48 API endpoints, 284 rules****
+- **27 MCP tools, 60 API endpoints, 286 rules****
 
 ---
 
@@ -146,8 +146,8 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 |---------|---------|
 | **CLI** | `pip install codetrust` |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.8.0` |
-| **MCP Server** | 21 tools for Claude Code / Cursor / Windsurf |
-| **REST API** | 48 endpoints |
+| **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
+| **REST API** | 60 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---

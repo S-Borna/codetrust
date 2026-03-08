@@ -131,7 +131,7 @@
     "/v1/governance/audit": {
       "get": {
         "summary": "Governance Audit",
-        "description": "Query the governance audit log.\n\nReturns recent audit entries and aggregate statistics.\nReads from .codetrust/audit.jsonl in the workspace.\n\nArgs:\n    hours: How many hours back to search (default: 24).\n    verdict: Filter by verdict: ALLOW, WARN, BLOCK.\n    limit: Maximum entries to return (default: 100).\n\nReturns:\n    Dict with entries list and stats summary.",
+        "description": "Query the governance audit log.\n\nReturns recent audit entries and aggregate statistics.\nReads from .codetrust/audit.jsonl in the workspace.\n\nArgs:\n    hours: How many hours back to search (default: 24).\n    verdict: Filter by verdict: ALLOW, WARN, BLOCK.\n    limit: Maximum entries to return (default: 100).\n\nReturns:\n    Typed response with entries list and stats summary.",
         "operationId": "governance_audit_v1_governance_audit_get",
         "security": [
           {
@@ -182,9 +182,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Governance Audit V1 Governance Audit Get"
+                  "$ref": "#/components/schemas/GovernanceAuditResponse"
                 }
               }
             }
@@ -1678,6 +1676,473 @@
         ]
       }
     },
+    "/v1/governance/posture": {
+      "get": {
+        "summary": "Governance Posture",
+        "description": "Return governance posture for control-plane and compliance checks.",
+        "operationId": "governance_posture_v1_governance_posture_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernancePostureResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/simulate-policy": {
+      "post": {
+        "summary": "Governance Simulate Policy",
+        "description": "Simulate command verdicts for a governance policy bundle.",
+        "operationId": "governance_simulate_policy_v1_governance_simulate_policy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernancePolicySimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernancePolicySimulationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/approvals": {
+      "get": {
+        "summary": "Governance List Approvals",
+        "description": "List all pending governance approval requests.",
+        "operationId": "governance_list_approvals_v1_governance_approvals_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GovernancePendingApprovalResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Governance List Approvals V1 Governance Approvals Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/approvals/{request_id}/approve": {
+      "post": {
+        "summary": "Governance Approve Action",
+        "description": "Approve a pending governance action and create a time-bound exception.",
+        "operationId": "governance_approve_action_v1_governance_approvals__request_id__approve_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernanceApproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceApproveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/exceptions": {
+      "get": {
+        "summary": "Governance List Exceptions",
+        "description": "List all active governance exceptions.",
+        "operationId": "governance_list_exceptions_v1_governance_exceptions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GovernanceExceptionResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Governance List Exceptions V1 Governance Exceptions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/exceptions/{exception_id}": {
+      "delete": {
+        "summary": "Governance Revoke Exception",
+        "description": "Revoke an active governance exception.",
+        "operationId": "governance_revoke_exception_v1_governance_exceptions__exception_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exception_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exception Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/workspaces": {
+      "get": {
+        "summary": "Governance List Workspaces",
+        "description": "Aggregated multi-workspace governance overview.\n\nReturns posture summaries for all registered workspaces\nwith aggregate health metrics.",
+        "operationId": "governance_list_workspaces_v1_governance_workspaces_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceWorkspaceAggregateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Governance Register Workspace",
+        "description": "Register or update a workspace's governance posture.\n\nCalled by gateway instances or CLI to report their posture\nfor multi-workspace aggregation.",
+        "operationId": "governance_register_workspace_v1_governance_workspaces_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernanceRegisterWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceWorkspacePostureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/workspaces/{workspace_id}": {
+      "delete": {
+        "summary": "Governance Unregister Workspace",
+        "description": "Remove a workspace from the governance registry.",
+        "operationId": "governance_unregister_workspace_v1_governance_workspaces__workspace_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/session-token": {
+      "post": {
+        "summary": "Governance Issue Session Token",
+        "description": "Issue a unified session token spanning multiple surfaces.\n\nCreates a cross-surface audit chain ID that links all governance\nactions across IDE, CLI, CI, and API within one session.",
+        "operationId": "governance_issue_session_token_v1_governance_session_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernanceUnifiedSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceUnifiedSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/governance/session-token/{token}": {
+      "get": {
+        "summary": "Governance Validate Session Token",
+        "description": "Validate a unified session token and return its status.",
+        "operationId": "governance_validate_session_token_v1_governance_session_token__token__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceSessionStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Governance Revoke Session Token",
+        "description": "Revoke a unified session token.",
+        "operationId": "governance_revoke_session_token_v1_governance_session_token__token__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/github": {
       "post": {
         "summary": "Github Auth",
@@ -2526,6 +2991,182 @@
         "title": "GithubAuthRequest",
         "description": "Request to exchange a GitHub OAuth code for a JWT."
       },
+      "GovernanceApproveRequest": {
+        "properties": {
+          "approver": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Approver"
+          },
+          "approver_role": {
+            "type": "string",
+            "pattern": "^(owner|admin|security)$",
+            "title": "Approver Role",
+            "default": "owner"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 12,
+            "title": "Reason"
+          },
+          "ttl_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1440.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Minutes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "approver",
+          "reason"
+        ],
+        "title": "GovernanceApproveRequest",
+        "description": "Request to approve a pending governance action."
+      },
+      "GovernanceApproveResponse": {
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "exception_id": {
+            "type": "string",
+            "title": "Exception Id"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approved",
+          "exception_id",
+          "expires_at"
+        ],
+        "title": "GovernanceApproveResponse",
+        "description": "Response after approving a governance action."
+      },
+      "GovernanceAuditEntryResponse": {
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "original_action": {
+            "type": "string",
+            "title": "Original Action"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "action_type",
+          "verdict",
+          "rule_id",
+          "original_action",
+          "message",
+          "agent_id",
+          "session_id"
+        ],
+        "title": "GovernanceAuditEntryResponse",
+        "description": "A single governance audit log entry."
+      },
+      "GovernanceAuditResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/GovernanceAuditEntryResponse"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/GovernanceAuditStatsResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entries",
+          "stats"
+        ],
+        "title": "GovernanceAuditResponse",
+        "description": "Full governance audit response with entries and stats."
+      },
+      "GovernanceAuditStatsResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "by_verdict": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Verdict"
+          },
+          "by_action_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Action Type"
+          },
+          "top_rules": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "by_verdict",
+          "by_action_type",
+          "top_rules"
+        ],
+        "title": "GovernanceAuditStatsResponse",
+        "description": "Statistics for governance audit entries."
+      },
       "GovernanceCoverageResponse": {
         "properties": {
           "model": {
@@ -2592,6 +3233,134 @@
         "title": "GovernanceCoverageSurfaceResponse",
         "description": "Coverage details for a single surface."
       },
+      "GovernanceExceptionResponse": {
+        "properties": {
+          "exception_id": {
+            "type": "string",
+            "title": "Exception Id"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "action_fingerprint": {
+            "type": "string",
+            "title": "Action Fingerprint"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "approver": {
+            "type": "string",
+            "title": "Approver"
+          },
+          "approver_role": {
+            "type": "string",
+            "title": "Approver Role"
+          },
+          "created_at": {
+            "type": "number",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "revoked_at": {
+            "type": "number",
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "type": "string",
+            "title": "Revoked By"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exception_id",
+          "rule_id",
+          "action_type",
+          "action_fingerprint",
+          "reason",
+          "approver",
+          "approver_role",
+          "created_at",
+          "expires_at",
+          "revoked_at",
+          "revoked_by",
+          "session_id",
+          "agent_id"
+        ],
+        "title": "GovernanceExceptionResponse",
+        "description": "An active or revoked governance exception."
+      },
+      "GovernancePendingApprovalResponse": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "original_action": {
+            "type": "string",
+            "title": "Original Action"
+          },
+          "action_fingerprint": {
+            "type": "string",
+            "title": "Action Fingerprint"
+          },
+          "requested_at": {
+            "type": "number",
+            "title": "Requested At"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "rule_id",
+          "action_type",
+          "original_action",
+          "action_fingerprint",
+          "requested_at",
+          "expires_at",
+          "session_id",
+          "agent_id"
+        ],
+        "title": "GovernancePendingApprovalResponse",
+        "description": "A pending governance approval request."
+      },
       "GovernancePolicyBundleResponse": {
         "properties": {
           "bundle_id": {
@@ -2642,6 +3411,107 @@
         "title": "GovernancePolicyBundleResponse",
         "description": "Tenant policy bundle with signed metadata."
       },
+      "GovernancePolicyIntegrityResponse": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "policy_hash": {
+            "type": "string",
+            "title": "Policy Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "rule_id",
+          "policy_hash"
+        ],
+        "title": "GovernancePolicyIntegrityResponse",
+        "description": "Policy integrity posture details."
+      },
+      "GovernancePolicySimulationOutcomeResponse": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command",
+          "verdict",
+          "rule_id",
+          "message"
+        ],
+        "title": "GovernancePolicySimulationOutcomeResponse",
+        "description": "Single simulated governance decision for a command."
+      },
+      "GovernancePolicySimulationRequest": {
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^(startup|team|enterprise)$",
+            "title": "Bundle Id"
+          },
+          "commands": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Commands"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bundle_id",
+          "commands"
+        ],
+        "title": "GovernancePolicySimulationRequest",
+        "description": "Request to simulate governance verdicts for sample commands."
+      },
+      "GovernancePolicySimulationResponse": {
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "title": "Bundle Id"
+          },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/GovernancePolicySimulationOutcomeResponse"
+            },
+            "type": "array",
+            "title": "Outcomes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bundle_id",
+          "outcomes"
+        ],
+        "title": "GovernancePolicySimulationResponse",
+        "description": "Simulation results for a policy bundle over sample commands."
+      },
       "GovernancePolicySnapshotRequest": {
         "properties": {
           "bundle_id": {
@@ -2690,6 +3560,14 @@
             "type": "string",
             "title": "Version"
           },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "policy_hash": {
+            "type": "string",
+            "title": "Policy Hash"
+          },
           "audit_logged": {
             "type": "boolean",
             "title": "Audit Logged"
@@ -2703,10 +3581,393 @@
           "signature",
           "issued_at",
           "version",
+          "session_id",
+          "policy_hash",
           "audit_logged"
         ],
         "title": "GovernancePolicySnapshotResponse",
         "description": "Signed governance snapshot for audit and reproducibility."
+      },
+      "GovernancePostureResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "trusted_execution_mode": {
+            "type": "boolean",
+            "title": "Trusted Execution Mode"
+          },
+          "deny_native_execution": {
+            "type": "boolean",
+            "title": "Deny Native Execution"
+          },
+          "require_allow_reason": {
+            "type": "boolean",
+            "title": "Require Allow Reason"
+          },
+          "session_binding_enforced": {
+            "type": "boolean",
+            "title": "Session Binding Enforced"
+          },
+          "anti_bypass_enabled": {
+            "type": "boolean",
+            "title": "Anti Bypass Enabled"
+          },
+          "control_plane_ready": {
+            "type": "boolean",
+            "title": "Control Plane Ready"
+          },
+          "policy_integrity": {
+            "$ref": "#/components/schemas/GovernancePolicyIntegrityResponse"
+          },
+          "pending_approvals": {
+            "type": "integer",
+            "title": "Pending Approvals"
+          },
+          "active_exceptions": {
+            "type": "integer",
+            "title": "Active Exceptions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "agent_id",
+          "mode",
+          "enabled",
+          "trusted_execution_mode",
+          "deny_native_execution",
+          "require_allow_reason",
+          "session_binding_enforced",
+          "anti_bypass_enabled",
+          "control_plane_ready",
+          "policy_integrity",
+          "pending_approvals",
+          "active_exceptions"
+        ],
+        "title": "GovernancePostureResponse",
+        "description": "Machine-readable governance posture for control-plane consumers."
+      },
+      "GovernanceRegisterWorkspaceRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Workspace Id"
+          },
+          "workspace_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Workspace Name"
+          },
+          "agent_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Agent Id",
+            "default": "unknown"
+          },
+          "posture": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Posture"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "workspace_name"
+        ],
+        "title": "GovernanceRegisterWorkspaceRequest",
+        "description": "Request to register a workspace for multi-workspace aggregation."
+      },
+      "GovernanceSessionStatusResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "session_token": {
+            "type": "string",
+            "title": "Session Token"
+          },
+          "surfaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Surfaces"
+          },
+          "issued_at": {
+            "type": "number",
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "remaining_seconds": {
+            "type": "number",
+            "title": "Remaining Seconds"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "audit_chain_id": {
+            "type": "string",
+            "title": "Audit Chain Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "session_token",
+          "surfaces",
+          "issued_at",
+          "expires_at",
+          "remaining_seconds",
+          "agent_id",
+          "workspace_id",
+          "audit_chain_id"
+        ],
+        "title": "GovernanceSessionStatusResponse",
+        "description": "Status of a unified session token."
+      },
+      "GovernanceUnifiedSessionRequest": {
+        "properties": {
+          "surfaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Surfaces",
+            "description": "Surfaces to bind: ide, cli, ci, api"
+          },
+          "agent_id": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Agent Id",
+            "default": "unknown"
+          },
+          "workspace_id": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Workspace Id",
+            "default": ""
+          },
+          "ttl_minutes": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Ttl Minutes",
+            "default": 60
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "surfaces"
+        ],
+        "title": "GovernanceUnifiedSessionRequest",
+        "description": "Request to issue a unified cross-surface session token."
+      },
+      "GovernanceUnifiedSessionResponse": {
+        "properties": {
+          "session_token": {
+            "type": "string",
+            "title": "Session Token",
+            "description": "Unified cross-surface session token"
+          },
+          "surfaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Surfaces",
+            "description": "Surfaces bound to this token (ide, cli, ci, api)"
+          },
+          "issued_at": {
+            "type": "number",
+            "title": "Issued At",
+            "description": "Unix timestamp when token was issued"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At",
+            "description": "Unix timestamp when token expires"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "default": "unknown"
+          },
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id",
+            "default": ""
+          },
+          "audit_chain_id": {
+            "type": "string",
+            "title": "Audit Chain Id",
+            "description": "Stable chain ID linking all audit entries from this session"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_token",
+          "issued_at",
+          "expires_at",
+          "audit_chain_id"
+        ],
+        "title": "GovernanceUnifiedSessionResponse",
+        "description": "Unified session token that spans IDE, CLI, CI, and API surfaces."
+      },
+      "GovernanceWorkspaceAggregateResponse": {
+        "properties": {
+          "total_workspaces": {
+            "type": "integer",
+            "title": "Total Workspaces",
+            "default": 0
+          },
+          "healthy_count": {
+            "type": "integer",
+            "title": "Healthy Count",
+            "description": "Workspaces with zero drift",
+            "default": 0
+          },
+          "drifted_count": {
+            "type": "integer",
+            "title": "Drifted Count",
+            "description": "Workspaces with drift > 0",
+            "default": 0
+          },
+          "disabled_count": {
+            "type": "integer",
+            "title": "Disabled Count",
+            "description": "Workspaces with governance off",
+            "default": 0
+          },
+          "total_pending_approvals": {
+            "type": "integer",
+            "title": "Total Pending Approvals",
+            "default": 0
+          },
+          "total_active_exceptions": {
+            "type": "integer",
+            "title": "Total Active Exceptions",
+            "default": 0
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/GovernanceWorkspacePostureResponse"
+            },
+            "type": "array",
+            "title": "Workspaces"
+          }
+        },
+        "type": "object",
+        "title": "GovernanceWorkspaceAggregateResponse",
+        "description": "Aggregated multi-workspace governance overview."
+      },
+      "GovernanceWorkspacePostureResponse": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id",
+            "description": "Unique workspace identifier"
+          },
+          "workspace_name": {
+            "type": "string",
+            "title": "Workspace Name",
+            "description": "Human-readable workspace name"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "Last-seen agent ID",
+            "default": "unknown"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Governance engine enabled",
+            "default": false
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "description": "Governance mode",
+            "default": "audit"
+          },
+          "control_plane_ready": {
+            "type": "boolean",
+            "title": "Control Plane Ready",
+            "default": false
+          },
+          "policy_hash": {
+            "type": "string",
+            "title": "Policy Hash",
+            "description": "Current policy manifest hash",
+            "default": ""
+          },
+          "policy_verdict": {
+            "type": "string",
+            "title": "Policy Verdict",
+            "description": "Policy integrity verdict",
+            "default": "UNKNOWN"
+          },
+          "pending_approvals": {
+            "type": "integer",
+            "title": "Pending Approvals",
+            "default": 0
+          },
+          "active_exceptions": {
+            "type": "integer",
+            "title": "Active Exceptions",
+            "default": 0
+          },
+          "drift_count": {
+            "type": "integer",
+            "title": "Drift Count",
+            "description": "Number of drift violations",
+            "default": 0
+          },
+          "last_seen_at": {
+            "type": "number",
+            "title": "Last Seen At",
+            "description": "Unix timestamp of last telemetry",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "workspace_name"
+        ],
+        "title": "GovernanceWorkspacePostureResponse",
+        "description": "Posture summary for a single workspace in multi-workspace view."
       },
       "HTTPValidationError": {
         "properties": {

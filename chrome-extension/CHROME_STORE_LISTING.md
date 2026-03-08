@@ -8,7 +8,7 @@ CodeTrust — AI Code Governance
 
 ### Short Description (132 chars max)
 
-Scan code for AI hallucinations, security issues & unsafe patterns. 280 rules, 10 layers, live registry verification. Trust Score.
+Scan code for AI hallucinations, security issues & unsafe patterns. 286 rules, 10 layers, live registry verification. Trust Score.
 
 ### Detailed Description (16,000 chars max — optimized for Chrome Web Store SEO)
 
@@ -26,7 +26,7 @@ CodeTrust scans code blocks on GitHub, GitLab, Stack Overflow, and any code page
 
 **KEY FEATURES**
 
-- **280 Security Rules** across 10 enforcement layers
+- **286 Security Rules** across 10 enforcement layers
 - **16 Languages** — Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, C++, Shell, PowerShell, Terraform, HTML, SQL, YAML
 - **Live Registry Verification** — Checks imports against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist
 - **Trust Score** — Quantified code safety score with drift tracking

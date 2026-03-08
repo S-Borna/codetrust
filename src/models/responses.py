@@ -443,6 +443,137 @@ class GovernancePolicySnapshotResponse(BaseModel):
     audit_logged: bool
 
 
+class GovernancePolicySimulationOutcomeResponse(BaseModel):
+    """Single simulated governance decision for a command."""
+
+    model_config = ConfigDict(strict=True)
+
+    command: str
+    verdict: str
+    rule_id: str
+    message: str
+
+
+class GovernancePolicySimulationResponse(BaseModel):
+    """Simulation results for a policy bundle over sample commands."""
+
+    model_config = ConfigDict(strict=True)
+
+    bundle_id: str
+    outcomes: list[GovernancePolicySimulationOutcomeResponse]
+
+
+class GovernancePolicyIntegrityResponse(BaseModel):
+    """Policy integrity posture details."""
+
+    model_config = ConfigDict(strict=True)
+
+    verdict: str
+    rule_id: str
+    policy_hash: str
+
+
+class GovernancePostureResponse(BaseModel):
+    """Machine-readable governance posture for control-plane consumers."""
+
+    model_config = ConfigDict(strict=True)
+
+    session_id: str
+    agent_id: str
+    mode: str
+    enabled: bool
+    trusted_execution_mode: bool
+    deny_native_execution: bool
+    require_allow_reason: bool
+    session_binding_enforced: bool
+    anti_bypass_enabled: bool
+    control_plane_ready: bool
+    policy_integrity: GovernancePolicyIntegrityResponse
+    pending_approvals: int
+    active_exceptions: int
+
+
+class GovernancePendingApprovalResponse(BaseModel):
+    """A pending governance approval request."""
+
+    model_config = ConfigDict(strict=True)
+
+    request_id: str
+    rule_id: str
+    action_type: str
+    original_action: str
+    action_fingerprint: str
+    requested_at: float
+    expires_at: float
+    session_id: str
+    agent_id: str
+
+
+class GovernanceExceptionResponse(BaseModel):
+    """An active or revoked governance exception."""
+
+    model_config = ConfigDict(strict=True)
+
+    exception_id: str
+    rule_id: str
+    action_type: str
+    action_fingerprint: str
+    reason: str
+    approver: str
+    approver_role: str
+    created_at: float
+    expires_at: float
+    revoked_at: float
+    revoked_by: str
+    session_id: str
+    agent_id: str
+
+
+class GovernanceApproveResponse(BaseModel):
+    """Response after approving a governance action."""
+
+    model_config = ConfigDict(strict=True)
+
+    approved: bool
+    exception_id: str
+    expires_at: float
+
+
+class GovernanceAuditEntryResponse(BaseModel):
+    """A single governance audit log entry."""
+
+    model_config = ConfigDict(strict=True)
+
+    timestamp: float
+    action_type: str
+    verdict: str
+    rule_id: str
+    original_action: str
+    message: str
+    agent_id: str
+    session_id: str
+
+
+class GovernanceAuditStatsResponse(BaseModel):
+    """Statistics for governance audit entries."""
+
+    model_config = ConfigDict(strict=True)
+
+    total: int
+    by_verdict: dict[str, int]
+    by_action_type: dict[str, int]
+    top_rules: list[dict[str, object]]
+
+
+class GovernanceAuditResponse(BaseModel):
+    """Full governance audit response with entries and stats."""
+
+    model_config = ConfigDict(strict=True)
+
+    entries: list[GovernanceAuditEntryResponse]
+    stats: GovernanceAuditStatsResponse
+
+
 class UserProfileResponse(BaseModel):
     """User profile info for the dashboard."""
 

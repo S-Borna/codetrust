@@ -1,8 +1,8 @@
 # CODEBASE_KNOWLEDGE.md — CodeTrust Complete Codebase Reference
 
 > **Purpose:** Bootstrap any new AI agent session with total knowledge of the CodeTrust codebase.
-> **Generated:** 2026-02-21
-> **Version:** v2.7.0
+> **Generated:** 2026-03-08
+> **Version:** v2.8.0
 > **Owner:** Said Borna <said@saidborna.com>
 > **Scope:** Every file, function, class, constant, endpoint, rule, and interconnection.
 
@@ -877,9 +877,9 @@ Class `SARIFFormatter`:
 
 Package marker.
 
-#### src/gateway/server.py (~480 lines)
+#### src/gateway/server.py (~980 lines)
 
-**MCP Gateway Server** via FastMCP. 11 proxy tools:
+**MCP Gateway Server** via FastMCP. 17 gateway tools:
 
 **Interception tools (4):**
 
@@ -894,10 +894,16 @@ Package marker.
 7. **`replace_string_in_file`** — Proxy for native `replace_string_in_file`. Validates new content.
 8. **`edit_notebook`** — Proxy for native `edit_notebook_file`.
 
-**Utility tools (3):**
+**Utility tools (9):**
 9. **`governance_status`** — Show active governance config from `.codetrust.toml`.
-10. **`list_gateway_rules`** — List all 76 gateway interception rules.
+10. **`list_gateway_rules`** — List all 82 gateway interception rules.
 11. **`audit_history`** — Query `.codetrust/audit.jsonl` by hours/verdict/limit.
+12. **`begin_trusted_session`** — Issue trusted execution session token.
+13. **`approve_action`** — Approve high-risk action with approver role metadata.
+14. **`list_exceptions`** — List active time-bound exceptions.
+15. **`revoke_exception`** — Revoke exception by ID with actor tracking.
+16. **`simulate_policy`** — Simulate bundle policies across candidate commands.
+17. **`governance_posture`** — Snapshot control-plane posture and enforcement readiness.
 
 **Configuration:** Reads `.codetrust.toml` for mode (enforce/audit/off), custom blocked commands, protected paths.
 
@@ -912,7 +918,7 @@ Class `CommandInterceptor`:
 - `check_package(name: str, registry: str) -> GatewayResult` — evaluate package install
 - `check_delete(path: str) -> GatewayResult` — evaluate file deletion
 
-**76 Gateway Rules:**
+**82 Gateway Rules:**
 
 **Terminal command patterns (~50):**
 
@@ -1078,7 +1084,7 @@ These are written by `codetrust setup` CLI command and by the VS Code extension'
 
 ## 5. TESTS — tests/
 
-**64 test files, ~22,300 lines, ~1,200+ test functions, 1,898 tests collected by pytest.**
+**68+ test files, ~24,000+ lines, ~1,300+ test functions, 1,937 tests collected by pytest.**
 
 ### Test Configuration
 
@@ -1799,6 +1805,7 @@ User → /v1/billing/checkout → src/services/billing.py
 | v2.6.0 | AI Governance Gateway (76 rules), MCP proxy tools, Guardian |
 | v2.6.1 | Signature engine (209 functions), 17 autofix recipes, demo |
 | v2.7.0 | Signature hardening, autofix fixes, JWT/WebSocket/OIDC/CORS security, 1,898 tests, 280 rules, 46 endpoints, 21 MCP tools |
+| v2.8.0 | Ultimate governance sprint, trusted sessions/approvals/exceptions/simulation/posture, multi-workspace + unified session-token, MCP auto-injection hardening, 1,937 tests, 286 rules, 60 endpoints, 27 MCP tools |
 
 ---
 

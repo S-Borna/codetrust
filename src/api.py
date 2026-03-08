@@ -112,6 +112,7 @@ from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
 from src.services.governance_bundles import get_bundle_policy
 from src.services.license_checker import LicenseScanResponse
+from src.services.license_guard import LicenseStatus, validate_license
 from src.services.rate_limiter import RateLimiter
 from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
@@ -419,8 +420,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         import sys
         sys.exit(1)
-
-    from src.services.license_guard import validate_license, LicenseStatus
 
     # The API server IS the license server — it should not validate
     # against itself (circular dependency). Use license_key for client

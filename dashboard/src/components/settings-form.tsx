@@ -127,7 +127,6 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                 {error && (
                     <p className="mt-3 text-sm text-red-500">{error}</p>
                 )}
-                </div>
             </div>
 
             {/* Danger zone */}

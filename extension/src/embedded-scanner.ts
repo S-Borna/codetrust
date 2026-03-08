@@ -510,7 +510,7 @@ const RUBY_BLOCK_RULES: Rule[] = [
     },
     {
         id: "ruby_eval",
-        pattern: /\b(?:eval|class_eval|module_eval|instance_eval)\s*[\(\{]/,
+        pattern: /\b(?:eval|class_eval|module_eval|instance_eval)\s*[({]/,
         message: "Dynamic code evaluation in Ruby. Avoid eval — use safe alternatives.",
         severity: "BLOCK",
         fileTypes: [".rb"],

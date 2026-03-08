@@ -1,61 +1,57 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { governanceClient } from "@/lib/api";
 import { GovernanceAuditView } from "@/components/governance-audit";
+import { GovernanceLive } from "@/components/governance-live";
 
 /**
- * Governance page — displays audit log from .codetrust/audit.jsonl.
+ * Governance page — live dashboard with posture, drift alerts,
+ * audit log, and exception/approval management.
  *
- * In production, this would fetch from the API. For now, it shows
- * the structure with placeholder data. The actual data comes from
- * the gateway MCP server's audit_history tool or the CLI's
- * `codetrust audit` command.
+ * Server component fetches initial data; interactive parts are
+ * delegated to GovernanceLive (client component).
  */
-export default function GovernancePage() {
-    // Placeholder data — in production, fetch from /v1/governance/audit
-    const placeholderEntries = [
-        {
-            timestamp: Date.now() / 1000,
-            action_type: "terminal_command",
-            verdict: "BLOCK",
-            rule_id: "gateway_heredoc",
-            original_action: "cat << EOF > README.md",
-            message: "Heredoc detected in terminal command.",
-            agent_id: "claude",
-            session_id: "gateway-1739500000",
-        },
-        {
-            timestamp: Date.now() / 1000 - 60,
-            action_type: "terminal_command",
-            verdict: "ALLOW",
-            rule_id: "",
-            original_action: "pytest tests/ -v",
-            message: "",
-            agent_id: "copilot",
-            session_id: "gateway-1739500000",
-        },
-    ];
+export default async function GovernancePage() {
+    const session = await getServerSession(authOptions);
+    const apiKey = session?.user?.apiKey || "";
 
-    const placeholderStats = {
-        total: 2,
-        by_verdict: { BLOCK: 1, ALLOW: 1 },
-        by_action_type: { terminal_command: 2 },
-        top_rules: [{ rule_id: "gateway_heredoc", count: 1 }],
-    };
+    const [audit, posture, approvals, exceptions] = await Promise.all([
+        governanceClient.getAudit(apiKey),
+        governanceClient.getPosture(apiKey),
+        governanceClient.listApprovals(apiKey),
+        governanceClient.listExceptions(apiKey),
+    ]);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                     Governance
                 </h1>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    AI agent action audit log — every terminal command, file write,
-                    and package install is logged and validated.
+                    AI agent governance — posture, drift detection, audit log,
+                    and exception management.
                 </p>
             </div>
 
-            <GovernanceAuditView
-                entries={placeholderEntries}
-                stats={placeholderStats}
+            {/* Live interactive section: posture, drift, exceptions */}
+            <GovernanceLive
+                initialPosture={posture}
+                initialApprovals={approvals}
+                initialExceptions={exceptions}
+                apiKey={apiKey}
             />
+
+            {/* Audit log (display-only) */}
+            <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Audit Log
+                </h2>
+                <GovernanceAuditView
+                    entries={audit.entries}
+                    stats={audit.stats}
+                />
+            </div>
 
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">

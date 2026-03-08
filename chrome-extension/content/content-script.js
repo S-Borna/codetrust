@@ -35,6 +35,8 @@ const CODE_SELECTORS = [
     ".markdown-body pre",
 ];
 
+const OVERLAY_AUTO_CLOSE_MS = 30000;
+
 /**
  * Detect the programming language of a code block.
  * @param {string} code
@@ -89,7 +91,9 @@ function extractCodeBlocks() {
  * @returns {{selection: string, language: string} | null}
  */
 function getSelectedText() {
-    const selection = window.getSelection()?.toString()?.trim();
+    const rawSelection = window.getSelection();
+    const selectionText = rawSelection ? rawSelection.toString() : "";
+    const selection = selectionText.trim();
     if (!selection || selection.length < 5) {
         return null;
     }
@@ -163,7 +167,7 @@ function showResultsOverlay(findings, trustScore) {
 
     setTimeout(() => {
         overlay.remove();
-    }, 30000);
+    }, OVERLAY_AUTO_CLOSE_MS);
 }
 
 /**

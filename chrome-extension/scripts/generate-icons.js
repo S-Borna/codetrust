@@ -21,7 +21,7 @@ function generateIcons() {
 
     if (!fs.existsSync(SOURCE_ICON)) {
         console.error("Source icon not found:", SOURCE_ICON);
-        console.log("Please place icon.png in extension/images/");
+        process.stdout.write("Please place icon.png in extension/images/\n");
         process.exit(1);
     }
 
@@ -30,11 +30,11 @@ function generateIcons() {
     for (const size of SIZES) {
         const targetPath = path.join(ICON_DIR, "icon-" + size + ".png");
         fs.writeFileSync(targetPath, iconBuffer);
-        console.log("Created:", targetPath, "(" + size + "x" + size + ")");
+        process.stdout.write("Created: " + targetPath + " (" + size + "x" + size + ")\n");
     }
 
-    console.log("\nDone! For production, resize icons properly using:");
-    console.log("  npx sharp-cli resize " + SIZES.join(" ") + " --input " + SOURCE_ICON);
+    process.stdout.write("\nDone! For production, resize icons properly using:\n");
+    process.stdout.write("  npx sharp-cli resize " + SIZES.join(" ") + " --input " + SOURCE_ICON + "\n");
 }
 
 generateIcons();

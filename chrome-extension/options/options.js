@@ -1,6 +1,7 @@
 // Copyright (c) Said Borna. All rights reserved.
 
 const DEFAULT_API_URL = "https://api.codetrust.ai";
+const SAVED_INDICATOR_TIMEOUT_MS = 2000;
 
 document.addEventListener("DOMContentLoaded", () => {
     const apiKeyInput = document.getElementById("api-key");
@@ -42,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 savedIndicator.classList.add("ct-saved--visible");
                 setTimeout(() => {
                     savedIndicator.classList.remove("ct-saved--visible");
-                }, 2000);
+                }, SAVED_INDICATOR_TIMEOUT_MS);
             }
         );
     });

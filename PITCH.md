@@ -6,11 +6,11 @@
 
 ## Elevator Pitch (10 sekunder)
 
-> **"CodeTrust är en AI code safety platform med tre moats ingen konkurrent har: en gateway som blockerar destruktiva AI-agentkommandon i realtid, live-verifiering av imports mot PyPI/npm som fångar hallucinerade paket, och ett AI Trust Score som spårar kodsäkerhet över tid. 286 regler. 1937 tester. Fungerar offline."****
+> **"CodeTrust är en AI Governance Enforcement Platform: vi styr vad AI-agenter får göra, verifierar att AI-koden matchar verkligheten, och blockerar osäkra förändringar före merge. 286 regler, 27 MCP-verktyg, 1,937 tester. Fungerar i praktiken som ett governance-lager ovanpå SonarQube/Snyk/Semgrep — gratis att börja med."**
 
 ---
 
-## De Tre Moats — Varför CodeTrust inte kan kopieras
+## De Fyra Moats — Varför CodeTrust inte kan kopieras
 
 ### Moat 1: AI Governance Gateway (82 regler)
 
@@ -54,6 +54,14 @@ Ingen annan tool gör detta. SonarQube, Snyk, Semgrep, Ruff — ingen av dem ver
 - Delta-tracking: visar förbättring/försämring mellan körningar
 - Trendanalys: improving/degrading/stable
 
+### Moat 4: Universal IDE Injection + Governance Resilience
+
+**Vad det gör:** injicerar governance-regler globalt i AI-IDE-miljöer (Claude Code, Cursor, Windsurf, GitHub Copilot) och återställer när konfigurationer skrivs över.
+
+- Auto-injection av MCP-konfigurationer
+- Aktiv disruption-detektering + re-injection
+- Session-nära governance i vardagsflödet, inte bara i CI
+
 ---
 
 ## Problemet ($47 miljarder marknadsanledning)
@@ -70,7 +78,7 @@ Ingen annan tool gör detta. SonarQube, Snyk, Semgrep, Ruff — ingen av dem ver
 | **Inbäddade hemligheter** — AI klistrar in `api_key = "sk-live-abc..."` | Exponeras på GitHub inom sekunder | #1 orsak till credential leaks |
 | **Okontrollerad koddrift** — AI-genererad kod försämras gradvis utan mätvärden | Teknisk skuld ackumuleras osynligt | Ingen mäter det idag |
 
-### Befintliga verktyg missar allt nytt
+### Befintliga verktyg missar governance-lagret
 
 | Verktyg | Vad det gör | Tre saker det INTE gör |
 |---|---|---|
@@ -79,7 +87,7 @@ Ingen annan tool gör detta. SonarQube, Snyk, Semgrep, Ruff — ingen av dem ver
 | **Semgrep** | Cross-file dataflödes | ❌ Blockerar inte AI-agenter ❌ Ingen import-verifiering ❌ Inget trust score |
 | **Ruff/ESLint** | Kodstil, formatering | ❌ Blockerar inte AI-agenter ❌ Ingen registry-check ❌ Inget trust score |
 
-**Ingen av dem har någon av våra tre moats.**
+**Ingen av dem levererar hela governance-lagret för AI-agentflöden.**
 
 ---
 

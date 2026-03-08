@@ -21,12 +21,12 @@
 
 ## 1. Vad är CodeTrust?
 
-CodeTrust är en **AI-kodverifieringsplattform** som upptäcker hallucinerade paket, trasiga konfigurationer, säkerhetsproblem och kodantipatterns — innan de når produktion.
+CodeTrust är en **AI Governance Enforcement Platform** som styr AI-agenters handlingar, verifierar AI-genererad kod mot verkligheten och blockerar osäkra förändringar innan de når produktion.
 
-Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot, Cursor) skriver stora delar av koden. Befintliga kod-kvalitetsverktyg utgår från att en människa skriver koden. CodeTrust utgår från att **du inte kan lita på koden förrän den är verifierad**.
+Den är byggd för verkligheten där AI (Claude, GPT, Copilot, Cursor) skriver stora delar av koden. Befintliga verktyg är starka på traditionell kodkvalitet och CVE, men täcker inte hela governance-behovet för agentbaserat arbete. CodeTrust utgår från att **AI-kod måste styras och verifieras innan den får passera**.
 
 **En mening:**
-> CodeTrust verifierar att det AI skriver faktiskt fungerar, är säkert, och inte innehåller påhittade paket.
+> CodeTrust är governance-lagret för AI-utveckling: kontrollera agenthandlingar, verifiera kod mot verkligheten, och enforce:a policy i IDE + commit + CI.
 
 ---
 
@@ -51,7 +51,7 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 
 ---
 
-## 3. Vad CodeTrust gör — 9 verifieringslager
+## 3. Vad CodeTrust gör — 10 enforcementlager
 
 ### Layer 01: Statisk analys (204 scan-regler)
 
@@ -126,6 +126,12 @@ Den är byggd specifikt för den nya verkligheten där AI (Claude, GPT, Copilot,
 - **VS Code-extension** — diagnostik i editorn, scan-on-save, offline-fallback
 - **Pre-commit hook** — blockerar commits med BLOCK-findings
 - **GitHub Action** — blockerar pull requests. Enbart PASS-resultat tillåter merge
+
+### Layer 10: AI Governance Gateway (82 regler)
+
+- Interceptar terminalkommandon, filskrivningar, paketinstallationer och filraderingar före exekvering.
+- Enforce-mode för blockerande policy, audit-mode för observerbarhet utan block.
+- Trusted sessions, approvals/exceptions, policy-simulering och governance posture för styrning i drift.
 
 ---
 

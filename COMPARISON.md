@@ -6,7 +6,9 @@
 
 ## Positionering
 
-CodeTrust **ersätter inte** SonarQube, Snyk eller Semgrep. Det **kompletterar** dem genom att täcka ett gap ingen annan adresserar: **verifiering av AI-genererad kod mot verkligheten**.
+CodeTrust **ersätter inte** SonarQube, Snyk eller Semgrep i deras kärndomäner. Det **kompletterar** dem med ett saknat lager: **AI governance + verklighetsverifiering av AI-genererad kod**.
+
+Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och lägg CodeTrust ovanpå som ett governance control-plane för AI-agentflöden.
 
 ---
 
@@ -137,6 +139,12 @@ With CodeTrust added:
 ---
 
 ## Sammanfattning
+
+### Strategisk slutsats
+
+- Om du redan betalar för Sonar/Snyk/Semgrep: CodeTrust ökar täckningen där de fortfarande saknar AI-governance.
+- Om du startar från noll: CodeTrust ger en snabb, gratis governance-bas med tydlig enforcement i IDE + commit + CI.
+- Om du vill vinna internt: positionera CodeTrust som riskreduktion + kontrollbarhet, inte bara ännu en scanner.
 
 | Fråga | Svar |
 |---|---|

@@ -1,6 +1,6 @@
 "use client";
 
-import { apiClient } from "@/lib/api";
+import { useState } from "react";
 
 interface UserInfo {
     name?: string | null;
@@ -11,18 +11,49 @@ interface UserInfo {
 
 export function SettingsForm({ user }: { user?: UserInfo | null }) {
     const plan = user?.plan || "free";
+    const [upgrading, setUpgrading] = useState(false);
+    const [error, setError] = useState("");
 
     async function handleUpgrade() {
-        const url = await apiClient.createCheckout("", "pro");
-        if (url) {
-            window.location.href = url;
+        setUpgrading(true);
+        setError("");
+        try {
+            const res = await fetch("/api/billing/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: "pro" }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || "Failed to create checkout session");
+                return;
+            }
+            if (data.url) {
+                window.location.href = data.url;
+            }
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setUpgrading(false);
         }
     }
 
     async function handleManageBilling() {
-        const url = await apiClient.createPortal("");
-        if (url) {
-            window.location.href = url;
+        setError("");
+        try {
+            const res = await fetch("/api/billing/portal", {
+                method: "POST",
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || "Failed to open billing portal");
+                return;
+            }
+            if (data.url) {
+                window.location.href = data.url;
+            }
+        } catch {
+            setError("Something went wrong. Please try again.");
         }
     }
 
@@ -78,9 +109,10 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                         {plan === "free" ? (
                             <button
                                 onClick={handleUpgrade}
-                                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition"
+                                disabled={upgrading}
+                                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Upgrade to Pro
+                                {upgrading ? "Redirecting…" : "Upgrade to Pro"}
                             </button>
                         ) : (
                             <button
@@ -91,6 +123,10 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                             </button>
                         )}
                     </div>
+                </div>
+                {error && (
+                    <p className="mt-3 text-sm text-red-500">{error}</p>
+                )}
                 </div>
             </div>
 

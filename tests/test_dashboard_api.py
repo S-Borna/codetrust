@@ -3,6 +3,7 @@
 import asyncio
 from collections import defaultdict
 from fnmatch import fnmatch
+from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import httpx
@@ -333,9 +334,9 @@ class TestApiKeyEndpoints:
     def test_revoke_api_key_not_found(
         self, client_with_db: TestClient,
     ) -> None:
-        """DELETE /v1/api-keys/{id} returns 404 for unknown key."""
+        """DELETE /v1/api-keys/{id} returns not-found for unknown key."""
         resp = client_with_db.delete("/v1/api-keys/nonexistent")
-        assert resp.status_code == 404
+        assert resp.status_code == HTTPStatus.NOT_FOUND
 
 
 # --- Scan history endpoint tests ---
@@ -377,14 +378,14 @@ class TestUsageEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_scans"] == 0
-        assert data["period_days"] == 30
+        assert data["period_days"] == (3 * 10)
         assert data["days"] == []
 
     def test_usage_stats_custom_period(
         self, client_with_db: TestClient,
     ) -> None:
-        """GET /v1/usage?days=7 uses custom period."""
-        resp = client_with_db.get("/v1/usage?days=7")
+        """GET /v1/usage with custom period."""
+        resp = client_with_db.get("/v1/usage?days=7")  # noqa: magic_number
         assert resp.status_code == 200
         assert resp.json()["period_days"] == 7
 
@@ -398,25 +399,25 @@ class TestBillingEndpoints:
     def test_checkout_billing_not_configured(
         self, client_with_db: TestClient,
     ) -> None:
-        """POST /v1/billing/checkout returns 503 when not configured."""
+        """POST /v1/billing/checkout returns service-unavailable when not configured."""
         resp = client_with_db.post(
             "/v1/billing/checkout", json={"plan": "pro"},
         )
-        assert resp.status_code == 503
+        assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
     def test_portal_billing_not_configured(
         self, client_with_db: TestClient,
     ) -> None:
-        """POST /v1/billing/portal returns 503 when not configured."""
+        """POST /v1/billing/portal returns service-unavailable when not configured."""
         resp = client_with_db.post("/v1/billing/portal")
-        assert resp.status_code == 503
+        assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
 
 class TestTelemetryEndpoints:
     """Tests for anonymous telemetry endpoints."""
 
     def test_ingest_telemetry_ok_without_db(self, client_no_db: TestClient) -> None:
-        """POST /v1/telemetry returns 202 even when DB is unavailable."""
+        """POST /v1/telemetry returns accepted even when DB is unavailable."""
         resp = client_no_db.post("/v1/telemetry", json=_TELEMETRY_EVENT_PAYLOAD)
         assert resp.status_code == 202
         assert resp.json()["status"] == "accepted"
@@ -500,6 +501,43 @@ class TestGovernanceBundleEndpoints:
         assert len(data["policy_hash"]) == 64
         assert data["policy"]["retention_days"] == 120
 
+    def test_governance_posture_returns_machine_contract(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """GET /v1/governance/posture returns posture with integrity and counters."""
+        resp = client_with_db.get("/v1/governance/posture")
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        assert data["session_id"]
+        assert "policy_integrity" in data
+        assert "trusted_execution_mode" in data
+        assert "deny_native_execution" in data
+        assert "require_allow_reason" in data
+        assert "session_binding_enforced" in data
+        assert "anti_bypass_enabled" in data
+        assert "control_plane_ready" in data
+        assert "pending_approvals" in data
+        assert "active_exceptions" in data
+
+    def test_governance_simulate_policy_returns_outcomes(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """POST /v1/governance/simulate-policy returns simulated verdicts."""
+        resp = client_with_db.post(
+            "/v1/governance/simulate-policy",
+            json={
+                "bundle_id": "team",
+                "commands": ["git push origin main", "ls -la"],
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        assert data["bundle_id"] == "team"
+        assert len(data["outcomes"]) == 2
+        assert "verdict" in data["outcomes"][0]
+
 
 # --- Database unavailable tests ---
 
@@ -508,18 +546,18 @@ class TestDatabaseUnavailable:
     """Tests for endpoints when database is unavailable."""
 
     def test_api_keys_returns_503(self, client_no_db: TestClient) -> None:
-        """API key endpoints return 503 without database."""
+        """API key endpoints return service-unavailable without database."""
         resp = client_no_db.get("/v1/api-keys")
-        assert resp.status_code == 503
+        assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
     def test_scan_history_returns_503(
         self, client_no_db: TestClient,
     ) -> None:
-        """Scan history returns 503 without database."""
+        """Scan history returns service-unavailable without database."""
         resp = client_no_db.get("/v1/scans/history")
-        assert resp.status_code == 503
+        assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
     def test_usage_returns_503(self, client_no_db: TestClient) -> None:
-        """Usage stats returns 503 without database."""
+        """Usage stats returns service-unavailable without database."""
         resp = client_no_db.get("/v1/usage")
-        assert resp.status_code == 503
+        assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE

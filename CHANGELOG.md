@@ -7,13 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Release preparation placeholder.
-
 ---
 
-## [2.8.0] - 2026-03-07
+## [2.8.0] - 2026-03-08
+
+### Added — Ultimate Governance Sprint
+
+#### Multi-Workspace Aggregation
+
+- **`src/services/workspace_registry.py`** — In-memory workspace posture registry
+  with register/unregister/aggregate across multiple workspaces.
+- 3 new API endpoints: `GET/POST /v1/governance/workspaces`,
+  `DELETE /v1/governance/workspaces/{workspace_id}`.
+- **`dashboard/src/components/multi-workspace-view.tsx`** — Bird's-eye dashboard
+  with aggregate health bar (healthy/drifted/disabled), summary counters,
+  and workspace table with drift/policy/pending indicators.
+
+#### Unified Session Token
+
+- **`src/services/unified_session.py`** — Cross-surface session tokens spanning
+  IDE, CLI, CI, and API. SHA-256 audit chain IDs for traceability.
+- 3 new API endpoints: `POST/GET/DELETE /v1/governance/session-token`.
+
+#### Governance Dashboard (Live)
+
+- **Governance posture component** with live status indicators (mode, control
+  plane, policy hash, agent identity).
+- **Drift alerts component** displaying real-time policy drift with
+  severity-colored indicators and timestamps.
+- **Exception management UI** with approve/revoke workflow for pending
+  approvals and active exceptions.
+- **Governance audit log** viewer with session/agent/action columns.
+- Dashboard API client wired to all governance endpoints (audit, posture,
+  approvals, exceptions, workspaces, simulation).
+
+#### Governance Engine (Backend)
+
+- **Runtime attestation** for governance actions — cryptographic proof of
+  action execution via `src/gateway/attestation.py`.
+- **Policy integrity protection** — tamper detection for gateway policy files
+  via `src/gateway/policies.py`.
+- **Governance approvals/exceptions REST endpoints** with typed Pydantic models.
+- **Governance API client methods** (audit, posture, approvals, exceptions,
+  simulate).
+- Trusted execution mode with tokenized trusted-session gate in Gateway.
+- Approval workflow for high-risk rules (`REQUIRES_APPROVAL`).
+- Time-bound governance exceptions with list/revoke/match flow.
+- Policy simulator and governance posture surfaces.
 
 ### Added — MCP Auto-Injection (Critical bugfix + new feature)
 
@@ -86,6 +126,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copy consistency, and sitemap URL correctness.
 - **IDE configuration UX polish** in extension messaging (icon and status copy
   corrections) to reduce ambiguity during setup.
+
+### Verified
+
+- Backend tests: 1,937 pass, 0 fail.
+- Dashboard tests: 54 pass.
+- `ruff check src/ tests/`: pass (0 errors).
+- API endpoints: 60. MCP tools: 21. Total rules: 284.
 
 ---
 

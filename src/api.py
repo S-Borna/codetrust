@@ -28,7 +28,11 @@ from starlette.websockets import WebSocketDisconnect
 
 from src.config import settings
 from src.formatters.sarif import deep_scan_to_sarif, static_scan_to_sarif
+from src.gateway.approvals import ApprovalExceptionStore
 from src.gateway.audit import AuditEntry
+from src.gateway.interceptor import CommandInterceptor
+from src.gateway.policies import PolicyEngine
+from src.gateway.policy_integrity import get_policy_manifest_hash, verify_policy_integrity
 from src.middleware.ip_rate_limit import IPRateLimitMiddleware
 from src.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from src.middleware.version_check import VersionEnforcementMiddleware
@@ -43,6 +47,8 @@ from src.models.requests import (
     CrossFileScanRequest,
     DeepScanRequest,
     GithubAuthRequest,
+    GovernanceApproveRequest,
+    GovernancePolicySimulationRequest,
     GovernancePolicySnapshotRequest,
     LicenseScanRequest,
     OIDCCallbackRequest,
@@ -62,8 +68,17 @@ from src.models.responses import (
     AstScanResponse,
     DeepScanResponse,
     Finding,
+    GovernanceApproveResponse,
+    GovernanceAuditEntryResponse,
+    GovernanceAuditResponse,
+    GovernanceAuditStatsResponse,
+    GovernanceExceptionResponse,
+    GovernancePendingApprovalResponse,
     GovernancePolicyBundleResponse,
+    GovernancePolicySimulationOutcomeResponse,
+    GovernancePolicySimulationResponse,
     GovernancePolicySnapshotResponse,
+    GovernancePostureResponse,
     HealthResponse,
     PublicStatsResponse,
     RevokeResponse,
@@ -89,6 +104,7 @@ from src.services.billing import PLAN_LIMITS, BillingService
 from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
+from src.services.governance_bundles import get_bundle_policy
 from src.services.license_checker import LicenseScanResponse
 from src.services.rate_limiter import RateLimiter
 from src.services.registry import RegistryService
@@ -124,6 +140,26 @@ def _resolve_attestation_session_id(request: Request) -> str:
     if header_value:
         return header_value[:128]
     return f"api-{int(time.time() * 1000)}"
+
+
+def _disabled_rules_from_bundle(policy: dict[str, object]) -> set[str]:
+    """Translate bundle policy booleans into disabled gateway rules."""
+    disabled_rules: set[str] = set()
+    if not bool(policy.get("block_heredoc", True)):
+        disabled_rules.add("gateway_heredoc")
+    if not bool(policy.get("block_eval", True)):
+        disabled_rules.add("gateway_eval")
+    if not bool(policy.get("block_git_push", True)):
+        disabled_rules.add("gateway_git_push")
+        disabled_rules.add("gateway_git_force_push")
+    if not bool(policy.get("block_rm_rf", True)):
+        disabled_rules.add("gateway_rm_rf_root")
+        disabled_rules.add("gateway_rm_rf_home")
+    if not bool(policy.get("block_curl_pipe_sh", True)):
+        disabled_rules.add("gateway_curl_pipe_sh")
+    if not bool(policy.get("block_chmod_777", True)):
+        disabled_rules.add("gateway_chmod_777")
+    return disabled_rules
 
 # --- Auth Context ---
 
@@ -1205,13 +1241,13 @@ def _format_audit_entries(entries: list[AuditEntry]) -> list[dict[str, object]]:
     ]
 
 
-@app.get("/v1/governance/audit")
+@app.get("/v1/governance/audit", response_model=GovernanceAuditResponse)
 async def governance_audit(
     hours: int = 24,
     verdict: str | None = None,
     limit: int = 100,
     auth: AuthContext = Depends(get_auth_context),
-) -> dict:
+) -> GovernanceAuditResponse:
     """Query the governance audit log.
 
     Returns recent audit entries and aggregate statistics.
@@ -1223,7 +1259,7 @@ async def governance_audit(
         limit: Maximum entries to return (default: 100).
 
     Returns:
-        Dict with entries list and stats summary.
+        Typed response with entries list and stats summary.
     """
     from src.gateway.audit import AuditLogger
 
@@ -1236,12 +1272,29 @@ async def governance_audit(
         verdict=verdict,
         limit=limit,
     )
-    stats = logger_instance.get_stats()
+    raw_stats = logger_instance.get_stats()
 
-    return {
-        "entries": _format_audit_entries(entries),
-        "stats": stats,
-    }
+    typed_entries = [
+        GovernanceAuditEntryResponse(
+            timestamp=e.timestamp,
+            action_type=e.action_type,
+            verdict=e.verdict,
+            rule_id=e.rule_id,
+            original_action=e.original_action,
+            message=e.message,
+            agent_id=e.agent_id,
+            session_id=e.session_id,
+        )
+        for e in entries
+    ]
+    typed_stats = GovernanceAuditStatsResponse(
+        total=int(raw_stats.get("total", 0)),
+        by_verdict=dict(raw_stats.get("by_verdict", {})),
+        by_action_type=dict(raw_stats.get("by_action_type", {})),
+        top_rules=list(raw_stats.get("top_rules", [])),
+    )
+
+    return GovernanceAuditResponse(entries=typed_entries, stats=typed_stats)
 
 
 @app.post("/v1/verify/imports", response_model=VerifyImportsResponse)
@@ -2642,6 +2695,201 @@ async def governance_policy_snapshot(
         policy_hash=str(snapshot["policy_hash"]),
         audit_logged=True,
     )
+
+
+@app.get(
+    "/v1/governance/posture",
+    response_model=GovernancePostureResponse,
+)
+async def governance_posture(
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernancePostureResponse:
+    """Return governance posture for control-plane and compliance checks."""
+    workspace = str(os.getcwd())
+    engine = PolicyEngine.from_workspace(workspace)
+    secret = settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
+    integrity = verify_policy_integrity(workspace, sign_key=secret)
+    approval_store = ApprovalExceptionStore(
+        workspace,
+        approval_ttl_minutes=engine.config.approval_ttl_minutes,
+        exception_ttl_minutes=engine.config.exception_ttl_minutes,
+    )
+
+    return GovernancePostureResponse(
+        session_id=f"api-{int(time.time() * 1000)}",
+        agent_id=auth.user_id,
+        mode=engine.config.mode.value,
+        enabled=engine.config.enabled,
+        trusted_execution_mode=engine.config.trusted_execution_mode,
+        deny_native_execution=engine.config.deny_native_execution,
+        require_allow_reason=engine.config.require_allow_reason,
+        session_binding_enforced=engine.config.session_binding_required,
+        anti_bypass_enabled=engine.config.anti_bypass_checks,
+        control_plane_ready=(
+            engine.config.enabled
+            and engine.config.trusted_execution_mode
+            and engine.config.deny_native_execution
+            and engine.config.require_allow_reason
+            and engine.config.session_binding_required
+            and engine.config.anti_bypass_checks
+        ),
+        policy_integrity={
+            "verdict": integrity.verdict,
+            "rule_id": integrity.rule_id,
+            "policy_hash": get_policy_manifest_hash(workspace),
+        },
+        pending_approvals=len(approval_store.list_pending()),
+        active_exceptions=len(approval_store.list_active_exceptions()),
+    )
+
+
+@app.post(
+    "/v1/governance/simulate-policy",
+    response_model=GovernancePolicySimulationResponse,
+)
+async def governance_simulate_policy(
+    req: GovernancePolicySimulationRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernancePolicySimulationResponse:
+    """Simulate command verdicts for a governance policy bundle."""
+    del auth
+    policy = get_bundle_policy(req.bundle_id)
+    simulator = CommandInterceptor(
+        enabled=True,
+        disabled_rules=_disabled_rules_from_bundle(policy),
+        protected_paths=list(policy.get("protected_paths", [])),
+    )
+
+    outcomes: list[GovernancePolicySimulationOutcomeResponse] = []
+    for command in req.commands:
+        result = simulator.check_terminal(command)
+        outcomes.append(GovernancePolicySimulationOutcomeResponse(
+            command=command,
+            verdict=result.verdict.value,
+            rule_id=result.rule_id,
+            message=result.message,
+        ))
+
+    return GovernancePolicySimulationResponse(bundle_id=req.bundle_id, outcomes=outcomes)
+
+
+# --- Governance: Approvals & Exceptions ---
+
+
+def _get_approval_store() -> ApprovalExceptionStore:
+    """Build ApprovalExceptionStore from workspace policy engine."""
+    workspace = str(os.getcwd())
+    engine = PolicyEngine.from_workspace(workspace)
+    return ApprovalExceptionStore(
+        workspace,
+        approval_ttl_minutes=engine.config.approval_ttl_minutes,
+        exception_ttl_minutes=engine.config.exception_ttl_minutes,
+    )
+
+
+@app.get(
+    "/v1/governance/approvals",
+    response_model=list[GovernancePendingApprovalResponse],
+)
+async def governance_list_approvals(
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[GovernancePendingApprovalResponse]:
+    """List all pending governance approval requests."""
+    del auth
+    store = _get_approval_store()
+    pending = store.list_pending()
+    return [
+        GovernancePendingApprovalResponse(
+            request_id=p.request_id,
+            rule_id=p.rule_id,
+            action_type=p.action_type,
+            original_action=p.original_action,
+            action_fingerprint=p.action_fingerprint,
+            requested_at=p.requested_at,
+            expires_at=p.expires_at,
+            session_id=p.session_id,
+            agent_id=p.agent_id,
+        )
+        for p in pending
+    ]
+
+
+@app.post(
+    "/v1/governance/approvals/{request_id}/approve",
+    response_model=GovernanceApproveResponse,
+)
+async def governance_approve_action(
+    request_id: str,
+    req: GovernanceApproveRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernanceApproveResponse:
+    """Approve a pending governance action and create a time-bound exception."""
+    del auth
+    store = _get_approval_store()
+    exception = store.approve(
+        request_id,
+        approver=req.approver,
+        approver_role=req.approver_role,
+        reason=req.reason,
+        ttl_minutes=req.ttl_minutes,
+    )
+    if exception is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Pending approval not found or expired.",
+        )
+    return GovernanceApproveResponse(
+        approved=True,
+        exception_id=exception.exception_id,
+        expires_at=exception.expires_at,
+    )
+
+
+@app.get(
+    "/v1/governance/exceptions",
+    response_model=list[GovernanceExceptionResponse],
+)
+async def governance_list_exceptions(
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[GovernanceExceptionResponse]:
+    """List all active governance exceptions."""
+    del auth
+    store = _get_approval_store()
+    exceptions = store.list_active_exceptions()
+    return [
+        GovernanceExceptionResponse(
+            exception_id=exc.exception_id,
+            rule_id=exc.rule_id,
+            action_type=exc.action_type,
+            action_fingerprint=exc.action_fingerprint,
+            reason=exc.reason,
+            approver=exc.approver,
+            approver_role=exc.approver_role,
+            created_at=exc.created_at,
+            expires_at=exc.expires_at,
+            revoked_at=exc.revoked_at,
+            revoked_by=exc.revoked_by,
+            session_id=exc.session_id,
+            agent_id=exc.agent_id,
+        )
+        for exc in exceptions
+    ]
+
+
+@app.delete("/v1/governance/exceptions/{exception_id}", response_model=StatusResponse)
+async def governance_revoke_exception(
+    exception_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> StatusResponse:
+    """Revoke an active governance exception."""
+    store = _get_approval_store()
+    revoked = store.revoke(exception_id, revoked_by=auth.user_id)
+    if not revoked:
+        raise HTTPException(
+            status_code=404,
+            detail="Exception not found or already revoked.",
+        )
+    return StatusResponse(status="revoked")
 
 
 # --- Auth: GitHub OAuth + JWT ---

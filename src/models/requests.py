@@ -231,6 +231,26 @@ class GovernancePolicySnapshotRequest(BaseModel):
     overrides: dict[str, object] = Field(default_factory=dict)
 
 
+class GovernancePolicySimulationRequest(BaseModel):
+    """Request to simulate governance verdicts for sample commands."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    bundle_id: str = Field(..., pattern=r"^(startup|team|enterprise)$")
+    commands: list[str] = Field(..., min_length=1, max_length=100)
+
+
+class GovernanceApproveRequest(BaseModel):
+    """Request to approve a pending governance action."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    approver: str = Field(..., min_length=1, max_length=200)
+    approver_role: str = Field(default="owner", pattern=r"^(owner|admin|security)$")
+    reason: str = Field(..., min_length=12, max_length=2000)
+    ttl_minutes: int | None = Field(default=None, ge=1, le=1440)
+
+
 # --- MCP-specific input models (for local server) ---
 
 

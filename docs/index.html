@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeTrust — AI Code Governance & Safety Enforcement</title>
+    <title>CodeTrust — AI Governance Enforcement Platform</title>
     <meta name="description"
-        content="Prevent unsafe AI-generated code from reaching production. 286 rules, hallucination detection, and pre-execution enforcement for Cursor, Claude & Copilot.">
+        content="AI governance enforcement platform for AI-assisted development. 286 rules, live verification, and pre-execution agent enforcement across IDE, CI, and MCP workflows.">
     <meta name="author" content="Said Borna">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
@@ -132,7 +132,7 @@
     {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "CodeTrust — AI Code Safety Scanner",
+        "name": "CodeTrust — AI Governance Enforcement Scanner",
         "description": "Chrome extension that scans code for AI hallucinations, security vulnerabilities, and unsafe patterns on GitHub, Stack Overflow, and any code page. 286 rules across 10 enforcement layers. Live registry verification against 8 package registries. Trust Score with drift tracking.",
         "applicationCategory": "BrowserApplication",
         "applicationSubCategory": "Developer Tools",
@@ -211,7 +211,7 @@
                 "name": "What is the AI Governance Gateway?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "The AI Governance Gateway is a real-time interception layer with 80 rules that blocks destructive AI agent actions before they execute. It intercepts terminal commands (rm -rf, heredoc injection, curl|sh), file writes to protected paths, and unsafe package installations. It works with Claude Code, Cursor, GitHub Copilot, and any AI coding assistant."
+                    "text": "The AI Governance Gateway is a real-time interception layer with 82 rules that blocks destructive AI agent actions before they execute. It intercepts terminal commands (rm -rf, heredoc injection, curl|sh), file writes to protected paths, and unsafe package installations. It works with Claude Code, Cursor, GitHub Copilot, and any AI coding assistant."
                 }
             },
             {
@@ -418,7 +418,7 @@
     <!-- LIVE DASHBOARD -->
     <section class="container live-dashboard reveal" id="live-stats">
         <div class="section-tag section-center">Live Telemetry</div>
-        <h2 class="reveal" style="text-align:center">Global usage — all users, all platforms, real-time</h2>
+        <h2 class="reveal" style="text-align:center">Global usage — all instrumented surfaces, real-time</h2>
         <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
             Every scan, every block, every verification — streamed live from production.<br>
             <span class="live-dot"></span> <span id="live-updated-at"
@@ -467,6 +467,7 @@
                         PyPI/wk</span>
                     <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
                     <span class="dash-detail"><strong data-key="marketplace_installs">0</strong> installs</span>
+                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
                 </div>
             </div>
         </div>
@@ -488,6 +489,36 @@
 
         <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, MCP Gateway, GitHub Actions,
             and Cloud API.</div>
+        <div class="telemetry-note" style="margin-top:.35rem">Source of truth: <code>/v1/stats/public</code> + <code>/v1/stats/live</code>.</div>
+        <div class="telemetry-note" style="margin-top:.4rem">Downloads are aggregated from PyPI, VS Code Marketplace, and Open VSX (where public APIs exist). Chrome Web Store and GitHub Marketplace do not expose equivalent public download telemetry.</div>
+    </section>
+
+    <section class="container" id="release-highlights">
+        <div class="section-tag section-center">Release Highlights</div>
+        <h2 class="reveal">What&rsquo;s new in v2.8.0 &amp; what comes next</h2>
+        <p class="section-desc reveal">Public roadmap + shipped capabilities in one place, aligned with the release notes.</p>
+
+        <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="moat-card">
+                <h3>Shipped in v2.8.0</h3>
+                <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
+                    <li>Multi-workspace governance aggregation</li>
+                    <li>Unified session-token across IDE/CLI/CI/API</li>
+                    <li>Trusted sessions, approvals/exceptions, policy simulation, governance posture</li>
+                    <li>MCP auto-injection + disruption monitoring</li>
+                    <li>Policy integrity protection + runtime governance hardening</li>
+                </ul>
+            </div>
+            <div class="moat-card">
+                <h3>Coming next (post-2.8.0)</h3>
+                <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
+                    <li>Deeper control-plane visibility for governance posture and drift</li>
+                    <li>Expanded policy bundle workflows for tenant-level governance</li>
+                    <li>Stronger cross-surface adoption telemetry and attribution</li>
+                    <li>Further hardening of approval/exception governance lifecycle</li>
+                </ul>
+            </div>
+        </div>
     </section>
 
     <!-- WORKS WITH -->
@@ -543,7 +574,7 @@
             <div class="stat-label">Verification Layers</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">21</div>
+            <div class="stat-num">27</div>
             <div class="stat-label">MCP Tools</div>
         </div>
         <div class="stat-item">
@@ -572,7 +603,7 @@
                     file write, and package install against configurable policies &mdash; <strong>before it
                         runs</strong>.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">76</div>
+                    <div class="moat-stat-num">82</div>
                     <span class="t-dim">real-time interception rules</span>
                 </div>
             </div>
@@ -779,7 +810,7 @@
                         <div class="trend-bar trend-bar-ok" style="height: 58%" title="74"></div>
                         <div class="trend-bar trend-bar-bad" style="height: 42%" title="63"></div>
                         <div class="trend-bar trend-bar-ok" style="height: 52%" title="70"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="76"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="82"></div>
                         <div class="trend-bar trend-bar-good" style="height: 68%" title="81"></div>
                         <div class="trend-bar trend-bar-good" style="height: 72%" title="84"></div>
                         <div class="trend-bar trend-bar-good" style="height: 75%" title="86"></div>
@@ -1224,7 +1255,7 @@
             <div class="install-card">
                 <h3>Chrome Extension</h3>
                 <p>Browser-side scans and import verification workflows.</p>
-                <code>CodeTrust — AI Code Safety</code>
+                <code>CodeTrust — AI Governance Enforcement</code>
                 <a href="https://chrome.google.com/webstore/detail/codetrust-ai-code-safety" target="_blank"
                     class="card-link">View on Chrome Web Store &rarr;</a>
             </div>
@@ -1467,6 +1498,7 @@
                 pypi_week: pypi.downloads_this_week || payload.pypi_downloads_last_week || 0,
                 marketplace_downloads: mkt_dl,
                 marketplace_installs: mkt.installs || payload.marketplace_installs || 0,
+                openvsx_downloads: ovsx_dl,
 
                 unique_installs: u.unique_installations_total || 0,
                 active_today: u.unique_installations_today || 0,

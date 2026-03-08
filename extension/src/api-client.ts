@@ -23,6 +23,13 @@ const HTTP_DEFAULT_PORT = 80;
 const HTTP_SUCCESS_MIN = 200;
 const HTTP_SUCCESS_MAX_EXCLUSIVE = 300;
 
+/** Rate limit usage info from API response headers. */
+export interface RateLimitInfo {
+    limit: number;
+    remaining: number;
+    used: number;
+}
+
 /** Error thrown when the API request fails. */
 export class ApiError extends Error {
     constructor(
@@ -40,6 +47,9 @@ export class ApiClient {
     private baseUrl: string;
     private apiKey: string;
     private timeoutMs: number;
+
+    /** Last rate limit info from API response headers. */
+    public lastRateLimit: RateLimitInfo | null = null;
 
     constructor(config: ExtensionConfig) {
         this.baseUrl = config.apiUrl.replace(/\/+$/, "");
@@ -152,6 +162,18 @@ export class ApiClient {
                 res.on("end", () => {
                     const responseBody = Buffer.concat(chunks).toString("utf-8");
                     const statusCode = res.statusCode ?? 0;
+
+                    // Capture rate limit headers
+                    const rlLimit = res.headers["x-ratelimit-limit"];
+                    const rlRemaining = res.headers["x-ratelimit-remaining"];
+                    const rlUsed = res.headers["x-ratelimit-used"];
+                    if (rlLimit) {
+                        this.lastRateLimit = {
+                            limit: parseInt(String(rlLimit), 10) || 0,
+                            remaining: parseInt(String(rlRemaining), 10) || 0,
+                            used: parseInt(String(rlUsed), 10) || 0,
+                        };
+                    }
 
                     if (statusCode >= HTTP_SUCCESS_MIN && statusCode < HTTP_SUCCESS_MAX_EXCLUSIVE) {
                         try {

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Universal governance rule injection across all AI coding platforms.
@@ -55,7 +55,7 @@ For file deletions:   call \`codetrust_validate_file_delete\` — BLOCKED = do n
 - NEVER run \`git push\` — user pushes manually, always
 - NEVER use heredoc (\`<< EOF\`) — use the create_file tool instead
 - NEVER write hardcoded secrets, API keys, or passwords — use environment variables
-- NEVER use wildcard imports (\`from x import *\`) — import explicitly
+- NEVER use wildcard imports (import all-symbol forms) — import explicitly
 - NEVER use \`Any\` type annotation — use explicit types always
 - NEVER skip CodeTrust validation to save time — zero exceptions
 - NEVER use bare \`except:\` — always catch specific exception types
@@ -92,9 +92,10 @@ function alreadyInjected(content: string): boolean {
 /** Append rules block to the end of an existing file, with a separator. */
 function appendToFile(existing: string, separator: string = "\n---\n"): string {
     const trimmed = existing.trimEnd();
-    return trimmed.length > 0
-        ? `${trimmed}${separator}${RULES_BLOCK.trimStart()}\n`
-        : `${RULES_BLOCK.trimStart()}\n`;
+    if (trimmed.length > 0) {
+        return `${trimmed}${separator}${RULES_BLOCK.trimStart()}\n`;
+    }
+    return `${RULES_BLOCK.trimStart()}\n`;
 }
 
 /** Build the list of platform targets for the current user's home directory. */
@@ -360,7 +361,7 @@ export function watchForGovernanceDisruption(
         void vscode.window
             .showWarningMessage(
                 `CodeTrust: ${names} detected without governance rules ` +
-                `(installed after CodeTrust?). Inject now to activate enforcement?`,
+                `(installed after CodeTrust). Inject now to activate enforcement.`,
                 "Inject Now",
                 "Dismiss",
             )

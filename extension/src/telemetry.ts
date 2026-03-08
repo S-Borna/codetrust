@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Anonymous telemetry emitter for the CodeTrust VS Code extension.
@@ -43,13 +43,20 @@ function postJson(url: string, body: Record<string, unknown>): void {
         const parsed = new URL(url);
         const isHttps = parsed.protocol === "https:";
         const transport = isHttps ? https : http;
+        let port = 80;
+        if (isHttps) {
+            port = 443;
+        }
+        if (parsed.port) {
+            port = Number(parsed.port);
+        }
 
         const payload = JSON.stringify(body);
         const req = transport.request(
             {
                 method: "POST",
                 hostname: parsed.hostname,
-                port: parsed.port ? Number(parsed.port) : isHttps ? 443 : 80,
+                port,
                 path: parsed.pathname,
                 headers: {
                     "Content-Type": "application/json",
@@ -86,7 +93,13 @@ export async function sendTelemetry(
         const baseUrl = cfg.apiUrl.replace(/\/+$/, "");
         const installId = await getInstallationId(context);
         const ext = vscode.extensions.getExtension("SaidBorna.codetrust");
-        const version = (ext?.packageJSON as { version?: string } | undefined)?.version || "unknown";
+        let version = "unknown";
+        if (ext && ext.packageJSON) {
+            const pkg = ext.packageJSON as { version?: string };
+            if (typeof pkg.version === "string" && pkg.version.length > 0) {
+                version = pkg.version;
+            }
+        }
 
         postJson(`${baseUrl}/v1/telemetry`, {
             event_type: eventType,

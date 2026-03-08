@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Unit tests for the CodeTrust API client.
@@ -9,6 +9,11 @@ import * as assert from "assert";
 import { ApiClient, ApiError } from "../../api-client";
 import type { ExtensionConfig } from "../../types";
 
+const TEST_DEBOUNCE_MS = 600;
+const TEST_TIMEOUT_MS = 5000;
+const BAD_PORT_TIMEOUT_MS = 1000;
+const HTTP_NOT_FOUND = 404;
+
 /** Create a test config. */
 function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
     return {
@@ -16,12 +21,12 @@ function testConfig(overrides?: Partial<ExtensionConfig>): ExtensionConfig {
         apiKey: "tk_test",
         scanOnSave: true,
         scanOnType: false,
-        scanOnTypeDebounceMs: 600,
+        scanOnTypeDebounceMs: TEST_DEBOUNCE_MS,
         severityThreshold: "INFO",
         enabledLanguages: ["python", "javascript", "typescript", "go", "rust"],
         scanType: "static",
         verifyImportsOnSave: false,
-        timeout: 5000,
+        timeout: TEST_TIMEOUT_MS,
         governance: {
             enabled: true,
             mode: "enforce",
@@ -56,15 +61,15 @@ suite("ApiClient Tests", () => {
     });
 
     test("handles ApiError construction", () => {
-        const error = new ApiError("Not found", 404, '{"detail":"not found"}');
+        const error = new ApiError("Not found", HTTP_NOT_FOUND, '{"detail":"not found"}');
         assert.strictEqual(error.name, "ApiError");
-        assert.strictEqual(error.statusCode, 404);
+        assert.strictEqual(error.statusCode, HTTP_NOT_FOUND);
         assert.strictEqual(error.body, '{"detail":"not found"}');
         assert.ok(error.message.includes("Not found"));
     });
 
     test("staticScan rejects on connection refused", async () => {
-        const config = testConfig({ apiUrl: "http://localhost:59999", timeout: 1000 });
+        const config = testConfig({ apiUrl: "http://localhost:59999", timeout: BAD_PORT_TIMEOUT_MS });
         const client = new ApiClient(config);
         try {
             await client.staticScan("print('hello')", "test.py", "python");
@@ -75,7 +80,7 @@ suite("ApiClient Tests", () => {
     });
 
     test("checkHealth rejects on bad port", async () => {
-        const config = testConfig({ apiUrl: "http://localhost:59999", timeout: 1000 });
+        const config = testConfig({ apiUrl: "http://localhost:59999", timeout: BAD_PORT_TIMEOUT_MS });
         const client = new ApiClient(config);
         try {
             await client.checkHealth();

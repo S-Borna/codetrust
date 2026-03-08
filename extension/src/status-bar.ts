@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Status bar component for the CodeTrust VS Code extension.
@@ -92,14 +92,28 @@ export class StatusBarManager {
         const key = verdict.toUpperCase();
         const display = VERDICT_DISPLAY[key] ?? VERDICT_DISPLAY.IDLE;
 
-        const modeLabel = offline ? "Embedded scanner" : "Full scan";
-        const countSuffix =
-            findingsCount > 0
-                ? ` · ${findingsCount} finding${findingsCount !== 1 ? "s" : ""}`
-                : "";
+        const modeLabel = this.getModeLabel(offline);
+        const countSuffix = this.getFindingSuffix(findingsCount);
         const tooltip = `${display.tooltip}${countSuffix} (${modeLabel})`;
 
         this.applyDisplay({ ...display, tooltip });
+    }
+
+    /** Resolve mode label for tooltip text. */
+    private getModeLabel(offline: boolean): string {
+        if (offline) {
+            return "Embedded scanner";
+        }
+        return "Full scan";
+    }
+
+    /** Build finding-count suffix used in tooltip text. */
+    private getFindingSuffix(findingsCount: number): string {
+        if (findingsCount <= 0) {
+            return "";
+        }
+        const pluralSuffix = findingsCount === 1 ? "" : "s";
+        return ` · ${findingsCount} finding${pluralSuffix}`;
     }
 
     /** Set status to error. */

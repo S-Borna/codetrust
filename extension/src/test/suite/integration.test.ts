@@ -1,9 +1,11 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 import * as assert from "assert";
 import * as vscode from "vscode";
 
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "../../secrets";
+
+const OFFLINE_SCAN_TIMEOUT_MS = 500;
 
 suite("Extension integration", () => {
     test("scanFile produces diagnostics (offline fallback)", async () => {
@@ -15,7 +17,7 @@ suite("Extension integration", () => {
 
             const cfg = vscode.workspace.getConfiguration("codetrust");
             await cfg.update("apiUrl", "http://127.0.0.1:9", vscode.ConfigurationTarget.Global);
-            await cfg.update("timeout", 500, vscode.ConfigurationTarget.Global);
+            await cfg.update("timeout", OFFLINE_SCAN_TIMEOUT_MS, vscode.ConfigurationTarget.Global);
             await cfg.update("scanType", "static", vscode.ConfigurationTarget.Global);
             await cfg.update("scanOnSave", true, vscode.ConfigurationTarget.Global);
 

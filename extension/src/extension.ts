@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * CodeTrust VS Code Extension — Main entry point.
@@ -63,7 +63,7 @@ NEVER do the following under any circumstances:
 - Use heredoc (<< EOF) — use create_file tool instead
 - Use eval or exec to execute dynamic code
 - Write hardcoded secrets, API keys or passwords
-- Use wildcard imports (from x import *)
+- Use wildcard imports (for example: from module import all symbols)
 - Use Any type annotation — use explicit types always
 - Skip CodeTrust validation to save time — zero exceptions
 

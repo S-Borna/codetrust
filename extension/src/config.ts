@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Configuration helper for the CodeTrust VS Code extension.
@@ -7,6 +7,9 @@
 
 import * as vscode from "vscode";
 import type { ExtensionConfig, GovernanceMode, Language, ScanType, SeverityThreshold } from "./types";
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+const DEFAULT_SCAN_ON_TYPE_DEBOUNCE_MS = 600;
 
 /** Read the current extension configuration. */
 export function getConfig(): ExtensionConfig {
@@ -17,7 +20,7 @@ export function getConfig(): ExtensionConfig {
         apiKey: config.get<string>("apiKey", ""),
         scanOnSave: config.get<boolean>("scanOnSave", true),
         scanOnType: config.get<boolean>("scanOnType", false),
-        scanOnTypeDebounceMs: config.get<number>("scanOnTypeDebounceMs", 600),
+        scanOnTypeDebounceMs: config.get<number>("scanOnTypeDebounceMs", DEFAULT_SCAN_ON_TYPE_DEBOUNCE_MS),
         severityThreshold: config.get<SeverityThreshold>("severityThreshold", "INFO"),
         enabledLanguages: config.get<Language[]>("enabledLanguages", [
             "python", "javascript", "typescript", "go", "rust", "sql", "yaml",
@@ -25,7 +28,7 @@ export function getConfig(): ExtensionConfig {
         ]),
         scanType: config.get<ScanType>("scanType", "static"),
         verifyImportsOnSave: config.get<boolean>("verifyImportsOnSave", false),
-        timeout: config.get<number>("timeout", 15000),
+        timeout: config.get<number>("timeout", DEFAULT_REQUEST_TIMEOUT_MS),
         governance: {
             enabled: config.get<boolean>("governance.enabled", true),
             mode: config.get<GovernanceMode>("governance.mode", "enforce"),

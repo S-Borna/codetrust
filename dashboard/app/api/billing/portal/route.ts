@@ -12,36 +12,41 @@ function getStripe(): Stripe {
     return new Stripe(key, { apiVersion: "2025-02-24.acacia" });
 }
 
+function toPublicError(err: unknown): { error: string; status: number } {
+    const message = err instanceof Error ? err.message : "Unknown error";
+
+    if (message === "STRIPE_SECRET_KEY not configured") {
+        return { error: "Billing is temporarily unavailable", status: 503 };
+    }
+
+    if (message.includes("Invalid API Key provided")) {
+        return { error: "Billing is temporarily unavailable", status: 503 };
+    }
+
+    return { error: "Failed to open billing portal", status: 500 };
+}
+
 export async function POST() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let stripe: Stripe;
     try {
-        stripe = getStripe();
-    } catch {
-        return NextResponse.json(
-            { error: "Stripe is not configured" },
-            { status: 503 },
-        );
-    }
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
-    const dbUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { stripeId: true },
-    });
+        const stripe = getStripe();
+        const dbUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { stripeId: true },
+        });
 
-    const customerId = dbUser?.stripeId || "";
-    if (!customerId) {
-        return NextResponse.json(
-            { error: "No billing account found. Please upgrade first." },
-            { status: 400 },
-        );
-    }
+        const customerId = dbUser?.stripeId || "";
+        if (!customerId) {
+            return NextResponse.json(
+                { error: "No billing account found. Please upgrade first." },
+                { status: 400 },
+            );
+        }
 
-    try {
         const baseUrl = process.env.NEXTAUTH_URL || "https://app.codetrust.ai";
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
@@ -49,7 +54,10 @@ export async function POST() {
         });
         return NextResponse.json({ url: portalSession.url });
     } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to create portal session";
-        return NextResponse.json({ error: message }, { status: 500 });
+        const publicError = toPublicError(err);
+        return NextResponse.json(
+            { error: publicError.error },
+            { status: publicError.status },
+        );
     }
 }

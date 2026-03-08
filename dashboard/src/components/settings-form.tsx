@@ -14,6 +14,34 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState("");
 
+    function sanitizeErrorMessage(message: string): string {
+        const hasStripeSecretLikeToken = /sk_(live|test)_[A-Za-z0-9]+/.test(message);
+        if (hasStripeSecretLikeToken) {
+            return "Billing is temporarily unavailable. Please try again shortly.";
+        }
+        return message;
+    }
+
+    async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+        if (res.status >= 500) {
+            return "Billing is temporarily unavailable. Please try again shortly.";
+        }
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+            const payload = await res.json().catch(() => ({}));
+            const apiError = (payload as { error?: string }).error;
+            if (apiError && apiError.length > 0) {
+                return sanitizeErrorMessage(apiError);
+            }
+            return fallback;
+        }
+        const text = await res.text().catch(() => "");
+        if (text.length > 0) {
+            return `${fallback} (HTTP ${res.status})`;
+        }
+        return fallback;
+    }
+
     async function handleUpgrade() {
         setUpgrading(true);
         setError("");
@@ -23,11 +51,13 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan: "pro" }),
             });
-            const data = await res.json();
+
             if (!res.ok) {
-                setError(data.error || "Failed to create checkout session");
+                const message = await readErrorMessage(res, "Failed to create checkout session");
+                setError(message);
                 return;
             }
+            const data = await res.json();
             if (data.url) {
                 window.location.href = data.url;
             }
@@ -44,11 +74,13 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
             const res = await fetch("/api/billing/portal", {
                 method: "POST",
             });
-            const data = await res.json();
+
             if (!res.ok) {
-                setError(data.error || "Failed to open billing portal");
+                const message = await readErrorMessage(res, "Failed to open billing portal");
+                setError(message);
                 return;
             }
+            const data = await res.json();
             if (data.url) {
                 window.location.href = data.url;
             }

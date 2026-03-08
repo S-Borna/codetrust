@@ -3,10 +3,11 @@ import { authOptions } from "@/lib/auth";
 import { governanceClient } from "@/lib/api";
 import { GovernanceAuditView } from "@/components/governance-audit";
 import { GovernanceLive } from "@/components/governance-live";
+import { MultiWorkspaceView } from "@/components/multi-workspace-view";
 
 /**
  * Governance page — live dashboard with posture, drift alerts,
- * audit log, and exception/approval management.
+ * audit log, multi-workspace overview, and exception/approval management.
  *
  * Server component fetches initial data; interactive parts are
  * delegated to GovernanceLive (client component).
@@ -15,11 +16,12 @@ export default async function GovernancePage() {
     const session = await getServerSession(authOptions);
     const apiKey = session?.user?.apiKey || "";
 
-    const [audit, posture, approvals, exceptions] = await Promise.all([
+    const [audit, posture, approvals, exceptions, workspaces] = await Promise.all([
         governanceClient.getAudit(apiKey),
         governanceClient.getPosture(apiKey),
         governanceClient.listApprovals(apiKey),
         governanceClient.listExceptions(apiKey),
+        governanceClient.getWorkspaces(apiKey),
     ]);
 
     return (
@@ -51,6 +53,14 @@ export default async function GovernancePage() {
                     entries={audit.entries}
                     stats={audit.stats}
                 />
+            </div>
+
+            {/* Multi-workspace overview */}
+            <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Workspaces
+                </h2>
+                <MultiWorkspaceView aggregate={workspaces} />
             </div>
 
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

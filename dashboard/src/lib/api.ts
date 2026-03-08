@@ -267,6 +267,53 @@ interface GovernanceSimulationResponse {
     outcomes: GovernanceSimulationOutcome[];
 }
 
+interface GovernanceWorkspacePosture {
+    workspace_id: string;
+    workspace_name: string;
+    agent_id: string;
+    enabled: boolean;
+    mode: string;
+    control_plane_ready: boolean;
+    policy_hash: string;
+    policy_verdict: string;
+    pending_approvals: number;
+    active_exceptions: number;
+    drift_count: number;
+    last_seen_at: number;
+}
+
+interface GovernanceWorkspaceAggregate {
+    total_workspaces: number;
+    healthy_count: number;
+    drifted_count: number;
+    disabled_count: number;
+    total_pending_approvals: number;
+    total_active_exceptions: number;
+    workspaces: GovernanceWorkspacePosture[];
+}
+
+interface GovernanceUnifiedSession {
+    session_token: string;
+    surfaces: string[];
+    issued_at: number;
+    expires_at: number;
+    agent_id: string;
+    workspace_id: string;
+    audit_chain_id: string;
+}
+
+interface GovernanceSessionStatus {
+    valid: boolean;
+    session_token: string;
+    surfaces: string[];
+    issued_at: number;
+    expires_at: number;
+    remaining_seconds: number;
+    agent_id: string;
+    workspace_id: string;
+    audit_chain_id: string;
+}
+
 export const governanceClient = {
     async getAudit(
         apiKey: string,
@@ -400,6 +447,91 @@ export const governanceClient = {
             return null;
         }
     },
+
+    async getWorkspaces(apiKey: string): Promise<GovernanceWorkspaceAggregate> {
+        try {
+            return await apiFetch<GovernanceWorkspaceAggregate>(
+                "/v1/governance/workspaces",
+                apiKey,
+            );
+        } catch {
+            return {
+                total_workspaces: 0,
+                healthy_count: 0,
+                drifted_count: 0,
+                disabled_count: 0,
+                total_pending_approvals: 0,
+                total_active_exceptions: 0,
+                workspaces: [],
+            };
+        }
+    },
+
+    async registerWorkspace(
+        apiKey: string,
+        workspaceId: string,
+        workspaceName: string,
+        agentId = "unknown",
+        posture: Record<string, unknown> = {},
+    ): Promise<GovernanceWorkspacePosture | null> {
+        try {
+            return await apiFetch<GovernanceWorkspacePosture>(
+                "/v1/governance/workspaces",
+                apiKey,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        workspace_id: workspaceId,
+                        workspace_name: workspaceName,
+                        agent_id: agentId,
+                        posture,
+                    }),
+                },
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async issueSessionToken(
+        apiKey: string,
+        surfaces: string[],
+        agentId = "unknown",
+        workspaceId = "",
+        ttlMinutes = 60,
+    ): Promise<GovernanceUnifiedSession | null> {
+        try {
+            return await apiFetch<GovernanceUnifiedSession>(
+                "/v1/governance/session-token",
+                apiKey,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        surfaces,
+                        agent_id: agentId,
+                        workspace_id: workspaceId,
+                        ttl_minutes: ttlMinutes,
+                    }),
+                },
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async validateSessionToken(
+        apiKey: string,
+        token: string,
+    ): Promise<GovernanceSessionStatus | null> {
+        try {
+            return await apiFetch<GovernanceSessionStatus>(
+                `/v1/governance/session-token/${encodeURIComponent(token)}`,
+                apiKey,
+            );
+        } catch {
+            return null;
+        }
+    },
 };
 
 export type {
@@ -413,4 +545,8 @@ export type {
     GovernancePolicyBundle,
     GovernanceSimulationOutcome,
     GovernanceSimulationResponse,
+    GovernanceWorkspacePosture,
+    GovernanceWorkspaceAggregate,
+    GovernanceUnifiedSession,
+    GovernanceSessionStatus,
 };

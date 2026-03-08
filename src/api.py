@@ -50,6 +50,8 @@ from src.models.requests import (
     GovernanceApproveRequest,
     GovernancePolicySimulationRequest,
     GovernancePolicySnapshotRequest,
+    GovernanceRegisterWorkspaceRequest,
+    GovernanceUnifiedSessionRequest,
     LicenseScanRequest,
     OIDCCallbackRequest,
     RefreshRequest,
@@ -79,6 +81,10 @@ from src.models.responses import (
     GovernancePolicySimulationResponse,
     GovernancePolicySnapshotResponse,
     GovernancePostureResponse,
+    GovernanceSessionStatusResponse,
+    GovernanceUnifiedSessionResponse,
+    GovernanceWorkspaceAggregateResponse,
+    GovernanceWorkspacePostureResponse,
     HealthResponse,
     PublicStatsResponse,
     RevokeResponse,
@@ -2888,6 +2894,204 @@ async def governance_revoke_exception(
         raise HTTPException(
             status_code=404,
             detail="Exception not found or already revoked.",
+        )
+    return StatusResponse(status="revoked")
+
+
+# --- Governance: Multi-Workspace Aggregation ---
+
+
+def _get_workspace_registry() -> "WorkspaceRegistry":
+    """Get or create the workspace registry singleton."""
+    from src.services.workspace_registry import WorkspaceRegistry
+
+    if not hasattr(app.state, "workspace_registry"):
+        app.state.workspace_registry = WorkspaceRegistry()
+    return app.state.workspace_registry
+
+
+@app.get(
+    "/v1/governance/workspaces",
+    response_model=GovernanceWorkspaceAggregateResponse,
+)
+async def governance_list_workspaces(
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernanceWorkspaceAggregateResponse:
+    """Aggregated multi-workspace governance overview.
+
+    Returns posture summaries for all registered workspaces
+    with aggregate health metrics.
+    """
+    del auth
+    registry = _get_workspace_registry()
+    agg = registry.aggregate()
+    workspace_responses = [
+        GovernanceWorkspacePostureResponse(
+            workspace_id=w.workspace_id,
+            workspace_name=w.workspace_name,
+            agent_id=w.agent_id,
+            enabled=w.enabled,
+            mode=w.mode,
+            control_plane_ready=w.control_plane_ready,
+            policy_hash=w.policy_hash,
+            policy_verdict=w.policy_verdict,
+            pending_approvals=w.pending_approvals,
+            active_exceptions=w.active_exceptions,
+            drift_count=w.drift_count,
+            last_seen_at=w.last_seen_at,
+        )
+        for w in registry.list_all()
+    ]
+    return GovernanceWorkspaceAggregateResponse(
+        total_workspaces=int(agg["total_workspaces"]),
+        healthy_count=int(agg["healthy_count"]),
+        drifted_count=int(agg["drifted_count"]),
+        disabled_count=int(agg["disabled_count"]),
+        total_pending_approvals=int(agg["total_pending_approvals"]),
+        total_active_exceptions=int(agg["total_active_exceptions"]),
+        workspaces=workspace_responses,
+    )
+
+
+@app.post(
+    "/v1/governance/workspaces",
+    response_model=GovernanceWorkspacePostureResponse,
+)
+async def governance_register_workspace(
+    req: GovernanceRegisterWorkspaceRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernanceWorkspacePostureResponse:
+    """Register or update a workspace's governance posture.
+
+    Called by gateway instances or CLI to report their posture
+    for multi-workspace aggregation.
+    """
+    del auth
+    registry = _get_workspace_registry()
+    record = registry.register(
+        workspace_id=req.workspace_id,
+        workspace_name=req.workspace_name,
+        agent_id=req.agent_id,
+        posture=dict(req.posture) if req.posture else None,
+    )
+    return GovernanceWorkspacePostureResponse(
+        workspace_id=record.workspace_id,
+        workspace_name=record.workspace_name,
+        agent_id=record.agent_id,
+        enabled=record.enabled,
+        mode=record.mode,
+        control_plane_ready=record.control_plane_ready,
+        policy_hash=record.policy_hash,
+        policy_verdict=record.policy_verdict,
+        pending_approvals=record.pending_approvals,
+        active_exceptions=record.active_exceptions,
+        drift_count=record.drift_count,
+        last_seen_at=record.last_seen_at,
+    )
+
+
+@app.delete("/v1/governance/workspaces/{workspace_id}", response_model=StatusResponse)
+async def governance_unregister_workspace(
+    workspace_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> StatusResponse:
+    """Remove a workspace from the governance registry."""
+    del auth
+    registry = _get_workspace_registry()
+    removed = registry.unregister(workspace_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    return StatusResponse(status="removed")
+
+
+# --- Governance: Unified Session Token ---
+
+
+def _get_session_store() -> "UnifiedSessionStore":
+    """Get or create the unified session store singleton."""
+    from src.services.unified_session import UnifiedSessionStore
+
+    if not hasattr(app.state, "session_store"):
+        app.state.session_store = UnifiedSessionStore()
+    return app.state.session_store
+
+
+@app.post(
+    "/v1/governance/session-token",
+    response_model=GovernanceUnifiedSessionResponse,
+)
+async def governance_issue_session_token(
+    req: GovernanceUnifiedSessionRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernanceUnifiedSessionResponse:
+    """Issue a unified session token spanning multiple surfaces.
+
+    Creates a cross-surface audit chain ID that links all governance
+    actions across IDE, CLI, CI, and API within one session.
+    """
+    del auth
+    store = _get_session_store()
+    session = store.issue(
+        surfaces=req.surfaces,
+        agent_id=req.agent_id,
+        workspace_id=req.workspace_id,
+        ttl_minutes=req.ttl_minutes,
+    )
+    return GovernanceUnifiedSessionResponse(
+        session_token=session.session_token,
+        surfaces=session.surfaces,
+        issued_at=session.issued_at,
+        expires_at=session.expires_at,
+        agent_id=session.agent_id,
+        workspace_id=session.workspace_id,
+        audit_chain_id=session.audit_chain_id,
+    )
+
+
+@app.get(
+    "/v1/governance/session-token/{token}",
+    response_model=GovernanceSessionStatusResponse,
+)
+async def governance_validate_session_token(
+    token: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> GovernanceSessionStatusResponse:
+    """Validate a unified session token and return its status."""
+    del auth
+    store = _get_session_store()
+    session = store.validate(token)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session token not found or expired.",
+        )
+    now = time.time()
+    return GovernanceSessionStatusResponse(
+        valid=True,
+        session_token=session.session_token,
+        surfaces=session.surfaces,
+        issued_at=session.issued_at,
+        expires_at=session.expires_at,
+        remaining_seconds=max(0.0, session.expires_at - now),
+        agent_id=session.agent_id,
+        workspace_id=session.workspace_id,
+        audit_chain_id=session.audit_chain_id,
+    )
+
+
+@app.delete("/v1/governance/session-token/{token}", response_model=StatusResponse)
+async def governance_revoke_session_token(
+    token: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> StatusResponse:
+    """Revoke a unified session token."""
+    del auth
+    store = _get_session_store()
+    revoked = store.revoke(token)
+    if not revoked:
+        raise HTTPException(
+            status_code=404,
+            detail="Session token not found or already expired.",
         )
     return StatusResponse(status="revoked")
 

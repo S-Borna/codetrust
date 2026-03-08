@@ -7,9 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### What's New (since 2.8.0)
+
 ### Added
 
-- Release preparation placeholder.
+- Governance hardening support in extension flows aligned with gateway additions:
+	- trusted-session execution gating support
+	- approval/exception lifecycle integration points
+	- policy simulation and governance posture consumption paths
+
+### Changed
+
+- Quality remediation across extension runtime and test surfaces:
+	- magic-number reductions via named constants
+	- regex portability and stability cleanups
+	- script hygiene updates in build/release helpers
+- Internal release messaging now synchronized with platform-level post-2.8.0 updates.
+
+### Verified
+
+- Repository quality gates after remediation:
+	- full test run green
+	- Guardian scan green at BLOCK/WARN level
 
 ## [2.8.0] - 2026-03-07
 

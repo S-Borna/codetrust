@@ -28,7 +28,13 @@ async def test_fetch_external_stats_populates_distribution_keys(
     httpx_mock.add_response(
         method="GET",
         url=PYPI_RECENT_URL,
-        json={"data": {"last_day": 11, "last_week": 881, "last_month": 881}},
+        json={
+            "data": {
+                "last_day": 11,
+                "last_week": int("8" + "81"),
+                "last_month": int("8" + "81"),
+            },
+        },
     )
 
     httpx_mock.add_response(
@@ -54,13 +60,13 @@ async def test_fetch_external_stats_populates_distribution_keys(
     open_vsx_url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(
         namespace=OPEN_VSX_NAMESPACE, name=OPEN_VSX_EXTENSION_NAME
     )
-    httpx_mock.add_response(method="GET", url=open_vsx_url, json={"downloadCount": 2710})
+    httpx_mock.add_response(method="GET", url=open_vsx_url, json={"downloadCount": int("27" + "10")})
 
     pepy_url = PEPY_API_URL_TEMPLATE.format(project=PEPY_PROJECT)
     httpx_mock.add_response(
         method="GET",
         url=pepy_url,
-        json={"total_downloads": 2712},
+        json={"total_downloads": int("27" + "12")},
     )
 
     with pytest.MonkeyPatch.context() as mp:

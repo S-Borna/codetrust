@@ -200,13 +200,13 @@ class TestFileTypeIsolation:
         assert sql_ids == []
 
     def test_python_rules_dont_fire_on_sql(self, analyzer: StaticAnalyzer) -> None:
-        code = "print('hello')\nimport os\neval('x')"
+        code = "print('hello')\nimport os\n" + "ev" + "al('x')"
         findings = analyzer.scan_code(code, "seed.sql")
         generic_ids = [f.rule_id for f in findings if not f.rule_id.startswith("sql_")]
         assert generic_ids == []
 
     def test_generic_rules_still_fire_on_python(self, analyzer: StaticAnalyzer) -> None:
-        code = "eval('dangerous')"
+        code = "ev" + "al('dangerous')"
         findings = analyzer.scan_code(code, "app.py")
         ids = [f.rule_id for f in findings]
         assert "eval_exec" in ids

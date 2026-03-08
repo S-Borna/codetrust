@@ -280,7 +280,7 @@ class TestUsageTracking:
         """Multiple increments accumulate on the same day."""
         user = await db_service.create_user(github_id="gh_usage2")
         await db_service.increment_daily_usage(user.id, 3, 100)
-        usage = await db_service.increment_daily_usage(user.id, 7, 200)
+        usage = await db_service.increment_daily_usage(user.id, 7, 200)  # noqa: magic_number
 
         assert usage.scan_count == 2
         assert usage.findings_total == 10

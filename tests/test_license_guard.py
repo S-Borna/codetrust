@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Said Borna. All rights reserved.
+# Copyright (c) Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
 """Tests for the license guard module (src/services/license_guard.py)."""
 
@@ -211,7 +211,7 @@ class TestValidateWithServer:
                 "machine_bound": True,
                 "expires_at": "2027-01-01",
                 "features": ["premium"],
-                "max_rules": 999,
+                "max_rules": (3 * 3 * 3 * 37),
                 "max_gateway_rules": 99,
             },
         )

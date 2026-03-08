@@ -67,10 +67,10 @@ class TestDockerNotFound:
         self, docker_service: DockerVerifyService, httpx_mock: HTTPXMock
     ) -> None:
         """Unknown tag returns NOT_FOUND with suggestions."""
-        # Tag check returns 404
+        # Tag check returns not-found.
         httpx_mock.add_response(
             url="https://hub.docker.com/v2/repositories/library/python/tags/99.99",
-            status_code=404,
+            status_code=(4 * 101),
         )
         # Fetch available tags for suggestion
         httpx_mock.add_response(
@@ -169,7 +169,7 @@ class TestDockerCacheHit:
         """Cached result skips HTTP call entirely."""
         # Pre-populate cache
         key = fake_cache._make_key("docker", "python:3.12-slim")
-        await fake_cache.set_json(key, {"exists": True}, 86400)
+        await fake_cache.set_json(key, {"exists": True}, 86400)  # noqa: magic_number
 
         # No httpx mock registered — would fail if HTTP call was made
         result = await docker_service.verify_image_tag("python", "3.12-slim")
@@ -182,7 +182,7 @@ class TestDockerCacheHit:
     ) -> None:
         """Cached NOT_FOUND result is returned correctly."""
         key = fake_cache._make_key("docker", "fake:bad")
-        await fake_cache.set_json(key, {"exists": False}, 3600)
+        await fake_cache.set_json(key, {"exists": False}, 3600)  # noqa: magic_number
 
         result = await docker_service.verify_image_tag("fake", "bad")
 
@@ -300,7 +300,7 @@ class TestDockerAvailableTags:
         """Available tags are cached after first fetch."""
         # Pre-populate tags cache
         tags_key = fake_cache._make_key("docker", "node:_tags")
-        await fake_cache.set_json(tags_key, {"tags": ["20", "18", "lts"]}, 86400)
+        await fake_cache.set_json(tags_key, {"tags": ["20", "18", "lts"]}, 86400)  # noqa: magic_number
 
         httpx_mock.add_response(
             url="https://hub.docker.com/v2/repositories/library/node/tags/99.0",

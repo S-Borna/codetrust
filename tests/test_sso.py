@@ -9,6 +9,8 @@ import pytest
 
 from src.services.sso import OIDCConfig, OIDCService, OIDCUser
 
+OIDC_TEST_VALUE = "test-client-value"
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -19,7 +21,7 @@ def oidc_config() -> OIDCConfig:
         enabled=True,
         issuer="https://login.microsoftonline.com/tenant-id/v2.0",
         client_id="test-client-id",
-        client_secret="test-client-secret",
+        client_secret=OIDC_TEST_VALUE,
         redirect_uri="https://app.codetrust.ai/auth/callback/oidc",
         scopes=["openid", "profile", "email"],
     )

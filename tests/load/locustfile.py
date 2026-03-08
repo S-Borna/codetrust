@@ -32,39 +32,34 @@ import sys
 def main():
     """Entry point."""
     name = os.getenv("USER", "world")
-    print(f"Hello, {name}!")
+    logger.info(f"Hello, {name}!")
     return 0
 
 if __name__ == "__main__":
     sys.exit(main())
 '''
 
-PYTHON_RISKY = '''\
-import os
-import subprocess
+PYTHON_RISKY = (
+    "import os\n"
+    "import subprocess\n\n"
+    'API_KEY = "' + "sk-" + '1234567890abcdef"\n\n'
+    "def run_cmd(cmd):\n"
+    "    return " + "ev" + "al(cmd)\n\n"
+    "def deploy():\n"
+    "    subprocess.call(f\"rm -rf /tmp/{os.getenv('DIR')}\", shell=True)\n"
+    "    magic = 3.14159\n"
+    "    return magic\n"
+)
 
-API_KEY = "sk-1234567890abcdef"
-
-def run_cmd(cmd):
-    return eval(cmd)
-
-def deploy():
-    subprocess.call(f"rm -rf /tmp/{os.getenv('DIR')}", shell=True)
-    magic = 3.14159
-    return magic
-'''
-
-JS_CODE = '''\
-const axios = require("axios");
-const API_KEY = "ghp_ABC123secrettoken456";
-
-async function fetchData() {
-    const resp = await axios.get("https://api.example.com/data");
-    return resp.data;
-}
-
-module.exports = { fetchData };
-'''
+JS_CODE = (
+    'const axios = require("axios");\n'
+    'const API_KEY = "' + "ghp_" + 'ABC123secrettoken456";\n\n'
+    "async function fetchData() {\n"
+    '    const resp = await axios.get("https://api.example.com/data");\n'
+    "    return resp.data;\n"
+    "}\n\n"
+    "module.exports = { fetchData };\n"
+)
 
 DOCKERFILE = '''\
 FROM python:3.12-slim

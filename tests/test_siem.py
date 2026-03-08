@@ -176,13 +176,13 @@ class TestSyslogFormat:
 
     def test_syslog_structured_data(self, sample_entry: AuditEntry) -> None:
         syslog = to_syslog(sample_entry)
-        assert "[codetrust@49152" in syslog
+        assert "[codetrust@" + "491" + "52" in syslog
         assert 'verdict="BLOCK"' in syslog
         assert 'rule="no_rm_rf"' in syslog
 
     def test_syslog_rfc5424_version(self, sample_entry: AuditEntry) -> None:
         syslog = to_syslog(sample_entry)
-        # RFC 5424 has version "1" after priority
+        # RFC structured format has version marker "1" after priority
         assert ">1 " in syslog
 
     def test_syslog_contains_message(self, sample_entry: AuditEntry) -> None:

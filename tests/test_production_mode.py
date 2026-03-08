@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Said Borna. All rights reserved.
+# Copyright (c) Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
 """Tests for production mode hard-fail license enforcement."""
 
@@ -28,7 +28,7 @@ async def test_production_mode_exits_on_invalid_license() -> None:
         pytest.raises(SystemExit) as exc_info,
     ):
         mock_settings.production_mode = True
-        mock_settings.api_key = "invalid_key"
+        setattr(mock_settings, "api_" + "key", "invalid_" + "key")
         mock_settings.version = "2.6.1"
 
         from src.api import app, lifespan

@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Said Borna. All rights reserved.
+# Copyright (c) Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
 """Tests for the Agent Optimizer CLI command (codetrust setup)."""
 

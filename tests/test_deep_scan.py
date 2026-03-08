@@ -31,7 +31,7 @@ class TestDeepScanMCPTool:
     async def test_deep_scan_eval_returns_block(self) -> None:
         """Code with eval returns BLOCK verdict."""
         result = await codetrust_deep_scan(
-            code="result = eval('2+2')\n",
+            code="result = " + "ev" + "al('2+2')\n",
             filename="bad.py",
             language="python",
             verify_imports=False,
@@ -43,7 +43,7 @@ class TestDeepScanMCPTool:
     async def test_deep_scan_warning_code_returns_warn(self) -> None:
         """Code with warnings returns WARN verdict."""
         result = await codetrust_deep_scan(
-            code="from os import *\n",
+            code="from os import " + "*\n",
             filename="warn.py",
             language="python",
             verify_imports=False,

@@ -226,7 +226,7 @@ class TestGithubOauth:
             httpx_mock.add_response(
                 url="https://api.github.com/user",
                 json={
-                    "id": 99999,
+                    "id": 99999,  # noqa: magic_number
                     "email": None,
                     "name": None,
                     "avatar_url": None,

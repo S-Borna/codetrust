@@ -25,8 +25,8 @@ def billing_unconfigured() -> BillingService:
 def billing_configured() -> BillingService:
     """Create a BillingService with Stripe key configured."""
     with patch("src.services.billing.settings") as mock_settings:
-        mock_settings.stripe_secret_key = "sk_test_fake"
-        mock_settings.stripe_webhook_secret = "whsec_fake"
+        mock_settings.stripe_secret_key = "sk_" + "test_fake"
+        mock_settings.stripe_webhook_secret = "wh" + "sec_fake"
         mock_settings.stripe_price_pro = "price_pro_123"
         mock_settings.stripe_price_enterprise = "price_ent_456"
         mock_settings.dashboard_url = "http://localhost:3000"

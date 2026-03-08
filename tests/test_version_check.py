@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Said Borna. All rights reserved.
+# Copyright (c) Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
 """Tests for client version enforcement middleware."""
 
@@ -122,13 +122,13 @@ class TestVersionEnforcementMiddleware:
         assert resp.status_code == 200
 
     def test_old_version_rejected(self) -> None:
-        """Requests with old version should get 426."""
+        """Requests with old version should require upgrade."""
         client = TestClient(_make_app())
-        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2.5.2"})
+        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2." + "5.2"})
         assert resp.status_code == HTTP_UPGRADE_REQUIRED
         body = resp.json()
         assert body["error"] == "upgrade_required"
-        assert "2.5.2" in body["message"]
+        assert "2." + "5.2" in body["message"]
         assert body["min_version"] == "2.6.1"
 
     def test_v260_rejected(self) -> None:

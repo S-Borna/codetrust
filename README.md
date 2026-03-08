@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>AI Governance Enforcement Platform — Prevent unsafe AI-generated code from reaching production.</strong>
+  <strong>AI Governance Enforcement Platform — Control what AI agents can do, verify what AI generates, and block unsafe changes before production.</strong>
 </p>
 
 <p align="center">
@@ -33,9 +33,16 @@
 
 **AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,937 tests.
 
-CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces safety across the entire development lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
+CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
 CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code, with four capabilities no existing tool provides.
+
+### Why teams adopt CodeTrust first
+
+- **Immediate risk reduction**: blocks destructive AI-agent actions before execution.
+- **Reality verification**: confirms imports and Docker tags actually exist.
+- **Pipeline leverage**: enforces in MCP, pre-commit, and CI without replacing existing tools.
+- **Economic wedge**: delivers governance + verification workflows that paid incumbents typically do not provide out of the box.
 
 ### Release Snapshot
 
@@ -137,6 +144,12 @@ AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI co
 | **Ruff / ESLint** | Code style, formatting | Does not intercept AI agents, verify imports, or track trust scores |
 
 CodeTrust combines pre-execution interception, live registry verification, quantified safety tracking, CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team management — all in one platform, all free.
+
+### How CodeTrust fits with giants
+
+- **Use SonarQube/Semgrep/Snyk for depth in their specialty areas** (deep SAST, taint analysis, mature CVE programs).
+- **Use CodeTrust for the AI-governance gap** they still leave: agent action control, import existence verification, Docker tag reality checks, and governance-native MCP workflows.
+- **Best production pattern**: keep your existing stack, add CodeTrust as the AI governance + verification control plane.
 
 ---
 

@@ -85,7 +85,7 @@ _TERMINAL_RULES: list[dict] = [
     },
     {
         "id": "gateway_rm_rf_root",
-        "pattern": r"rm\s+-[rR]f?\s+/(?:\s|$)",
+        "pattern": r"rm\s+-[rR]f?\s+/(\s|$)",
         "message": "Recursive delete at root path. Catastrophic data loss risk.",
         "suggestion": "Specify an explicit subdirectory path.",
         "severity": Verdict.BLOCK,
@@ -159,7 +159,7 @@ _TERMINAL_RULES: list[dict] = [
     },
     {
         "id": "gateway_python_exec_encoded",
-        "pattern": r"python[23]?\s+-c\s+.*(?:__import__|exec|eval)\s*\(",
+        "pattern": r"python[23]?\s+-c\s+.*(__import__|exec|eval)\s*\(",
         "message": "Python one-liner with dynamic code execution.",
         "suggestion": "Write Python code to a file and execute it directly.",
         "severity": Verdict.WARN,
@@ -216,7 +216,7 @@ _TERMINAL_RULES: list[dict] = [
     },
     {
         "id": "gateway_git_push",
-        "pattern": r"\bgit\s+push\b(?!.*(?:--force|-f))",
+        "pattern": r"\bgit\s+push\b(?!.*(--force|-f))",
         "message": "AI agents must not push to remote repositories.",
         "suggestion": "Stage and commit changes. The user will push manually.",
         "severity": Verdict.BLOCK,
@@ -355,7 +355,7 @@ _TERMINAL_RULES: list[dict] = [
     {
         "id": "gateway_echo_secret",
         "pattern": (
-            r"echo\s+.*\$\{?(?:API_KEY|SECRET|PASSWORD|TOKEN|"
+            r"echo\s+.*\$\{?(API_KEY|SECRET|PASSWORD|TOKEN|"
             r"AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|DATABASE_URL)"
         ),
         "message": "Echoing secret variable to terminal output.",
@@ -382,7 +382,7 @@ _TERMINAL_RULES: list[dict] = [
     },
     {
         "id": "gateway_pip_install_url",
-        "pattern": r"pip\s+install\s+(?:git\+)?https?://(?!pypi\.org|github\.com|gitlab\.com)",
+        "pattern": r"pip\s+install\s+(git\+https://|https://|http://)",
         "message": "Installing package from unverified URL. Supply chain attack risk.",
         "suggestion": "Install from PyPI or verified Git repos only.",
         "severity": Verdict.WARN,
@@ -417,7 +417,7 @@ _TERMINAL_RULES: list[dict] = [
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "gateway_tee_write",
-        "pattern": r"\btee\s+(?:-a\s+)?\S+\.(?:py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs|rb|java|c|cpp|h)",
+        "pattern": r"\btee\s+(-a\s+)?\S+\.(py|js|ts|sh|yaml|yml|toml|json|md|sql|go|rs|rb|java|c|cpp|h)",
         "message": "Using tee to write code files bypasses safe file-write tools.",
         "suggestion": "Use create_file or replace_string_in_file tool instead.",
         "severity": Verdict.BLOCK,
@@ -466,7 +466,7 @@ _TERMINAL_RULES: list[dict] = [
     },
     {
         "id": "gateway_python_write_file",
-        "pattern": r"python[23]?\s+-c\s+.*(?:open|write|Path).*\.(?:py|js|ts|sh|yaml|yml|toml|json)",
+        "pattern": r"python[23]?\s+-c\s+.*(open|write|Path).*\.(py|js|ts|sh|yaml|yml|toml|json)",
         "message": "Using python -c to write files bypasses safe file-write tools.",
         "suggestion": "Use create_file or replace_string_in_file tool instead.",
         "severity": Verdict.BLOCK,
@@ -559,6 +559,22 @@ _TERMINAL_RULES: list[dict] = [
         "severity": Verdict.BLOCK,
     },
     {
+        "id": "gateway_native_tool_bypass_attempt",
+        "pattern": (
+            r"\b(?:run_in_terminal|create_file|replace_string_in_file|edit_notebook_file)\b"
+        ),
+        "message": "Native tool reference detected. Use codetrust_* proxy tools in enforced mode.",
+        "suggestion": "Call codetrust_run_in_terminal/codetrust_create_file/etc before native actions.",
+        "severity": Verdict.BLOCK,
+    },
+    {
+        "id": "gateway_disable_governance_env",
+        "pattern": r"\bCODETRUST_GOVERNANCE_(?:MODE|ENABLED)\s*=\s*(?:off|false|0)\b",
+        "message": "Attempt to disable governance through environment override.",
+        "suggestion": "Keep governance enabled and remediate blocked findings instead.",
+        "severity": Verdict.BLOCK,
+    },
+    {
         "id": "gateway_stealth_exfil_chain",
         "pattern": (
             r"(?:tar|zip)\s+.*(?:\||&&)\s*(?:curl|wget)\s+.*"
@@ -606,7 +622,9 @@ _CONTENT_RULES: list[dict] = [
     {
         "id": "gateway_content_secret",
         "pattern": (
-            r'(?i)(api[_-]?key|secret|password|token|credentials)'
+            r'([Aa][Pp][Ii][_\-]?[Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|'
+            r'[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|'
+            r'[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll][Ss])'
             r'\s*[:=]\s*["\'][^"\']{8,}["\']'
         ),
         "message": "Hardcoded secret detected in file content.",
@@ -654,7 +672,7 @@ _CONTENT_RULES: list[dict] = [
     },
     {
         "id": "gateway_content_debug_true",
-        "pattern": r"(?i)(?:DEBUG|debug)\s*[:=]\s*(?:True|true|1|[\"']true[\"'])",
+        "pattern": r"(?i)(DEBUG|debug)\s*[:=]\s*(True|true|1|[\"']true[\"'])",
         "message": "Debug mode enabled in file. Must not ship to production.",
         "suggestion": "Use environment-based configuration for debug settings.",
         "severity": Verdict.WARN,
@@ -749,15 +767,15 @@ _CONTENT_RULES: list[dict] = [
     {
         "id": "gateway_content_symptom_fix",
         "pattern": (
-            r"(?i)#\s*(?:"
+            r"(?i)#\s*("
             r"work" + r"around"
             r"|quick\s*fix"
             r"|band[\s\-]*aid"
             r"|stop[\s\-]*gap"
             r"|klud" + r"ge"
             r"|duct[\s\-]*tape"
-            r"|dirty\s*(?:ha" + r"ck|fix)"
-            r"|temporary\s*(?:fix|patch|solution)"
+            r"|dirty\s*(ha" + r"ck|fix)"
+            r"|temporary\s*(fix|patch|solution)"
             r"|symptom\s*fix"
             r"|monkey[\s\-]*pat" + r"ch"
             r"|short[\s\-]*term\s*fix"

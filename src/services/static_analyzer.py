@@ -110,6 +110,13 @@ class StaticAnalyzer:
         else:
             if ext in SQL_EXTENSIONS:
                 return True
+
+        exclude_path_contains = rule.get("exclude_path_contains")
+        if exclude_path_contains:
+            normalized_filename = filename.replace("\\", "/").lower()
+            for path_fragment in exclude_path_contains:
+                if path_fragment.lower() in normalized_filename:
+                    return True
         return False
 
     def scan_code(self, code: str, filename: str = "") -> list[Finding]:

@@ -467,7 +467,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.dashboard_url],
+    allow_origins=[
+        settings.dashboard_url,
+        "https://app.codetrust.ai",
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Client-Version"],

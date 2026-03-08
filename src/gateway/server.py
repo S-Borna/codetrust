@@ -36,6 +36,7 @@ import structlog
 from mcp.server.fastmcp import FastMCP
 
 from src.config import settings
+from src.gateway.approvals import ApprovalExceptionStore, apply_exception_override
 from src.gateway.audit import AuditEntry, AuditLogger
 from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import GovernancePolicy, PolicyEngine
@@ -44,12 +45,21 @@ from src.gateway.policy_integrity import (
     get_policy_manifest_hash,
     verify_policy_integrity,
 )
+from src.services.governance_bundles import get_bundle_policy
 from src.telemetry_client import send_telemetry
 
 logger = structlog.get_logger()
 
 SECONDS_PER_HOUR: int = 3_600
 POLICY_INTEGRITY_CACHE_TTL_SECONDS: float = 5.0
+TRUSTED_SESSION_TTL_SECONDS: int = 3_600
+ALLOW_REASON_FALLBACK_MIN_LEN: int = 12
+NATIVE_TOOL_NAMES: set[str] = {
+    "run_in_terminal",
+    "create_file",
+    "replace_string_in_file",
+    "edit_notebook_file",
+}
 
 # ═══════════════════════════════════════════════════════════════
 #  Initialize gateway components
@@ -97,6 +107,12 @@ _session_id = f"gateway-{int(time.time())}"
 _agent_id = os.environ.get("CODETRUST_AGENT_ID", _detect_agent())
 _last_integrity_check_at: float = 0.0
 _last_integrity_result: PolicyIntegrityResult | None = None
+_trusted_tokens: dict[str, dict[str, object]] = {}
+_approval_store = ApprovalExceptionStore(
+    _workspace,
+    approval_ttl_minutes=_engine.config.approval_ttl_minutes,
+    exception_ttl_minutes=_engine.config.exception_ttl_minutes,
+)
 
 gateway = FastMCP("codetrust-gateway")
 
@@ -176,6 +192,132 @@ def _attach_attestation_metadata(result: InterceptResult) -> None:
         **result.metadata,
         "attestation": attestation,
     }
+
+
+def _prune_trusted_tokens(now: float) -> None:
+    """Drop expired trusted-session tokens."""
+    expired = [
+        token for token, payload in _trusted_tokens.items()
+        if float(payload.get("expires_at", 0.0)) <= now
+    ]
+    for token in expired:
+        _trusted_tokens.pop(token, None)
+
+
+def _issue_trusted_token(*, reason: str, agent_id: str) -> tuple[str, float]:
+    """Create and store a trusted-session token."""
+    token = os.urandom(16).hex()
+    expires_at = time.time() + TRUSTED_SESSION_TTL_SECONDS
+    _trusted_tokens[token] = {
+        "expires_at": expires_at,
+        "agent_id": agent_id,
+        "session_id": _session_id,
+        "reason": reason,
+    }
+    return token, expires_at
+
+
+def _has_valid_trusted_token(token: str, *, agent_id: str) -> bool:
+    """Validate trusted-session token expiry."""
+    now = time.time()
+    _prune_trusted_tokens(now)
+    if not token:
+        return False
+    payload = _trusted_tokens.get(token)
+    if payload is None:
+        return False
+    expires_at = float(payload.get("expires_at", 0.0))
+    token_agent_id = str(payload.get("agent_id", ""))
+    token_session_id = str(payload.get("session_id", ""))
+    if token_agent_id and token_agent_id != agent_id:
+        return False
+    if token_session_id and token_session_id != _session_id:
+        return False
+    return expires_at > now
+
+
+def _trusted_execution_gate(*, trusted_token: str, agent_id: str) -> dict[str, object] | None:
+    """Block actionable operations unless trusted execution session is active."""
+    if not _engine.config.trusted_execution_mode:
+        return None
+    if _has_valid_trusted_token(trusted_token, agent_id=agent_id):
+        return None
+    return _attach_attestation_payload({
+        "status": _BLOCKED_PREFIX,
+        "verdict": "BLOCK",
+        "rule_id": "gateway_trusted_execution_required",
+        "message": "Trusted execution mode is enabled for this workspace.",
+        "suggestion": "Call codetrust_begin_trusted_session, then retry with trusted_token.",
+        "root_cause": "Native/proxy actions require active trusted execution session.",
+        "safe_fix": "Start trusted session and provide trusted_token on proxy calls.",
+        "instruction": (
+            "MANDATORY: Start trusted execution first. "
+            "Do NOT proceed with native tools until trusted session is active."
+        ),
+    })
+
+
+def _native_enforcement_gate(*, tool_name: str) -> dict[str, object] | None:
+    """Return blocking payload when global deny-native mode is enabled."""
+    if not _engine.config.deny_native_execution:
+        return None
+    if tool_name not in NATIVE_TOOL_NAMES:
+        return None
+    return _attach_attestation_payload({
+        "status": _BLOCKED_PREFIX,
+        "verdict": "BLOCK",
+        "rule_id": "gateway_native_tool_denied",
+        "message": "Native tool execution is denied by active governance policy.",
+        "suggestion": "Use the corresponding codetrust_* proxy tool first.",
+        "root_cause": "deny_native_execution policy is enabled.",
+        "safe_fix": "Call codetrust proxy and use native tool only after APPROVED.",
+        "instruction": "MANDATORY: Native tool calls are disallowed in enforced mode.",
+    })
+
+
+def _allow_reason_gate(*, allow_reason: str) -> dict[str, object] | None:
+    """Enforce explicit allow reason in strict governance mode."""
+    if not _engine.config.require_allow_reason:
+        return None
+    min_length = max(ALLOW_REASON_FALLBACK_MIN_LEN, _engine.config.allow_reason_min_length)
+    if len(allow_reason.strip()) >= min_length:
+        return None
+    return _attach_attestation_payload({
+        "status": "REQUIRES_ALLOW_REASON",
+        "verdict": "BLOCK",
+        "rule_id": "gateway_allow_reason_required",
+        "message": "Explicit allow reason is required before this action can proceed.",
+        "suggestion": f"Provide allow_reason with at least {min_length} characters.",
+        "instruction": "MANDATORY: include allow_reason to continue.",
+    })
+
+
+def _apply_exception_if_present(
+    result: InterceptResult,
+    *,
+    session_id: str,
+    agent_id: str,
+) -> InterceptResult:
+    """Allow blocked action when an active governance exception matches."""
+    if not result.blocked:
+        return result
+    exception = _approval_store.find_matching_exception(
+        result,
+        session_id=session_id,
+        agent_id=agent_id,
+    )
+    if exception is None:
+        return result
+    return apply_exception_override(result, exception=exception)
+
+
+def _requires_approval(result: InterceptResult) -> bool:
+    """Return True if blocked result requires explicit user approval."""
+    if not _engine.active:
+        return False
+    if not result.blocked:
+        return False
+    return result.rule_id in set(_engine.config.require_approval_for)
 
 
 def _integrity_block_payload(*, proxy: bool = False) -> dict[str, object] | None:
@@ -417,8 +559,15 @@ _APPROVED_PREFIX = "APPROVED"
 _BLOCKED_PREFIX = "BLOCKED"
 
 
-def _proxy_result(result: InterceptResult) -> str:
+def _proxy_result(
+    result: InterceptResult,
+    *,
+    allow_reason: str,
+    session_id: str,
+    agent_id: str,
+) -> str:
     """Serialise a proxy intercept result with APPROVED / BLOCKED header."""
+    result = _apply_exception_if_present(result, session_id=session_id, agent_id=agent_id)
     _attach_attestation_metadata(result)
     effective_verdict = result.verdict.value
     if _engine.auditing and result.verdict == Verdict.BLOCK:
@@ -426,6 +575,28 @@ def _proxy_result(result: InterceptResult) -> str:
 
     _emit_gateway_telemetry(result=result, effective_verdict=effective_verdict)
     _audit.log_intercept(result, workspace=_workspace, session_id=_session_id, agent_id=_agent_id)
+
+    if _requires_approval(result):
+        pending = _approval_store.create_pending(
+            result,
+            session_id=session_id,
+            agent_id=agent_id,
+        )
+        return json.dumps(_attach_attestation_payload({
+            "status": "REQUIRES_APPROVAL",
+            "verdict": "BLOCK",
+            "rule_id": result.rule_id,
+            "message": result.message,
+            "suggestion": result.suggestion,
+            "root_cause": result.root_cause or result.message,
+            "safe_fix": "Call codetrust_approve_action with explicit reason, then retry.",
+            "approval_request_id": pending.request_id,
+            "approval_expires_at": pending.expires_at,
+            "instruction": (
+                "MANDATORY: Action requires explicit allow-before-continue approval."
+            ),
+            "allow_reason": allow_reason,
+        }), indent=2)
 
     if result.blocked and _engine.active:
         return json.dumps(_attach_attestation_payload({
@@ -447,6 +618,7 @@ def _proxy_result(result: InterceptResult) -> str:
         "verdict": effective_verdict,
         "rule_id": result.rule_id,
         "message": result.message or "Action validated — you may proceed.",
+        "allow_reason": allow_reason,
         "instruction": (
             "You may now call the native tool with the EXACT same parameters."
         ),
@@ -454,7 +626,12 @@ def _proxy_result(result: InterceptResult) -> str:
 
 
 @gateway.tool(name="codetrust_run_in_terminal")
-async def proxy_run_in_terminal(command: str) -> str:
+async def proxy_run_in_terminal(
+    command: str,
+    trusted_token: str = "",
+    allow_reason: str = "",
+    agent_id: str = "",
+) -> str:
     """Mandatory proxy gate for run_in_terminal.
 
     You MUST call this tool BEFORE calling run_in_terminal.
@@ -469,16 +646,41 @@ async def proxy_run_in_terminal(command: str) -> str:
     """
     logger.info("proxy_run_in_terminal", command=command[:120])
 
+    resolved_agent_id = agent_id or _agent_id
+
+    native_block = _native_enforcement_gate(tool_name="run_in_terminal")
+    if native_block is not None:
+        return json.dumps(native_block, indent=2)
+
+    allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
+    if allow_reason_block is not None:
+        return json.dumps(allow_reason_block, indent=2)
+
+    trusted_block = _trusted_execution_gate(trusted_token=trusted_token, agent_id=resolved_agent_id)
+    if trusted_block is not None:
+        return json.dumps(trusted_block, indent=2)
+
     integrity_block = _integrity_block_payload(proxy=True)
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_terminal(command)
-    return _proxy_result(result)
+    return _proxy_result(
+        result,
+        allow_reason=allow_reason,
+        session_id=_session_id,
+        agent_id=resolved_agent_id,
+    )
 
 
 @gateway.tool(name="codetrust_create_file")
-async def proxy_create_file(path: str, content: str) -> str:
+async def proxy_create_file(
+    path: str,
+    content: str,
+    trusted_token: str = "",
+    allow_reason: str = "",
+    agent_id: str = "",
+) -> str:
     """Mandatory proxy gate for create_file.
 
     You MUST call this tool BEFORE calling create_file.
@@ -494,12 +696,31 @@ async def proxy_create_file(path: str, content: str) -> str:
     """
     logger.info("proxy_create_file", path=path)
 
+    resolved_agent_id = agent_id or _agent_id
+
+    native_block = _native_enforcement_gate(tool_name="create_file")
+    if native_block is not None:
+        return json.dumps(native_block, indent=2)
+
+    allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
+    if allow_reason_block is not None:
+        return json.dumps(allow_reason_block, indent=2)
+
+    trusted_block = _trusted_execution_gate(trusted_token=trusted_token, agent_id=resolved_agent_id)
+    if trusted_block is not None:
+        return json.dumps(trusted_block, indent=2)
+
     integrity_block = _integrity_block_payload(proxy=True)
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_file_write(path, content)
-    return _proxy_result(result)
+    return _proxy_result(
+        result,
+        allow_reason=allow_reason,
+        session_id=_session_id,
+        agent_id=resolved_agent_id,
+    )
 
 
 @gateway.tool(name="codetrust_replace_string_in_file")
@@ -507,6 +728,9 @@ async def proxy_replace_string_in_file(
     path: str,
     old_string: str,
     new_string: str,
+    trusted_token: str = "",
+    allow_reason: str = "",
+    agent_id: str = "",
 ) -> str:
     """Mandatory proxy gate for replace_string_in_file.
 
@@ -524,6 +748,20 @@ async def proxy_replace_string_in_file(
     """
     logger.info("proxy_replace_string_in_file", path=path)
 
+    resolved_agent_id = agent_id or _agent_id
+
+    native_block = _native_enforcement_gate(tool_name="replace_string_in_file")
+    if native_block is not None:
+        return json.dumps(native_block, indent=2)
+
+    allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
+    if allow_reason_block is not None:
+        return json.dumps(allow_reason_block, indent=2)
+
+    trusted_block = _trusted_execution_gate(trusted_token=trusted_token, agent_id=resolved_agent_id)
+    if trusted_block is not None:
+        return json.dumps(trusted_block, indent=2)
+
     integrity_block = _integrity_block_payload(proxy=True)
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
@@ -531,11 +769,22 @@ async def proxy_replace_string_in_file(
     # Validate the incoming new content as a file write
     combined_content = f"{old_string}\n---replaced-by---\n{new_string}"
     result = _interceptor.check_file_write(path, combined_content)
-    return _proxy_result(result)
+    return _proxy_result(
+        result,
+        allow_reason=allow_reason,
+        session_id=_session_id,
+        agent_id=resolved_agent_id,
+    )
 
 
 @gateway.tool(name="codetrust_edit_notebook")
-async def proxy_edit_notebook(path: str, new_code: str) -> str:
+async def proxy_edit_notebook(
+    path: str,
+    new_code: str,
+    trusted_token: str = "",
+    allow_reason: str = "",
+    agent_id: str = "",
+) -> str:
     """Mandatory proxy gate for edit_notebook_file.
 
     You MUST call this tool BEFORE calling edit_notebook_file.
@@ -551,12 +800,31 @@ async def proxy_edit_notebook(path: str, new_code: str) -> str:
     """
     logger.info("proxy_edit_notebook", path=path)
 
+    resolved_agent_id = agent_id or _agent_id
+
+    native_block = _native_enforcement_gate(tool_name="edit_notebook_file")
+    if native_block is not None:
+        return json.dumps(native_block, indent=2)
+
+    allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
+    if allow_reason_block is not None:
+        return json.dumps(allow_reason_block, indent=2)
+
+    trusted_block = _trusted_execution_gate(trusted_token=trusted_token, agent_id=resolved_agent_id)
+    if trusted_block is not None:
+        return json.dumps(trusted_block, indent=2)
+
     integrity_block = _integrity_block_payload(proxy=True)
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
     result = _interceptor.check_file_write(path, new_code)
-    return _proxy_result(result)
+    return _proxy_result(
+        result,
+        allow_reason=allow_reason,
+        session_id=_session_id,
+        agent_id=resolved_agent_id,
+    )
 
 
 def _build_governance_policy_lines(
@@ -604,6 +872,37 @@ def _build_governance_extras(
     return lines
 
 
+def _build_governance_posture_payload() -> dict[str, object]:
+    """Return current governance posture snapshot."""
+    integrity = _evaluate_policy_integrity()
+    return {
+        "session_id": _session_id,
+        "agent_id": _agent_id,
+        "mode": _engine.config.mode.value,
+        "enabled": _engine.config.enabled,
+        "trusted_execution_mode": _engine.config.trusted_execution_mode,
+        "deny_native_execution": _engine.config.deny_native_execution,
+        "require_allow_reason": _engine.config.require_allow_reason,
+        "session_binding_enforced": _engine.config.session_binding_required,
+        "anti_bypass_enabled": _engine.config.anti_bypass_checks,
+        "policy_integrity": {
+            "verdict": integrity.verdict,
+            "rule_id": integrity.rule_id,
+            "policy_hash": get_policy_manifest_hash(_workspace),
+        },
+        "pending_approvals": len(_approval_store.list_pending()),
+        "active_exceptions": len(_approval_store.list_active_exceptions()),
+        "control_plane_ready": (
+            _engine.config.enabled
+            and _engine.config.trusted_execution_mode
+            and _engine.config.deny_native_execution
+            and _engine.config.require_allow_reason
+            and _engine.config.session_binding_required
+            and _engine.config.anti_bypass_checks
+        ),
+    }
+
+
 @gateway.tool(name="codetrust_governance_status")
 async def governance_status() -> str:
     """Show current governance configuration and policy status.
@@ -626,10 +925,13 @@ async def governance_status() -> str:
         "",
         f"**Mode:** {config.mode.value}",
         f"**Enabled:** {config.enabled}",
+        f"**Trusted execution:** {config.trusted_execution_mode}",
         f"**Agent:** {_agent_id}",
         f"**Session:** {_session_id}",
         f"**Policies:** {enabled_count} active, {disabled_count} disabled",
         f"**Audit log:** {_audit.path}",
+        f"**Pending approvals:** {len(_approval_store.list_pending())}",
+        f"**Active exceptions:** {len(_approval_store.list_active_exceptions())}",
     ]
 
     lines.extend(_build_governance_policy_lines(policies))
@@ -713,6 +1015,176 @@ async def list_gateway_rules() -> str:
         )
 
     return "\n".join(lines)
+
+
+@gateway.tool(name="codetrust_begin_trusted_session")
+async def begin_trusted_session(reason: str, agent_id: str = "") -> str:
+    """Start trusted execution session and return temporary trusted token."""
+    actor = agent_id or _agent_id
+    token, expires_at = _issue_trusted_token(reason=reason, agent_id=actor)
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="trusted_session_begin",
+        verdict="ALLOW",
+        rule_id="trusted_execution_session_started",
+        original_action=reason,
+        message="Trusted execution session started.",
+        suggestion="Use trusted_token on proxy calls while session is active.",
+        session_id=_session_id,
+        agent_id=actor,
+        workspace=_workspace,
+        metadata={"expires_at": expires_at},
+    ))
+    return json.dumps(_attach_attestation_payload({
+        "status": _APPROVED_PREFIX,
+        "trusted_token": token,
+        "expires_at": expires_at,
+        "instruction": "Pass trusted_token to codetrust_* proxy tools.",
+    }), indent=2)
+
+
+@gateway.tool(name="codetrust_approve_action")
+async def approve_action(
+    request_id: str,
+    approver: str,
+    approver_role: str,
+    reason: str,
+    ttl_minutes: int = 60,
+) -> str:
+    """Approve pending action and issue time-bound governance exception."""
+    if approver_role not in set(_engine.config.allowed_approver_roles):
+        return json.dumps(_attach_attestation_payload({
+            "status": _BLOCKED_PREFIX,
+            "verdict": "BLOCK",
+            "rule_id": "approval_role_not_allowed",
+            "message": "Approver role is not allowed by governance policy.",
+            "suggestion": "Use one of the configured allowed roles.",
+            "allowed_roles": _engine.config.allowed_approver_roles,
+        }), indent=2)
+
+    approved = _approval_store.approve(
+        request_id,
+        approver=approver,
+        approver_role=approver_role,
+        reason=reason,
+        ttl_minutes=ttl_minutes,
+    )
+    if approved is None:
+        return json.dumps(_attach_attestation_payload({
+            "status": _BLOCKED_PREFIX,
+            "verdict": "BLOCK",
+            "rule_id": "approval_request_not_found",
+            "message": "Approval request not found or expired.",
+            "suggestion": "Retry the original action to generate a fresh approval request.",
+            "instruction": "Do not proceed without valid approval.",
+        }), indent=2)
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="approval_granted",
+        verdict="ALLOW",
+        rule_id="governance_exception_created",
+        original_action=request_id,
+        message="Approval granted and exception created.",
+        suggestion="Retry the original action before exception expiry.",
+        session_id=_session_id,
+        agent_id=approver,
+        workspace=_workspace,
+        metadata={
+            "exception_id": approved.exception_id,
+            "expires_at": approved.expires_at,
+            "rule_id": approved.rule_id,
+            "approver_role": approver_role,
+        },
+    ))
+    return json.dumps(_attach_attestation_payload({
+        "status": _APPROVED_PREFIX,
+        "verdict": "ALLOW",
+        "exception_id": approved.exception_id,
+        "expires_at": approved.expires_at,
+        "instruction": "Retry the original action. Exception is now active.",
+    }), indent=2)
+
+
+@gateway.tool(name="codetrust_list_exceptions")
+async def list_exceptions() -> str:
+    """List active governance exceptions and pending approvals."""
+    pending = [asdict(item) for item in _approval_store.list_pending()]
+    active = [asdict(item) for item in _approval_store.list_active_exceptions()]
+    return json.dumps(_attach_attestation_payload({
+        "pending_approvals": pending,
+        "active_exceptions": active,
+    }), indent=2)
+
+
+@gateway.tool(name="codetrust_revoke_exception")
+async def revoke_exception(exception_id: str, revoked_by: str) -> str:
+    """Revoke active governance exception by identifier."""
+    revoked = _approval_store.revoke(exception_id, revoked_by=revoked_by)
+    verdict = _APPROVED_PREFIX if revoked else _BLOCKED_PREFIX
+    return json.dumps(_attach_attestation_payload({
+        "status": verdict,
+        "revoked": revoked,
+        "exception_id": exception_id,
+        "instruction": "Exception revoked." if revoked else "No matching active exception.",
+    }), indent=2)
+
+
+@gateway.tool(name="codetrust_simulate_policy")
+async def simulate_policy(bundle_id: str, commands: list[str]) -> str:
+    """Simulate governance outcomes for sample commands against a policy bundle."""
+    try:
+        bundle_policy = get_bundle_policy(bundle_id)
+    except ValueError:
+        return json.dumps(_attach_attestation_payload({
+            "status": _BLOCKED_PREFIX,
+            "verdict": "BLOCK",
+            "rule_id": "unsupported_bundle_id",
+            "message": "Unsupported policy bundle id.",
+            "suggestion": "Use one of: startup, team, enterprise.",
+        }), indent=2)
+
+    disabled_rules: set[str] = set()
+    if not bool(bundle_policy.get("block_heredoc", True)):
+        disabled_rules.add("gateway_heredoc")
+    if not bool(bundle_policy.get("block_eval", True)):
+        disabled_rules.add("gateway_eval")
+    if not bool(bundle_policy.get("block_git_push", True)):
+        disabled_rules.add("gateway_git_push")
+        disabled_rules.add("gateway_git_force_push")
+    if not bool(bundle_policy.get("block_rm_rf", True)):
+        disabled_rules.add("gateway_rm_rf_root")
+        disabled_rules.add("gateway_rm_rf_home")
+    if not bool(bundle_policy.get("block_curl_pipe_sh", True)):
+        disabled_rules.add("gateway_curl_pipe_sh")
+    if not bool(bundle_policy.get("block_chmod_777", True)):
+        disabled_rules.add("gateway_chmod_777")
+
+    sim = CommandInterceptor(
+        enabled=True,
+        disabled_rules=disabled_rules,
+        protected_paths=list(bundle_policy.get("protected_paths", [])),
+    )
+    outcomes: list[dict[str, object]] = []
+    for command in commands:
+        res = sim.check_terminal(command)
+        outcomes.append({
+            "command": command,
+            "verdict": res.verdict.value,
+            "rule_id": res.rule_id,
+            "message": res.message,
+        })
+
+    return json.dumps(_attach_attestation_payload({
+        "bundle_id": bundle_id,
+        "outcomes": outcomes,
+    }), indent=2)
+
+
+@gateway.tool(name="codetrust_governance_posture")
+async def governance_posture() -> str:
+    """Return machine-readable governance posture snapshot."""
+    return json.dumps(_attach_attestation_payload(_build_governance_posture_payload()), indent=2)
 
 
 # ═══════════════════════════════════════════════════════════════

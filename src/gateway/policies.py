@@ -93,6 +93,29 @@ class GovernanceConfig:
     # Data retention
     retention_days: int = 90
 
+    # Trusted execution and approval workflow
+    trusted_execution_mode: bool = False
+    deny_native_execution: bool = False
+    require_allow_reason: bool = False
+    allow_reason_min_length: int = 12
+    session_binding_required: bool = True
+    anti_bypass_checks: bool = True
+    require_approval_for: list[str] = field(default_factory=lambda: [
+        "gateway_git_push",
+        "gateway_git_force_push",
+        "gateway_curl_pipe_sh",
+        "gateway_rm_rf_root",
+        "gateway_rm_rf_home",
+        "gateway_heredoc",
+    ])
+    allowed_approver_roles: list[str] = field(default_factory=lambda: [
+        "owner",
+        "admin",
+        "security",
+    ])
+    approval_ttl_minutes: int = 30
+    exception_ttl_minutes: int = 60
+
     # User overrides
     disabled_rules: set[str] = field(default_factory=set)
 
@@ -256,6 +279,42 @@ class PolicyEngine:
         config.audit_path = audit.get("path", config.audit_path)
         config.retention_days = audit.get("retention_days", config.retention_days)
 
+        trusted = gov.get("trusted_execution", {})
+        config.trusted_execution_mode = trusted.get(
+            "enabled", config.trusted_execution_mode,
+        )
+        config.deny_native_execution = trusted.get(
+            "deny_native_execution", config.deny_native_execution,
+        )
+        config.require_allow_reason = trusted.get(
+            "require_allow_reason", config.require_allow_reason,
+        )
+        config.allow_reason_min_length = int(trusted.get(
+            "allow_reason_min_length", config.allow_reason_min_length,
+        ))
+        config.session_binding_required = trusted.get(
+            "session_binding_required", config.session_binding_required,
+        )
+        config.anti_bypass_checks = trusted.get(
+            "anti_bypass_checks", config.anti_bypass_checks,
+        )
+
+        approval = gov.get("approval", {})
+        config.require_approval_for = approval.get(
+            "required_rules", config.require_approval_for,
+        )
+        config.allowed_approver_roles = approval.get(
+            "allowed_roles", config.allowed_approver_roles,
+        )
+        config.approval_ttl_minutes = approval.get(
+            "ttl_minutes", config.approval_ttl_minutes,
+        )
+
+        exceptions = gov.get("exceptions", {})
+        config.exception_ttl_minutes = exceptions.get(
+            "ttl_minutes", config.exception_ttl_minutes,
+        )
+
         webhooks = gov.get("webhooks", {})
         config.webhook_url = webhooks.get("url", config.webhook_url)
         config.webhook_provider = webhooks.get("provider", config.webhook_provider)
@@ -342,6 +401,22 @@ class PolicyEngine:
             f"enabled = {str(self._config.audit_enabled).lower()}",
             f'path = "{self._config.audit_path}"',
             f"retention_days = {self._config.retention_days}",
+            "",
+            "[codetrust.governance.trusted_execution]",
+            f"enabled = {str(self._config.trusted_execution_mode).lower()}",
+            f"deny_native_execution = {str(self._config.deny_native_execution).lower()}",
+            f"require_allow_reason = {str(self._config.require_allow_reason).lower()}",
+            f"allow_reason_min_length = {self._config.allow_reason_min_length}",
+            f"session_binding_required = {str(self._config.session_binding_required).lower()}",
+            f"anti_bypass_checks = {str(self._config.anti_bypass_checks).lower()}",
+            "",
+            "[codetrust.governance.approval]",
+            f"required_rules = {self._config.require_approval_for!r}",
+            f"allowed_roles = {self._config.allowed_approver_roles!r}",
+            f"ttl_minutes = {self._config.approval_ttl_minutes}",
+            "",
+            "[codetrust.governance.exceptions]",
+            f"ttl_minutes = {self._config.exception_ttl_minutes}",
         ]
 
     def _build_webhook_toml_lines(self) -> list[str]:

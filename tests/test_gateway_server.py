@@ -280,3 +280,122 @@ class TestPolicyIntegrity:
         assert data["attestation"]["session_id"]
         assert data["attestation"]["policy_hash"]
         assert data.get("rule_id") != "gateway_policy_integrity_hash_mismatch"
+
+
+class TestTrustedExecutionAndApprovals:
+    @pytest.mark.asyncio()
+    async def test_trusted_execution_requires_session_token(self, monkeypatch, tmp_path) -> None:
+        """Proxy actions should block until trusted session token is issued."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n'
+            '[codetrust.governance.trusted_execution]\nenabled = true\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        blocked = json.loads(await gateway_server.proxy_run_in_terminal("ls -la"))
+        assert blocked["status"] == "BLOCKED"
+        assert blocked["rule_id"] == "gateway_trusted_execution_required"
+
+        trusted = json.loads(await gateway_server.begin_trusted_session("ci approval flow"))
+        token = trusted["trusted_token"]
+        allowed = json.loads(await gateway_server.proxy_run_in_terminal("ls -la", trusted_token=token))
+        assert allowed["status"] == "APPROVED"
+
+    @pytest.mark.asyncio()
+    async def test_approval_then_exception_allows_retry(self, monkeypatch, tmp_path) -> None:
+        """High-risk blocked action should require approval then pass after exception."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        first = json.loads(await gateway_server.proxy_run_in_terminal("git push origin main"))
+        assert first["status"] == "REQUIRES_APPROVAL"
+        request_id = first["approval_request_id"]
+
+        approved = json.loads(
+            await gateway_server.approve_action(
+                request_id,
+                approver="owner",
+                approver_role="owner",
+                reason="Approved for controlled release",
+                ttl_minutes=30,
+            ),
+        )
+        assert approved["status"] == "APPROVED"
+        assert approved["exception_id"]
+
+        second = json.loads(await gateway_server.proxy_run_in_terminal("git push origin main"))
+        assert second["status"] == "APPROVED"
+
+        listed = json.loads(await gateway_server.list_exceptions())
+        assert len(listed["active_exceptions"]) >= 1
+
+    @pytest.mark.asyncio()
+    async def test_simulate_policy_and_posture_tools(self) -> None:
+        """Simulator and posture tools should return structured governance data."""
+        from src.gateway.server import governance_posture, simulate_policy
+
+        sim = json.loads(await simulate_policy("startup", ["git push origin main", "ls -la"]))
+        assert sim["bundle_id"] == "startup"
+        assert len(sim["outcomes"]) == 2
+
+        posture = json.loads(await governance_posture())
+        assert "policy_integrity" in posture
+        assert "pending_approvals" in posture
+        assert "active_exceptions" in posture
+        assert "deny_native_execution" in posture
+        assert "require_allow_reason" in posture
+        assert "control_plane_ready" in posture
+
+    @pytest.mark.asyncio()
+    async def test_zero_slop_mode_requires_allow_reason_and_agent_bound_token(
+        self,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        """Strict mode requires allow_reason and enforces token agent binding."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n'
+            '[codetrust.governance.trusted_execution]\n'
+            'enabled = true\n'
+            'require_allow_reason = true\n'
+            'allow_reason_min_length = 12\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+
+        reason_block = json.loads(await gateway_server.proxy_run_in_terminal("ls -la"))
+        assert reason_block["status"] == "REQUIRES_ALLOW_REASON"
+
+        trusted = json.loads(await gateway_server.begin_trusted_session("strict flow", agent_id="agent-a"))
+        token = trusted["trusted_token"]
+
+        bound_block = json.loads(await gateway_server.proxy_run_in_terminal(
+            "ls -la",
+            trusted_token=token,
+            allow_reason="maintenance window",
+            agent_id="agent-b",
+        ))
+        assert bound_block["status"] == "BLOCKED"
+        assert bound_block["rule_id"] == "gateway_trusted_execution_required"
+
+        allowed = json.loads(await gateway_server.proxy_run_in_terminal(
+            "ls -la",
+            trusted_token=token,
+            allow_reason="approved maintenance window",
+            agent_id="agent-a",
+        ))
+        assert allowed["status"] == "APPROVED"

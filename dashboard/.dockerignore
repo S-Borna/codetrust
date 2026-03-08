@@ -1,0 +1,8 @@
+# Copyright (c) Said Borna. All rights reserved.
+node_modules
+.next
+.git
+*.md
+vitest.config.ts
+playwright.config.ts
+e2e

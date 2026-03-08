@@ -23,6 +23,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import { execSync } from "child_process";
 
 /** Marker comment embedded in injected entries (stored as a field). */
 const MCP_INJECTION_MARKER = "codetrust-auto-injected";
@@ -94,7 +95,6 @@ interface ResolvedCommand {
 
 /** Synchronously check if a command exists on PATH. */
 function commandExistsOnPath(cmd: string): boolean {
-    const { execSync } = require("child_process") as typeof import("child_process");
     try {
         const whichCmd = process.platform === "win32" ? `where ${cmd}` : `which ${cmd}`;
         execSync(whichCmd, { stdio: "ignore" });

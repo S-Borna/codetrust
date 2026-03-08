@@ -2,10 +2,10 @@
 # Multi-stage Dockerfile for Next.js standalone dashboard
 
 FROM node:20-alpine AS base
+RUN apk add --no-cache openssl libc6-compat
 
 # --- Dependencies ---
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 COPY prisma ./prisma/
@@ -27,7 +27,6 @@ RUN npm run build
 
 # --- Runner ---
 FROM base AS runner
-RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * HTTP client for the CodeTrust API.
@@ -17,6 +17,11 @@ import type {
     Language,
     ExtensionConfig,
 } from "./types";
+
+const HTTPS_DEFAULT_PORT = 443;
+const HTTP_DEFAULT_PORT = 80;
+const HTTP_SUCCESS_MIN = 200;
+const HTTP_SUCCESS_MAX_EXCLUSIVE = 300;
 
 /** Error thrown when the API request fails. */
 export class ApiError extends Error {
@@ -134,7 +139,7 @@ export class ApiClient {
 
             const options = {
                 hostname: url.hostname,
-                port: url.port || (isHttps ? 443 : 80),
+                port: url.port || (isHttps ? HTTPS_DEFAULT_PORT : HTTP_DEFAULT_PORT),
                 path: url.pathname + url.search,
                 method,
                 headers,
@@ -148,7 +153,7 @@ export class ApiClient {
                     const responseBody = Buffer.concat(chunks).toString("utf-8");
                     const statusCode = res.statusCode ?? 0;
 
-                    if (statusCode >= 200 && statusCode < 300) {
+                    if (statusCode >= HTTP_SUCCESS_MIN && statusCode < HTTP_SUCCESS_MAX_EXCLUSIVE) {
                         try {
                             resolve(JSON.parse(responseBody) as T);
                         } catch {

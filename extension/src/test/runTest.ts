@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Test runner configuration for the CodeTrust VS Code extension.

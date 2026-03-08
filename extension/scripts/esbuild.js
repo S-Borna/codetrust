@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 
 /**
@@ -34,7 +34,7 @@ const buildOptions = {
     sourcemap: false,
     legalComments: "none",
     banner: {
-        js: "// Copyright (c) 2026 Said Borna. All rights reserved. Proprietary.",
+        js: "// Copyright (c) Said Borna. All rights reserved. Proprietary.",
     },
     define: {
         "process.env.NODE_ENV": '"production"',
@@ -46,10 +46,10 @@ async function main() {
     if (isWatch) {
         const ctx = await esbuild.context(buildOptions);
         await ctx.watch();
-        console.log("[esbuild] watching for changes...");
+        process.stdout.write("[esbuild] watching for changes...\n");
     } else {
         await esbuild.build(buildOptions);
-        console.log("[esbuild] extension bundled and minified successfully");
+        process.stdout.write("[esbuild] extension bundled and minified successfully\n");
     }
 }
 

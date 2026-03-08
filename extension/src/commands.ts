@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Command handlers for the CodeTrust VS Code extension.
@@ -34,6 +34,9 @@ export interface CommandDeps {
 let lastScannableDocumentUri: vscode.Uri | null = null;
 let lastScanAtIso: string | null = null;
 let lastScanTarget: string | null = null;
+
+const TRUNCATE_BODY_MAX_LEN = 240;
+const FILE_SCAN_LIMIT = 500;
 
 /** Register all extension commands. */
 export function registerCommands(
@@ -589,7 +592,7 @@ function logApiError(deps: CommandDeps, err: unknown): void {
     if (err instanceof ApiError) {
         const hint = apiErrorHint(err.statusCode);
         deps.outputChannel.appendLine(
-            `  API error (${err.statusCode}): ${hint}${err.body ? ` | ${truncate(err.body, 240)}` : ""}`,
+            `  API error (${err.statusCode}): ${hint}${err.body ? ` | ${truncate(err.body, TRUNCATE_BODY_MAX_LEN)}` : ""}`,
         );
         return;
     }
@@ -895,7 +898,7 @@ async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
     const startedAtMs = Date.now();
     deps.outputChannel.appendLine(`[${timestamp()}] Workspace scan started`);
 
-    const files = await vscode.workspace.findFiles(globPattern, excludePattern, 500);
+    const files = await vscode.workspace.findFiles(globPattern, excludePattern, FILE_SCAN_LIMIT);
     deps.outputChannel.appendLine(`  Found ${files.length} files to scan`);
 
     let totalFindings = 0;

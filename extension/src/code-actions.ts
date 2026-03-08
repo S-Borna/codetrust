@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Code action provider for the CodeTrust VS Code extension.
@@ -42,12 +42,18 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         diagnostic: vscode.Diagnostic,
     ): vscode.CodeAction[] {
         const actions: vscode.CodeAction[] = [];
-        const ruleId = typeof diagnostic.code === "string" ? diagnostic.code : "";
+        let ruleId = "";
+        if (typeof diagnostic.code === "string") {
+            ruleId = diagnostic.code;
+        }
         const message = diagnostic.message;
 
         // Extract suggestion from the message (after " → ")
         const suggestionMatch = message.match(/→\s*(.+)$/);
-        const suggestion = suggestionMatch?.[1] ?? "";
+        let suggestion = "";
+        if (suggestionMatch && suggestionMatch[1]) {
+            suggestion = suggestionMatch[1];
+        }
 
         // Action: Suppress for this line (add noqa/eslint-disable comment)
         const suppressAction = this.createSuppressAction(
@@ -154,7 +160,10 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         const first = (lines[i] ?? "").trim();
         const triple = first.startsWith('"""') || first.startsWith("'''");
         if (triple) {
-            const quote = first.startsWith('"""') ? '"""' : "'''";
+            let quote = "'''";
+            if (first.startsWith('"""')) {
+                quote = '"""';
+            }
             // If the opener also closes on same line, just advance one line
             if (first.slice(3).includes(quote)) {
                 return Math.min(i + 1, lines.length);
@@ -192,7 +201,8 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
 
         const line = diagnostic.range.start.line;
         const lineText = document.lineAt(line).text;
-        const indent = lineText.match(/^\s*/)?.[0] ?? "";
+        const indentMatch = lineText.match(/^\s*/);
+        const indent = indentMatch && indentMatch[0] ? indentMatch[0] : "";
 
         const edit = new vscode.WorkspaceEdit();
         edit.insert(
@@ -235,7 +245,7 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
     ): vscode.CodeAction | null {
         // Only create apply action for suggestions that look like replacements
         const replaceMatch = suggestion.match(
-            /^[Uu]se\s+[`']?(.+?)[`']?\s+instead$/,
+            /^[Uu]se\s+([`']|){0,1}(.+)([`']|){0,1}\s+instead$/,
         );
         if (!replaceMatch) {
             // Show suggestion as an informational action
@@ -257,7 +267,7 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
             return infoAction;
         }
 
-        const replacement = replaceMatch[1];
+        const replacement = replaceMatch[2];
         const action = new vscode.CodeAction(
             `Replace with ${replacement}`,
             vscode.CodeActionKind.QuickFix,
@@ -292,11 +302,20 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
     private findReplacementTarget(lineText: string, ruleId: string): string | null {
         switch (ruleId) {
             case "console_log":
-                return lineText.match(/console\.log\([^)]*\)/)?.[0] ?? null;
+                {
+                    const matched = lineText.match(/console\.log\([^)]*\)/);
+                    return matched ? matched[0] : null;
+                }
             case "print_debug":
-                return lineText.match(/print\([^)]*\)/)?.[0] ?? null;
+                {
+                    const matched = lineText.match(/print\([^)]*\)/);
+                    return matched ? matched[0] : null;
+                }
             case "eval_exec":
-                return lineText.match(/\b(eval|exec)\([^)]*\)/)?.[0] ?? null;
+                {
+                    const matched = lineText.match(/\b(eval|exec)\([^)]*\)/);
+                    return matched ? matched[0] : null;
+                }
             default:
                 return null;
         }

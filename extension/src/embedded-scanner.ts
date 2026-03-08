@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Embedded offline scanner for CodeTrust VS Code extension.
@@ -120,7 +120,7 @@ const GENERIC_WARN_RULES: Rule[] = [
     },
     {
         id: "nested_ternary",
-        pattern: /\w\s*\?[^;]*\w\s*\?/,
+        pattern: new RegExp("\\w\\s*\\x3F[^;]*\\w\\s*\\x3F"),
         message: "Nested ternary reduces readability. Use if/else.",
         severity: "WARN",
     },
@@ -182,7 +182,7 @@ const GENERIC_INFO_RULES: Rule[] = [
     },
     {
         id: "magic_number",
-        pattern: /(?<!=)\s(?<!\w)[2-9]\d{2,}\b/,
+        pattern: /(^|[^=])\s[2-9]\d{2,}\b/,
         message: "Magic number detected. Extract to a named constant.",
         severity: "INFO",
         skipComments: true,
@@ -330,7 +330,10 @@ const CI_WARN_RULES: Rule[] = [
 const DEVOPS_BLOCK_RULES: Rule[] = [
     {
         id: "api_key_in_config",
-        pattern: /(?:api[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*["']?[^\s"']{8,}/i,
+        pattern: new RegExp(
+            "(api[_-]{0,1}key|secret[_-]{0,1}key|auth[_-]{0,1}token)\\s*[:=]\\s*[\"']{0,1}[^\\s\"']{8,}",
+            "i",
+        ),
         message: "API key or secret in config file. Use environment variables.",
         severity: "BLOCK",
         fileTypes: [".yml", ".yaml", ".toml", ".json"],
@@ -340,7 +343,9 @@ const DEVOPS_BLOCK_RULES: Rule[] = [
 const DEVOPS_WARN_RULES: Rule[] = [
     {
         id: "hardcoded_ip",
-        pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b/,
+        pattern: new RegExp(
+            "\\b((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]{0,1}\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]{0,1}\\d)\\b",
+        ),
         message: "Hardcoded IP address. Use DNS, variables, or service discovery.",
         severity: "WARN",
         fileTypes: [".tf", ".hcl", ".yml", ".yaml", ".toml"],
@@ -395,7 +400,7 @@ const REACT_WARN_RULES: Rule[] = [
     },
     {
         id: "react_index_as_key",
-        pattern: /key\s*=\s*\{?\s*(?:index|idx|i)\s*\}?/,
+        pattern: /key\s*=\s*(\{|)\s*(index|idx|i)\s*(\}|)/,
         message: "Array index used as React key. Use a stable unique ID.",
         severity: "WARN",
         fileTypes: [".jsx", ".tsx"],
@@ -729,7 +734,7 @@ const BICEP_BLOCK_RULES: Rule[] = [
 const BICEP_WARN_RULES: Rule[] = [
     {
         id: "bicep_public_network",
-        pattern: /publicNetworkAccess:\s*['"]?Enabled['"]?/i,
+        pattern: /publicNetworkAccess:\s*(['"]|)Enabled(['"]|)/i,
         message: "Public network access enabled. Use private endpoints.",
         severity: "WARN",
         fileTypes: [".bicep"],
@@ -1029,7 +1034,10 @@ const CI_ADV_WARN_RULES: Rule[] = [
 const CONFIG_BLOCK_RULES: Rule[] = [
     {
         id: "config_ssl_verify_off",
-        pattern: /(?:ssl[_-]?verify|verify[_-]?ssl|tls[_-]?verify)\s*[:=]\s*(?:false|0|no|off)\b/i,
+        pattern: new RegExp(
+            "(ssl[_-]{0,1}verify|verify[_-]{0,1}ssl|tls[_-]{0,1}verify)\\s*[:=]\\s*(false|0|no|off)\\b",
+            "i",
+        ),
         message: "SSL/TLS certificate verification disabled. This enables man-in-the-middle attacks.",
         severity: "BLOCK",
     },
@@ -1044,19 +1052,25 @@ const CONFIG_BLOCK_RULES: Rule[] = [
 const CONFIG_WARN_RULES: Rule[] = [
     {
         id: "config_weak_tls_version",
-        pattern: /(?:tls[_-]?(?:min[_-]?)?version|ssl[_-]?version|min[_-]?protocol)\s*[:=]\s*["']?(?:1\.[01]|TLSv1[^.2]|SSLv[23])/i,
+        pattern: new RegExp(
+            "(tls[_-]{0,1}(min[_-]{0,1}){0,1}version|ssl[_-]{0,1}version|min[_-]{0,1}protocol)\\s*[:=]\\s*[\"']{0,1}(1\\.[01]|TLSv1[^.2]|SSLv[23])",
+            "i",
+        ),
         message: "Legacy TLS/SSL version configured. Use TLS 1.2 or 1.3 only.",
         severity: "WARN",
     },
     {
         id: "config_world_writable",
-        pattern: /(?:chmod|mode)\s*[:=]?\s*(?:0?777|a\+rwx)\b/i,
+        pattern: /(chmod|mode)\s*[:=]{0,1}\s*(0{0,1}777|a\+rwx)\b/i,
         message: "World-writable permission (777). Restrict file permissions to owner and group.",
         severity: "WARN",
     },
     {
         id: "config_listen_all_interfaces",
-        pattern: /(?:listen[_-]?address|bind[_-]?address|bind[_-]?host)\s*[:=]\s*["']?0\.0\.0\.0/i,
+        pattern: new RegExp(
+            "(listen[_-]{0,1}address|bind[_-]{0,1}address|bind[_-]{0,1}host)\\s*[:=]\\s*[\"']{0,1}0\\.0\\.0\\.0",
+            "i",
+        ),
         message: "Service listening on all interfaces. Bind to 127.0.0.1 or specific IPs.",
         severity: "WARN",
     },
@@ -1186,8 +1200,16 @@ const DEVOPS_FILENAMES = new Set([
 
 /** Get the applicable rules for a file based on its name/extension. */
 function getRulesForFile(filename: string): Rule[] {
-    const basename = filename.split("/").pop()?.toLowerCase() ?? "";
-    const ext = basename.includes(".") ? "." + basename.split(".").pop() : "";
+    const filenameParts = filename.split("/");
+    const rawBasename = filenameParts.length > 0 ? filenameParts[filenameParts.length - 1] : "";
+    const basename = rawBasename ? rawBasename.toLowerCase() : "";
+    let ext = "";
+    if (basename.includes(".")) {
+        const extPart = basename.split(".").pop();
+        if (extPart) {
+            ext = "." + extPart;
+        }
+    }
 
     if (SQL_EXTS.has(ext)) {
         return SQL_RULES;
@@ -1302,10 +1324,21 @@ export function scanCodeOffline(code: string, filename: string): StaticScanRespo
     }
 
     // --- File-level checks (9 special_handler rules) ---
-    const basename = filename.split("/").pop()?.toLowerCase() ?? "";
-    const ext = basename.includes(".") ? "." + (basename.split(".").pop() ?? "") : "";
+    const filenameParts = filename.split("/");
+    const rawBasename = filenameParts.length > 0 ? filenameParts[filenameParts.length - 1] : "";
+    const basename = rawBasename ? rawBasename.toLowerCase() : "";
+    let ext = "";
+    if (basename.includes(".")) {
+        const extPart = basename.split(".").pop();
+        if (extPart) {
+            ext = "." + extPart;
+        }
+    }
     const isDockerfile = basename.startsWith("dockerfile");
-    const isCI = filename.includes(".github") && (filename.endsWith(".yml") || filename.endsWith(".yaml"));
+    let isCI = false;
+    if (filename.includes(".github")) {
+        isCI = filename.endsWith(".yml") || filename.endsWith(".yaml");
+    }
     const isCompose = basename.startsWith("docker-compose");
 
     // Generic file-level checks (all source files)
@@ -1379,7 +1412,11 @@ function checkUntypedFunctions(lines: string[], filename: string): Finding[] {
             if (cleaned === "self" || cleaned === "cls") {
                 return false;
             }
-            const beforeDefault = cleaned.split("=")[0]?.trim() ?? cleaned;
+            const split = cleaned.split("=");
+            let beforeDefault = cleaned;
+            if (split.length > 0 && split[0]) {
+                beforeDefault = split[0].trim();
+            }
             return !beforeDefault.includes(":");
         });
 

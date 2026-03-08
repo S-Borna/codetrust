@@ -74,8 +74,8 @@ function main() {
         process.exit(1);
     }
 
-    console.log(
-        `Release sync OK: v${extensionVersion} aligned across extension, pyproject, changelog, and website.`,
+    process.stdout.write(
+        `Release sync OK: v${extensionVersion} aligned across extension, pyproject, changelog, and website.\n`,
     );
 }
 

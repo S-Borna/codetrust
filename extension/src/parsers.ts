@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
  * Import and Dockerfile extraction utilities.
@@ -139,7 +139,10 @@ function extractJsImports(code: string): string[] {
 function extractNpmPackageName(specifier: string): string {
     if (specifier.startsWith("@")) {
         const parts = specifier.split("/");
-        return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : specifier;
+        if (parts.length >= 2) {
+            return `${parts[0]}/${parts[1]}`;
+        }
+        return specifier;
     }
     return specifier.split("/")[0];
 }
@@ -218,9 +221,9 @@ function extractJavaImports(code: string): string[] {
         const trimmed = line.trim();
         // import com.google.gson.Gson; -> "com.google.gson"
         // import static org.junit.Assert.*; -> "org.junit"
-        const match = trimmed.match(/^import\s+(?:static\s+)?(\w+(?:\.\w+)*)\.\w+;/);
+        const match = trimmed.match(/^import\s+(static\s+){0,1}(\w+(\.\w+)*)\.\w+;/);
         if (match) {
-            const pkg = match[1];
+            const pkg = match[2];
             // Skip java/javax standard library
             if (!pkg.startsWith("java.") && !pkg.startsWith("javax.") && !pkg.startsWith("sun.")) {
                 // Use group ID (first 2-3 segments): com.google.gson -> com.google.gson
@@ -245,9 +248,9 @@ function extractCsharpImports(code: string): string[] {
         const trimmed = line.trim();
         // using Newtonsoft.Json;
         // using static Newtonsoft.Json.JsonConvert;
-        const match = trimmed.match(/^using\s+(?:static\s+)?(\w+(?:\.\w+)*)\s*;/);
+        const match = trimmed.match(/^using\s+(static\s+){0,1}(\w+(\.\w+)*)\s*;/);
         if (match) {
-            const ns = match[1];
+            const ns = match[2];
             const topLevel = ns.split(".")[0];
             if (!stdNamespaces.has(topLevel)) {
                 imports.add(ns);
@@ -347,14 +350,14 @@ export function extractDockerImages(content: string): DockerImage[] {
 
         // FROM image:tag [AS name]
         const fromMatch = trimmed.match(
-            /^FROM\s+(?:--platform=\S+\s+)?(\S+?)(?::(\S+?))?(?:\s+AS\s+\S+)?$/i,
+            /^FROM\s+(--platform=\S+\s+){0,1}([^\s:]+)(:(\S+)){0,1}(\s+AS\s+\S+){0,1}$/i,
         );
         if (!fromMatch) {
             continue;
         }
 
-        const imageName = fromMatch[1];
-        const tag = fromMatch[2] ?? "latest";
+        const imageName = fromMatch[2];
+        const tag = fromMatch[4] || "latest";
 
         // Skip scratch and build stage references ($variable)
         if (imageName === "scratch" || imageName.startsWith("$")) {

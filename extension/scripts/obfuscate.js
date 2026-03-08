@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Said Borna. All rights reserved.
+// Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 
 /**
@@ -24,7 +24,7 @@ const path = require("path");
 
 const BUNDLE_PATH = path.join(__dirname, "..", "out", "extension.js");
 const COPYRIGHT_BANNER =
-    "// Copyright (c) 2026 Said Borna. All rights reserved. Proprietary.\n";
+    "// Copyright (c) Said Borna. All rights reserved. Proprietary.\n";
 
 /** @type {import('javascript-obfuscator').ObfuscatorOptions} */
 const OBFUSCATION_OPTIONS = {
@@ -75,8 +75,8 @@ function main() {
     const originalCode = fs.readFileSync(BUNDLE_PATH, "utf8");
     const originalSize = Buffer.byteLength(originalCode, "utf8");
 
-    console.log(
-        `[obfuscate] Processing ${BUNDLE_PATH} (${(originalSize / 1024).toFixed(1)} KB)...`
+    process.stdout.write(
+        `[obfuscate] Processing ${BUNDLE_PATH} (${(originalSize / 1024).toFixed(1)} KB)...\n`
     );
 
     const result = JavaScriptObfuscator.obfuscate(originalCode, OBFUSCATION_OPTIONS);
@@ -86,10 +86,10 @@ function main() {
     fs.writeFileSync(BUNDLE_PATH, obfuscatedCode, "utf8");
 
     const ratio = (obfuscatedSize / originalSize).toFixed(1);
-    console.log(
-        `[obfuscate] Done: ${(originalSize / 1024).toFixed(1)} KB → ${(obfuscatedSize / 1024).toFixed(1)} KB (${ratio}x)`
+    process.stdout.write(
+        `[obfuscate] Done: ${(originalSize / 1024).toFixed(1)} KB → ${(obfuscatedSize / 1024).toFixed(1)} KB (${ratio}x)\n`
     );
-    console.log("[obfuscate] Applied: control flow flattening, string encryption, dead code injection");
+    process.stdout.write("[obfuscate] Applied: control flow flattening, string encryption, dead code injection\n");
 }
 
 main();

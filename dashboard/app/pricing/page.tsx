@@ -17,7 +17,7 @@ const PLANS = [
     },
     {
         name: "Pro",
-        price: "$29",
+        price: "$9.99",
         period: "/month",
         features: [
             "10,000 scans / day",
@@ -35,7 +35,7 @@ const PLANS = [
     },
     {
         name: "Enterprise",
-        price: "$199",
+        price: "$99",
         period: "/month",
         features: [
             "100,000 scans / day",

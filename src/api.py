@@ -274,6 +274,9 @@ async def get_auth_context(
             return ctx
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+    if settings.production_mode and auth_configured:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     if not settings.api_key:
         return AuthContext()
 
@@ -405,6 +408,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.critical(
             "jwt_secret_too_weak",
             message="FATAL: production_mode requires CODETRUST_JWT_SECRET >= 32 characters.",
+        )
+        import sys
+        sys.exit(1)
+
+    if settings.production_mode and not settings.api_key:
+        logger.critical(
+            "api_key_missing_production_mode",
+            message="FATAL: production_mode requires CODETRUST_API_KEY to be set.",
         )
         import sys
         sys.exit(1)

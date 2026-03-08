@@ -625,7 +625,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **Chrome Web Store** | Search for "CodeTrust — AI Code Safety" |
+| **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.8.0` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |

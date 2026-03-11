@@ -1,8 +1,8 @@
 # CODEBASE_KNOWLEDGE.md — CodeTrust Complete Codebase Reference
 
 > **Purpose:** Bootstrap any new AI agent session with total knowledge of the CodeTrust codebase.
-> **Generated:** 2026-03-08
-> **Version:** v2.8.0
+> **Generated:** 2026-03-10
+> **Version:** v2.8.1
 > **Owner:** Said Borna <said@saidborna.com>
 > **Scope:** Every file, function, class, constant, endpoint, rule, and interconnection.
 
@@ -64,7 +64,7 @@
 | Scanner MCP | `src/server.py` | 10 tools (static_scan, pre_action, post_action, list_rules, verify_imports, verify_dockerfile, ast_scan, sandbox_run, sarif_export, deep_scan) |
 | Gateway MCP | `src/gateway/server.py` | 17 tools (validate_command, validate_file_write, validate_file_delete, validate_package, run_in_terminal, create_file, replace_string_in_file, edit_notebook, governance_status, list_gateway_rules, audit_history, begin_trusted_session, approve_action, list_exceptions, revoke_exception, simulate_policy, governance_posture) |
 
-### Key Metrics (v2.8.0)
+### Key Metrics (v2.8.1)
 
 - **286 total rules** (204 scan rules + 82 gateway rules)
 - **60 API endpoints**
@@ -1806,6 +1806,7 @@ User → /v1/billing/checkout → src/services/billing.py
 | v2.6.1 | Signature engine (209 functions), 17 autofix recipes, demo |
 | v2.7.0 | Signature hardening, autofix fixes, JWT/WebSocket/OIDC/CORS security, 1,898 tests, 280 rules, 46 endpoints, 21 MCP tools |
 | v2.8.0 | Ultimate governance sprint, trusted sessions/approvals/exceptions/simulation/posture, multi-workspace + unified session-token, MCP auto-injection hardening, 1,937 tests, 286 rules, 60 endpoints, 27 MCP tools |
+| v2.8.1 | MCP global runtime hardening across new workspaces, injected tool-name alignment to `mcp_codetrust-gat_codetrust_*`, billing error sanitization hardening |
 
 ---
 

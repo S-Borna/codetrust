@@ -1,6 +1,6 @@
 # CodeTrust — Product Specification
 
-> **Version 2.8.0 | March 2026 | Proprietary License**
+> **Version 2.8.1 | March 2026 | Proprietary License**
 
 ---
 
@@ -559,23 +559,23 @@ En linter (ruff, ESLint) kontrollerar stil och syntax. CodeTrust verifierar att 
 
 | Verktyg | Beskrivning |
 |---------|-------------|
-| `codetrust_validate_command` | Validera terminal-kommandon |
-| `codetrust_validate_file_write` | Validera filskrivning |
-| `codetrust_validate_file_delete` | Validera filradering |
-| `codetrust_validate_package` | Validera paketinstallation |
-| `codetrust_governance_status` | Visa governance-status |
-| `codetrust_audit_history` | Visa audit-historik |
-| `codetrust_list_gateway_rules` | Lista gateway-regler |
-| `codetrust_run_in_terminal` | Proxy: kör i terminal |
-| `codetrust_create_file` | Proxy: skapa fil |
-| `codetrust_replace_string_in_file` | Proxy: redigera fil |
-| `codetrust_edit_notebook` | Proxy: redigera notebook |
-| `codetrust_begin_trusted_session` | Starta betrodd session |
-| `codetrust_approve_action` | Godkänn åtgärd |
-| `codetrust_list_exceptions` | Lista undantag |
-| `codetrust_revoke_exception` | Återkalla undantag |
-| `codetrust_simulate_policy` | Simulera policy |
-| `codetrust_governance_posture` | Visa governance-hållning |
+| `mcp_codetrust-gat_codetrust_validate_command` | Validera terminal-kommandon |
+| `mcp_codetrust-gat_codetrust_validate_file_write` | Validera filskrivning |
+| `mcp_codetrust-gat_codetrust_validate_file_delete` | Validera filradering |
+| `mcp_codetrust-gat_codetrust_validate_package` | Validera paketinstallation |
+| `mcp_codetrust-gat_codetrust_governance_status` | Visa governance-status |
+| `mcp_codetrust-gat_codetrust_audit_history` | Visa audit-historik |
+| `mcp_codetrust-gat_codetrust_list_gateway_rules` | Lista gateway-regler |
+| `mcp_codetrust-gat_codetrust_run_in_terminal` | Proxy: kör i terminal |
+| `mcp_codetrust-gat_codetrust_create_file` | Proxy: skapa fil |
+| `mcp_codetrust-gat_codetrust_replace_string_in_file` | Proxy: redigera fil |
+| `mcp_codetrust-gat_codetrust_edit_notebook` | Proxy: redigera notebook |
+| `mcp_codetrust-gat_codetrust_begin_trusted_session` | Starta betrodd session |
+| `mcp_codetrust-gat_codetrust_approve_action` | Godkänn åtgärd |
+| `mcp_codetrust-gat_codetrust_list_exceptions` | Lista undantag |
+| `mcp_codetrust-gat_codetrust_revoke_exception` | Återkalla undantag |
+| `mcp_codetrust-gat_codetrust_simulate_policy` | Simulera policy |
+| `mcp_codetrust-gat_codetrust_governance_posture` | Visa governance-hållning |
 
 ### C. Alla analysregler (BLOCK)
 
@@ -604,4 +604,4 @@ En linter (ruff, ESLint) kontrollerar stil och syntax. CodeTrust verifierar att 
 
 ---
 
-*CodeTrust v2.8.0 — Proprietary License — Built for the AI coding era.*
+*CodeTrust v2.8.1 — Proprietary License — Built for the AI coding era.*

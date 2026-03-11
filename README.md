@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.0</code> &middot; <code>1937 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.8.1</code> &middot; <code>1937 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v2.8.0`
+- **Current release:** `v2.8.1`
 - **Release highlights:** MCP auto-injection hardening, Chrome extension delivery channel, expanded web telemetry + SEO/discovery updates, API/web security hardening, governance explainability fields, and tenant policy bundles/snapshots.
 
 ---
@@ -227,7 +227,7 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.0` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.1` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 60 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -329,7 +329,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.8.0
+      - uses: S-Borna/codetrust@v2.8.1
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -372,7 +372,7 @@ CodeTrust ships two MCP servers for different purposes:
 
 ### Gateway Server tools
 
-`codetrust_validate_command` · `codetrust_validate_file_write` · `codetrust_validate_file_delete` · `codetrust_validate_package` · `codetrust_governance_status` · `codetrust_audit_history` · `codetrust_list_gateway_rules` · `codetrust_run_in_terminal` · `codetrust_create_file` · `codetrust_replace_string_in_file` · `codetrust_edit_notebook`
+`mcp_codetrust-gat_codetrust_validate_command` · `mcp_codetrust-gat_codetrust_validate_file_write` · `mcp_codetrust-gat_codetrust_validate_file_delete` · `mcp_codetrust-gat_codetrust_validate_package` · `mcp_codetrust-gat_codetrust_governance_status` · `mcp_codetrust-gat_codetrust_audit_history` · `mcp_codetrust-gat_codetrust_list_gateway_rules` · `mcp_codetrust-gat_codetrust_run_in_terminal` · `mcp_codetrust-gat_codetrust_create_file` · `mcp_codetrust-gat_codetrust_replace_string_in_file` · `mcp_codetrust-gat_codetrust_edit_notebook`
 
 ### Setup: Claude Desktop / Claude Code
 
@@ -626,7 +626,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.1` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

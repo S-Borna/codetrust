@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### What's New (since 2.8.0)
+### What's New (since 2.8.1)
+
+## [2.8.1] - 2026-03-10
+
+### Fixed
+
+- Billing routes now sanitize provider errors and avoid exposing raw Stripe/backend error text to end users.
+- Dashboard billing UI now applies defensive error-message sanitization and safe fallback messaging for 5xx failures.
+- MCP governance instruction templates now reference actual gateway tool names (`mcp_codetrust-gat_codetrust_*`) instead of legacy aliases.
+- MCP auto-injection now resolves a stable CodeTrust runtime in new workspaces by reusing known global config roots and prioritizing project venv Python.
+
+### Changed
+
+- Release docs and website metadata aligned to `v2.8.1` across README, docs/index, OpenAPI metadata, extension/chrome release surfaces, and product collateral.
 
 #### Added
 

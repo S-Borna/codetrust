@@ -7,7 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### What's New (since 2.8.0)
+### What's New (since 2.8.1)
+
+## [2.8.1] - 2026-03-10
+
+### Fixed
+
+- Corrected injected governance tool-name references to actual MCP gateway tools (`mcp_codetrust-gat_codetrust_*`) so new sessions use resolvable tool names.
+- Hardened MCP auto-injection runtime resolution to reuse a known valid CodeTrust source root from global MCP configs when the active workspace is not the CodeTrust repo.
+- Added venv-priority runtime resolution (`<source>/.venv/bin/python -m ...`) before PATH fallback to reduce cross-workspace "CodeTrust not available" regressions.
+
+### Changed
+
+- Global MCP config entries now consistently support absolute runtime + `cwd` strategy for Claude Code, Claude Desktop, and Cursor.
 
 ### Added
 
@@ -22,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 	- magic-number reductions via named constants
 	- regex portability and stability cleanups
 	- script hygiene updates in build/release helpers
-- Internal release messaging now synchronized with platform-level post-2.8.0 updates.
+- Internal release messaging now synchronized with platform-level post-2.8.1 updates.
 
 ### Verified
 

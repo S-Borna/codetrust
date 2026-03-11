@@ -98,6 +98,8 @@ class GovernanceConfig:
     deny_native_execution: bool = False
     require_allow_reason: bool = False
     allow_reason_min_length: int = 12
+    preflight_required: bool = False
+    preflight_ttl_seconds: int = 900
     session_binding_required: bool = True
     anti_bypass_checks: bool = True
     require_approval_for: list[str] = field(default_factory=lambda: [
@@ -292,6 +294,12 @@ class PolicyEngine:
         config.allow_reason_min_length = int(trusted.get(
             "allow_reason_min_length", config.allow_reason_min_length,
         ))
+        config.preflight_required = trusted.get(
+            "preflight_required", config.preflight_required,
+        )
+        config.preflight_ttl_seconds = int(trusted.get(
+            "preflight_ttl_seconds", config.preflight_ttl_seconds,
+        ))
         config.session_binding_required = trusted.get(
             "session_binding_required", config.session_binding_required,
         )
@@ -407,6 +415,8 @@ class PolicyEngine:
             f"deny_native_execution = {str(self._config.deny_native_execution).lower()}",
             f"require_allow_reason = {str(self._config.require_allow_reason).lower()}",
             f"allow_reason_min_length = {self._config.allow_reason_min_length}",
+            f"preflight_required = {str(self._config.preflight_required).lower()}",
+            f"preflight_ttl_seconds = {self._config.preflight_ttl_seconds}",
             f"session_binding_required = {str(self._config.session_binding_required).lower()}",
             f"anti_bypass_checks = {str(self._config.anti_bypass_checks).lower()}",
             "",

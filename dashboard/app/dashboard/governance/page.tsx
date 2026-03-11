@@ -14,7 +14,14 @@ import { MultiWorkspaceView } from "@/components/multi-workspace-view";
  */
 export default async function GovernancePage() {
     const session = await getServerSession(authOptions);
-    const apiKey = session?.user?.apiKey || "";
+    let apiKey = "";
+    if (
+        session
+        && session.user
+        && typeof session.user.apiKey === "string"
+    ) {
+        apiKey = session.user.apiKey;
+    }
 
     const [audit, posture, approvals, exceptions, workspaces] = await Promise.all([
         governanceClient.getAudit(apiKey),
@@ -73,7 +80,7 @@ export default async function GovernancePage() {
                 <div className="space-y-2 font-mono text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                     <p>$ codetrust audit --hours 24</p>
                     <p>$ codetrust audit --verdict BLOCK --stats</p>
-                    <p className="text-gray-400"># Or via MCP: codetrust_audit_history</p>
+                    <p className="text-gray-400"># Or via MCP: mcp_codetrust-gat_codetrust_audit_history</p>
                 </div>
             </div>
         </div>

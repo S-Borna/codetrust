@@ -53,7 +53,10 @@ logger = structlog.get_logger()
 SECONDS_PER_HOUR: int = 3_600
 POLICY_INTEGRITY_CACHE_TTL_SECONDS: float = 5.0
 TRUSTED_SESSION_TTL_SECONDS: int = 3_600
+TRUSTED_SESSION_MIN_TTL_SECONDS: int = 300
+TRUSTED_SESSION_MAX_TTL_SECONDS: int = 10_800
 ALLOW_REASON_FALLBACK_MIN_LEN: int = 12
+PREFLIGHT_FALLBACK_TTL_SECONDS: int = 900
 NATIVE_TOOL_NAMES: set[str] = {
     "run_in_terminal",
     "create_file",
@@ -105,9 +108,11 @@ _audit = AuditLogger(
 
 _session_id = f"gateway-{int(time.time())}"
 _agent_id = os.environ.get("CODETRUST_AGENT_ID", _detect_agent())
+_session_policy_hash = get_policy_manifest_hash(_workspace)
 _last_integrity_check_at: float = 0.0
 _last_integrity_result: PolicyIntegrityResult | None = None
 _trusted_tokens: dict[str, dict[str, object]] = {}
+_preflight_sessions: dict[str, dict[str, object]] = {}
 _approval_store = ApprovalExceptionStore(
     _workspace,
     approval_ttl_minutes=_engine.config.approval_ttl_minutes,
@@ -170,9 +175,90 @@ def _build_attestation(result: PolicyIntegrityResult | None = None) -> dict[str,
     return {
         "session_id": _session_id,
         "policy_hash": get_policy_manifest_hash(_workspace),
+        "session_policy_hash": _session_policy_hash,
         "policy_verdict": integrity.verdict,
         "policy_rule_id": integrity.rule_id,
     }
+
+
+def _policy_pin_gate(*, proxy: bool = False) -> dict[str, object] | None:
+    """Block actions when policy hash drifts from the session-pinned hash."""
+    if not _engine.active:
+        return None
+
+    current_hash = get_policy_manifest_hash(_workspace)
+    if current_hash == _session_policy_hash:
+        return None
+
+    payload = {
+        "verdict": "BLOCK",
+        "rule_id": "gateway_policy_hash_drift",
+        "message": "Policy hash changed since this gateway session started.",
+        "suggestion": "Restart trusted session and rerun preflight simulation.",
+        "root_cause": "Session policy pin mismatch.",
+        "safe_fix": "Open a new trusted session bound to the new policy hash.",
+        "pinned_policy_hash": _session_policy_hash,
+        "current_policy_hash": current_hash,
+    }
+    if proxy:
+        payload = {
+            **payload,
+            "status": _BLOCKED_PREFIX,
+            "instruction": (
+                "MANDATORY: Do NOT proceed with native tool calls while policy hash drifts."
+            ),
+        }
+    return _attach_attestation_payload(payload)
+
+
+def _prune_preflight_sessions(now: float) -> None:
+    """Drop expired preflight sessions."""
+    expired = [
+        agent for agent, payload in _preflight_sessions.items()
+        if float(payload.get("expires_at", 0.0)) <= now
+    ]
+    for agent in expired:
+        _preflight_sessions.pop(agent, None)
+
+
+def _mark_preflight(*, agent_id: str, bundle_id: str, commands_count: int) -> float:
+    """Mark preflight as completed for an agent and return expiry timestamp."""
+    ttl = max(PREFLIGHT_FALLBACK_TTL_SECONDS, _engine.config.preflight_ttl_seconds)
+    expires_at = time.time() + float(ttl)
+    _preflight_sessions[agent_id] = {
+        "bundle_id": bundle_id,
+        "commands_count": commands_count,
+        "expires_at": expires_at,
+    }
+    return expires_at
+
+
+def _has_valid_preflight(agent_id: str) -> bool:
+    """Return True when preflight simulation is active for the given agent."""
+    now = time.time()
+    _prune_preflight_sessions(now)
+    payload = _preflight_sessions.get(agent_id)
+    if payload is None:
+        return False
+    return float(payload.get("expires_at", 0.0)) > now
+
+
+def _preflight_gate(*, agent_id: str) -> dict[str, object] | None:
+    """Enforce mandatory preflight policy simulation before proxy actions."""
+    if not _engine.config.preflight_required:
+        return None
+    if _has_valid_preflight(agent_id):
+        return None
+    return _attach_attestation_payload({
+        "status": _BLOCKED_PREFIX,
+        "verdict": "BLOCK",
+        "rule_id": "gateway_preflight_required",
+        "message": "Preflight simulation is required before actionable proxy calls.",
+        "suggestion": "Call codetrust_simulate_policy with representative commands first.",
+        "root_cause": "trusted_execution.preflight_required is enabled.",
+        "safe_fix": "Run codetrust_simulate_policy and retry while preflight is active.",
+        "instruction": "MANDATORY: Complete preflight simulation before continuing.",
+    })
 
 
 def _attach_attestation_payload(
@@ -204,15 +290,30 @@ def _prune_trusted_tokens(now: float) -> None:
         _trusted_tokens.pop(token, None)
 
 
-def _issue_trusted_token(*, reason: str, agent_id: str) -> tuple[str, float]:
+def _issue_trusted_token(
+    *,
+    reason: str,
+    agent_id: str,
+    ttl_seconds: int,
+    scope_repo: str,
+    scope_branch: str,
+    task_id: str,
+) -> tuple[str, float]:
     """Create and store a trusted-session token."""
     token = os.urandom(16).hex()
-    expires_at = time.time() + TRUSTED_SESSION_TTL_SECONDS
+    bounded_ttl = min(
+        TRUSTED_SESSION_MAX_TTL_SECONDS,
+        max(TRUSTED_SESSION_MIN_TTL_SECONDS, ttl_seconds),
+    )
+    expires_at = time.time() + float(bounded_ttl)
     _trusted_tokens[token] = {
         "expires_at": expires_at,
         "agent_id": agent_id,
         "session_id": _session_id,
         "reason": reason,
+        "scope_repo": scope_repo,
+        "scope_branch": scope_branch,
+        "task_id": task_id,
     }
     return token, expires_at
 
@@ -229,9 +330,16 @@ def _has_valid_trusted_token(token: str, *, agent_id: str) -> bool:
     expires_at = float(payload.get("expires_at", 0.0))
     token_agent_id = str(payload.get("agent_id", ""))
     token_session_id = str(payload.get("session_id", ""))
+    token_scope_repo = str(payload.get("scope_repo", "")).strip()
+    token_scope_branch = str(payload.get("scope_branch", "")).strip()
     if token_agent_id and token_agent_id != agent_id:
         return False
     if token_session_id and token_session_id != _session_id:
+        return False
+    if token_scope_repo and os.path.abspath(token_scope_repo) != os.path.abspath(_workspace):
+        return False
+    current_branch = os.environ.get("CODETRUST_BRANCH", "").strip()
+    if token_scope_branch and current_branch and token_scope_branch != current_branch:
         return False
     return expires_at > now
 
@@ -413,6 +521,10 @@ async def validate_command(command: str) -> str:
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
+    policy_pin_block = _policy_pin_gate()
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
+
     result = _interceptor.check_terminal(command)
     _attach_attestation_metadata(result)
 
@@ -465,6 +577,10 @@ async def validate_file_write(
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
+    policy_pin_block = _policy_pin_gate()
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
+
     result = _interceptor.check_file_write(path, content)
     _attach_attestation_metadata(result)
 
@@ -500,6 +616,10 @@ async def validate_file_delete(path: str) -> str:
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
+    policy_pin_block = _policy_pin_gate()
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
+
     result = _interceptor.check_file_delete(path)
     _attach_attestation_metadata(result)
 
@@ -532,6 +652,10 @@ async def validate_package(
     integrity_block = _integrity_block_payload()
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
+
+    policy_pin_block = _policy_pin_gate()
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
 
     result = _interceptor.check_package_install(package, registry=registry)
     _attach_attestation_metadata(result)
@@ -648,9 +772,17 @@ async def proxy_run_in_terminal(
 
     resolved_agent_id = agent_id or _agent_id
 
+    preflight_block = _preflight_gate(agent_id=resolved_agent_id)
+    if preflight_block is not None:
+        return json.dumps(preflight_block, indent=2)
+
     native_block = _native_enforcement_gate(tool_name="run_in_terminal")
     if native_block is not None:
         return json.dumps(native_block, indent=2)
+
+    policy_pin_block = _policy_pin_gate(proxy=True)
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
 
     allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
     if allow_reason_block is not None:
@@ -698,9 +830,17 @@ async def proxy_create_file(
 
     resolved_agent_id = agent_id or _agent_id
 
+    preflight_block = _preflight_gate(agent_id=resolved_agent_id)
+    if preflight_block is not None:
+        return json.dumps(preflight_block, indent=2)
+
     native_block = _native_enforcement_gate(tool_name="create_file")
     if native_block is not None:
         return json.dumps(native_block, indent=2)
+
+    policy_pin_block = _policy_pin_gate(proxy=True)
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
 
     allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
     if allow_reason_block is not None:
@@ -750,9 +890,17 @@ async def proxy_replace_string_in_file(
 
     resolved_agent_id = agent_id or _agent_id
 
+    preflight_block = _preflight_gate(agent_id=resolved_agent_id)
+    if preflight_block is not None:
+        return json.dumps(preflight_block, indent=2)
+
     native_block = _native_enforcement_gate(tool_name="replace_string_in_file")
     if native_block is not None:
         return json.dumps(native_block, indent=2)
+
+    policy_pin_block = _policy_pin_gate(proxy=True)
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
 
     allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
     if allow_reason_block is not None:
@@ -802,9 +950,17 @@ async def proxy_edit_notebook(
 
     resolved_agent_id = agent_id or _agent_id
 
+    preflight_block = _preflight_gate(agent_id=resolved_agent_id)
+    if preflight_block is not None:
+        return json.dumps(preflight_block, indent=2)
+
     native_block = _native_enforcement_gate(tool_name="edit_notebook_file")
     if native_block is not None:
         return json.dumps(native_block, indent=2)
+
+    policy_pin_block = _policy_pin_gate(proxy=True)
+    if policy_pin_block is not None:
+        return json.dumps(policy_pin_block, indent=2)
 
     allow_reason_block = _allow_reason_gate(allow_reason=allow_reason)
     if allow_reason_block is not None:
@@ -875,6 +1031,31 @@ def _build_governance_extras(
 def _build_governance_posture_payload() -> dict[str, object]:
     """Return current governance posture snapshot."""
     integrity = _evaluate_policy_integrity()
+    current_policy_hash = get_policy_manifest_hash(_workspace)
+    policy_pin_match = current_policy_hash == _session_policy_hash
+    readiness_reasons: list[str] = []
+    if integrity.verdict != "ALLOW":
+        readiness_reasons.append("policy_integrity_not_allow")
+    if not policy_pin_match:
+        readiness_reasons.append("policy_hash_drift")
+    if _engine.config.preflight_required and not _has_valid_preflight(_agent_id):
+        readiness_reasons.append("preflight_missing_or_expired")
+
+    control_plane_ready = (
+        _engine.config.enabled
+        and _engine.config.trusted_execution_mode
+        and _engine.config.deny_native_execution
+        and _engine.config.require_allow_reason
+        and _engine.config.session_binding_required
+        and _engine.config.anti_bypass_checks
+        and integrity.verdict == "ALLOW"
+        and policy_pin_match
+        and (
+            not _engine.config.preflight_required
+            or _has_valid_preflight(_agent_id)
+        )
+    )
+
     return {
         "session_id": _session_id,
         "agent_id": _agent_id,
@@ -888,18 +1069,17 @@ def _build_governance_posture_payload() -> dict[str, object]:
         "policy_integrity": {
             "verdict": integrity.verdict,
             "rule_id": integrity.rule_id,
-            "policy_hash": get_policy_manifest_hash(_workspace),
+            "policy_hash": current_policy_hash,
+            "session_policy_hash": _session_policy_hash,
+            "policy_pin_match": policy_pin_match,
         },
+        "preflight_required": _engine.config.preflight_required,
+        "preflight_ready": _has_valid_preflight(_agent_id),
         "pending_approvals": len(_approval_store.list_pending()),
         "active_exceptions": len(_approval_store.list_active_exceptions()),
-        "control_plane_ready": (
-            _engine.config.enabled
-            and _engine.config.trusted_execution_mode
-            and _engine.config.deny_native_execution
-            and _engine.config.require_allow_reason
-            and _engine.config.session_binding_required
-            and _engine.config.anti_bypass_checks
-        ),
+        "control_plane_ready": control_plane_ready,
+        "readiness": "ready" if control_plane_ready else "not-ready",
+        "readiness_reasons": readiness_reasons,
     }
 
 
@@ -958,6 +1138,7 @@ async def audit_history(
     hours: int = 24,
     verdict: str = "",
     limit: int = 50,
+    export_format: str = "markdown",
 ) -> str:
     """Query the governance audit log.
 
@@ -976,6 +1157,29 @@ async def audit_history(
 
     if not entries:
         return f"No audit entries found in the last {hours} hours."
+
+    if export_format.lower() == "json":
+        timeline = []
+        for entry in list(reversed(entries)):
+            timeline.append({
+                "timestamp": entry.timestamp,
+                "action_type": entry.action_type,
+                "verdict": entry.verdict,
+                "rule_id": entry.rule_id,
+                "original_action": entry.original_action,
+                "message": entry.message,
+                "suggestion": entry.suggestion,
+                "session_id": entry.session_id,
+                "agent_id": entry.agent_id,
+                "workspace": entry.workspace,
+                "metadata": entry.metadata,
+            })
+        return json.dumps(_attach_attestation_payload({
+            "hours": hours,
+            "verdict_filter": verdict or None,
+            "entry_count": len(entries),
+            "timeline": timeline,
+        }), indent=2)
 
     lines = [
         f"# Audit Log — Last {hours} Hours",
@@ -1018,10 +1222,26 @@ async def list_gateway_rules() -> str:
 
 
 @gateway.tool(name="codetrust_begin_trusted_session")
-async def begin_trusted_session(reason: str, agent_id: str = "") -> str:
+async def begin_trusted_session(
+    reason: str,
+    agent_id: str = "",
+    ttl_minutes: int = 60,
+    scope_repo: str = "",
+    scope_branch: str = "",
+    task_id: str = "",
+) -> str:
     """Start trusted execution session and return temporary trusted token."""
     actor = agent_id or _agent_id
-    token, expires_at = _issue_trusted_token(reason=reason, agent_id=actor)
+    ttl_seconds = int(ttl_minutes * 60)
+    repo_scope = scope_repo.strip() or _workspace
+    token, expires_at = _issue_trusted_token(
+        reason=reason,
+        agent_id=actor,
+        ttl_seconds=ttl_seconds,
+        scope_repo=repo_scope,
+        scope_branch=scope_branch.strip(),
+        task_id=task_id.strip(),
+    )
     _audit.log(AuditEntry(
         timestamp=time.time(),
         action_type="trusted_session_begin",
@@ -1033,12 +1253,20 @@ async def begin_trusted_session(reason: str, agent_id: str = "") -> str:
         session_id=_session_id,
         agent_id=actor,
         workspace=_workspace,
-        metadata={"expires_at": expires_at},
+        metadata={
+            "expires_at": expires_at,
+            "scope_repo": repo_scope,
+            "scope_branch": scope_branch.strip(),
+            "task_id": task_id.strip(),
+        },
     ))
     return json.dumps(_attach_attestation_payload({
         "status": _APPROVED_PREFIX,
         "trusted_token": token,
         "expires_at": expires_at,
+        "scope_repo": repo_scope,
+        "scope_branch": scope_branch.strip(),
+        "task_id": task_id.strip(),
         "instruction": "Pass trusted_token to codetrust_* proxy tools.",
     }), indent=2)
 
@@ -1131,7 +1359,11 @@ async def revoke_exception(exception_id: str, revoked_by: str) -> str:
 
 
 @gateway.tool(name="codetrust_simulate_policy")
-async def simulate_policy(bundle_id: str, commands: list[str]) -> str:
+async def simulate_policy(
+    bundle_id: str,
+    commands: list[str],
+    agent_id: str = "",
+) -> str:
     """Simulate governance outcomes for sample commands against a policy bundle."""
     try:
         bundle_policy = get_bundle_policy(bundle_id)
@@ -1175,9 +1407,18 @@ async def simulate_policy(bundle_id: str, commands: list[str]) -> str:
             "message": res.message,
         })
 
+    resolved_agent_id = agent_id or _agent_id
+    preflight_expires_at = _mark_preflight(
+        agent_id=resolved_agent_id,
+        bundle_id=bundle_id,
+        commands_count=len(commands),
+    )
+
     return json.dumps(_attach_attestation_payload({
         "bundle_id": bundle_id,
         "outcomes": outcomes,
+        "preflight_agent_id": resolved_agent_id,
+        "preflight_expires_at": preflight_expires_at,
     }), indent=2)
 
 

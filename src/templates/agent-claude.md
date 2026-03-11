@@ -36,35 +36,38 @@ You are working on an enterprise-grade project. Every file, function, and commit
 
 ### Before ANY Terminal Command
 
-Call `codetrust_validate_command` — if BLOCK, use the safe alternative.
+1. Call `mcp_codetrust-gat_codetrust_validate_command` — if BLOCK, use the safe alternative.
+2. Call `mcp_codetrust-gat_codetrust_simulate_policy` for preflight when governance requires it.
+3. Check `mcp_codetrust-gat_codetrust_governance_posture` and ensure readiness is `ready` before risky actions.
+4. Call `mcp_codetrust-gat_codetrust_run_in_terminal` as proxy gate before `run_in_terminal`.
 
 ### Before Writing ANY File
 
-Call `codetrust_validate_file_write` — protected files trigger WARN.
+Use `mcp_codetrust-gat_codetrust_*` proxy/validation tools where available; never bypass gateway validation.
 
 ### Before Installing ANY Package
 
-Call `codetrust_validate_package` — unverified packages are blocked.
+Call `mcp_codetrust-gat_codetrust_validate_package` — unverified packages are blocked.
 
 ### After Writing Code
 
-1. Run `codetrust_static_scan` on changed files
-2. Run `codetrust_deep_scan` if new files or modified imports
+1. Run `mcp_guardian_guardian_mid_action` on changed files
+2. Run `mcp_guardian_guardian_full_scan` if new files or modified imports
 3. BLOCK findings = fix immediately. WARN = fix or justify.
 
 ### Before Committing
 
-Call `codetrust_post_action` — all BLOCK findings must be resolved.
+Call `mcp_guardian_guardian_post_action` — all BLOCK findings must be resolved.
 
 ---
 
 ## 3. CODE QUALITY — ABSOLUTE PROHIBITIONS
 
-- No `eval()` / `exec()` — use safe alternatives
+- No dynamic code execution functions — use safe alternatives
 - No hardcoded secrets — environment variables only
-- No wildcard imports (`from x import *`)
+- No broad star-import patterns — import explicitly
 - No `Any` type annotations — explicit types always
-- No `console.log` / `print()` in production — use structured logging
+- No ad-hoc debug output in production — use structured logging
 - No magic numbers — named constants (UPPER_CASE)
 - No bare `except:` — catch specific exception types
 - No mutable default arguments

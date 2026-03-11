@@ -4,7 +4,7 @@
     "github.copilot.chat.useInstructionFiles": true,
     "chat.agent.instructions": [
         {
-            "text": "CodeTrust governance is active. Call codetrust_validate_command before terminal commands, codetrust_validate_file_write before writing files, codetrust_validate_package before installing packages. Run codetrust_static_scan after changes. NEVER run git push."
+            "text": "CodeTrust governance is active. Call mcp_codetrust-gat_codetrust_validate_command before terminal commands, then mcp_codetrust-gat_codetrust_run_in_terminal as proxy gate before run_in_terminal. Call mcp_codetrust-gat_codetrust_validate_package before installing packages and mcp_codetrust-gat_codetrust_validate_file_delete before deleting files. NEVER run git push."
         }
     ]
 }

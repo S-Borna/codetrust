@@ -35,20 +35,18 @@ const RULES_BLOCK = `
 
 Before calling any native tool, call the corresponding CodeTrust proxy first:
 
-| Native Tool              | Call This First                      |
-|--------------------------|--------------------------------------|
-| run_in_terminal          | codetrust_run_in_terminal            |
-| create_file              | codetrust_create_file                |
-| replace_string_in_file   | codetrust_replace_string_in_file     |
-| edit_notebook_file       | codetrust_edit_notebook              |
+| Native Tool              | Call This First                                  |
+|--------------------------|--------------------------------------------------|
+| run_in_terminal          | mcp_codetrust-gat_codetrust_validate_command     |
+| run_in_terminal          | mcp_codetrust-gat_codetrust_run_in_terminal      |
 
 Response handling:
 - \`status: APPROVED\` → proceed with native tool using EXACT same parameters
 - \`status: BLOCKED\`  → STOP. Do NOT proceed. Use the suggestion instead.
 - \`status: WARN\`     → acknowledge, then proceed.
 
-For package installs: call \`codetrust_validate_package\` — BLOCKED = do not install.
-For file deletions:   call \`codetrust_validate_file_delete\` — BLOCKED = do not delete.
+For package installs: call \`mcp_codetrust-gat_codetrust_validate_package\` — BLOCKED = do not install.
+For file deletions:   call \`mcp_codetrust-gat_codetrust_validate_file_delete\` — BLOCKED = do not delete.
 
 ### Absolute Prohibitions
 

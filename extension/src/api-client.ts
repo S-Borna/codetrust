@@ -184,7 +184,7 @@ export class ApiClient {
                     } else {
                         reject(
                             new ApiError(
-                                `API returned ${statusCode}: ${responseBody}`,
+                                `API returned ${statusCode}`,
                                 statusCode,
                                 responseBody,
                             ),

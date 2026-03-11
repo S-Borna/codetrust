@@ -226,7 +226,7 @@ class TestPolicyIntegrity:
         create_policy_integrity_manifest(
             tmp_path,
             sign_key="integrity-sign-key",
-            version="2.8.0",
+            version="2.8.1",
         )
 
         (tmp_path / "CLAUDE.md").write_text("tampered policy", encoding="utf-8")
@@ -262,7 +262,7 @@ class TestPolicyIntegrity:
         create_policy_integrity_manifest(
             tmp_path,
             sign_key="integrity-sign-key",
-            version="2.8.0",
+            version="2.8.1",
         )
 
         monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
@@ -355,6 +355,96 @@ class TestTrustedExecutionAndApprovals:
         assert "deny_native_execution" in posture
         assert "require_allow_reason" in posture
         assert "control_plane_ready" in posture
+        assert posture["readiness"] in ("ready", "not-ready")
+        assert isinstance(posture["readiness_reasons"], list)
+
+    @pytest.mark.asyncio()
+    async def test_preflight_required_blocks_proxy_until_simulated(
+        self,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        """Proxy calls should require preflight simulation when policy enables it."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n'
+            '[codetrust.governance.trusted_execution]\n'
+            'enabled = false\n'
+            'preflight_required = true\n'
+            'preflight_ttl_seconds = 900\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        blocked = json.loads(await gateway_server.proxy_run_in_terminal("ls -la"))
+        assert blocked["status"] == "BLOCKED"
+        assert blocked["rule_id"] == "gateway_preflight_required"
+
+        sim = json.loads(await gateway_server.simulate_policy("startup", ["ls -la"]))
+        assert sim["preflight_agent_id"]
+        assert sim["preflight_expires_at"]
+
+        allowed = json.loads(await gateway_server.proxy_run_in_terminal("ls -la"))
+        assert allowed["status"] == "APPROVED"
+
+    @pytest.mark.asyncio()
+    async def test_begin_trusted_session_supports_scope_and_ttl(
+        self,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        """Trusted session response should include scope metadata and bounded expiry."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+        monkeypatch.setenv("CODETRUST_BRANCH", "main")
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        trusted = json.loads(await gateway_server.begin_trusted_session(
+            "release run",
+            agent_id="agent-z",
+            ttl_minutes=30,
+            scope_repo=str(tmp_path),
+            scope_branch="main",
+            task_id="task-42",
+        ))
+        assert trusted["status"] == "APPROVED"
+        assert trusted["trusted_token"]
+        assert trusted["scope_repo"] == str(tmp_path)
+        assert trusted["scope_branch"] == "main"
+        assert trusted["task_id"] == "task-42"
+
+    @pytest.mark.asyncio()
+    async def test_audit_history_json_export_returns_timeline(
+        self,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        """Audit history should support deterministic JSON export for replay workflows."""
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nenabled = true\nmode = "enforce"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
+
+        import src.gateway.server as gateway_server
+
+        gateway_server = importlib.reload(gateway_server)
+        await gateway_server.validate_command("ls -la")
+        exported = json.loads(await gateway_server.audit_history(
+            hours=1,
+            limit=20,
+            export_format="json",
+        ))
+        assert "timeline" in exported
+        assert exported["entry_count"] >= 1
+        assert exported["attestation"]["session_id"]
 
     @pytest.mark.asyncio()
     async def test_zero_slop_mode_requires_allow_reason_and_agent_bound_token(

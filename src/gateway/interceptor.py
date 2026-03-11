@@ -563,8 +563,8 @@ _TERMINAL_RULES: list[dict] = [
         "pattern": (
             r"\b(?:run_in_terminal|create_file|replace_string_in_file|edit_notebook_file)\b"
         ),
-        "message": "Native tool reference detected. Use codetrust_* proxy tools in enforced mode.",
-        "suggestion": "Call codetrust_run_in_terminal/codetrust_create_file/etc before native actions.",
+        "message": "Native tool reference detected. Use mcp_codetrust-gat_codetrust_* gateway tools in enforced mode.",
+        "suggestion": "Call mcp_codetrust-gat_codetrust_validate_command and mcp_codetrust-gat_codetrust_run_in_terminal before native actions.",
         "severity": Verdict.BLOCK,
     },
     {

@@ -604,9 +604,7 @@ async function healthCheckCommand(deps: CommandDeps): Promise<void> {
 function logApiError(deps: CommandDeps, err: unknown): void {
     if (err instanceof ApiError) {
         const hint = apiErrorHint(err.statusCode);
-        deps.outputChannel.appendLine(
-            `  API error (${err.statusCode}): ${hint}${err.body ? ` | ${truncate(err.body, TRUNCATE_BODY_MAX_LEN)}` : ""}`,
-        );
+        deps.outputChannel.appendLine(`  API error (${err.statusCode}): ${hint}`);
         return;
     }
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -634,6 +632,7 @@ function apiErrorHint(statusCode: number): string {
 
 const UPGRADE_URL = "https://app.codetrust.ai/dashboard/settings";
 const RATE_LIMIT_WARNING_THRESHOLD = 0.8;
+const PRO_DAILY_SCAN_LIMIT = 10_000;
 let rateLimitWarningShown = false;
 
 /** Show upgrade notification when rate limit is near or exceeded. */
@@ -667,7 +666,7 @@ function checkRateLimitWarning(
 /** Show clickable upgrade notification on 429 rate limit error. */
 function showRateLimitBlockedNotification(): void {
     vscode.window.showErrorMessage(
-        "CodeTrust: Daily scan limit exceeded. Upgrade to Pro for 10,000 scans/day.",
+        `CodeTrust: Daily scan limit exceeded. Upgrade to Pro for ${PRO_DAILY_SCAN_LIMIT.toLocaleString("en-US")} scans/day.`,
         "Upgrade to Pro",
     ).then((choice) => {
         if (choice === "Upgrade to Pro") {
@@ -1156,10 +1155,10 @@ async function governanceStatusCommand(deps: CommandDeps): Promise<void> {
     deps.outputChannel.appendLine(`Copilot rules injected: ${injected ? "YES ✓" : "NO — run 'CodeTrust: Inject Copilot Instructions'"}`);
     deps.outputChannel.appendLine("");
     deps.outputChannel.appendLine("Mandatory validation sequence:");
-    deps.outputChannel.appendLine("  1. codetrust_validate_command  → before run_in_terminal");
-    deps.outputChannel.appendLine("  2. codetrust_validate_file_write → before create_file / replace_string_in_file");
-    deps.outputChannel.appendLine("  3. codetrust_validate_package  → before installing packages");
-    deps.outputChannel.appendLine("  4. codetrust_validate_file_delete → before file deletion");
+    deps.outputChannel.appendLine("  1. mcp_codetrust-gat_codetrust_validate_command → before run_in_terminal");
+    deps.outputChannel.appendLine("  2. mcp_codetrust-gat_codetrust_run_in_terminal → proxy gate for run_in_terminal");
+    deps.outputChannel.appendLine("  3. mcp_codetrust-gat_codetrust_validate_package → before installing packages");
+    deps.outputChannel.appendLine("  4. mcp_codetrust-gat_codetrust_validate_file_delete → before file deletion");
     deps.outputChannel.appendLine("Audit log: .codetrust/audit.jsonl");
 
     await vscode.window.showInformationMessage(

@@ -43,20 +43,18 @@ const COPILOT_RULES_TEXT = `${COPILOT_INSTRUCTION_MARKER}
 CodeTrust Governance — Mandatory rules for every session:
 
 PROXY TOOLS (use these INSTEAD of native tools):
-- codetrust_run_in_terminal → replaces run_in_terminal
-- codetrust_create_file → replaces create_file
-- codetrust_replace_string_in_file → replaces replace_string_in_file
-- codetrust_edit_notebook → replaces edit_notebook_file
+- mcp_codetrust-gat_codetrust_run_in_terminal → proxy gate for run_in_terminal
 
 Workflow for EVERY action:
-1. Call the codetrust_* proxy tool with the EXACT same parameters.
+1. Call the matching mcp_codetrust-gat_codetrust_* tool before native action.
 2. If status=APPROVED → call the native tool with identical parameters.
 3. If status=BLOCKED → do NOT proceed. Use the suggestion instead.
 4. If status=WARN → acknowledge, then you may proceed.
 
 You MUST also call these for validation:
-- codetrust_validate_package BEFORE installing any package (BLOCK = do not install)
-- codetrust_validate_file_delete BEFORE deleting any file (BLOCK = do not delete)
+- mcp_codetrust-gat_codetrust_validate_command BEFORE terminal commands
+- mcp_codetrust-gat_codetrust_validate_package BEFORE installing any package (BLOCK = do not install)
+- mcp_codetrust-gat_codetrust_validate_file_delete BEFORE deleting any file (BLOCK = do not delete)
 
 NEVER do the following under any circumstances:
 - Run git push (user pushes manually — never automate)

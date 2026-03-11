@@ -93,6 +93,46 @@ interface ResolvedCommand {
     cwd?: string;
 }
 
+function isCodeTrustRoot(rootDir: string): boolean {
+    const pyprojectPath = path.join(rootDir, "pyproject.toml");
+    if (!fs.existsSync(pyprojectPath)) {
+        return false;
+    }
+    try {
+        const content = fs.readFileSync(pyprojectPath, "utf8");
+        return content.includes('name = "codetrust"');
+    } catch {
+        return false;
+    }
+}
+
+function detectSourceRootFromKnownConfigs(): string | undefined {
+    for (const target of buildMcpTargets()) {
+        const config = readMcpConfig(target.filePath);
+        if (!config?.mcpServers) {
+            continue;
+        }
+        for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
+            const entry = config.mcpServers[serverName];
+            if (!entry) {
+                continue;
+            }
+            if (entry.cwd && isCodeTrustRoot(entry.cwd)) {
+                return entry.cwd;
+            }
+            const normalizedCmd = entry.command.replace(/\\/g, "/");
+            const unixSuffix = "/.venv/bin/python";
+            if (normalizedCmd.endsWith(unixSuffix)) {
+                const root = normalizedCmd.slice(0, -unixSuffix.length);
+                if (isCodeTrustRoot(root)) {
+                    return root;
+                }
+            }
+        }
+    }
+    return undefined;
+}
+
 /** Synchronously check if a command exists on PATH. */
 function commandExistsOnPath(cmd: string): boolean {
     try {
@@ -111,24 +151,21 @@ function commandExistsOnPath(cmd: string): boolean {
  * that contains the codetrust package definition.
  */
 function detectSourceRoot(): string | undefined {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        return undefined;
+    const envRoot = process.env.CODETRUST_SOURCE_ROOT;
+    if (envRoot && isCodeTrustRoot(envRoot)) {
+        return envRoot;
     }
-    for (const folder of workspaceFolders) {
-        const pyprojectPath = path.join(folder.uri.fsPath, "pyproject.toml");
-        if (fs.existsSync(pyprojectPath)) {
-            try {
-                const content = fs.readFileSync(pyprojectPath, "utf8");
-                if (content.includes('name = "codetrust"')) {
-                    return folder.uri.fsPath;
-                }
-            } catch {
-                // Ignore read errors
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            if (isCodeTrustRoot(folder.uri.fsPath)) {
+                return folder.uri.fsPath;
             }
         }
     }
-    return undefined;
+
+    return detectSourceRootFromKnownConfigs();
 }
 
 /**
@@ -165,6 +202,22 @@ function resolveServerCommand(
 
     // Strategy 3: python3 -m with source root
     const sourceRoot = detectSourceRoot();
+    if (sourceRoot) {
+        const venvPython = process.platform === "win32"
+            ? path.join(sourceRoot, ".venv", "Scripts", "python.exe")
+            : path.join(sourceRoot, ".venv", "bin", "python");
+        if (fs.existsSync(venvPython)) {
+            outputChannel.appendLine(
+                `CodeTrust MCP: Using '${venvPython} -m ${modulePath}' with cwd=${sourceRoot}.`,
+            );
+            return {
+                command: venvPython,
+                args: ["-m", modulePath],
+                cwd: sourceRoot,
+            };
+        }
+    }
+
     const python = process.platform === "win32" ? "python" : "python3";
     if (sourceRoot && commandExistsOnPath(python)) {
         outputChannel.appendLine(

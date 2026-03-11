@@ -73,14 +73,16 @@ class BillingService:
             return ""
 
         try:
-            session = stripe_lib.checkout.Session.create(
-                customer=customer_id,
-                mode="subscription",
-                line_items=[{"price": price_id, "quantity": 1}],
-                success_url=success_url or f"{settings.dashboard_url}/dashboard?upgraded=true",
-                cancel_url=cancel_url or f"{settings.dashboard_url}/pricing",
-                metadata={"plan": plan},
-            )
+            session_kwargs: dict[str, object] = {
+                "mode": "subscription",
+                "line_items": [{"price": price_id, "quantity": 1}],
+                "success_url": success_url or f"{settings.dashboard_url}/dashboard?upgraded=true",
+                "cancel_url": cancel_url or f"{settings.dashboard_url}/pricing",
+                "metadata": {"plan": plan},
+            }
+            if customer_id:
+                session_kwargs["customer"] = customer_id
+            session = stripe_lib.checkout.Session.create(**session_kwargs)
             logger.info("stripe_checkout_created", session_id=session.id)
             return session.url or ""
         except stripe_lib.StripeError as exc:
@@ -90,6 +92,9 @@ class BillingService:
     async def create_portal_session(self, customer_id: str) -> str:
         """Create a Stripe Customer Portal session for managing subscriptions."""
         if not self._configured:
+            return ""
+        if not customer_id:
+            logger.warning("stripe_portal_no_customer")
             return ""
         try:
             session = stripe_lib.billing_portal.Session.create(

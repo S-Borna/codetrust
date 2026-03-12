@@ -28,8 +28,9 @@ The persistent "CodeTrust MCP tools are unavailable" problem had **two** root ca
 ### Proven Result
 
 After writing to global `mcp.json` with `"servers"` key, VS Code shows:
+
 - **codetrust** — scanner MCP server
-- **codetrust-gateway** — governance gateway MCP server  
+- **codetrust-gateway** — governance gateway MCP server
 - **guardian** — standalone from ~/.claude/guardian/
 
 VS Code prompted: _"The MCP server codetrust may have new tools and requires interaction to start. Start it now?"_ — **first time ever seen**.
@@ -50,6 +51,7 @@ VS Code prompted: _"The MCP server codetrust may have new tools and requires int
 - Compile: clean
 - Tests: 88 passing (extension)
 - Git: clean working tree
+
 > All session documentation lives here and only here. Any agent, assistant, or contributor
 > must update THIS file. Creating a second log is a violation of project protocol.
 
@@ -72,7 +74,7 @@ GitHub Actions CI "CodeTrust Quality Gate" failed after v2.7.0 push with 28 BLOC
    - Used string splitting in autofix_recipes.py to avoid pattern matches
    - Fixed naive `stripped.count('"""') == 1` heuristic that falsely toggled on code referencing `"""` as a string literal
 
-4. **os.path.* submodule functions not resolved**: Functions like `os.path.join()` weren't found because lookup didn't consider submodules. **Fix**: Added `submodule` field to `FunctionCall`, updated `extract_calls()` and `_lookup_function()` for targeted submodule lookup.
+4. __os.path._ submodule functions not resolved_*: Functions like `os.path.join()` weren't found because lookup didn't consider submodules. **Fix**: Added `submodule` field to `FunctionCall`, updated `extract_calls()` and `_lookup_function()` for targeted submodule lookup.
 
 5. **Test regression from comment skip**: Initial docstring skip fix was too broad — `stripped.startswith("#")` skipped ALL comment lines including `# TODO:` that `todo_hack` rule needs. **Fix**: Removed comment skip, kept only docstring skip.
 
@@ -1207,9 +1209,9 @@ e5b1c26 feat: Phase 3 — FastAPI HTTP API & Docker image verification
 #### AI Governance Gateway (Layer 0 — Pre-Execution Interception)
 
 The heredoc corruption incident from Session 6 (README.md destroyed by shell escaping)
-revealed a fundamental gap: CodeTrust scans code *after* it's written, but destructive
-actions (heredoc, `git push`, `rm -rf`, `eval`) happen *before* any scan. This session
-built a governance gateway that intercepts AI agent actions *before* execution.
+revealed a fundamental gap: CodeTrust scans code _after_ it's written, but destructive
+actions (heredoc, `git push`, `rm -rf`, `eval`) happen _before_ any scan. This session
+built a governance gateway that intercepts AI agent actions _before_ execution.
 
 **New Files Created (6):**
 
@@ -2873,6 +2875,7 @@ Status:  Ej committat — awaiting version bump + release
 
 - Crosscheck är genomförd och dokumenterad mot senaste 100 commits.
 - Saknade commits är nu explicit listade i loggen för fortsatt uppföljning/checkpoint-normalisering.
+
 ---
 
 ## 2026-03-11 — v2.8.1 Full Release: All Marketplaces Published
@@ -2984,17 +2987,20 @@ Systematic version bump across entire codebase:
 ### 2. Live Telemetry Dashboard Restructure
 
 **Problem:** Dashboard showed misleading/confusing numbers:
+
 - "6,270 total downloads" was an inflated sum of PyPI+Marketplace+OpenVSX (includes bots/CI/mirrors)
 - "4 installs" confused visitors (it's active VS Code users, not historical)
 - "MCP 0" showed zero because gateway doesn't create scan events
 
 **Fix (commit `edcc086e`):**
+
 - **SCANNING card** (new): Hero = "35,321 findings detected", sub-stats: files scanned + total scans
 - **PROTECTION card**: Hero = "906 issues blocked" (BLOCK-severity findings), sub-stats: labels only (commands stopped, hallucinations caught, imports verified) — no counts to avoid looking weak at current scale
 - **REACH card**: Hero = "5,788 pip installs" (pepy.tech, verifiable), sub-stats: /wk PyPI, VS Code, Open VSX
 - Removed: "total downloads" composite, "4 installs" confusion, "MCP 0" from sources
 
 **Further iteration (commits `7572f46b` → `b7de0ab3` → `0d60cef3`):**
+
 - Decided to keep sub-stat labels without counts — transparent about capabilities without exposing early-stage numbers
 
 ### 3. Website Content Updates
@@ -3020,14 +3026,17 @@ Systematic version bump across entire codebase:
 ### 5. Release Checklist Update
 
 Added permanent step 15 for OpenVSX publish:
+
 ```
 15. **Publish Open VSX**: `cd extension && OVSX_PAT=$(grep -o 'OVSX_PAT=[^ ]*' ../.env | cut -d= -f2) && npx ovsx publish codetrust-X.Y.Z.vsix -p "$OVSX_PAT"`
 ```
+
 Commit: `a4885f76`
 
 ### 6. Telemetry Deep-Dive (Reference)
 
 Real user count analysis performed:
+
 - **PyPI**: 5,788 total downloads. ~40% are CI/bots/mirrors. Real users: ~300-600
 - **VS Code Marketplace**: 209 downloads, **4 active installs** (live snapshot)
 - **Open VSX**: 274 downloads (largely automated mirroring)
@@ -3060,9 +3069,11 @@ Real user count analysis performed:
 - **Verify Vercel**: Website auto-deploys from git push — should reflect all changes
 - **Phase 3 roadmap**: Team Dashboard, custom rules engine, GitHub App integration
 - Optional: add `codetrust-chrome-extension-*.zip` to .gitignore
+
 ## [2026-03-12 18:40] Checkpoint
 
 ### Accomplished
+
 - Committed extension reliability hardening for MCP startup and scan stability.
 - Commit: fbdfffda — fix: harden extension MCP recovery and scan stability
 - Scope included:
@@ -3073,66 +3084,112 @@ Real user count analysis performed:
   - Session-only MCP warning popup + deactivation channel reuse
 
 ### Validation
+
 - Extension compile: pass
 - Extension tests: 88 passing
 - Guardian post-action: PASS (0 block, 0 warn)
 
 ### Current State
+
 - Working tree clean for committed files.
 - Remaining investigation: DisposableStore output-channel warning seen during test run logs.
 
 ### Next Step
+
 - Isolate root cause of DisposableStore warning and patch if reproducible.
 
 ## [2026-03-12 18:49] Checkpoint
 
 ### Accomplished
+
 - Investigated and eliminated DisposableStore warning during extension test runs.
 - Root cause isolated to test-created real VS Code output channel in MCP health contract test.
 - Replaced real channel with lightweight mocked output sink in extension/src/test/suite/mcp-config-injection.test.ts.
 
 ### Validation
+
 - Extension tests rerun: 88 passing
 - DisposableStore warnings: not observed in rerun
 
 ### Current State
+
 - Warning-noise issue resolved in test execution path.
 
 ### Next Step
+
 - Optional: keep monitoring test output in CI to ensure warning remains absent across VS Code test runtime upgrades.
 
 ## [2026-03-12 19:00] Checkpoint
 
 ### Accomplished
+
 - Added release smoke gate script at scripts/release_smoke.sh.
 - Added CI workflow gate at .github/workflows/release-smoke.yml.
 - Gate now runs: npm ci, compile, lint, extension tests, trust DOD verification.
 - Added MCP startup prerequisite checks for local venv binaries and MCP command resolvability in available config files.
 
 ### Validation
+
 - Script executed locally end-to-end.
 - Build/lint/tests/trust-DOD all passed.
 - Smoke gate exits non-zero when MCP config entries are missing (expected strict behavior).
 
 ### Current State
+
 - Release smoke gate is implemented and active in CI workflow.
 
 ### Next Step
+
 - If desired, run MCP injection command to satisfy strict local config checks before release packaging.
 
 ## [2026-03-12 22:11] Checkpoint
 
 ### Accomplished
+
 - Removed manual MCP setup dependency from release smoke flow.
 - Enhanced scripts/release_smoke.sh with local self-healing MCP autofix mode (default local on, CI off).
 - CI remains non-mutating via AUTO_FIX_MCP=0 in release-smoke workflow.
 
 ### Validation
+
 - Full smoke gate run completed with EXIT 0.
 - Build/lint/tests/trust-DOD all passed inside smoke gate.
 
 ### Current State
+
 - Local release path now one-command and self-healing for MCP config drift.
 
 ### Next Step
+
 - Optional: package a fresh VSIX and run one final pre-release smoke invocation.
+
+## [2026-03-12 23:10] Checkpoint — Plan Ahead (Execution Contract)
+
+### User Directive Locked
+
+- Work will proceed point-by-point from the current "Coming next" list.
+- Each point must be fully implemented and rigorously verified before moving on.
+- A commit is required after each completed point before the next point begins.
+- No shortcuts, no assumption-based closures, no skipped verification.
+
+### Planned Execution Order
+
+1. Roadmap truth-sync: move shipped items out of "Coming next", rewrite partial items as completion targets.
+2. Team Dashboard completion (org/member/policy UX parity and flow completion).
+3. IDE inline auto-fix expansion (from narrow rule support to broader deterministic quick-fix coverage).
+4. Governance analytics completion (trend/compliance/executive reporting surfaces).
+5. Multi-tenant policy bundles completion (centralized management and rollout control).
+6. GitHub App integration (without Action setup dependency).
+7. SBOM generation (CycloneDX + SPDX outputs and verification path).
+8. Signature database expansion toward announced targets.
+
+### Verification Standard (Per Point)
+
+- Static validation on changed files.
+- Relevant unit/integration tests for touched modules.
+- End-to-end flow verification for the user-facing behavior of that point.
+- Guardian scans on changed code before checkpointing point completion.
+
+### Current State
+
+- Starting execution now at point 1 (roadmap truth-sync) with commit-after-completion enforcement.

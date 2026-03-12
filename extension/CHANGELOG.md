@@ -7,7 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### What's New (since 2.8.1)
+### What's New (since 2.8.2)
+
+## [2.8.2] - 2026-03-12
+
+### Fixed
+
+- Secret Storage migration always overwrites stale API keys instead of skipping when existing value is non-empty.
+- Global MCP config excludes `${workspaceFolder}` env for non-workspace targets (prevents crash).
+- Obfuscator no longer breaks extension `activate` export.
+
+### Changed
+
+- Version bump across all surfaces for vision-complete milestone.
 
 ## [2.8.1] - 2026-03-10
 

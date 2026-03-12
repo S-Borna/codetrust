@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### What's New (since 2.8.1)
+### What's New (since 2.8.2)
+
+## [2.8.2] - 2026-03-12
+
+### Fixed
+
+- Secret Storage migration now always overwrites stale API keys instead of skipping when a value exists.
+- Global MCP config no longer injects `${workspaceFolder}` env var which crashes in non-workspace contexts.
+- MCP auto-injection uses correct `servers` key format for VS Code.
+- JavaScript obfuscator no longer breaks extension `activate` export.
+
+### Changed
+
+- PRODUCT.md corrected to match verified code reality: AST supports 10 languages (was listed as 5), typosquatting covers 1100+ packages total (was inflated to 500+ per ecosystem).
+- All 22 product promises audited and verified against actual implementation. Zero gaps.
+
+### Verified
+
+- 1939 tests passing, 0 failed
+- Security audit: no API key leakage in codebase
+- All distribution channels live: PyPI, VS Code Marketplace, Railway, GitHub
 
 ## [2.8.1] - 2026-03-10
 

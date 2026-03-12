@@ -2,7 +2,7 @@
 
 > **Purpose:** Bootstrap any new AI agent session with total knowledge of the CodeTrust codebase.
 > **Generated:** 2026-03-10
-> **Version:** v2.8.1
+> **Version:** v2.8.2
 > **Owner:** Said Borna <said@saidborna.com>
 > **Scope:** Every file, function, class, constant, endpoint, rule, and interconnection.
 
@@ -64,7 +64,7 @@
 | Scanner MCP | `src/server.py` | 10 tools (static_scan, pre_action, post_action, list_rules, verify_imports, verify_dockerfile, ast_scan, sandbox_run, sarif_export, deep_scan) |
 | Gateway MCP | `src/gateway/server.py` | 17 tools (validate_command, validate_file_write, validate_file_delete, validate_package, run_in_terminal, create_file, replace_string_in_file, edit_notebook, governance_status, list_gateway_rules, audit_history, begin_trusted_session, approve_action, list_exceptions, revoke_exception, simulate_policy, governance_posture) |
 
-### Key Metrics (v2.8.1)
+### Key Metrics (v2.8.2)
 
 - **286 total rules** (204 scan rules + 82 gateway rules)
 - **60 API endpoints**

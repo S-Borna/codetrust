@@ -1,6 +1,6 @@
 # CodeTrust — Product Specification
 
-> **Version 2.8.1 | March 2026 | Proprietary License**
+> **Version 2.8.2 | March 2026 | Proprietary License**
 
 ---
 
@@ -604,4 +604,4 @@ En linter (ruff, ESLint) kontrollerar stil och syntax. CodeTrust verifierar att 
 
 ---
 
-*CodeTrust v2.8.1 — Proprietary License — Built for the AI coding era.*
+*CodeTrust v2.8.2 — Proprietary License — Built for the AI coding era.*

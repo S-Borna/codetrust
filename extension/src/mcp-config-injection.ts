@@ -53,8 +53,16 @@ interface McpServerEntry {
     _injectedBy?: string;
 }
 
-/** Shape of a full mcp.json file. */
+/**
+ * The JSON key used for server entries varies by IDE:
+ *   - VS Code: "servers"
+ *   - Claude Code, Claude Desktop, Cursor: "mcpServers"
+ */
+type ServersKey = "servers" | "mcpServers";
+
+/** Shape of a full mcp.json file. Supports both VS Code and Claude/Cursor formats. */
 interface McpConfigFile {
+    servers?: Record<string, McpServerEntry>;
     mcpServers?: Record<string, McpServerEntry>;
 }
 
@@ -66,6 +74,8 @@ interface McpTarget {
     filePath: string;
     /** Whether the target directory must already exist before injection. */
     requiresExistingDirectory?: boolean;
+    /** JSON key for server entries — "servers" for VS Code, "mcpServers" for Claude/Cursor. */
+    serversKey: ServersKey;
 }
 
 /** Minimum interval (ms) between file-change checks per target. */
@@ -268,13 +278,46 @@ function buildMcpTargets(): McpTarget[] {
     const home = os.homedir();
     const targets: McpTarget[] = [];
 
-    // VS Code workspace MCP config — enables GitHub Copilot agent tool registration.
+    // VS Code global user-level MCP config — applies to ALL workspaces.
+    if (process.platform === "darwin") {
+        targets.push({
+            name: "VS Code Global (User/mcp.json)",
+            filePath: path.join(
+                home,
+                "Library",
+                "Application Support",
+                "Code",
+                "User",
+                "mcp.json",
+            ),
+            requiresExistingDirectory: true,
+            serversKey: "servers",
+        });
+    } else if (process.platform === "linux") {
+        targets.push({
+            name: "VS Code Global (User/mcp.json)",
+            filePath: path.join(home, ".config", "Code", "User", "mcp.json"),
+            requiresExistingDirectory: true,
+            serversKey: "servers",
+        });
+    } else if (process.platform === "win32") {
+        const appData = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+        targets.push({
+            name: "VS Code Global (User/mcp.json)",
+            filePath: path.join(appData, "Code", "User", "mcp.json"),
+            requiresExistingDirectory: true,
+            serversKey: "servers",
+        });
+    }
+
+    // VS Code workspace MCP config — per-workspace override.
     const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
     for (const folder of workspaceFolders) {
         targets.push({
             name: `VS Code Workspace (${folder.name}/.vscode/mcp.json)`,
             filePath: path.join(folder.uri.fsPath, ".vscode", "mcp.json"),
             requiresExistingDirectory: false,
+            serversKey: "servers",
         });
     }
 
@@ -283,6 +326,7 @@ function buildMcpTargets(): McpTarget[] {
         name: "Claude Code (~/.claude/mcp.json)",
         filePath: path.join(home, ".claude", "mcp.json"),
         requiresExistingDirectory: true,
+        serversKey: "mcpServers",
     });
 
     // Claude Desktop — macOS only
@@ -297,6 +341,7 @@ function buildMcpTargets(): McpTarget[] {
                 "claude_desktop_config.json",
             ),
             requiresExistingDirectory: true,
+            serversKey: "mcpServers",
         });
     }
 
@@ -305,6 +350,7 @@ function buildMcpTargets(): McpTarget[] {
         name: "Cursor (~/.cursor/mcp.json)",
         filePath: path.join(home, ".cursor", "mcp.json"),
         requiresExistingDirectory: true,
+        serversKey: "mcpServers",
     });
 
     return targets;
@@ -369,7 +415,24 @@ function serverExists(config: McpConfigFile | null, serverName: string): boolean
     if (!config) {
         return false;
     }
-    return Boolean(config.mcpServers && serverName in config.mcpServers);
+    return Boolean(
+        (config.servers && serverName in config.servers) ||
+        (config.mcpServers && serverName in config.mcpServers),
+    );
+}
+
+/** Get the servers record from a config using the appropriate key. */
+function getServers(config: McpConfigFile, key: ServersKey): Record<string, McpServerEntry> {
+    if (key === "servers") {
+        if (!config.servers) {
+            config.servers = {};
+        }
+        return config.servers;
+    }
+    if (!config.mcpServers) {
+        config.mcpServers = {};
+    }
+    return config.mcpServers;
 }
 
 /**
@@ -411,15 +474,13 @@ export async function injectMcpServerConfigs(
                 continue;
             }
 
-            if (!config.mcpServers) {
-                config.mcpServers = {};
-            }
+            const servers = getServers(config, target.serversKey);
 
             let modified = false;
 
             // Inject Guardian if missing
             if (!serverExists(config, GUARDIAN_SERVER_NAME)) {
-                config.mcpServers[GUARDIAN_SERVER_NAME] = buildGuardianEntry(outputChannel);
+                servers[GUARDIAN_SERVER_NAME] = buildGuardianEntry(outputChannel);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GUARDIAN_SERVER_NAME}' server → ${target.name}`,
                 );
@@ -432,7 +493,7 @@ export async function injectMcpServerConfigs(
 
             // Inject Gateway if missing
             if (!serverExists(config, GATEWAY_SERVER_NAME)) {
-                config.mcpServers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel);
+                servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
                 );
@@ -534,7 +595,8 @@ export function verifyMcpServerHealth(
                 continue;
             }
 
-            const entry = config.mcpServers![serverName];
+            const servers = config.servers ?? config.mcpServers ?? {};
+            const entry = servers[serverName];
             const cmd = entry.command;
 
             if (path.isAbsolute(cmd) && !fs.existsSync(cmd)) {
@@ -586,16 +648,21 @@ export function removeMcpServerConfigs(outputChannel: vscode.OutputChannel): voi
             }
 
             const config = readMcpConfig(target.filePath);
-            if (!config || !config.mcpServers) {
+            if (!config) {
+                continue;
+            }
+
+            const servers = config[target.serversKey];
+            if (!servers) {
                 continue;
             }
 
             let modified = false;
 
             for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
-                const entry = config.mcpServers[serverName];
+                const entry = servers[serverName];
                 if (entry && entry._injectedBy === MCP_INJECTION_MARKER) {
-                    delete config.mcpServers[serverName];
+                    delete servers[serverName];
                     outputChannel.appendLine(
                         `CodeTrust MCP: Removed '${serverName}' from ${target.name}`,
                     );

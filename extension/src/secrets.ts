@@ -25,17 +25,14 @@ export async function migrateApiKeySettingToSecretIfNeeded(
     context: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
 ): Promise<void> {
-    const existingSecret = await getApiKeySecret(context);
-    if (existingSecret.trim().length > 0) {
-        return;
-    }
-
     const cfg = vscode.workspace.getConfiguration("codetrust");
     const fromSettings = cfg.get<string>("apiKey", "").trim();
     if (fromSettings.length === 0) {
         return;
     }
 
+    // Always overwrite Secret Storage when a key is present in settings.
+    // This handles cases where a stale/truncated key was previously stored.
     await storeApiKeySecret(context, fromSettings);
     await cfg.update("apiKey", "", vscode.ConfigurationTarget.Global);
 

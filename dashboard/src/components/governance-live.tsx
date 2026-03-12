@@ -10,6 +10,7 @@ import type {
 import { GovernancePostureView } from "@/components/governance-posture";
 import { DriftAlerts } from "@/components/drift-alerts";
 import { ExceptionManager } from "@/components/exception-manager";
+import { GovernanceRolloutControls } from "@/components/governance-rollout-controls";
 
 /**
  * Client wrapper for interactive governance components.
@@ -66,6 +67,8 @@ export function GovernanceLive({
                     onRefresh={refresh}
                 />
             </div>
+
+            <GovernanceRolloutControls apiKey={apiKey} />
         </div>
     );
 }

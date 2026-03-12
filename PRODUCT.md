@@ -76,7 +76,7 @@ Den är byggd för verkligheten där AI (Claude, GPT, Copilot, Cursor) skriver s
 
 ### Layer 04: AST-analys (tree-sitter)
 
-- Parsning till abstrakt syntaxträd för Python, JavaScript, TypeScript, Go, Rust
+- Parsning till abstrakt syntaxträd för Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++, Ruby, PHP (10 språk)
 - Cyklomatisk komplexitet per funktion (flaggar >10)
 - Oanvända variabler
 - Oåtkomlig kod (efter return/raise/break)
@@ -180,7 +180,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 | **MCP Server (AI-integration)** | **Ja** (27 verktyg) | Ja (nytt, 2025) | Nej | Nej |
 | **AI Governance Gateway** | **Ja** (82 regler, 17 MCP tools) | Nej | Nej | Nej |
 | **Signaturvalidering** | **Ja** (33 moduler, 209 funktioner) | Nej | Nej | Nej |
-| **AST-analys** | Ja (tree-sitter, 11 språk) | Ja (alla språk) | Ja (cross-file) | Ja |
+| **AST-analys** | Ja (tree-sitter, 10 språk) | Ja (alla språk) | Ja (cross-file) | Ja |
 | **CVE/Vulnerability** | Ja (OSV-baserad) | Nej (tillägg) | Ja ($40/mån/dev) | **Ja** (kärnprodukt) |
 | **Licens-compliance** | **Ja** | Nej | Nej | **Ja** |
 | **Cross-file analys** | **Ja** | Ja | Ja | Nej |
@@ -466,7 +466,7 @@ De verktygen hittar kodkvalitetsproblem och kända CVE:er i kända paket. CodeTr
 Delvis. Statisk analys (204 regler), AST-analys, pre-commit hook och VS Code-extensionens embedded scanner fungerar fullt offline. Paketverifiering och Docker-verifiering kräver internet (de kontaktar registries).
 
 **Q: Vilka språk stöds?**
-Python, JavaScript, TypeScript, Go, Rust, Java, Shell, Dockerfile, YAML. AST-analys via tree-sitter stöder de fem första.
+Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++, Ruby, PHP, Shell, Dockerfile, YAML. AST-analys via tree-sitter stöder de tio första.
 
 **Q: Hur snabbt är det?**
 Statisk analys: <100ms. Paketverifiering: ~500ms (med cache: <50ms). Full deep scan: ~1–2 sekunder. GitHub Action scan: ~10 sekunder.

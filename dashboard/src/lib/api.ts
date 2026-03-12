@@ -51,6 +51,36 @@ interface ApiKeyCreated {
     prefix: string;
 }
 
+interface OrganizationInfo {
+    id: string;
+    name: string;
+    slug: string;
+    plan: string;
+    owner_id: string;
+    member_count: number;
+    created_at: string;
+}
+
+interface OrganizationMember {
+    id: string;
+    user_id: string;
+    email: string;
+    name: string;
+    role: "owner" | "admin" | "member" | "viewer";
+    created_at: string;
+}
+
+interface OrganizationPolicy {
+    max_severity_allowed: "INFO" | "WARN" | "BLOCK";
+    require_license_compliance: boolean;
+    blocked_licenses: string[];
+    require_vuln_scan: boolean;
+    max_critical_vulns: number;
+    max_high_vulns: number;
+}
+
+type OrganizationRole = "owner" | "admin" | "member" | "viewer";
+
 async function apiFetch<T>(
     path: string,
     apiKey: string,
@@ -161,9 +191,148 @@ export const apiClient = {
             return "";
         }
     },
+
+    async listOrganizations(apiKey: string): Promise<OrganizationInfo[]> {
+        try {
+            return await apiFetch<OrganizationInfo[]>("/v1/orgs", apiKey);
+        } catch {
+            return [];
+        }
+    },
+
+    async createOrganization(
+        apiKey: string,
+        name: string,
+    ): Promise<OrganizationInfo | null> {
+        try {
+            return await apiFetch<OrganizationInfo>("/v1/orgs", apiKey, {
+                method: "POST",
+                body: JSON.stringify({ name }),
+            });
+        } catch {
+            return null;
+        }
+    },
+
+    async listOrganizationMembers(
+        apiKey: string,
+        orgId: string,
+    ): Promise<OrganizationMember[]> {
+        try {
+            return await apiFetch<OrganizationMember[]>(
+                `/v1/orgs/${encodeURIComponent(orgId)}/members`,
+                apiKey,
+            );
+        } catch {
+            return [];
+        }
+    },
+
+    async addOrganizationMember(
+        apiKey: string,
+        orgId: string,
+        userId: string,
+        role: OrganizationRole,
+    ): Promise<OrganizationMember | null> {
+        try {
+            return await apiFetch<OrganizationMember>(
+                `/v1/orgs/${encodeURIComponent(orgId)}/members`,
+                apiKey,
+                {
+                    method: "POST",
+                    body: JSON.stringify({ user_id: userId, role }),
+                },
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async removeOrganizationMember(
+        apiKey: string,
+        orgId: string,
+        userId: string,
+    ): Promise<boolean> {
+        try {
+            await apiFetch(
+                `/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
+                apiKey,
+                { method: "DELETE" },
+            );
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    async updateOrganizationMemberRole(
+        apiKey: string,
+        orgId: string,
+        userId: string,
+        role: OrganizationRole,
+    ): Promise<boolean> {
+        try {
+            await apiFetch(
+                `/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}/role`,
+                apiKey,
+                {
+                    method: "PUT",
+                    body: JSON.stringify({ role }),
+                },
+            );
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    async getOrganizationPolicy(
+        apiKey: string,
+        orgId: string,
+    ): Promise<OrganizationPolicy | null> {
+        try {
+            return await apiFetch<OrganizationPolicy>(
+                `/v1/orgs/${encodeURIComponent(orgId)}/policy`,
+                apiKey,
+            );
+        } catch {
+            return null;
+        }
+    },
+
+    async updateOrganizationPolicy(
+        apiKey: string,
+        orgId: string,
+        policy: OrganizationPolicy,
+    ): Promise<boolean> {
+        try {
+            await apiFetch(
+                `/v1/orgs/${encodeURIComponent(orgId)}/policy`,
+                apiKey,
+                {
+                    method: "PUT",
+                    body: JSON.stringify(policy),
+                },
+            );
+            return true;
+        } catch {
+            return false;
+        }
+    },
 };
 
-export type { ScanLog, ScanHistoryResponse, UsageDay, UsageStatsResponse, ApiKeyInfo, ApiKeyCreated };
+export type {
+    ScanLog,
+    ScanHistoryResponse,
+    UsageDay,
+    UsageStatsResponse,
+    ApiKeyInfo,
+    ApiKeyCreated,
+    OrganizationInfo,
+    OrganizationMember,
+    OrganizationPolicy,
+    OrganizationRole,
+};
 
 // --- Governance types ---
 

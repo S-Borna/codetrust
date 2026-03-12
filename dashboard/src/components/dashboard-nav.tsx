@@ -10,15 +10,21 @@ interface NavUser {
     image?: string | null;
 }
 
-const NAV_ITEMS = [
-    { label: "Overview", href: "/dashboard" },
-    { label: "API Keys", href: "/dashboard/api-keys" },
-    { label: "Governance", href: "/dashboard/governance" },
-    { label: "Settings", href: "/dashboard/settings" },
-];
-
 export function DashboardNav({ user }: { user?: NavUser | null }) {
     const pathname = usePathname();
+    let displayName = "User";
+    if (user && typeof user.name === "string" && user.name.length > 0) {
+        displayName = user.name;
+    } else if (user && typeof user.email === "string" && user.email.length > 0) {
+        displayName = user.email;
+    }
+
+    function navClass(href: string): string {
+        if (pathname === href) {
+            return "rounded-lg px-3 py-2 text-sm font-medium transition bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300";
+        }
+        return "rounded-lg px-3 py-2 text-sm font-medium transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800";
+    }
 
     return (
         <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
@@ -31,24 +37,17 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                         CodeTrust
                     </Link>
                     <nav className="hidden sm:flex items-center gap-1">
-                        {NAV_ITEMS.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${pathname === item.href
-                                    ? "bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300"
-                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-                                    }`}
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
+                        <Link href="/dashboard" className={navClass("/dashboard")}>Overview</Link>
+                        <Link href="/dashboard/team" className={navClass("/dashboard/team")}>Team</Link>
+                        <Link href="/dashboard/api-keys" className={navClass("/dashboard/api-keys")}>API Keys</Link>
+                        <Link href="/dashboard/governance" className={navClass("/dashboard/governance")}>Governance</Link>
+                        <Link href="/dashboard/settings" className={navClass("/dashboard/settings")}>Settings</Link>
                     </nav>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {user?.name || user?.email || "User"}
+                        {displayName}
                     </span>
                     {user?.image && (
                         <img

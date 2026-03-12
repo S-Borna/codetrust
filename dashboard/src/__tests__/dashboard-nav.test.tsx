@@ -23,6 +23,7 @@ describe("DashboardNav", () => {
     it("renders nav items", () => {
         render(<DashboardNav />);
         expect(screen.getByText("Overview")).toBeInTheDocument();
+        expect(screen.getByText("Team")).toBeInTheDocument();
         expect(screen.getByText("API Keys")).toBeInTheDocument();
         expect(screen.getByText("Governance")).toBeInTheDocument();
         expect(screen.getByText("Settings")).toBeInTheDocument();

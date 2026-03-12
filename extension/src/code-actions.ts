@@ -95,13 +95,29 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         diagnostic: vscode.Diagnostic,
         ruleId: string,
     ): vscode.CodeAction[] {
-        if (ruleId !== "print_debug") {
-            return [];
-        }
-
         if (document.languageId !== "python") {
             return [];
         }
+
+        if (ruleId === "print_debug") {
+            return this.createPrintDebugActions(document, diagnostic);
+        }
+
+        if (ruleId === "bare_except" || ruleId === "except_swallow") {
+            return this.createBareExceptActions(document, diagnostic);
+        }
+
+        if (ruleId === "hardcoded_secret") {
+            return this.createHardcodedSecretActions(document, diagnostic);
+        }
+
+        return [];
+    }
+
+    private createPrintDebugActions(
+        document: vscode.TextDocument,
+        diagnostic: vscode.Diagnostic,
+    ): vscode.CodeAction[] {
 
         const line = diagnostic.range.start.line;
         const lineText = document.lineAt(line).text;
@@ -131,16 +147,107 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
         }
 
         // Ensure `import logging` exists near the top
-        const hasImport = document.getText().split("\n").some((ln) => ln.trim() === "import logging");
-        if (!hasImport) {
-            const insertAt = this.findPythonImportInsertLine(document);
-            edit.insert(document.uri, new vscode.Position(insertAt, 0), "import logging\n");
-        }
+        this.ensurePythonImport(document, edit, "logging");
 
         action.edit = edit;
         action.diagnostics = [diagnostic];
         action.isPreferred = true;
         return [action];
+    }
+
+    private createBareExceptActions(
+        document: vscode.TextDocument,
+        diagnostic: vscode.Diagnostic,
+    ): vscode.CodeAction[] {
+        const line = diagnostic.range.start.line;
+        const lineText = document.lineAt(line).text;
+        const match = lineText.match(/^(\s*)except\s*:\s*(#.*)?$/);
+        if (!match) {
+            return [];
+        }
+
+        const indent = match[1] ?? "";
+        const trailingComment = match[2] ?? "";
+        const action = new vscode.CodeAction(
+            "Replace bare except with typed exception",
+            vscode.CodeActionKind.QuickFix,
+        );
+
+        const replacement = trailingComment.length > 0
+            ? `${indent}except Exception as exc: ${trailingComment}`
+            : `${indent}except Exception as exc:`;
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+            document.uri,
+            new vscode.Range(line, 0, line, lineText.length),
+            replacement,
+        );
+
+        action.edit = edit;
+        action.diagnostics = [diagnostic];
+        action.isPreferred = true;
+        return [action];
+    }
+
+    private createHardcodedSecretActions(
+        document: vscode.TextDocument,
+        diagnostic: vscode.Diagnostic,
+    ): vscode.CodeAction[] {
+        const line = diagnostic.range.start.line;
+        const lineText = document.lineAt(line).text;
+        const assignMatch = lineText.match(
+            /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(["']).*\3\s*(#.*)?$/,
+        );
+        if (!assignMatch) {
+            return [];
+        }
+
+        const variableName = assignMatch[2] ?? "";
+        if (!/(KEY|SECRET|TOKEN|PASSWORD)/i.test(variableName)) {
+            return [];
+        }
+
+        const indent = assignMatch[1] ?? "";
+        const trailingComment = assignMatch[4] ?? "";
+        const action = new vscode.CodeAction(
+            "Move secret to environment variable",
+            vscode.CodeActionKind.QuickFix,
+        );
+
+        const replacementCore = `${variableName} = os.getenv("${variableName}", "")`;
+        const replacement = trailingComment.length > 0
+            ? `${indent}${replacementCore} ${trailingComment}`
+            : `${indent}${replacementCore}`;
+
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+            document.uri,
+            new vscode.Range(line, 0, line, lineText.length),
+            replacement,
+        );
+        this.ensurePythonImport(document, edit, "os");
+
+        action.edit = edit;
+        action.diagnostics = [diagnostic];
+        action.isPreferred = true;
+        return [action];
+    }
+
+    private ensurePythonImport(
+        document: vscode.TextDocument,
+        edit: vscode.WorkspaceEdit,
+        moduleName: string,
+    ): void {
+        const importLine = `import ${moduleName}`;
+        const hasImport = document
+            .getText()
+            .split("\n")
+            .some((ln) => ln.trim() === importLine);
+
+        if (!hasImport) {
+            const insertAt = this.findPythonImportInsertLine(document);
+            edit.insert(document.uri, new vscode.Position(insertAt, 0), `${importLine}\n`);
+        }
     }
 
     private findPythonImportInsertLine(document: vscode.TextDocument): number {

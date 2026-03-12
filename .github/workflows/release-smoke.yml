@@ -24,4 +24,6 @@ jobs:
           cache-dependency-path: extension/package-lock.json
 
       - name: Run release smoke gate
+        env:
+          AUTO_FIX_MCP: "0"
         run: bash scripts/release_smoke.sh

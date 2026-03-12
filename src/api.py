@@ -3,6 +3,7 @@
 """FastAPI application — CodeTrust HTTP API with auth and lifespan management."""
 
 import asyncio
+import json
 import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -70,6 +71,7 @@ from src.models.responses import (
     AstScanResponse,
     DeepScanResponse,
     Finding,
+    GitHubAppWebhookResponse,
     GovernanceApproveResponse,
     GovernanceAuditEntryResponse,
     GovernanceAuditResponse,
@@ -110,6 +112,7 @@ from src.services.billing import PLAN_LIMITS, BillingService
 from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
+from src.services.github_app import GitHubAppService
 from src.services.governance_bundles import get_bundle_policy
 from src.services.license_checker import LicenseScanResponse
 from src.services.license_guard import LicenseStatus, validate_license
@@ -323,6 +326,7 @@ def _attach_core_services(
     app.state.registry = RegistryService(cache, http_client)
     app.state.docker = DockerVerifyService(cache, http_client)
     app.state.analyzer = StaticAnalyzer()
+    app.state.github_app = GitHubAppService(http_client, app.state.analyzer)
     app.state.ast_analyzer = AstAnalyzer()
     app.state.sandbox = SandboxService()
     app.state.db = db
@@ -643,6 +647,11 @@ def _get_billing(request: Request) -> BillingService:
 def _get_auth(request: Request) -> AuthService:
     """Dependency: get AuthService from app state."""
     return request.app.state.auth
+
+
+def _get_github_app(request: Request) -> GitHubAppService:
+    """Dependency: get GitHubAppService from app state."""
+    return request.app.state.github_app
 
 
 def _get_rate_limiter(request: Request) -> RateLimiter | None:
@@ -3156,6 +3165,38 @@ async def governance_revoke_session_token(
 
 
 # --- Auth: GitHub OAuth + JWT ---
+
+
+@app.post("/v1/github/app/webhook", response_model=GitHubAppWebhookResponse)
+async def github_app_webhook(
+    request: Request,
+    github_app: GitHubAppService = Depends(_get_github_app),
+) -> GitHubAppWebhookResponse:
+    """Process GitHub App pull_request events and post sticky PR comments."""
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    event = request.headers.get("X-GitHub-Event", "")
+    payload_bytes = await request.body()
+
+    if not github_app.verify_webhook_signature(payload_bytes, signature):
+        raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
+
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid GitHub webhook payload") from exc
+
+    result = await github_app.handle_webhook_event(event=event, payload=payload)
+    return GitHubAppWebhookResponse(
+        processed=result.processed,
+        event=result.event,
+        action=result.action,
+        reason=result.reason,
+        comment_url=result.comment_url,
+        total_findings=result.total_findings,
+        blocks=result.blocks,
+        warnings=result.warnings,
+        infos=result.infos,
+    )
 
 
 @app.post("/v1/auth/github", response_model=TokenResponse)

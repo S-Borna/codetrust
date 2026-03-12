@@ -693,6 +693,22 @@ class TokenResponse(BaseModel):
     expires_in_minutes: int
 
 
+class GitHubAppWebhookResponse(BaseModel):
+    """Response for GitHub App webhook processing."""
+
+    model_config = ConfigDict(strict=True)
+
+    processed: bool
+    event: str
+    action: str
+    reason: str
+    comment_url: str = ""
+    total_findings: int = 0
+    blocks: int = 0
+    warnings: int = 0
+    infos: int = 0
+
+
 class RateLimitError(BaseModel):
     """Response when rate limit is exceeded (429)."""
 

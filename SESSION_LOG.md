@@ -3100,3 +3100,22 @@ Real user count analysis performed:
 
 ### Next Step
 - Optional: keep monitoring test output in CI to ensure warning remains absent across VS Code test runtime upgrades.
+
+## [2026-03-12 19:00] Checkpoint
+
+### Accomplished
+- Added release smoke gate script at scripts/release_smoke.sh.
+- Added CI workflow gate at .github/workflows/release-smoke.yml.
+- Gate now runs: npm ci, compile, lint, extension tests, trust DOD verification.
+- Added MCP startup prerequisite checks for local venv binaries and MCP command resolvability in available config files.
+
+### Validation
+- Script executed locally end-to-end.
+- Build/lint/tests/trust-DOD all passed.
+- Smoke gate exits non-zero when MCP config entries are missing (expected strict behavior).
+
+### Current State
+- Release smoke gate is implemented and active in CI workflow.
+
+### Next Step
+- If desired, run MCP injection command to satisfy strict local config checks before release packaging.

@@ -3119,3 +3119,20 @@ Real user count analysis performed:
 
 ### Next Step
 - If desired, run MCP injection command to satisfy strict local config checks before release packaging.
+
+## [2026-03-12 22:11] Checkpoint
+
+### Accomplished
+- Removed manual MCP setup dependency from release smoke flow.
+- Enhanced scripts/release_smoke.sh with local self-healing MCP autofix mode (default local on, CI off).
+- CI remains non-mutating via AUTO_FIX_MCP=0 in release-smoke workflow.
+
+### Validation
+- Full smoke gate run completed with EXIT 0.
+- Build/lint/tests/trust-DOD all passed inside smoke gate.
+
+### Current State
+- Local release path now one-command and self-healing for MCP config drift.
+
+### Next Step
+- Optional: package a fresh VSIX and run one final pre-release smoke invocation.

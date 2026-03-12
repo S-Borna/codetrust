@@ -2050,7 +2050,9 @@
             display: flex;
             gap: 3rem;
             align-items: flex-start;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            justify-content: center;
+            text-align: center;
         }
 
         /* ---------- ≤1024px — Small laptops / landscape tablets ---------- */
@@ -2159,6 +2161,7 @@
             .moat-stats-row {
                 gap: 2rem;
                 justify-content: center;
+                flex-wrap: nowrap;
             }
         }
 

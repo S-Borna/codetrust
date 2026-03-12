@@ -50,9 +50,18 @@ const OBFUSCATION_OPTIONS = {
     // --- Misc ---
     compact: true,
     simplify: true,
-    splitStrings: true,
-    splitStringsChunkLength: 5,
-    transformObjectKeys: true,
+    splitStrings: false, // MUST be false — splits "activate" into fragments
+                         // that bypass reservedStrings and get encrypted,
+                         // destroying the VS Code extension export names.
+    transformObjectKeys: false, // MUST be false — transforms {activate:()=>fn}
+                                // into computed property patterns that can
+                                // break the module.exports mapping.
+
+    // --- VS Code extension lifecycle protection ---
+    // VS Code resolves exports.activate and exports.deactivate by name.
+    // These MUST survive obfuscation — both as identifiers and as strings.
+    reservedNames: ["^activate$", "^deactivate$"],
+    reservedStrings: ["^activate$", "^deactivate$"],
 
     // --- Performance-safe options ---
     // These are disabled to avoid breaking VS Code extension runtime:
@@ -79,7 +88,18 @@ function main() {
         `[obfuscate] Processing ${BUNDLE_PATH} (${(originalSize / 1024).toFixed(1)} KB)...\n`
     );
 
-    const result = JavaScriptObfuscator.obfuscate(originalCode, OBFUSCATION_OPTIONS);
+    // Strip esbuild's dead-code export hint before obfuscation.
+    // esbuild appends `0&&(module.exports={activate,deactivate});` as a
+    // tree-shaking marker. The identifiers `activate`/`deactivate` reference
+    // the pre-minification names which don't exist in the minified scope.
+    // Control flow flattening can move this "dead" code into a live switch-case
+    // path, causing `ReferenceError: activate is not defined` at runtime.
+    const safeCode = originalCode.replace(
+        /0\s*&&\s*\(module\.exports\s*=\s*\{[^}]*\}\);?\s*$/,
+        ""
+    );
+
+    const result = JavaScriptObfuscator.obfuscate(safeCode, OBFUSCATION_OPTIONS);
     const obfuscatedCode = COPYRIGHT_BANNER + result.getObfuscatedCode();
     const obfuscatedSize = Buffer.byteLength(obfuscatedCode, "utf8");
 

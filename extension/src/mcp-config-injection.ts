@@ -11,9 +11,11 @@
  * tools are not registered — so the tools don't exist at runtime.
  *
  * Supported targets:
- *   ~/.claude/mcp.json                                    — Claude Code
- *   ~/Library/Application Support/Claude/claude_desktop_config.json — Claude Desktop (macOS)
- *   ~/.cursor/mcp.json                                    — Cursor
+ *   ~/Library/Application Support/Code/User/mcp.json      — VS Code Global (uses "servers" key)
+ *   .vscode/mcp.json (per workspace)                       — VS Code Workspace (uses "servers" key)
+ *   ~/.claude/mcp.json                                     — Claude Code (uses "mcpServers" key)
+ *   ~/Library/Application Support/Claude/claude_desktop_config.json — Claude Desktop (macOS, "mcpServers")
+ *   ~/.cursor/mcp.json                                     — Cursor (uses "mcpServers" key)
  *
  * Idempotent: only adds entries that are missing. Never overwrites existing
  * server configs (user may have custom args/env).
@@ -121,11 +123,16 @@ function isCodeTrustRoot(rootDir: string): boolean {
 function detectSourceRootFromKnownConfigs(): string | undefined {
     for (const target of buildMcpTargets()) {
         const config = readMcpConfig(target.filePath);
-        if (!config?.mcpServers) {
+        if (!config) {
+            continue;
+        }
+        // Check both keys — the entry may be in either format depending on IDE
+        const allServers = { ...config.servers, ...config.mcpServers };
+        if (Object.keys(allServers).length === 0) {
             continue;
         }
         for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
-            const entry = config.mcpServers[serverName];
+            const entry = allServers[serverName];
             if (!entry) {
                 continue;
             }
@@ -201,10 +208,24 @@ function resolveServerCommand(
         return { command: consoleScript };
     }
 
-    // Strategy 2: uvx zero-install
+    // Strategy 2: Console script in venv bin/ (detects source root first)
+    const sourceRoot = detectSourceRoot();
+    if (sourceRoot) {
+        const venvScript = process.platform === "win32"
+            ? path.join(sourceRoot, ".venv", "Scripts", consoleScript + ".exe")
+            : path.join(sourceRoot, ".venv", "bin", consoleScript);
+        if (fs.existsSync(venvScript)) {
+            outputChannel.appendLine(
+                `CodeTrust MCP: Found '${venvScript}' in venv — using direct invocation.`,
+            );
+            return { command: venvScript };
+        }
+    }
+
+    // Strategy 3: uvx zero-install
     if (commandExistsOnPath("uvx")) {
         outputChannel.appendLine(
-            `CodeTrust MCP: '${consoleScript}' not on PATH, but 'uvx' available — using zero-install.`,
+            `CodeTrust MCP: '${consoleScript}' not on PATH or in venv, but 'uvx' available — using zero-install.`,
         );
         return {
             command: "uvx",
@@ -212,8 +233,7 @@ function resolveServerCommand(
         };
     }
 
-    // Strategy 3: python3 -m with source root
-    const sourceRoot = detectSourceRoot();
+    // Strategy 4: python3 -m with source root venv
     if (sourceRoot) {
         const venvPython = process.platform === "win32"
             ? path.join(sourceRoot, ".venv", "Scripts", "python.exe")
@@ -262,13 +282,18 @@ function buildGuardianEntry(outputChannel: vscode.OutputChannel): McpServerEntry
     };
 }
 
+/** VS Code variable for workspace root — resolved at runtime by VS Code. */
+const VSCODE_WORKSPACE_VAR = "${workspaceFolder}";
+
 /** Build the Gateway MCP server entry with auto-detected command. */
 function buildGatewayEntry(outputChannel: vscode.OutputChannel): McpServerEntry {
     const resolved = resolveServerCommand(GATEWAY_COMMAND, GATEWAY_MODULE, outputChannel);
+
     return {
         command: resolved.command,
         ...(resolved.args && { args: resolved.args }),
         ...(resolved.cwd && { cwd: resolved.cwd }),
+        env: { CODETRUST_WORKSPACE: VSCODE_WORKSPACE_VAR },
         _injectedBy: MCP_INJECTION_MARKER,
     };
 }
@@ -408,17 +433,77 @@ function writeMcpConfig(filePath: string, config: McpConfigFile): void {
 }
 
 /**
- * Check if a server entry already exists in the config (by name).
- * Does not overwrite user-configured entries.
+ * Check if a server entry already exists under the CORRECT key for this target.
+ *
+ * Only checks the key that the target IDE actually reads. This prevents
+ * false positives where an entry exists under "mcpServers" but the target
+ * is VS Code (which reads "servers"), or vice-versa.
  */
-function serverExists(config: McpConfigFile | null, serverName: string): boolean {
+function serverExists(
+    config: McpConfigFile | null,
+    serverName: string,
+    serversKey: ServersKey,
+): boolean {
     if (!config) {
         return false;
     }
-    return Boolean(
-        (config.servers && serverName in config.servers) ||
-        (config.mcpServers && serverName in config.mcpServers),
-    );
+    const bucket = config[serversKey];
+    return Boolean(bucket && serverName in bucket);
+}
+
+/**
+ * Migrate CodeTrust entries from the wrong JSON key to the correct one.
+ *
+ * A prior extension version wrote under "mcpServers" for VS Code targets,
+ * but VS Code reads "servers". This moves auto-injected entries to the
+ * correct key and removes them from the wrong key.
+ *
+ * Returns true if any migration was performed.
+ */
+function migrateWrongKeyEntries(
+    config: McpConfigFile,
+    target: McpTarget,
+    outputChannel: vscode.OutputChannel,
+): boolean {
+    const wrongKey: ServersKey = target.serversKey === "servers" ? "mcpServers" : "servers";
+    const wrongBucket = config[wrongKey];
+    if (!wrongBucket) {
+        return false;
+    }
+
+    let migrated = false;
+    const correctBucket = getServers(config, target.serversKey);
+
+    for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
+        const entry = wrongBucket[serverName];
+        if (!entry) {
+            continue;
+        }
+
+        // Only migrate auto-injected entries — leave user-configured ones
+        if (entry._injectedBy !== MCP_INJECTION_MARKER) {
+            continue;
+        }
+
+        // Move to correct key (only if not already there)
+        if (!(serverName in correctBucket)) {
+            correctBucket[serverName] = entry;
+            outputChannel.appendLine(
+                `CodeTrust MCP: Migrated '${serverName}' from "${wrongKey}" → "${target.serversKey}" in ${target.name}`,
+            );
+        }
+
+        // Remove from wrong key
+        delete wrongBucket[serverName];
+        migrated = true;
+    }
+
+    // Clean up empty wrong-key bucket
+    if (Object.keys(wrongBucket).length === 0) {
+        delete config[wrongKey];
+    }
+
+    return migrated;
 }
 
 /** Get the servers record from a config using the appropriate key. */
@@ -478,8 +563,13 @@ export async function injectMcpServerConfigs(
 
             let modified = false;
 
+            // Migrate entries from wrong key to correct key.
+            // E.g., if a prior version wrote under "mcpServers" but this
+            // target uses "servers" (VS Code), move them over.
+            modified = migrateWrongKeyEntries(config, target, outputChannel) || modified;
+
             // Inject Guardian if missing
-            if (!serverExists(config, GUARDIAN_SERVER_NAME)) {
+            if (!serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey)) {
                 servers[GUARDIAN_SERVER_NAME] = buildGuardianEntry(outputChannel);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GUARDIAN_SERVER_NAME}' server → ${target.name}`,
@@ -492,7 +582,7 @@ export async function injectMcpServerConfigs(
             }
 
             // Inject Gateway if missing
-            if (!serverExists(config, GATEWAY_SERVER_NAME)) {
+            if (!serverExists(config, GATEWAY_SERVER_NAME, target.serversKey)) {
                 servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
@@ -585,8 +675,10 @@ export function verifyMcpServerHealth(
             continue;
         }
 
+        // VS Code workspace targets always use "servers" key
+        const workspaceServersKey: ServersKey = "servers";
         for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
-            if (!serverExists(config, serverName)) {
+            if (!serverExists(config, serverName, workspaceServersKey)) {
                 issues.push({
                     target: folder.name,
                     problem: `Server '${serverName}' missing from .vscode/mcp.json`,
@@ -595,7 +687,7 @@ export function verifyMcpServerHealth(
                 continue;
             }
 
-            const servers = config.servers ?? config.mcpServers ?? {};
+            const servers = config.servers ?? {};
             const entry = servers[serverName];
             const cmd = entry.command;
 
@@ -740,8 +832,8 @@ export function watchForMcpConfigDisruption(
                     return;
                 }
 
-                const guardianOk = serverExists(config, GUARDIAN_SERVER_NAME);
-                const gatewayOk = serverExists(config, GATEWAY_SERVER_NAME);
+                const guardianOk = serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey);
+                const gatewayOk = serverExists(config, GATEWAY_SERVER_NAME, target.serversKey);
 
                 if (guardianOk && gatewayOk) {
                     return;
@@ -808,8 +900,8 @@ export function watchForMcpConfigDisruption(
                 return false;
             }
             const config = readMcpConfig(t.filePath);
-            return !serverExists(config, GUARDIAN_SERVER_NAME) ||
-                !serverExists(config, GATEWAY_SERVER_NAME);
+            return !serverExists(config, GUARDIAN_SERVER_NAME, t.serversKey) ||
+                !serverExists(config, GATEWAY_SERVER_NAME, t.serversKey);
         });
 
         if (missing.length === 0) {

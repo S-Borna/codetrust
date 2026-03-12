@@ -78,6 +78,11 @@ interface McpTarget {
     requiresExistingDirectory?: boolean;
     /** JSON key for server entries — "servers" for VS Code, "mcpServers" for Claude/Cursor. */
     serversKey: ServersKey;
+    /**
+     * True for per-workspace targets where VS Code can resolve
+     * variables like ${workspaceFolder}. False for global/user-level configs.
+     */
+    isWorkspaceTarget?: boolean;
 }
 
 /** Minimum interval (ms) between file-change checks per target. */
@@ -285,17 +290,35 @@ function buildGuardianEntry(outputChannel: vscode.OutputChannel): McpServerEntry
 /** VS Code variable for workspace root — resolved at runtime by VS Code. */
 const VSCODE_WORKSPACE_VAR = "${workspaceFolder}";
 
-/** Build the Gateway MCP server entry with auto-detected command. */
-function buildGatewayEntry(outputChannel: vscode.OutputChannel): McpServerEntry {
+/**
+ * Build the Gateway MCP server entry with auto-detected command.
+ *
+ * @param outputChannel — log destination
+ * @param isWorkspaceTarget — true for per-workspace .vscode/mcp.json entries
+ *   where VS Code can resolve ${workspaceFolder}. False for global user-level
+ *   config where the variable is unresolvable.
+ */
+function buildGatewayEntry(
+    outputChannel: vscode.OutputChannel,
+    isWorkspaceTarget: boolean,
+): McpServerEntry {
     const resolved = resolveServerCommand(GATEWAY_COMMAND, GATEWAY_MODULE, outputChannel);
 
-    return {
+    const entry: McpServerEntry = {
         command: resolved.command,
         ...(resolved.args && { args: resolved.args }),
         ...(resolved.cwd && { cwd: resolved.cwd }),
-        env: { CODETRUST_WORKSPACE: VSCODE_WORKSPACE_VAR },
         _injectedBy: MCP_INJECTION_MARKER,
     };
+
+    // Only inject ${workspaceFolder} for workspace-level targets where
+    // VS Code can resolve the variable. For global targets the gateway
+    // falls back to os.getcwd() which is sufficient.
+    if (isWorkspaceTarget) {
+        entry.env = { CODETRUST_WORKSPACE: VSCODE_WORKSPACE_VAR };
+    }
+
+    return entry;
 }
 
 /** Build the list of MCP config targets for the current platform. */
@@ -343,6 +366,7 @@ function buildMcpTargets(): McpTarget[] {
             filePath: path.join(folder.uri.fsPath, ".vscode", "mcp.json"),
             requiresExistingDirectory: false,
             serversKey: "servers",
+            isWorkspaceTarget: true,
         });
     }
 
@@ -583,7 +607,7 @@ export async function injectMcpServerConfigs(
 
             // Inject Gateway if missing
             if (!serverExists(config, GATEWAY_SERVER_NAME, target.serversKey)) {
-                servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel);
+                servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
                 );

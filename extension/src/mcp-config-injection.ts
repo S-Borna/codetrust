@@ -64,6 +64,8 @@ interface McpTarget {
     name: string;
     /** Absolute path to the MCP config file. */
     filePath: string;
+    /** Whether the target directory must already exist before injection. */
+    requiresExistingDirectory?: boolean;
 }
 
 /** Minimum interval (ms) between file-change checks per target. */
@@ -266,10 +268,21 @@ function buildMcpTargets(): McpTarget[] {
     const home = os.homedir();
     const targets: McpTarget[] = [];
 
+    // VS Code workspace MCP config — enables GitHub Copilot agent tool registration.
+    const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+    for (const folder of workspaceFolders) {
+        targets.push({
+            name: `VS Code Workspace (${folder.name}/.vscode/mcp.json)`,
+            filePath: path.join(folder.uri.fsPath, ".vscode", "mcp.json"),
+            requiresExistingDirectory: false,
+        });
+    }
+
     // Claude Code — always present on all platforms
     targets.push({
         name: "Claude Code (~/.claude/mcp.json)",
         filePath: path.join(home, ".claude", "mcp.json"),
+        requiresExistingDirectory: true,
     });
 
     // Claude Desktop — macOS only
@@ -283,6 +296,7 @@ function buildMcpTargets(): McpTarget[] {
                 "Claude",
                 "claude_desktop_config.json",
             ),
+            requiresExistingDirectory: true,
         });
     }
 
@@ -290,9 +304,24 @@ function buildMcpTargets(): McpTarget[] {
     targets.push({
         name: "Cursor (~/.cursor/mcp.json)",
         filePath: path.join(home, ".cursor", "mcp.json"),
+        requiresExistingDirectory: true,
     });
 
     return targets;
+}
+
+/**
+ * Exported for tests to enforce the MCP target contract.
+ */
+export function listMcpTargetPathsForTest(): string[] {
+    return buildMcpTargets().map((target) => target.filePath);
+}
+
+/**
+ * Deterministic helper for tests that validate workspace target path generation.
+ */
+export function buildWorkspaceMcpTargetPathsForTest(workspacePaths: string[]): string[] {
+    return workspacePaths.map((workspacePath) => path.join(workspacePath, ".vscode", "mcp.json"));
 }
 
 /**
@@ -365,7 +394,7 @@ export async function injectMcpServerConfigs(
             const dir = path.dirname(target.filePath);
 
             // Skip if the parent directory doesn't exist — IDE is not installed
-            if (!fs.existsSync(dir)) {
+            if (target.requiresExistingDirectory !== false && !fs.existsSync(dir)) {
                 outputChannel.appendLine(
                     `CodeTrust MCP: Skipping ${target.name} — directory not found (IDE not installed).`,
                 );
@@ -437,6 +466,108 @@ export async function injectMcpServerConfigs(
     }
 
     return injectedTargets;
+}
+
+/** Describes a specific issue found during MCP health verification. */
+interface McpHealthIssue {
+    target: string;
+    problem: string;
+    fix: string;
+}
+
+/** Result of MCP server health verification. */
+export interface McpHealthResult {
+    healthy: boolean;
+    issues: McpHealthIssue[];
+}
+
+/**
+ * Verify that MCP server configs are installed and commands resolvable.
+ *
+ * Checks workspace .vscode/mcp.json (the key target for VS Code/Copilot).
+ * Does NOT spawn servers — only checks config files and command existence.
+ */
+export function verifyMcpServerHealth(
+    outputChannel: vscode.OutputChannel,
+): McpHealthResult {
+    const issues: McpHealthIssue[] = [];
+    const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+
+    if (workspaceFolders.length === 0) {
+        issues.push({
+            target: "Workspace",
+            problem: "No workspace folder open",
+            fix: "Open a folder in VS Code before activating CodeTrust.",
+        });
+        return { healthy: false, issues };
+    }
+
+    for (const folder of workspaceFolders) {
+        const mcpPath = path.join(folder.uri.fsPath, ".vscode", "mcp.json");
+
+        if (!fs.existsSync(mcpPath)) {
+            issues.push({
+                target: folder.name,
+                problem: ".vscode/mcp.json not found after injection",
+                fix: "Run 'CodeTrust: Inject MCP Server Configs' from the command palette.",
+            });
+            continue;
+        }
+
+        const config = readMcpConfig(mcpPath);
+        if (config === null) {
+            issues.push({
+                target: folder.name,
+                problem: ".vscode/mcp.json contains malformed JSON",
+                fix: "Delete .vscode/mcp.json and re-run MCP injection.",
+            });
+            continue;
+        }
+
+        for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
+            if (!serverExists(config, serverName)) {
+                issues.push({
+                    target: folder.name,
+                    problem: `Server '${serverName}' missing from .vscode/mcp.json`,
+                    fix: "Run 'CodeTrust: Inject MCP Server Configs' from the command palette.",
+                });
+                continue;
+            }
+
+            const entry = config.mcpServers![serverName];
+            const cmd = entry.command;
+
+            if (path.isAbsolute(cmd) && !fs.existsSync(cmd)) {
+                issues.push({
+                    target: folder.name,
+                    problem: `Server '${serverName}' command not found: ${cmd}`,
+                    fix: "Install codetrust: pip install codetrust",
+                });
+            } else if (!path.isAbsolute(cmd) && cmd !== "uvx" && !commandExistsOnPath(cmd)) {
+                issues.push({
+                    target: folder.name,
+                    problem: `Server '${serverName}' command '${cmd}' not on PATH`,
+                    fix: "Install codetrust: pip install codetrust",
+                });
+            }
+        }
+    }
+
+    const healthy = issues.length === 0;
+
+    if (healthy) {
+        outputChannel.appendLine(
+            "CodeTrust MCP: Health check PASSED — both servers configured and commands resolvable.",
+        );
+    } else {
+        outputChannel.appendLine("CodeTrust MCP: Health check found issues:");
+        for (const issue of issues) {
+            outputChannel.appendLine(`  [${issue.target}] ${issue.problem}`);
+            outputChannel.appendLine(`    Fix: ${issue.fix}`);
+        }
+    }
+
+    return { healthy, issues };
 }
 
 /**

@@ -25,7 +25,7 @@ import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 import { sendTelemetry } from "./telemetry";
 import { injectUniversalInstructions, removeUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
-import { injectMcpServerConfigs, removeMcpServerConfigs, watchForMcpConfigDisruption } from "./mcp-config-injection";
+import { injectMcpServerConfigs, removeMcpServerConfigs, watchForMcpConfigDisruption, verifyMcpServerHealth } from "./mcp-config-injection";
 
 // ─────────────────────────────────────────────────────────────────
 //  Copilot global instruction injection
@@ -172,7 +172,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void maybePromptGuidedOnboarding(context, outputChannel);
     void injectCopilotInstructions(context, outputChannel);
     void injectUniversalInstructions(outputChannel);
-    void injectMcpServerConfigs(outputChannel);
+    void injectMcpServerConfigs(outputChannel).then(() => {
+        const health = verifyMcpServerHealth(outputChannel);
+        if (!health.healthy) {
+            const summary = health.issues.map((i) => i.problem).join("; ");
+            void vscode.window.showWarningMessage(
+                `CodeTrust: MCP setup issues found — ${summary}. See Output > CodeTrust for details.`,
+                "Show Details",
+            ).then((action) => {
+                if (action === "Show Details") {
+                    outputChannel.show();
+                }
+            });
+        }
+    });
 
     // Watch for IDE updates that overwrite injected rules, or new IDEs installed after CodeTrust
     const watchDisposables = watchForGovernanceDisruption(outputChannel);

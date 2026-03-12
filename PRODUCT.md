@@ -107,7 +107,7 @@ Den är byggd för verkligheten där AI (Claude, GPT, Copilot, Cursor) skriver s
 - **RubyGems** — verifierar Ruby-gems
 - **Packagist** — verifierar PHP-paket
 - **Versionscheck** — flaggar om angiven version inte existerar (VERSION_MISMATCH)
-- **Typosquatting-skydd** — fuzzy matching mot 500+ populära paket per ekosystem
+- **Typosquatting-skydd** — fuzzy matching mot 1100+ populära paket (67–282 per ekosystem, 8 ekosystem)
 
 ### Layer 08: Docker-verifiering (Hub + GHCR)
 
@@ -175,7 +175,7 @@ CodeTrust är **inte** ett alternativ till SonarQube eller Snyk. Det är ett **k
 |---|---|---|---|---|
 | **Statisk kodanalys** | 204 regler, 14 språk | 5,000+ regler, 35+ språk | 3,000+ regler, 30+ språk | SAST med DeepCode AI |
 | **Paketexistens-verifiering** | **Ja** (8 registries) | Nej | Nej | Nej* |
-| **Typosquatting-skydd** | **Ja** (fuzzy matching, 500+ paket/ekosystem) | Nej | Nej | Nej |
+| **Typosquatting-skydd** | **Ja** (fuzzy matching, 1100+ paket, 8 ekosystem) | Nej | Nej | Nej |
 | **Docker image/tag-verifiering** | **Ja** (live Docker Hub + GHCR) | Nej | Nej | Container scanning (CVEs) |
 | **MCP Server (AI-integration)** | **Ja** (27 verktyg) | Ja (nytt, 2025) | Nej | Nej |
 | **AI Governance Gateway** | **Ja** (82 regler, 17 MCP tools) | Nej | Nej | Nej |

@@ -3060,3 +3060,43 @@ Real user count analysis performed:
 - **Verify Vercel**: Website auto-deploys from git push — should reflect all changes
 - **Phase 3 roadmap**: Team Dashboard, custom rules engine, GitHub App integration
 - Optional: add `codetrust-chrome-extension-*.zip` to .gitignore
+## [2026-03-12 18:40] Checkpoint
+
+### Accomplished
+- Committed extension reliability hardening for MCP startup and scan stability.
+- Commit: fbdfffda — fix: harden extension MCP recovery and scan stability
+- Scope included:
+  - API client rate-limit cooldown + bounded concurrency + finalize guard
+  - Save/open import verification cache-first behavior
+  - MCP config auto-upgrade for broken command entries
+  - Health-check fallback to global VS Code MCP config
+  - Session-only MCP warning popup + deactivation channel reuse
+
+### Validation
+- Extension compile: pass
+- Extension tests: 88 passing
+- Guardian post-action: PASS (0 block, 0 warn)
+
+### Current State
+- Working tree clean for committed files.
+- Remaining investigation: DisposableStore output-channel warning seen during test run logs.
+
+### Next Step
+- Isolate root cause of DisposableStore warning and patch if reproducible.
+
+## [2026-03-12 18:49] Checkpoint
+
+### Accomplished
+- Investigated and eliminated DisposableStore warning during extension test runs.
+- Root cause isolated to test-created real VS Code output channel in MCP health contract test.
+- Replaced real channel with lightweight mocked output sink in extension/src/test/suite/mcp-config-injection.test.ts.
+
+### Validation
+- Extension tests rerun: 88 passing
+- DisposableStore warnings: not observed in rerun
+
+### Current State
+- Warning-noise issue resolved in test execution path.
+
+### Next Step
+- Optional: keep monitoring test output in CI to ensure warning remains absent across VS Code test runtime upgrades.

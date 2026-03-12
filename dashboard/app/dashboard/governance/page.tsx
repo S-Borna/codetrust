@@ -4,6 +4,7 @@ import { governanceClient } from "@/lib/api";
 import { GovernanceAuditView } from "@/components/governance-audit";
 import { GovernanceLive } from "@/components/governance-live";
 import { MultiWorkspaceView } from "@/components/multi-workspace-view";
+import { GovernanceAnalytics } from "@/components/governance-analytics";
 
 /**
  * Governance page — live dashboard with posture, drift alerts,
@@ -49,6 +50,11 @@ export default async function GovernancePage() {
                 initialApprovals={approvals}
                 initialExceptions={exceptions}
                 apiKey={apiKey}
+            />
+
+            <GovernanceAnalytics
+                auditEntries={audit.entries}
+                workspaces={workspaces}
             />
 
             {/* Audit log (display-only) */}

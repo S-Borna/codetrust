@@ -13,13 +13,15 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.8.1
+## What's New in 2.8.2
 
-- **Signature Validation** — curated function database (33 modules, 209 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
+- **Vision-complete release** — all 22 PRODUCT.md promises verified against actual code. Zero gaps between marketing and reality
+- **10-language AST analysis** — Python, JS, TS, Go, Rust, Java, C#, C++, Ruby, PHP with cyclomatic complexity, unused variables, unreachable code, deep nesting
+- **Signature Validation** — curated function database (33 modules, 223 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
+- **1100+ typosquatting-protected packages** across 8 registries (PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist)
 - **Universal IDE Injection** — governance rules injected into the global config of every AI IDE on your machine (Claude Code, Cursor, Windsurf, GitHub Copilot)
-- **Governance Disruption Monitoring** — file watchers detect overwritten rules; window-focus detects new IDEs
-- **4 Proxy MCP tools** — `mcp_codetrust-gat_codetrust_run_in_terminal`, `mcp_codetrust-gat_codetrust_create_file`, `mcp_codetrust-gat_codetrust_replace_string_in_file`, `mcp_codetrust-gat_codetrust_edit_notebook`
-- **Typed Public Stats Contract** — `/v1/stats/public` now ships a schema-versioned nested contract plus backward-compatible top-level counters
+- **Secret Storage hardening** — API key migration always overwrites stale credentials
+- **Global MCP config fix** — `${workspaceFolder}` no longer crashes in non-workspace contexts
 - **Tenant Policy Bundles & Signed Snapshots** — `/v1/governance/policy-bundles` and `/v1/governance/policy-snapshot`
 - **Explainable Gateway BLOCKs** — blocked responses include `root_cause` and `safe_fix`
 - **27 MCP tools, 60 API endpoints, 286 rules****
@@ -145,7 +147,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.1` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.2` |
 | **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
 | **REST API** | 60 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

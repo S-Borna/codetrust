@@ -64,7 +64,7 @@ OPEN_VSX_EXTENSION_NAME: str = "codetrust"
 PEPY_API_URL_TEMPLATE: str = "https://api.pepy.tech/api/v2/projects/{project}"
 PEPY_PROJECT: str = "codetrust"
 
-PUBLIC_STATS_SCHEMA_VERSION: str = "2.8.1"
+PUBLIC_STATS_SCHEMA_VERSION: str = "2.8.2"
 PUBLIC_STATS_SOURCE_OF_TRUTH: str = "/v1/stats/public"
 COVERAGE_MODEL_NAME: str = "coverage-v1"
 

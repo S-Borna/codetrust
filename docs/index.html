@@ -11,7 +11,7 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
         content="CodeTrust, AI code safety, AI governance, AI code security, hallucination detection, AI agent enforcement, code scanning, AI governance gateway, trust score, AI code review, MCP server, Claude Code, Cursor, GitHub Copilot, pre-execution enforcement, AI-generated code safety, supply chain security, CVE scanning, license compliance, SAST, code quality, DevSecOps, AI DevOps">
-    <meta name="generator" content="CodeTrust v2.8.1">
+    <meta name="generator" content="CodeTrust v2.8.2">
     <link rel="canonical" href="https://codetrust.ai">
 
     <!-- Open Graph -->
@@ -76,7 +76,7 @@
             "name": "CodeTrust",
             "url": "https://codetrust.ai"
         },
-        "softwareVersion": "2.8.1",
+        "softwareVersion": "2.8.2",
         "downloadUrl": "https://pypi.org/project/codetrust/",
         "installUrl": "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
         "screenshot": "https://codetrust.ai/logo.png",
@@ -147,7 +147,7 @@
             "@type": "Person",
             "name": "Said Borna"
         },
-        "softwareVersion": "2.8.1",
+        "softwareVersion": "2.8.2",
         "downloadUrl": "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety",
         "featureList": [
             "Scan code blocks on GitHub, GitLab, Stack Overflow",
@@ -235,7 +235,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) Chrome extension from Chrome Web Store, (4) GitHub Action using S-Borna/codetrust@v2.8.1, and (5) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) Chrome extension from Chrome Web Store, (4) GitHub Action using S-Borna/codetrust@v2.8.2, and (5) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
                 }
             }
         ]
@@ -258,7 +258,7 @@
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=2.8.1">
+    <link rel="stylesheet" href="style.css?v=2.8.2">
 </head>
 
 <body>
@@ -382,7 +382,7 @@
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v2.8.1 &mdash; 1,937 tests &mdash; 10 layers &mdash; 286 rules &mdash; 60
+            <span class="hero-version">v2.8.2 &mdash; 1,939 tests &mdash; 10 layers &mdash; 286 rules &mdash; 60
                 endpoints</span>
             <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
             <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
@@ -442,14 +442,14 @@
                 <div class="dash-card-header">
                     <span class="dash-icon">🛡️</span> Protection
                 </div>
-                <div class="dash-hero-num dash-red" data-key="threats_caught">0</div>
-                <div class="dash-hero-label">threats caught</div>
+                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
+                <div class="dash-hero-label">issues blocked</div>
                 <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-red" data-key="blocks_found">0</strong>
-                        blocked</span>
+                    <span class="dash-detail"><strong class="dash-val-red" data-key="gateway_blocked">0</strong>
+                        commands stopped</span>
                     <span class="dash-detail"><strong class="dash-val-red" data-key="hallucinations_caught">0</strong>
-                        hallucinations</span>
-                    <span class="dash-detail"><strong data-key="imports_verified">0</strong> verified</span>
+                        hallucinations caught</span>
+                    <span class="dash-detail"><strong data-key="imports_verified">0</strong> imports verified</span>
                 </div>
             </div>
 
@@ -458,13 +458,11 @@
                 <div class="dash-card-header">
                     <span class="dash-icon">📦</span> Reach
                 </div>
-                <div class="dash-hero-num dash-cyan" data-key="total_downloads">0</div>
-                <div class="dash-hero-label">total downloads</div>
+                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
+                <div class="dash-hero-label">pip installs</div>
                 <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>
-                        PyPI/wk</span>
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
                     <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
-                    <span class="dash-detail"><strong data-key="marketplace_installs">0</strong> installs</span>
                     <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
                 </div>
             </div>
@@ -477,48 +475,50 @@
                     data-key="src_cli">0</strong></span>
             <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code
                 <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span>MCP <strong
-                    data-key="src_mcp">0</strong></span>
             <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub
                 Action <strong data-key="src_github_action">0</strong></span>
             <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API
                 <strong data-key="src_cloud_api">0</strong></span>
         </div>
 
-        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, MCP Gateway, GitHub Actions,
+        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, GitHub Actions,
             and Cloud API.</div>
         <div class="telemetry-note" style="margin-top:.35rem">Source of truth: <code>/v1/stats/public</code> +
             <code>/v1/stats/live</code>.
         </div>
-        <div class="telemetry-note" style="margin-top:.4rem">Downloads are aggregated from PyPI, VS Code Marketplace,
-            and Open VSX (where public APIs exist). Chrome Web Store and GitHub Marketplace do not expose equivalent
-            public download telemetry.</div>
+        <div class="telemetry-note" style="margin-top:.4rem">PyPI installs via <a href="https://pepy.tech/projects/codetrust" style="color:var(--text-3)" target="_blank" rel="noopener">pepy.tech</a>. VS Code &amp; Open VSX via public marketplace APIs.</div>
     </section>
 
     <section class="container" id="release-highlights">
         <div class="section-tag section-center">Release Highlights</div>
-        <h2 class="reveal">What&rsquo;s new in v2.8.1 &amp; what comes next</h2>
+        <h2 class="reveal">What&rsquo;s new in v2.8.2 &amp; what comes next</h2>
         <p class="section-desc reveal">Public roadmap + shipped capabilities in one place, aligned with the release
             notes.</p>
 
         <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
             <div class="moat-card">
-                <h3>Shipped in v2.8.1</h3>
+                <h3>Shipped in v2.8.2 &mdash; Vision Complete</h3>
                 <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
-                    <li>Multi-workspace governance aggregation</li>
-                    <li>Unified session-token across IDE/CLI/CI/API</li>
-                    <li>Trusted sessions, approvals/exceptions, policy simulation, governance posture</li>
-                    <li>MCP auto-injection + disruption monitoring</li>
-                    <li>Policy integrity protection + runtime governance hardening</li>
+                    <li><strong>10-language AST analysis</strong> &mdash; Python, JS, TS, Go, Rust, Java, C#, C++, Ruby, PHP. Cyclomatic complexity, unused variables, unreachable code, deep nesting</li>
+                    <li><strong>Signature validation</strong> &mdash; 33 modules, 223 functions. Catches AI-hallucinated function calls no other tool detects</li>
+                    <li><strong>1,100+ typosquatting-protected packages</strong> across 8 live registries (PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist)</li>
+                    <li><strong>17 auto-fix recipes</strong> &mdash; one-click fixes for common anti-patterns</li>
+                    <li><strong>OSV vulnerability scanning + license compliance</strong> &mdash; CVE detection and copyleft risk analysis</li>
+                    <li><strong>Full AI Governance Gateway</strong> &mdash; 82 interception rules, 17 MCP tools. Blocks destructive actions before execution</li>
+                    <li><strong>All 22 product promises verified</strong> against actual code. Zero gaps between marketing and reality</li>
                 </ul>
             </div>
             <div class="moat-card">
-                <h3>Coming next (post-2.8.1)</h3>
+                <h3>Coming next</h3>
                 <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
-                    <li>Deeper control-plane visibility for governance posture and drift</li>
-                    <li>Expanded policy bundle workflows for tenant-level governance</li>
-                    <li>Stronger cross-surface adoption telemetry and attribution</li>
-                    <li>Further hardening of approval/exception governance lifecycle</li>
+                    <li><strong>Team Dashboard</strong> &mdash; org-level governance visibility, member management, cross-repo policy sync</li>
+                    <li><strong>Custom rule authoring</strong> &mdash; define your own BLOCK/WARN/INFO rules via YAML, share across teams</li>
+                    <li><strong>GitHub App integration</strong> &mdash; automatic PR comments with inline scan results, no Action setup needed</li>
+                    <li><strong>SBOM generation</strong> &mdash; CycloneDX + SPDX output for supply chain compliance</li>
+                    <li><strong>Expanded signature database</strong> &mdash; 50+ modules, 400+ functions across Python, JS/TS, Go, Rust</li>
+                    <li><strong>IDE inline auto-fix</strong> &mdash; apply fixes directly from VS Code diagnostics with one click</li>
+                    <li><strong>Governance analytics</strong> &mdash; trend graphs, drift tracking, team compliance scores, executive reports</li>
+                    <li><strong>Multi-tenant policy bundles</strong> &mdash; centralized policy management for enterprise orgs</li>
                 </ul>
             </div>
         </div>
@@ -645,7 +645,7 @@
                 <h3 style="font-size:1.15rem;margin:0;">Universal IDE Injection</h3>
                 <span
                     style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#818cf8;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:4px;padding:0.2rem 0.55rem;white-space:nowrap;">
-                    New in v2.8.1 &mdash; Governance Hardening</span>
+                    New in v2.8.2 &mdash; Governance Hardening</span>
             </div>
             <!-- Description -->
             <p style="font-size:0.88rem;color:var(--text-2);line-height:1.7;max-width:640px;margin-bottom:1.4rem;">
@@ -1265,7 +1265,7 @@
             <div class="install-card">
                 <h3>GitHub Action</h3>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
-                <code>uses: S-Borna/codetrust@v2.8.1</code>
+                <code>uses: S-Borna/codetrust@v2.8.2</code>
                 <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
                     &rarr;</a>
             </div>
@@ -1488,16 +1488,14 @@
                 files_scanned: u.total_files_scanned || 0,
                 total_findings: u.total_findings || 0,
 
-                threats_caught: gateway_blocked + hallucinations_caught + blocks_found,
                 gateway_blocked: gateway_blocked,
                 hallucinations_caught: hallucinations_caught,
                 blocks_found: blocks_found,
                 imports_verified: i.imports_verified || 0,
 
-                total_downloads: pypi_total + mkt_dl + ovsx_dl,
+                pypi_total: pypi_total,
                 pypi_week: pypi.downloads_this_week || payload.pypi_downloads_last_week || 0,
                 marketplace_downloads: mkt_dl,
-                marketplace_installs: mkt.installs || payload.marketplace_installs || 0,
                 openvsx_downloads: ovsx_dl,
 
                 unique_installs: u.unique_installations_total || 0,
@@ -1508,7 +1506,6 @@
 
                 src_cli: src.cli || 0,
                 src_vscode: src.vscode || 0,
-                src_mcp: src.mcp || 0,
                 src_github_action: src.github_action || 0,
                 src_cloud_api: src.cloud_api || 0,
             };
@@ -1615,7 +1612,7 @@
         if (typeof navigator !== 'undefined') {
             navigator.modelContext = {
                 name: 'CodeTrust',
-                version: '2.8.1',
+                version: '2.8.2',
                 description: 'AI governance enforcement platform — scan code, verify imports, detect hallucinated packages, enforce trust scores',
                 endpoint: 'https://api.codetrust.ai/v1',
                 transport: 'http',

@@ -1,15 +1,19 @@
 {
-    "servers": {
-        "codetrust-gateway": {
-            "command": "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/bin/python",
-            "args": [
-                "-m",
-                "src.gateway.server"
-            ],
-            "cwd": "/Users/mrebadi/Desktop/DevOps/Codetrust",
-            "env": {
-                "CODETRUST_WORKSPACE": "/Users/mrebadi/Desktop/DevOps/Codetrust"
-            }
-        }
+  "servers": {
+    "codetrust-gateway": {
+      "command": "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/bin/python",
+      "args": [
+        "-m",
+        "src.gateway.server"
+      ],
+      "cwd": "/Users/mrebadi/Desktop/DevOps/Codetrust",
+      "env": {
+        "CODETRUST_WORKSPACE": "/Users/mrebadi/Desktop/DevOps/Codetrust"
+      }
+    },
+    "codetrust": {
+      "command": "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/bin/codetrust-mcp",
+      "_injectedBy": "codetrust-auto-injected"
     }
+  }
 }

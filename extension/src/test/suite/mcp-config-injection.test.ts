@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import {
     buildWorkspaceMcpTargetPathsForTest,
     listMcpTargetPathsForTest,
+    parseMcpConfigRawForTest,
     verifyMcpServerHealth,
 } from "../../mcp-config-injection";
 
@@ -53,5 +54,17 @@ suite("MCP config injection contract", () => {
             assert.strictEqual(typeof issue.fix, "string");
         }
 
+    });
+
+    test("recovers config with trailing literal newline escapes", () => {
+        const raw = "{\"servers\":{\"codetrust\":{\"command\":\"codetrust-mcp\"}}}\\n";
+        const parsed = parseMcpConfigRawForTest(raw);
+        assert.ok(parsed);
+        assert.ok("servers" in (parsed ?? {}));
+    });
+
+    test("returns null for unrecoverable malformed config", () => {
+        const parsed = parseMcpConfigRawForTest("{\"servers\":");
+        assert.strictEqual(parsed, null);
     });
 });

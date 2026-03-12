@@ -68,6 +68,12 @@ interface McpConfigFile {
     mcpServers?: Record<string, McpServerEntry>;
 }
 
+interface ParsedConfigResult {
+    config: McpConfigFile | null;
+    recovered: boolean;
+    normalizedRaw: string;
+}
+
 /** Describes one IDE target for MCP config injection. */
 interface McpTarget {
     /** Human-readable name shown in output channel. */
@@ -431,17 +437,60 @@ function readMcpConfig(filePath: string): McpConfigFile | null {
     if (!fs.existsSync(filePath)) {
         return {};
     }
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = parseMcpConfigRaw(raw);
+    if (parsed.config && parsed.recovered) {
+        // Self-heal common malformed suffix corruption (e.g. literal "\\n").
+        // Keep write minimal to avoid changing unrelated semantics.
+        fs.writeFileSync(filePath, `${parsed.normalizedRaw}\n`, "utf8");
+    }
+    if (parsed.config) {
+        return parsed.config;
+    }
+    // Malformed JSON — return null so callers can skip unsafe mutation
+    return null;
+}
+
+function parseMcpConfigRaw(rawContent: string): ParsedConfigResult {
+    const raw = rawContent.trim();
+    if (raw.length === 0) {
+        return { config: {}, recovered: false, normalizedRaw: "{}" };
+    }
+
     try {
-        const raw = fs.readFileSync(filePath, "utf8").trim();
-        if (raw.length === 0) {
-            return {};
-        }
         const parsed = JSON.parse(raw) as McpConfigFile;
-        return parsed;
+        return { config: parsed, recovered: false, normalizedRaw: raw };
     } catch {
-        // Malformed JSON — return null so callers can skip (not overwrite)
+        // Attempt recovery for a common corruption case where a literal
+        // "\\n" or "\\r" is appended outside the JSON object.
+        const recoveredRaw = raw.replace(/(?:\\r|\\n)+\s*$/g, "").trim();
+        if (recoveredRaw.length > 0) {
+            try {
+                const recovered = JSON.parse(recoveredRaw) as McpConfigFile;
+                return {
+                    config: recovered,
+                    recovered: true,
+                    normalizedRaw: recoveredRaw,
+                };
+            } catch {
+                // Fall through to malformed case.
+            }
+        }
+    }
+
+    return {
+        config: null,
+        recovered: false,
+        normalizedRaw: "",
+    };
+}
+
+export function parseMcpConfigRawForTest(rawContent: string): Record<string, unknown> | null {
+    const parsed = parseMcpConfigRaw(rawContent);
+    if (!parsed.config) {
         return null;
     }
+    return parsed.config as unknown as Record<string, unknown>;
 }
 
 /**
@@ -878,6 +927,17 @@ export function watchForMcpConfigDisruption(
 
     /** Per-target debounce timers to avoid rapid-fire prompts. */
     const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    /** Suppress repeated identical prompts within the same VS Code session. */
+    const seenPromptSignatures = new Set<string>();
+
+    function clearPromptStateForTarget(targetPath: string): void {
+        const prefix = `${targetPath}:`;
+        for (const key of Array.from(seenPromptSignatures)) {
+            if (key.startsWith(prefix)) {
+                seenPromptSignatures.delete(key);
+            }
+        }
+    }
 
     for (const target of targets) {
         // Watch even if file doesn't exist yet — it may be created later
@@ -922,6 +982,7 @@ export function watchForMcpConfigDisruption(
                 const gatewayOk = serverExists(config, GATEWAY_SERVER_NAME, target.serversKey);
 
                 if (guardianOk && gatewayOk) {
+                    clearPromptStateForTarget(target.filePath);
                     return;
                 }
 
@@ -932,6 +993,12 @@ export function watchForMcpConfigDisruption(
                 if (!gatewayOk) {
                     missing.push("Gateway");
                 }
+
+                const signature = `${target.filePath}:${missing.join("+")}`;
+                if (seenPromptSignatures.has(signature)) {
+                    return;
+                }
+                seenPromptSignatures.add(signature);
 
                 const displayTarget = target.name.split(" (")[0];
                 outputChannel.appendLine(
@@ -969,6 +1036,7 @@ export function watchForMcpConfigDisruption(
 
     // Focus-based check — debounced to avoid spamming on every Alt+Tab
     let lastFocusCheck = 0;
+    let lastFocusPromptSignature = "";
     const focusDisposable = vscode.window.onDidChangeWindowState((state) => {
         if (!state.focused) {
             return;
@@ -980,28 +1048,47 @@ export function watchForMcpConfigDisruption(
         }
         lastFocusCheck = now;
 
-        const missing = targets.filter((t) => {
+        const malformedTargets: string[] = [];
+        const missingTargets = targets.filter((t) => {
             const tDir = path.dirname(t.filePath);
             if (!fs.existsSync(tDir)) {
                 return false;
             }
             const config = readMcpConfig(t.filePath);
+            if (config === null) {
+                malformedTargets.push(t.name.split(" (")[0]);
+                return true;
+            }
             return !serverExists(config, GUARDIAN_SERVER_NAME, t.serversKey) ||
                 !serverExists(config, GATEWAY_SERVER_NAME, t.serversKey);
         });
 
-        if (missing.length === 0) {
+        if (missingTargets.length === 0) {
+            lastFocusPromptSignature = "";
             return;
         }
 
-        const names = missing.map((t) => t.name.split(" (")[0]).join(", ");
+        const names = missingTargets.map((t) => t.name.split(" (")[0]).join(", ");
+        const signature = `${names}|malformed=${malformedTargets.join(",")}`;
+        if (signature === lastFocusPromptSignature) {
+            return;
+        }
+        lastFocusPromptSignature = signature;
+
         outputChannel.appendLine(
             `CodeTrust MCP: ${names} missing MCP server configs — offering injection.`,
         );
+        let promptText =
+            `CodeTrust: ${names} detected without full MCP server registration. ` +
+            `Inject now to enable both Guardian and Gateway?`;
+        if (malformedTargets.length > 0) {
+            promptText =
+                `CodeTrust: malformed MCP JSON detected in ${malformedTargets.join(", ")}. ` +
+                `Inject now to repair and re-register Guardian/Gateway?`;
+        }
         void vscode.window
             .showWarningMessage(
-                `CodeTrust: ${names} detected without full MCP server registration. ` +
-                `Inject now to enable both Guardian and Gateway?`,
+                promptText,
                 "Inject Now",
                 "Dismiss",
             )

@@ -476,6 +476,45 @@ function serverExists(
 }
 
 /**
+ * Check if an existing MCP entry uses a bare command name (fallback)
+ * that isn't resolvable on PATH — meaning it should be upgraded to
+ * an absolute path if we can resolve one now.
+ */
+function shouldUpgradeEntry(entry: McpServerEntry | undefined, bareCommand: string): boolean {
+    if (!entry) {
+        return false;
+    }
+    // Only auto-injected entries should be upgraded
+    if (entry._injectedBy !== MCP_INJECTION_MARKER) {
+        return false;
+    }
+    // If the command is the bare fallback name and it's not on PATH, upgrade it
+    if (entry.command === bareCommand && !commandExistsOnPath(bareCommand)) {
+        return true;
+    }
+    // If an absolute command path is now broken (e.g. moved repo), upgrade it
+    if (path.isAbsolute(entry.command) && !fs.existsSync(entry.command)) {
+        return true;
+    }
+    // If uvx was configured but is no longer available, upgrade it
+    if (entry.command === "uvx" && !commandExistsOnPath("uvx")) {
+        return true;
+    }
+    return false;
+}
+
+function isCommandResolvable(entry: McpServerEntry): boolean {
+    const cmd = entry.command;
+    if (path.isAbsolute(cmd)) {
+        return fs.existsSync(cmd);
+    }
+    if (cmd === "uvx") {
+        return commandExistsOnPath("uvx");
+    }
+    return commandExistsOnPath(cmd);
+}
+
+/**
  * Migrate CodeTrust entries from the wrong JSON key to the correct one.
  *
  * A prior extension version wrote under "mcpServers" for VS Code targets,
@@ -592,26 +631,44 @@ export async function injectMcpServerConfigs(
             // target uses "servers" (VS Code), move them over.
             modified = migrateWrongKeyEntries(config, target, outputChannel) || modified;
 
-            // Inject Guardian if missing
+            // Inject Guardian if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey)) {
                 servers[GUARDIAN_SERVER_NAME] = buildGuardianEntry(outputChannel);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GUARDIAN_SERVER_NAME}' server → ${target.name}`,
                 );
                 modified = true;
+            } else if (shouldUpgradeEntry(servers[GUARDIAN_SERVER_NAME], GUARDIAN_COMMAND)) {
+                const upgraded = buildGuardianEntry(outputChannel);
+                if (upgraded.command !== GUARDIAN_COMMAND) {
+                    servers[GUARDIAN_SERVER_NAME] = upgraded;
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Upgraded '${GUARDIAN_SERVER_NAME}' command → ${upgraded.command} (${target.name})`,
+                    );
+                    modified = true;
+                }
             } else {
                 outputChannel.appendLine(
                     `CodeTrust MCP: '${GUARDIAN_SERVER_NAME}' already present in ${target.name} — skipping.`,
                 );
             }
 
-            // Inject Gateway if missing
+            // Inject Gateway if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GATEWAY_SERVER_NAME, target.serversKey)) {
                 servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
                 outputChannel.appendLine(
                     `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
                 );
                 modified = true;
+            } else if (shouldUpgradeEntry(servers[GATEWAY_SERVER_NAME], GATEWAY_COMMAND)) {
+                const upgraded = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
+                if (upgraded.command !== GATEWAY_COMMAND) {
+                    servers[GATEWAY_SERVER_NAME] = upgraded;
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Upgraded '${GATEWAY_SERVER_NAME}' command → ${upgraded.command} (${target.name})`,
+                    );
+                    modified = true;
+                }
             } else {
                 outputChannel.appendLine(
                     `CodeTrust MCP: '${GATEWAY_SERVER_NAME}' already present in ${target.name} — skipping.`,
@@ -677,54 +734,59 @@ export function verifyMcpServerHealth(
         return { healthy: false, issues };
     }
 
+    const globalTarget = buildMcpTargets().find(
+        (target) => target.name.startsWith("VS Code Global") && target.serversKey === "servers",
+    );
+    let globalConfig: McpConfigFile | null = {};
+    if (globalTarget) {
+        globalConfig = readMcpConfig(globalTarget.filePath);
+    }
+    let globalServers: Record<string, McpServerEntry> = {};
+    if (globalConfig && globalConfig.servers) {
+        globalServers = globalConfig.servers;
+    }
+
     for (const folder of workspaceFolders) {
         const mcpPath = path.join(folder.uri.fsPath, ".vscode", "mcp.json");
 
-        if (!fs.existsSync(mcpPath)) {
-            issues.push({
-                target: folder.name,
-                problem: ".vscode/mcp.json not found after injection",
-                fix: "Run 'CodeTrust: Inject MCP Server Configs' from the command palette.",
-            });
-            continue;
-        }
+        const hasWorkspaceConfig = fs.existsSync(mcpPath);
+        let workspaceServers: Record<string, McpServerEntry> = {};
 
-        const config = readMcpConfig(mcpPath);
-        if (config === null) {
-            issues.push({
-                target: folder.name,
-                problem: ".vscode/mcp.json contains malformed JSON",
-                fix: "Delete .vscode/mcp.json and re-run MCP injection.",
-            });
-            continue;
-        }
-
-        // VS Code workspace targets always use "servers" key
-        const workspaceServersKey: ServersKey = "servers";
-        for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
-            if (!serverExists(config, serverName, workspaceServersKey)) {
+        if (hasWorkspaceConfig) {
+            const config = readMcpConfig(mcpPath);
+            if (config === null) {
                 issues.push({
                     target: folder.name,
-                    problem: `Server '${serverName}' missing from .vscode/mcp.json`,
+                    problem: ".vscode/mcp.json contains malformed JSON",
+                    fix: "Delete .vscode/mcp.json and re-run MCP injection.",
+                });
+                continue;
+            }
+            workspaceServers = config.servers ?? {};
+        }
+
+        for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
+            const workspaceEntry = workspaceServers[serverName];
+            const globalEntry = globalServers[serverName];
+            const chosenEntry = workspaceEntry ?? globalEntry;
+
+            if (!chosenEntry) {
+                issues.push({
+                    target: folder.name,
+                    problem: `Server '${serverName}' missing from workspace and global MCP config`,
                     fix: "Run 'CodeTrust: Inject MCP Server Configs' from the command palette.",
                 });
                 continue;
             }
 
-            const servers = config.servers ?? {};
-            const entry = servers[serverName];
-            const cmd = entry.command;
-
-            if (path.isAbsolute(cmd) && !fs.existsSync(cmd)) {
+            if (!isCommandResolvable(chosenEntry)) {
+                let source = "global User/mcp.json";
+                if (workspaceEntry) {
+                    source = ".vscode/mcp.json";
+                }
                 issues.push({
                     target: folder.name,
-                    problem: `Server '${serverName}' command not found: ${cmd}`,
-                    fix: "Install codetrust: pip install codetrust",
-                });
-            } else if (!path.isAbsolute(cmd) && cmd !== "uvx" && !commandExistsOnPath(cmd)) {
-                issues.push({
-                    target: folder.name,
-                    problem: `Server '${serverName}' command '${cmd}' not on PATH`,
+                    problem: `Server '${serverName}' command not resolvable in ${source}: ${chosenEntry.command}`,
                     fix: "Install codetrust: pip install codetrust",
                 });
             }

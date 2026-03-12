@@ -37,6 +37,12 @@ const COPILOT_INSTRUCTION_MARKER = "[codetrust-governance-v1]";
 /** Globalstate key tracking whether instructions have been injected. */
 const COPILOT_INJECTION_STATE_KEY = "codetrust.copilotInstructionsInjected.v1";
 
+/** In-memory session guard for MCP health warning popup. */
+let mcpHealthWarningShownThisSession = false;
+
+/** Shared output channel created during activate and reused during deactivate. */
+let codetrustOutputChannel: vscode.OutputChannel | undefined;
+
 /** Inline Copilot instruction text — injected globally into VS Code settings. */
 const COPILOT_RULES_TEXT = `${COPILOT_INSTRUCTION_MARKER}
 
@@ -147,6 +153,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const diagnostics = new DiagnosticProvider();
     const statusBar = new StatusBarManager();
     const outputChannel = vscode.window.createOutputChannel("CodeTrust");
+    codetrustOutputChannel = outputChannel;
     const cache = new VerificationCache(context.globalState);
 
     await migrateApiKeySettingToSecretIfNeeded(context, outputChannel);
@@ -175,15 +182,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void injectMcpServerConfigs(outputChannel).then(() => {
         const health = verifyMcpServerHealth(outputChannel);
         if (!health.healthy) {
-            const summary = health.issues.map((i) => i.problem).join("; ");
-            void vscode.window.showWarningMessage(
-                `CodeTrust: MCP setup issues found — ${summary}. See Output > CodeTrust for details.`,
-                "Show Details",
-            ).then((action) => {
-                if (action === "Show Details") {
-                    outputChannel.show();
-                }
-            });
+            // Only show the popup warning once per VS Code session
+            if (!mcpHealthWarningShownThisSession) {
+                mcpHealthWarningShownThisSession = true;
+                const summary = health.issues.map((i) => i.problem).join("; ");
+                void vscode.window.showWarningMessage(
+                    `CodeTrust: MCP setup issues found — ${summary}. See Output > CodeTrust for details.`,
+                    "Show Details",
+                ).then((action) => {
+                    if (action === "Show Details") {
+                        outputChannel.show();
+                    }
+                });
+            }
+        } else {
+            // Reset session flag when health passes so next issue can notify again
+            mcpHealthWarningShownThisSession = false;
         }
     });
 
@@ -316,11 +330,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         handleScanOnSave(deps, activeEditor.document).catch(() => { });
     }
 
-    // Scan all already-open documents on activation
-    for (const document of vscode.workspace.textDocuments) {
-        if (document.uri.toString() !== activeEditor?.document.uri.toString()) {
-            handleScanOnSave(deps, document).catch(() => { });
-        }
+    // Scan already-open documents staggered (avoid API flood)
+    const STAGGER_DELAY_MS = 500;
+    const alreadyOpen = vscode.workspace.textDocuments.filter(
+        (doc) => doc.uri.toString() !== activeEditor?.document.uri.toString(),
+    );
+    for (let i = 0; i < alreadyOpen.length; i++) {
+        const doc = alreadyOpen[i];
+        setTimeout(() => {
+            handleScanOnSave(deps, doc).catch(() => { });
+        }, STAGGER_DELAY_MS * (i + 1));
     }
 
     // Clear diagnostics when a file is closed
@@ -403,10 +422,12 @@ async function maybePromptAlwaysOn(
 export function deactivate(): void {
     // All disposables are cleaned up via context.subscriptions.
     // Best-effort removal of injected governance instructions from all IDEs.
-    const outputChannel = vscode.window.createOutputChannel("CodeTrust");
-    void removeCopilotInstructions(outputChannel);
-    removeUniversalInstructions(outputChannel);
-    removeMcpServerConfigs(outputChannel);
+    if (!codetrustOutputChannel) {
+        return;
+    }
+    void removeCopilotInstructions(codetrustOutputChannel);
+    removeUniversalInstructions(codetrustOutputChannel);
+    removeMcpServerConfigs(codetrustOutputChannel);
 }
 
 /** Build language selectors for code action registration. */

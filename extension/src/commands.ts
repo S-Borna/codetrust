@@ -36,7 +36,6 @@ let lastScannableDocumentUri: vscode.Uri | null = null;
 let lastScanAtIso: string | null = null;
 let lastScanTarget: string | null = null;
 
-const TRUNCATE_BODY_MAX_LEN = 240;
 const FILE_SCAN_LIMIT = 500;
 
 /** Register all extension commands. */
@@ -584,7 +583,7 @@ async function healthCheckCommand(deps: CommandDeps): Promise<void> {
         `  Cache: imports=${cacheStats.imports} docker=${cacheStats.docker}`,
     );
     deps.outputChannel.appendLine(
-        `  Last scan: ${lastScanAtIso ? lastScanAtIso : "never"}${lastScanTarget ? ` | ${lastScanTarget}` : ""}`,
+        `  Last scan: ${formatLastScanSummary()}`,
     );
 
     try {
@@ -634,6 +633,7 @@ const UPGRADE_URL = "https://app.codetrust.ai/dashboard/settings";
 const RATE_LIMIT_WARNING_THRESHOLD = 0.8;
 const PRO_DAILY_SCAN_LIMIT = 10_000;
 let rateLimitWarningShown = false;
+let rateLimitBlockedShown = false;
 
 /** Show upgrade notification when rate limit is near or exceeded. */
 function checkRateLimitWarning(
@@ -663,8 +663,12 @@ function checkRateLimitWarning(
     }
 }
 
-/** Show clickable upgrade notification on 429 rate limit error. */
+/** Show clickable upgrade notification on 429 rate limit error. Only once per session. */
 function showRateLimitBlockedNotification(): void {
+    if (rateLimitBlockedShown) {
+        return;
+    }
+    rateLimitBlockedShown = true;
     vscode.window.showErrorMessage(
         `CodeTrust: Daily scan limit exceeded. Upgrade to Pro for ${PRO_DAILY_SCAN_LIMIT.toLocaleString("en-US")} scans/day.`,
         "Upgrade to Pro",
@@ -675,11 +679,12 @@ function showRateLimitBlockedNotification(): void {
     });
 }
 
-function truncate(text: string, maxLen: number): string {
-    if (text.length <= maxLen) {
-        return text;
+function formatLastScanSummary(): string {
+    const when = lastScanAtIso ?? "never";
+    if (!lastScanTarget) {
+        return when;
     }
-    return `${text.slice(0, Math.max(0, maxLen - 1))}…`;
+    return `${when} | ${lastScanTarget}`;
 }
 
 /** Verify imports in the current file. */
@@ -1006,7 +1011,12 @@ async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
         },
     );
 
-    const verdict = blocks > 0 ? "BLOCK" : totalFindings > 0 ? "WARN" : "PASS";
+    let verdict: "BLOCK" | "WARN" | "PASS" = "PASS";
+    if (blocks > 0) {
+        verdict = "BLOCK";
+    } else if (totalFindings > 0) {
+        verdict = "WARN";
+    }
     deps.statusBar.setVerdict(verdict, totalFindings, true);
     deps.outputChannel.appendLine(
         `  Workspace scan complete: ${filesScanned} files, ${totalFindings} findings, ${blocks} blocks`,
@@ -1112,7 +1122,17 @@ export async function handleScanOnSave(
         const imports = extractImports(code, language);
         if (imports.length > 0) {
             try {
-                const response = await deps.client.verifyImports(language, imports);
+                const { cached, missing } = deps.cache.getImportResults(language, imports);
+                let response;
+
+                if (missing.length === 0) {
+                    response = { results: cached };
+                } else {
+                    const apiResponse = await deps.client.verifyImports(language, missing);
+                    deps.cache.setImportResults(language, apiResponse.results);
+                    response = { results: [...cached, ...apiResponse.results] };
+                }
+
                 deps.diagnostics.appendImportDiagnostics(
                     document.uri,
                     document,
@@ -1120,9 +1140,21 @@ export async function handleScanOnSave(
                     config.severityThreshold as SeverityThreshold,
                 );
             } catch (err) {
-                deps.outputChannel.appendLine(
-                    `[${timestamp()}] Import verification failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-                );
+                if (err instanceof ApiError && err.statusCode === 0) {
+                    const { cached } = deps.cache.getImportResults(language, imports);
+                    if (cached.length > 0) {
+                        deps.diagnostics.appendImportDiagnostics(
+                            document.uri,
+                            document,
+                            cached,
+                            config.severityThreshold as SeverityThreshold,
+                        );
+                    }
+                } else {
+                    deps.outputChannel.appendLine(
+                        `[${timestamp()}] Import verification failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+                    );
+                }
             }
         }
     }

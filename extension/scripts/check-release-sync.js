@@ -8,6 +8,7 @@ const WEBSITE_PATH = path.resolve(REPO_ROOT, "docs", "index.html");
 const CHANGELOG_PATH = path.resolve(REPO_ROOT, "CHANGELOG.md");
 const ROOT_README_PATH = path.resolve(REPO_ROOT, "README.md");
 const EXTENSION_README_PATH = path.resolve(REPO_ROOT, "extension", "README.md");
+const MCP_INJECTION_SOURCE_PATH = path.resolve(REPO_ROOT, "extension", "src", "mcp-config-injection.ts");
 
 const FORBIDDEN_PUBLIC_DOC_STRINGS = [
     "SESSION_LOG",
@@ -43,6 +44,18 @@ function ensureNotContains(content, needles, sourceName, failures) {
     }
 }
 
+function ensureCopilotClaimMatchesInjection(extensionDescription, mcpSource, failures) {
+    const claimsCopilotSupport = extensionDescription.includes("GitHub Copilot");
+    const hasWorkspaceInjectionTarget =
+        mcpSource.includes(".vscode") && mcpSource.includes("mcp.json");
+
+    if (claimsCopilotSupport && !hasWorkspaceInjectionTarget) {
+        failures.push(
+            "extension/package.json claims GitHub Copilot support, but extension/src/mcp-config-injection.ts has no workspace .vscode/mcp.json target",
+        );
+    }
+}
+
 function main() {
     const extensionPackage = JSON.parse(readText(EXTENSION_PACKAGE_PATH));
     const extensionVersion = extensionPackage.version;
@@ -51,6 +64,7 @@ function main() {
     const changelog = readText(CHANGELOG_PATH);
     const rootReadme = readText(ROOT_README_PATH);
     const extensionReadme = readText(EXTENSION_README_PATH);
+    const mcpInjectionSource = readText(MCP_INJECTION_SOURCE_PATH);
 
     const failures = [];
 
@@ -64,6 +78,7 @@ function main() {
 
     ensureNotContains(rootReadme, FORBIDDEN_PUBLIC_DOC_STRINGS, "README.md", failures);
     ensureNotContains(extensionReadme, FORBIDDEN_PUBLIC_DOC_STRINGS, "extension/README.md", failures);
+    ensureCopilotClaimMatchesInjection(extensionPackage.description, mcpInjectionSource, failures);
 
     if (failures.length > 0) {
         console.error("\nRelease sync guard failed:\n");

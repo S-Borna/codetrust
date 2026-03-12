@@ -261,6 +261,7 @@
     },
     "scripts": {
         "vscode:prepublish": "node ./scripts/check-release-sync.js && npm run bundle",
+        "verify:trust-dod": "node ./scripts/verify-trust-dod.js",
         "compile": "tsc -p ./",
         "bundle": "node ./scripts/esbuild.js && node ./scripts/obfuscate.js",
         "watch": "tsc -watch -p ./",

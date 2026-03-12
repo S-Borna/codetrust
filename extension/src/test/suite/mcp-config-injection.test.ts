@@ -39,7 +39,9 @@ suite("MCP config injection contract", () => {
     });
 
     test("verifyMcpServerHealth returns structured result", () => {
-        const outputChannel = vscode.window.createOutputChannel("CodeTrust Test");
+        const outputChannel = {
+            appendLine: (): void => { },
+        } as unknown as vscode.OutputChannel;
 
         const result = verifyMcpServerHealth(outputChannel);
 
@@ -51,6 +53,5 @@ suite("MCP config injection contract", () => {
             assert.strictEqual(typeof issue.fix, "string");
         }
 
-        outputChannel.dispose();
     });
 });

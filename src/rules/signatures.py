@@ -2595,6 +2595,307 @@ _JS_NEXT: ModuleSig = ModuleSig(
     ],
 )
 
+_PY_MATH: ModuleSig = ModuleSig(
+    name="math",
+    functions={
+        "ceil": FunctionSig(name="ceil", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="int"),
+        "floor": FunctionSig(name="floor", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="int"),
+        "sqrt": FunctionSig(name="sqrt", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "pow": FunctionSig(name="pow", params=[ParamInfo(name="x", required=True), ParamInfo(name="y", required=True)], min_args=2, max_args=2, return_type="float"),
+        "sin": FunctionSig(name="sin", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "cos": FunctionSig(name="cos", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "tan": FunctionSig(name="tan", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "log": FunctionSig(name="log", params=[ParamInfo(name="x", required=True), ParamInfo(name="base")], min_args=1, max_args=2, return_type="float"),
+        "log10": FunctionSig(name="log10", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "exp": FunctionSig(name="exp", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "fabs": FunctionSig(name="fabs", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="float"),
+        "isfinite": FunctionSig(name="isfinite", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="bool"),
+        "isnan": FunctionSig(name="isnan", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="bool"),
+        "isinf": FunctionSig(name="isinf", params=[ParamInfo(name="x", required=True)], min_args=1, max_args=1, return_type="bool"),
+    },
+    common_hallucinated_functions=["random_int", "sum", "average", "between"],
+)
+
+_PY_STATISTICS: ModuleSig = ModuleSig(
+    name="statistics",
+    functions={
+        "mean": FunctionSig(name="mean", params=[ParamInfo(name="data", required=True)], min_args=1, max_args=1, return_type="float"),
+        "fmean": FunctionSig(name="fmean", params=[ParamInfo(name="data", required=True)], min_args=1, max_args=1, return_type="float"),
+        "median": FunctionSig(name="median", params=[ParamInfo(name="data", required=True)], min_args=1, max_args=1, return_type="float"),
+        "mode": FunctionSig(name="mode", params=[ParamInfo(name="data", required=True)], min_args=1, max_args=1, return_type="object"),
+        "multimode": FunctionSig(name="multimode", params=[ParamInfo(name="data", required=True)], min_args=1, max_args=1, return_type="list[object]"),
+        "stdev": FunctionSig(name="stdev", params=[ParamInfo(name="data", required=True), ParamInfo(name="xbar")], min_args=1, max_args=2, return_type="float"),
+        "variance": FunctionSig(name="variance", params=[ParamInfo(name="data", required=True), ParamInfo(name="xbar")], min_args=1, max_args=2, return_type="float"),
+        "pstdev": FunctionSig(name="pstdev", params=[ParamInfo(name="data", required=True), ParamInfo(name="mu")], min_args=1, max_args=2, return_type="float"),
+        "pvariance": FunctionSig(name="pvariance", params=[ParamInfo(name="data", required=True), ParamInfo(name="mu")], min_args=1, max_args=2, return_type="float"),
+        "quantiles": FunctionSig(name="quantiles", params=[ParamInfo(name="data", required=True), ParamInfo(name="n"), ParamInfo(name="method")], min_args=1, max_args=3, return_type="list[float]"),
+    },
+    common_hallucinated_functions=["average", "stddev", "percentile", "sum"],
+)
+
+_PY_UUID: ModuleSig = ModuleSig(
+    name="uuid",
+    functions={
+        "UUID": FunctionSig(name="UUID", params=[ParamInfo(name="hex")], min_args=0, max_args=-1, return_type="UUID"),
+        "uuid1": FunctionSig(name="uuid1", params=[ParamInfo(name="node"), ParamInfo(name="clock_seq")], min_args=0, max_args=2, return_type="UUID"),
+        "uuid3": FunctionSig(name="uuid3", params=[ParamInfo(name="namespace", required=True), ParamInfo(name="name", required=True)], min_args=2, max_args=2, return_type="UUID"),
+        "uuid4": FunctionSig(name="uuid4", min_args=0, max_args=0, return_type="UUID"),
+        "uuid5": FunctionSig(name="uuid5", params=[ParamInfo(name="namespace", required=True), ParamInfo(name="name", required=True)], min_args=2, max_args=2, return_type="UUID"),
+        "getnode": FunctionSig(name="getnode", min_args=0, max_args=0, return_type="int"),
+    },
+    common_hallucinated_functions=["new", "generate", "random", "short"],
+)
+
+_PY_SHUTIL: ModuleSig = ModuleSig(
+    name="shutil",
+    functions={
+        "copy": FunctionSig(name="copy", params=[ParamInfo(name="src", required=True), ParamInfo(name="dst", required=True), ParamInfo(name="follow_symlinks")], min_args=2, max_args=3, return_type="str"),
+        "copy2": FunctionSig(name="copy2", params=[ParamInfo(name="src", required=True), ParamInfo(name="dst", required=True), ParamInfo(name="follow_symlinks")], min_args=2, max_args=3, return_type="str"),
+        "copyfile": FunctionSig(name="copyfile", params=[ParamInfo(name="src", required=True), ParamInfo(name="dst", required=True), ParamInfo(name="follow_symlinks")], min_args=2, max_args=3, return_type="str"),
+        "move": FunctionSig(name="move", params=[ParamInfo(name="src", required=True), ParamInfo(name="dst", required=True), ParamInfo(name="copy_function")], min_args=2, max_args=3, return_type="str"),
+        "rmtree": FunctionSig(name="rmtree", params=[ParamInfo(name="path", required=True), ParamInfo(name="ignore_errors"), ParamInfo(name="onerror")], min_args=1, max_args=3, return_type="None"),
+        "which": FunctionSig(name="which", params=[ParamInfo(name="cmd", required=True), ParamInfo(name="mode"), ParamInfo(name="path")], min_args=1, max_args=3, return_type="str | None"),
+        "make_archive": FunctionSig(name="make_archive", params=[ParamInfo(name="base_name", required=True), ParamInfo(name="format", required=True), ParamInfo(name="root_dir"), ParamInfo(name="base_dir")], min_args=2, max_args=-1, return_type="str"),
+        "unpack_archive": FunctionSig(name="unpack_archive", params=[ParamInfo(name="filename", required=True), ParamInfo(name="extract_dir"), ParamInfo(name="format")], min_args=1, max_args=3, return_type="None"),
+        "disk_usage": FunctionSig(name="disk_usage", params=[ParamInfo(name="path", required=True)], min_args=1, max_args=1, return_type="usage"),
+        "chown": FunctionSig(name="chown", params=[ParamInfo(name="path", required=True), ParamInfo(name="user"), ParamInfo(name="group")], min_args=1, max_args=3, return_type="None"),
+    },
+    common_hallucinated_functions=["cp", "mv", "rm", "mkdir"],
+)
+
+_PY_TEMPFILE: ModuleSig = ModuleSig(
+    name="tempfile",
+    functions={
+        "TemporaryFile": FunctionSig(name="TemporaryFile", min_args=0, max_args=-1, return_type="IO"),
+        "NamedTemporaryFile": FunctionSig(name="NamedTemporaryFile", min_args=0, max_args=-1, return_type="IO"),
+        "SpooledTemporaryFile": FunctionSig(name="SpooledTemporaryFile", min_args=0, max_args=-1, return_type="IO"),
+        "TemporaryDirectory": FunctionSig(name="TemporaryDirectory", min_args=0, max_args=-1, return_type="TemporaryDirectory"),
+        "mkdtemp": FunctionSig(name="mkdtemp", min_args=0, max_args=-1, return_type="str"),
+        "mkstemp": FunctionSig(name="mkstemp", min_args=0, max_args=-1, return_type="tuple[int, str]"),
+        "gettempdir": FunctionSig(name="gettempdir", min_args=0, max_args=0, return_type="str"),
+        "gettempdirb": FunctionSig(name="gettempdirb", min_args=0, max_args=0, return_type="bytes"),
+    },
+    common_hallucinated_functions=["create_temp", "temp_path", "random_file", "cleanup"],
+)
+
+_PY_CSV: ModuleSig = ModuleSig(
+    name="csv",
+    functions={
+        "reader": FunctionSig(name="reader", params=[ParamInfo(name="csvfile", required=True)], min_args=1, max_args=-1, return_type="reader"),
+        "writer": FunctionSig(name="writer", params=[ParamInfo(name="csvfile", required=True)], min_args=1, max_args=-1, return_type="writer"),
+        "DictReader": FunctionSig(name="DictReader", params=[ParamInfo(name="f", required=True), ParamInfo(name="fieldnames")], min_args=1, max_args=-1, return_type="DictReader"),
+        "DictWriter": FunctionSig(name="DictWriter", params=[ParamInfo(name="f", required=True), ParamInfo(name="fieldnames", required=True)], min_args=2, max_args=-1, return_type="DictWriter"),
+        "register_dialect": FunctionSig(name="register_dialect", params=[ParamInfo(name="name", required=True)], min_args=1, max_args=-1, return_type="None"),
+        "get_dialect": FunctionSig(name="get_dialect", params=[ParamInfo(name="name", required=True)], min_args=1, max_args=1, return_type="Dialect"),
+        "list_dialects": FunctionSig(name="list_dialects", min_args=0, max_args=0, return_type="list[str]"),
+        "Sniffer": FunctionSig(name="Sniffer", min_args=0, max_args=0, return_type="Sniffer"),
+    },
+    common_hallucinated_functions=["parse", "to_csv", "from_csv", "write_header"],
+)
+
+_PY_SQLITE3: ModuleSig = ModuleSig(
+    name="sqlite3",
+    functions={
+        "connect": FunctionSig(name="connect", params=[ParamInfo(name="database", required=True), ParamInfo(name="timeout"), ParamInfo(name="detect_types"), ParamInfo(name="isolation_level"), ParamInfo(name="check_same_thread"), ParamInfo(name="factory"), ParamInfo(name="cached_statements"), ParamInfo(name="uri")], min_args=1, max_args=8, return_type="Connection"),
+        "Row": FunctionSig(name="Row", min_args=0, max_args=0, return_type="Row"),
+        "register_adapter": FunctionSig(name="register_adapter", params=[ParamInfo(name="type", required=True), ParamInfo(name="adapter", required=True)], min_args=2, max_args=2, return_type="None"),
+        "register_converter": FunctionSig(name="register_converter", params=[ParamInfo(name="typename", required=True), ParamInfo(name="converter", required=True)], min_args=2, max_args=2, return_type="None"),
+        "enable_callback_tracebacks": FunctionSig(name="enable_callback_tracebacks", params=[ParamInfo(name="flag", required=True)], min_args=1, max_args=1, return_type="None"),
+        "complete_statement": FunctionSig(name="complete_statement", params=[ParamInfo(name="statement", required=True)], min_args=1, max_args=1, return_type="bool"),
+        "sqlite_version": FunctionSig(name="sqlite_version", min_args=0, max_args=0, return_type="str"),
+        "version": FunctionSig(name="version", min_args=0, max_args=0, return_type="str"),
+    },
+    common_hallucinated_functions=["open", "execute", "query", "transaction"],
+)
+
+_PY_URLLIB_PARSE: ModuleSig = ModuleSig(
+    name="urllib.parse",
+    functions={
+        "urlparse": FunctionSig(name="urlparse", params=[ParamInfo(name="url", required=True), ParamInfo(name="scheme"), ParamInfo(name="allow_fragments")], min_args=1, max_args=3, return_type="ParseResult"),
+        "urlunparse": FunctionSig(name="urlunparse", params=[ParamInfo(name="parts", required=True)], min_args=1, max_args=1, return_type="str"),
+        "urljoin": FunctionSig(name="urljoin", params=[ParamInfo(name="base", required=True), ParamInfo(name="url", required=True), ParamInfo(name="allow_fragments")], min_args=2, max_args=3, return_type="str"),
+        "urlencode": FunctionSig(name="urlencode", params=[ParamInfo(name="query", required=True), ParamInfo(name="doseq"), ParamInfo(name="safe"), ParamInfo(name="encoding")], min_args=1, max_args=4, return_type="str"),
+        "quote": FunctionSig(name="quote", params=[ParamInfo(name="string", required=True), ParamInfo(name="safe"), ParamInfo(name="encoding")], min_args=1, max_args=3, return_type="str"),
+        "unquote": FunctionSig(name="unquote", params=[ParamInfo(name="string", required=True), ParamInfo(name="encoding")], min_args=1, max_args=2, return_type="str"),
+        "parse_qs": FunctionSig(name="parse_qs", params=[ParamInfo(name="qs", required=True), ParamInfo(name="keep_blank_values"), ParamInfo(name="strict_parsing")], min_args=1, max_args=-1, return_type="dict[str, list[str]]"),
+        "parse_qsl": FunctionSig(name="parse_qsl", params=[ParamInfo(name="qs", required=True), ParamInfo(name="keep_blank_values"), ParamInfo(name="strict_parsing")], min_args=1, max_args=-1, return_type="list[tuple[str, str]]"),
+        "urlsplit": FunctionSig(name="urlsplit", params=[ParamInfo(name="url", required=True), ParamInfo(name="scheme"), ParamInfo(name="allow_fragments")], min_args=1, max_args=3, return_type="SplitResult"),
+        "urlunsplit": FunctionSig(name="urlunsplit", params=[ParamInfo(name="parts", required=True)], min_args=1, max_args=1, return_type="str"),
+    },
+    common_hallucinated_functions=["build_url", "normalize_url", "parse_query", "sanitize_url"],
+)
+
+_PY_ITERTOOLS: ModuleSig = ModuleSig(
+    name="itertools",
+    functions={
+        "chain": FunctionSig(name="chain", min_args=0, max_args=-1, return_type="Iterator"),
+        "product": FunctionSig(name="product", min_args=0, max_args=-1, return_type="Iterator[tuple]"),
+        "combinations": FunctionSig(name="combinations", params=[ParamInfo(name="iterable", required=True), ParamInfo(name="r", required=True)], min_args=2, max_args=2, return_type="Iterator[tuple]"),
+        "permutations": FunctionSig(name="permutations", params=[ParamInfo(name="iterable", required=True), ParamInfo(name="r")], min_args=1, max_args=2, return_type="Iterator[tuple]"),
+        "count": FunctionSig(name="count", params=[ParamInfo(name="start"), ParamInfo(name="step")], min_args=0, max_args=2, return_type="Iterator[int]"),
+        "cycle": FunctionSig(name="cycle", params=[ParamInfo(name="iterable", required=True)], min_args=1, max_args=1, return_type="Iterator"),
+        "repeat": FunctionSig(name="repeat", params=[ParamInfo(name="object", required=True), ParamInfo(name="times")], min_args=1, max_args=2, return_type="Iterator"),
+        "islice": FunctionSig(name="islice", min_args=2, max_args=-1, return_type="Iterator"),
+        "tee": FunctionSig(name="tee", params=[ParamInfo(name="iterable", required=True), ParamInfo(name="n")], min_args=1, max_args=2, return_type="tuple[Iterator, ...]"),
+        "zip_longest": FunctionSig(name="zip_longest", min_args=0, max_args=-1, return_type="Iterator[tuple]"),
+        "groupby": FunctionSig(name="groupby", params=[ParamInfo(name="iterable", required=True), ParamInfo(name="key")], min_args=1, max_args=2, return_type="Iterator"),
+        "accumulate": FunctionSig(name="accumulate", params=[ParamInfo(name="iterable", required=True), ParamInfo(name="func"), ParamInfo(name="initial")], min_args=1, max_args=3, return_type="Iterator"),
+        "dropwhile": FunctionSig(name="dropwhile", params=[ParamInfo(name="predicate", required=True), ParamInfo(name="iterable", required=True)], min_args=2, max_args=2, return_type="Iterator"),
+        "takewhile": FunctionSig(name="takewhile", params=[ParamInfo(name="predicate", required=True), ParamInfo(name="iterable", required=True)], min_args=2, max_args=2, return_type="Iterator"),
+    },
+    common_hallucinated_functions=["map", "filter", "flatten", "batch"],
+)
+
+_PY_FUNCTOOLS: ModuleSig = ModuleSig(
+    name="functools",
+    functions={
+        "reduce": FunctionSig(name="reduce", params=[ParamInfo(name="function", required=True), ParamInfo(name="iterable", required=True), ParamInfo(name="initializer")], min_args=2, max_args=3, return_type="object"),
+        "lru_cache": FunctionSig(name="lru_cache", params=[ParamInfo(name="maxsize"), ParamInfo(name="typed")], min_args=0, max_args=2, return_type="callable"),
+        "partial": FunctionSig(name="partial", params=[ParamInfo(name="func", required=True)], min_args=1, max_args=-1, return_type="partial"),
+        "wraps": FunctionSig(name="wraps", params=[ParamInfo(name="wrapped", required=True), ParamInfo(name="assigned"), ParamInfo(name="updated")], min_args=1, max_args=3, return_type="callable"),
+        "singledispatch": FunctionSig(name="singledispatch", params=[ParamInfo(name="func", required=True)], min_args=1, max_args=1, return_type="function"),
+        "total_ordering": FunctionSig(name="total_ordering", params=[ParamInfo(name="cls", required=True)], min_args=1, max_args=1, return_type="class"),
+        "cached_property": FunctionSig(name="cached_property", params=[ParamInfo(name="func", required=True)], min_args=1, max_args=1, return_type="cached_property"),
+        "cmp_to_key": FunctionSig(name="cmp_to_key", params=[ParamInfo(name="mycmp", required=True)], min_args=1, max_args=1, return_type="callable"),
+    },
+    common_hallucinated_functions=["memoize", "decorate", "cache_result", "compose"],
+)
+
+_JS_LODASH: ModuleSig = ModuleSig(
+    name="lodash",
+    functions={
+        "map": FunctionSig(name="map", params=[ParamInfo(name="collection", required=True), ParamInfo(name="iteratee")], min_args=1, max_args=2, return_type="list"),
+        "filter": FunctionSig(name="filter", params=[ParamInfo(name="collection", required=True), ParamInfo(name="predicate")], min_args=1, max_args=2, return_type="list"),
+        "reduce": FunctionSig(name="reduce", params=[ParamInfo(name="collection", required=True), ParamInfo(name="iteratee", required=True), ParamInfo(name="accumulator")], min_args=2, max_args=3, return_type="object"),
+        "cloneDeep": FunctionSig(name="cloneDeep", params=[ParamInfo(name="value", required=True)], min_args=1, max_args=1, return_type="object"),
+        "merge": FunctionSig(name="merge", min_args=2, max_args=-1, return_type="object"),
+        "get": FunctionSig(name="get", params=[ParamInfo(name="object", required=True), ParamInfo(name="path", required=True), ParamInfo(name="defaultValue")], min_args=2, max_args=3, return_type="object"),
+        "set": FunctionSig(name="set", params=[ParamInfo(name="object", required=True), ParamInfo(name="path", required=True), ParamInfo(name="value", required=True)], min_args=3, max_args=3, return_type="object"),
+        "debounce": FunctionSig(name="debounce", params=[ParamInfo(name="func", required=True), ParamInfo(name="wait", required=True), ParamInfo(name="options")], min_args=2, max_args=3, return_type="function"),
+        "throttle": FunctionSig(name="throttle", params=[ParamInfo(name="func", required=True), ParamInfo(name="wait", required=True), ParamInfo(name="options")], min_args=2, max_args=3, return_type="function"),
+        "uniq": FunctionSig(name="uniq", params=[ParamInfo(name="array", required=True)], min_args=1, max_args=1, return_type="list"),
+        "sortBy": FunctionSig(name="sortBy", params=[ParamInfo(name="collection", required=True), ParamInfo(name="iteratees")], min_args=1, max_args=-1, return_type="list"),
+        "groupBy": FunctionSig(name="groupBy", params=[ParamInfo(name="collection", required=True), ParamInfo(name="iteratee")], min_args=1, max_args=2, return_type="dict"),
+        "keyBy": FunctionSig(name="keyBy", params=[ParamInfo(name="collection", required=True), ParamInfo(name="iteratee")], min_args=1, max_args=2, return_type="dict"),
+        "pick": FunctionSig(name="pick", params=[ParamInfo(name="object", required=True)], min_args=1, max_args=-1, return_type="object"),
+        "omit": FunctionSig(name="omit", params=[ParamInfo(name="object", required=True)], min_args=1, max_args=-1, return_type="object"),
+    },
+    common_hallucinated_functions=["pluck", "where", "extendDeep", "chainMap"],
+)
+
+_JS_DATE_FNS: ModuleSig = ModuleSig(
+    name="date-fns",
+    functions={
+        "format": FunctionSig(name="format", params=[ParamInfo(name="date", required=True), ParamInfo(name="formatStr", required=True), ParamInfo(name="options")], min_args=2, max_args=3, return_type="string"),
+        "parse": FunctionSig(name="parse", params=[ParamInfo(name="dateStr", required=True), ParamInfo(name="formatStr", required=True), ParamInfo(name="referenceDate", required=True), ParamInfo(name="options")], min_args=3, max_args=4, return_type="Date"),
+        "parseISO": FunctionSig(name="parseISO", params=[ParamInfo(name="argument", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Date"),
+        "formatISO": FunctionSig(name="formatISO", params=[ParamInfo(name="date", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="string"),
+        "addDays": FunctionSig(name="addDays", params=[ParamInfo(name="date", required=True), ParamInfo(name="amount", required=True)], min_args=2, max_args=2, return_type="Date"),
+        "subDays": FunctionSig(name="subDays", params=[ParamInfo(name="date", required=True), ParamInfo(name="amount", required=True)], min_args=2, max_args=2, return_type="Date"),
+        "differenceInDays": FunctionSig(name="differenceInDays", params=[ParamInfo(name="dateLeft", required=True), ParamInfo(name="dateRight", required=True)], min_args=2, max_args=2, return_type="number"),
+        "startOfDay": FunctionSig(name="startOfDay", params=[ParamInfo(name="date", required=True)], min_args=1, max_args=1, return_type="Date"),
+        "endOfDay": FunctionSig(name="endOfDay", params=[ParamInfo(name="date", required=True)], min_args=1, max_args=1, return_type="Date"),
+        "isAfter": FunctionSig(name="isAfter", params=[ParamInfo(name="date", required=True), ParamInfo(name="dateToCompare", required=True)], min_args=2, max_args=2, return_type="bool"),
+        "isBefore": FunctionSig(name="isBefore", params=[ParamInfo(name="date", required=True), ParamInfo(name="dateToCompare", required=True)], min_args=2, max_args=2, return_type="bool"),
+        "isValid": FunctionSig(name="isValid", params=[ParamInfo(name="date", required=True)], min_args=1, max_args=1, return_type="bool"),
+    },
+    common_hallucinated_functions=["toDate", "fromNow", "utc", "timezone"],
+)
+
+_JS_RXJS: ModuleSig = ModuleSig(
+    name="rxjs",
+    functions={
+        "of": FunctionSig(name="of", min_args=0, max_args=-1, return_type="Observable"),
+        "from": FunctionSig(name="from", params=[ParamInfo(name="input", required=True)], min_args=1, max_args=1, return_type="Observable"),
+        "map": FunctionSig(name="map", params=[ParamInfo(name="project", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "filter": FunctionSig(name="filter", params=[ParamInfo(name="predicate", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "switchMap": FunctionSig(name="switchMap", params=[ParamInfo(name="project", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "mergeMap": FunctionSig(name="mergeMap", params=[ParamInfo(name="project", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "catchError": FunctionSig(name="catchError", params=[ParamInfo(name="selector", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "tap": FunctionSig(name="tap", min_args=0, max_args=-1, return_type="OperatorFunction"),
+        "debounceTime": FunctionSig(name="debounceTime", params=[ParamInfo(name="dueTime", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "throttleTime": FunctionSig(name="throttleTime", params=[ParamInfo(name="duration", required=True)], min_args=1, max_args=-1, return_type="OperatorFunction"),
+        "take": FunctionSig(name="take", params=[ParamInfo(name="count", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "takeUntil": FunctionSig(name="takeUntil", params=[ParamInfo(name="notifier", required=True)], min_args=1, max_args=1, return_type="OperatorFunction"),
+        "combineLatest": FunctionSig(name="combineLatest", params=[ParamInfo(name="sources", required=True)], min_args=1, max_args=-1, return_type="Observable"),
+        "forkJoin": FunctionSig(name="forkJoin", params=[ParamInfo(name="sources", required=True)], min_args=1, max_args=-1, return_type="Observable"),
+    },
+    common_hallucinated_functions=["subscribeMap", "pipeMap", "promise", "await"],
+)
+
+_JS_JEST: ModuleSig = ModuleSig(
+    name="jest",
+    functions={
+        "describe": FunctionSig(name="describe", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True)], min_args=2, max_args=2, return_type="void"),
+        "it": FunctionSig(name="it", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=2, max_args=3, return_type="void"),
+        "test": FunctionSig(name="test", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=2, max_args=3, return_type="void"),
+        "expect": FunctionSig(name="expect", params=[ParamInfo(name="value", required=True)], min_args=1, max_args=1, return_type="Matchers"),
+        "beforeEach": FunctionSig(name="beforeEach", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "afterEach": FunctionSig(name="afterEach", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "beforeAll": FunctionSig(name="beforeAll", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "afterAll": FunctionSig(name="afterAll", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "fn": FunctionSig(name="fn", params=[ParamInfo(name="implementation")], min_args=0, max_args=1, return_type="Mock"),
+        "spyOn": FunctionSig(name="spyOn", params=[ParamInfo(name="object", required=True), ParamInfo(name="methodName", required=True)], min_args=2, max_args=2, return_type="SpyInstance"),
+        "mock": FunctionSig(name="mock", params=[ParamInfo(name="moduleName", required=True), ParamInfo(name="factory"), ParamInfo(name="options")], min_args=1, max_args=3, return_type="void"),
+        "clearAllMocks": FunctionSig(name="clearAllMocks", min_args=0, max_args=0, return_type="void"),
+    },
+    common_hallucinated_functions=["assert", "stub", "verify", "fixture"],
+)
+
+_JS_VITEST: ModuleSig = ModuleSig(
+    name="vitest",
+    functions={
+        "describe": FunctionSig(name="describe", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True)], min_args=2, max_args=2, return_type="void"),
+        "it": FunctionSig(name="it", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=2, max_args=3, return_type="void"),
+        "test": FunctionSig(name="test", params=[ParamInfo(name="name", required=True), ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=2, max_args=3, return_type="void"),
+        "expect": FunctionSig(name="expect", params=[ParamInfo(name="value", required=True)], min_args=1, max_args=1, return_type="Assertion"),
+        "beforeEach": FunctionSig(name="beforeEach", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "afterEach": FunctionSig(name="afterEach", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "beforeAll": FunctionSig(name="beforeAll", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "afterAll": FunctionSig(name="afterAll", params=[ParamInfo(name="fn", required=True), ParamInfo(name="timeout")], min_args=1, max_args=2, return_type="void"),
+        "fn": FunctionSig(name="fn", params=[ParamInfo(name="implementation")], min_args=0, max_args=1, return_type="Mock"),
+        "spyOn": FunctionSig(name="spyOn", params=[ParamInfo(name="object", required=True), ParamInfo(name="methodName", required=True)], min_args=2, max_args=2, return_type="MockInstance"),
+        "mock": FunctionSig(name="mock", params=[ParamInfo(name="path", required=True), ParamInfo(name="factory")], min_args=1, max_args=2, return_type="void"),
+        "clearAllMocks": FunctionSig(name="clearAllMocks", min_args=0, max_args=0, return_type="void"),
+    },
+    common_hallucinated_functions=["assert", "fixture", "suite", "spy"],
+)
+
+_JS_FS_PROMISES: ModuleSig = ModuleSig(
+    name="fs/promises",
+    functions={
+        "readFile": FunctionSig(name="readFile", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "writeFile": FunctionSig(name="writeFile", params=[ParamInfo(name="file", required=True), ParamInfo(name="data", required=True), ParamInfo(name="options")], min_args=2, max_args=3, return_type="Promise"),
+        "appendFile": FunctionSig(name="appendFile", params=[ParamInfo(name="path", required=True), ParamInfo(name="data", required=True), ParamInfo(name="options")], min_args=2, max_args=3, return_type="Promise"),
+        "readdir": FunctionSig(name="readdir", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "mkdir": FunctionSig(name="mkdir", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "rm": FunctionSig(name="rm", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "stat": FunctionSig(name="stat", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "lstat": FunctionSig(name="lstat", params=[ParamInfo(name="path", required=True), ParamInfo(name="options")], min_args=1, max_args=2, return_type="Promise"),
+        "access": FunctionSig(name="access", params=[ParamInfo(name="path", required=True), ParamInfo(name="mode")], min_args=1, max_args=2, return_type="Promise"),
+        "copyFile": FunctionSig(name="copyFile", params=[ParamInfo(name="src", required=True), ParamInfo(name="dest", required=True), ParamInfo(name="mode")], min_args=2, max_args=3, return_type="Promise"),
+        "rename": FunctionSig(name="rename", params=[ParamInfo(name="oldPath", required=True), ParamInfo(name="newPath", required=True)], min_args=2, max_args=2, return_type="Promise"),
+        "unlink": FunctionSig(name="unlink", params=[ParamInfo(name="path", required=True)], min_args=1, max_args=1, return_type="Promise"),
+    },
+    common_hallucinated_functions=["exists", "ensureDir", "delete", "copy"],
+)
+
+_JS_URL: ModuleSig = ModuleSig(
+    name="url",
+    functions={
+        "URL": FunctionSig(name="URL", params=[ParamInfo(name="input", required=True), ParamInfo(name="base")], min_args=1, max_args=2, return_type="URL"),
+        "URLSearchParams": FunctionSig(name="URLSearchParams", params=[ParamInfo(name="init")], min_args=0, max_args=1, return_type="URLSearchParams"),
+        "fileURLToPath": FunctionSig(name="fileURLToPath", params=[ParamInfo(name="url", required=True)], min_args=1, max_args=1, return_type="string"),
+        "pathToFileURL": FunctionSig(name="pathToFileURL", params=[ParamInfo(name="path", required=True)], min_args=1, max_args=1, return_type="URL"),
+        "domainToASCII": FunctionSig(name="domainToASCII", params=[ParamInfo(name="domain", required=True)], min_args=1, max_args=1, return_type="string"),
+        "domainToUnicode": FunctionSig(name="domainToUnicode", params=[ParamInfo(name="domain", required=True)], min_args=1, max_args=1, return_type="string"),
+        "format": FunctionSig(name="format", params=[ParamInfo(name="urlObject", required=True)], min_args=1, max_args=1, return_type="string"),
+        "parse": FunctionSig(name="parse", params=[ParamInfo(name="urlStr", required=True), ParamInfo(name="parseQueryString"), ParamInfo(name="slashesDenoteHost")], min_args=1, max_args=3, return_type="UrlWithStringQuery"),
+        "resolve": FunctionSig(name="resolve", params=[ParamInfo(name="from", required=True), ParamInfo(name="to", required=True)], min_args=2, max_args=2, return_type="string"),
+    },
+    common_hallucinated_functions=["toURL", "normalize", "sanitize", "build"],
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  REGISTRY — Flat lookup by language
@@ -2625,6 +2926,16 @@ PYTHON_SIGNATURES: dict[str, ModuleSig] = {
     "openai": _PY_OPENAI,
     "asyncio": _PY_ASYNCIO,
     "sys": _PY_SYS,
+    "math": _PY_MATH,
+    "statistics": _PY_STATISTICS,
+    "uuid": _PY_UUID,
+    "shutil": _PY_SHUTIL,
+    "tempfile": _PY_TEMPFILE,
+    "csv": _PY_CSV,
+    "sqlite3": _PY_SQLITE3,
+    "urllib.parse": _PY_URLLIB_PARSE,
+    "itertools": _PY_ITERTOOLS,
+    "functools": _PY_FUNCTOOLS,
 }
 
 JS_TS_SIGNATURES: dict[str, ModuleSig] = {
@@ -2646,6 +2957,15 @@ JS_TS_SIGNATURES: dict[str, ModuleSig] = {
     "child_process": _JS_CHILD_PROCESS,
     "node:child_process": _JS_CHILD_PROCESS,
     "next/navigation": _JS_NEXT,
+    "lodash": _JS_LODASH,
+    "date-fns": _JS_DATE_FNS,
+    "rxjs": _JS_RXJS,
+    "jest": _JS_JEST,
+    "vitest": _JS_VITEST,
+    "fs/promises": _JS_FS_PROMISES,
+    "node:fs/promises": _JS_FS_PROMISES,
+    "url": _JS_URL,
+    "node:url": _JS_URL,
 }
 
 SIGNATURES: dict[str, dict[str, ModuleSig]] = {

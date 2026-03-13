@@ -3358,3 +3358,23 @@ Real user count analysis performed:
 - Unrelated workspace changes remain untouched:
   - `.github/workflows/release-smoke.yml`
   - `dashboard/test-results/`
+
+## [2026-03-13 20:55] Checkpoint — Release data corrected + Chrome extension removed
+
+### Accomplished
+
+- Commit: `6d01ac71`
+- Fixed public stats schema drift by forcing `schema_version` to current `settings.version` in `src/api.py`.
+- Deployed to Railway and verified stable production responses.
+- Removed `chrome-extension/` from repository after upload completion.
+
+### Validation
+
+- `https://api.codetrust.ai/v1/status` => `version: 2.8.5` (repeated polls)
+- `https://api.codetrust.ai/v1/stats/public` => `schema_version: 2.8.5` (repeated polls)
+- Working tree clean after commit.
+
+### Current State
+
+- `main` is clean at `6d01ac71`.
+- No `git push` performed (user-owned step).

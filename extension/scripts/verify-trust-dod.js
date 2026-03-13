@@ -35,6 +35,27 @@ function passFailRow(id, ok, detail) {
   return `${id}: ${status} - ${detail}`;
 }
 
+function resolveNpmTestResult() {
+  const releaseSmokeTestsPassed = process.env.RELEASE_SMOKE_EXTENSION_TESTS_PASSED === "1";
+  if (releaseSmokeTestsPassed) {
+    return {
+      ok: true,
+      code: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+      detail: "SKIP (reusing prior release-smoke tests gate)",
+    };
+  }
+
+  const result = runCommand("npm", ["run", "test", "--", "--runInBand"], EXT_ROOT);
+  return {
+    ...result,
+    skipped: false,
+    detail: result.ok ? "PASS" : "FAIL",
+  };
+}
+
 function checkDOD() {
   const mcpInjection = readText(MCP_INJECTION_PATH);
   const mcpTest = readText(MCP_TEST_PATH);
@@ -171,7 +192,7 @@ function checkDOD() {
     detail: "global VS Code MCP targets enforce 'servers' key + workspaceFolder guardrails",
   });
 
-  const npmTest = runCommand("npm", ["run", "test", "--", "--runInBand"], EXT_ROOT);
+  const npmTest = resolveNpmTestResult();
   const releaseSync = runCommand("node", ["./scripts/check-release-sync.js"], EXT_ROOT);
 
   return {
@@ -190,7 +211,7 @@ function main() {
     process.stdout.write(`${passFailRow(check.id, check.ok, check.detail)}\n`);
   }
 
-  process.stdout.write(`npm run test: ${npmTest.ok ? "PASS" : "FAIL"}\n`);
+  process.stdout.write(`npm run test: ${npmTest.detail}\n`);
   process.stdout.write(`node ./scripts/check-release-sync.js: ${releaseSync.ok ? "PASS" : "FAIL"}\n`);
 
   const allChecksPass = checks.every((check) => check.ok) && npmTest.ok && releaseSync.ok;

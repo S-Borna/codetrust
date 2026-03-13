@@ -6,6 +6,41 @@
 
 ---
 
+## [2026-03-13 00:20] Checkpoint
+
+### Accomplished
+
+- Fixed hosted-runner CI regressions reported by GitHub Actions for release `2.8.5`.
+- Hardened telemetry read-path permission handling for deterministic cross-platform behavior.
+- Fixed cross-file import edge resolution to handle mixed path separators (`/` and `\\`).
+- Stabilized Windows test temp cleanup with retry + chmod fallback for transient lock errors.
+- Stabilized trust DOD execution flow in smoke/CI by using headless-aware invocation and in-band extension tests.
+
+### Files Changed
+
+- `src/telemetry_client.py`
+- `src/services/cross_file_analyzer.py`
+- `tests/test_cli.py`
+- `extension/scripts/verify-trust-dod.js`
+- `scripts/release_smoke.sh`
+
+### Validation
+
+- Targeted regression tests: **149 passed, 0 failed** (`test_telemetry_client`, `test_cli`, `test_enterprise_features`)
+- Guardian post-action: **PASSED** (`0 BLOCK, 0 WARN`, info-only notes)
+- Local release smoke and trust DOD checks: **PASS**
+- Working tree after commit: **clean**
+
+### Commit
+
+- `96f721cb` — `fix: stabilize cross-platform CI and trust-dod execution`
+
+### Current State
+
+- CI-remediation patch is committed and ready to push.
+- Next step is to rerun GitHub Actions matrices and confirm hosted-runner parity.
+
+
 ## [2026-03-12 02:25] Checkpoint — MCP Discovery Breakthrough
 
 ### Root Cause Found

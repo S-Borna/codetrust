@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### What's New (since 2.8.5)
 
-- No unreleased changes yet.
+### Fixed
+
+- Cross-platform CI stability hardening for Windows path/permission edge cases in telemetry and test cleanup paths.
+- Trust DOD execution in release smoke now reuses already-passed test gates to avoid redundant flaky reruns.
+
+### Changed
+
+- Release metadata and public counters synchronized to current measured values (tests/endpoints).
+- Website and release sign-off documentation aligned with 2.8.5 publication and verification evidence.
+- Chrome extension release surfaces synchronized to 2.8.5 for store and runtime consistency.
 
 ## [2.8.5] - 2026-03-13
 
@@ -154,45 +163,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Without it, AI agents received governance instructions but the MCP servers
 > providing those tools were never registered — governance enforcement was broken.
 
-#### MCP Server Auto-Registration
+#### MCP Runtime Registration
 
-- **New file: `extension/src/mcp-config-injection.ts`** (588 lines)
-  - Automatically injects both `codetrust` (Guardian) and `codetrust-gateway`
-    (Gateway) MCP server entries into all supported IDE configs on extension activation.
-  - Supported targets: Claude Code (`~/.claude/mcp.json`), Claude Desktop
-    (`claude_desktop_config.json` on macOS), Cursor (`~/.cursor/mcp.json`).
-  - **Idempotent:** only adds missing entries; never overwrites user-configured servers.
-  - **Clean uninstall:** `removeMcpServerConfigs()` removes only auto-injected
-    entries (identified by `_injectedBy` marker).
-  - **File watcher + focus listener:** detects external config disruption
-    (IDE updates, user edits, file deletion) and offers re-injection.
-  - **Debounced:** file watcher (2s) and focus check (10s) to avoid prompt spam.
-  - **Malformed JSON safety:** skips corrupt config files instead of overwriting.
-
-#### Smart Command Detection (3-strategy fallback)
-
-- **Extension + CLI:** both implementations resolve the best MCP server command:
-  1. Console script on PATH (`codetrust-mcp` / `codetrust-gateway-mcp`) — pip install
-  2. `uvx` zero-install — auto-download without pip
-  3. `python3 -m src.server` / `python3 -m src.gateway.server` — source checkout
-  4. Fallback: write console script name (user sees clear startup error)
-- **CLI: `_detect_source_root()`** — walks filesystem upward looking for
-  `pyproject.toml` containing `name = "codetrust"`.
-
-#### CLI MCP Injection
-
-- **`src/cli.py`:** `codetrust setup` and `codetrust governance setup` now
-  automatically inject MCP server configs into all detected IDE configs.
-- **`_inject_mcp_servers()`**: same idempotent logic as extension, using
-  `shutil.which()` for command detection and `json` module for config parsing.
-- Colored terminal output with per-IDE status (✅ added / ⏭️ already present / ⚠️ error).
+- Extension and CLI now automatically register required MCP runtimes across supported IDE targets on activation/setup.
+- Registration is idempotent, resilient to malformed configs, and avoids overwriting user-owned custom entries.
+- Runtime resolution logic was hardened to reduce environment-specific startup regressions.
 
 ### Fixed
 
-- **Root cause:** VS Code extension injected behavioral rules (CLAUDE.md,
-  .cursorrules, .windsurfrules) but never registered MCP servers in mcp.json.
-  Agents received instructions to call proxy tools (`codetrust_validate_command`,
-  etc.) that didn't exist at runtime — governance enforcement was completely broken.
+- Governance instructions and runtime registration are now aligned so required validation tools are available at runtime.
 
 ### Added — New Distribution & Web Presence Builds
 

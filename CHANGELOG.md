@@ -7,7 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### What's New (since 2.8.2)
+### What's New (since 2.8.5)
+
+- No unreleased changes yet.
+
+## [2.8.5] - 2026-03-13
+
+### Added
+
+- GitHub App webhook integration for pull request scanning and sticky CodeTrust PR comments.
+- SBOM generation endpoint and service with CycloneDX and SPDX JSON outputs.
+- Team dashboard org-member-policy workflows completed.
+- Governance analytics score and trend view added to dashboard/governance surfaces.
+- Policy rollout simulation controls added for safer governance changes.
+- IDE quick-fixes expanded for `bare except` and hardcoded secrets.
+- Release smoke gate workflow added for release readiness checks.
+
+### Changed
+
+- Signature validation database expanded to 50 modules and 405 functions.
+- Live telemetry dashboard restructured to show honest, non-inflated metrics.
+- Protection card presentation reworked to capability labels, while restoring meaningful sub-stats.
+
+### Fixed
+
+- Extension MCP recovery and scan stability hardened.
+- MCP config injection now self-heals malformed config and deduplicates inject prompts.
+- Release smoke gate now self-heals in local execution paths.
+- Dashboard moat stats layout corrected to a stable single-row presentation.
+
+### Docs / Quality
+
+- Roadmap and release checkpoint docs truth-synced after delivery.
+- OpenVSX publish step added to the release checklist.
 
 ## [2.8.2] - 2026-03-12
 

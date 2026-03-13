@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.2</code> &middot; <code>1939 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.8.5</code> &middot; <code>1939 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -46,8 +46,8 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v2.8.2`
-- **Release highlights:** Vision-complete release. All 22 PRODUCT.md promises verified against code. 10-language AST analysis, 1100+ typosquatting-protected packages, signature validation (33 modules, 223 functions), full AI Governance Gateway (82 rules, 17 MCP tools).
+- **Current release:** `v2.8.5`
+- **Release highlights:** Vision-complete release. All 22 PRODUCT.md promises verified against code. 10-language AST analysis, 1100+ typosquatting-protected packages, signature validation (50 modules, 405 functions), full AI Governance Gateway (82 rules, 17 MCP tools).
 
 ---
 
@@ -83,7 +83,7 @@ $ codetrust scan app.py
 
 CodeTrust also includes static hallucination rules that detect fabricated methods, config options, CLI flags, API endpoints, environment variables, and placeholder URLs — without network access.
 
-**Signature Validation** goes deeper: a curated database of 33 modules and 209 functions validates call signatures with min/max argument enforcement. When AI writes `os.path.join("a")` (too few args) or `hashlib.sha256("a", "b", "c")` (too many), CodeTrust catches it at scan time.
+**Signature Validation** goes deeper: a curated database of 50 modules and 405 functions validates call signatures with min/max argument enforcement. When AI writes `os.path.join("a")` (too few args) or `hashlib.sha256("a", "b", "c")` (too many), CodeTrust catches it at scan time.
 
 ### Moat 3: Trust Score & Drift Tracking
 
@@ -227,7 +227,7 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.2` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 60 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -329,7 +329,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.8.2
+      - uses: S-Borna/codetrust@v2.8.5
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -626,7 +626,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

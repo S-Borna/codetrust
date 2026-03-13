@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "CodeTrust — AI Code Governance",
     "short_name": "CodeTrust",
-    "version": "2.8.2",
+    "version": "2.8.5",
     "description": "AI code governance platform. Enforce coding standards, detect hallucinated packages, and block unsafe patterns. 286 rules.",
     "icons": {
         "16": "icons/icon-16.png",

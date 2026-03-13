@@ -377,7 +377,7 @@ async function generateExtraDemoPages() {
         <pre>requests==2.31.0\nflask==3.0.0\nnumpy==1.26.0\ncolorama==0.4.6\npandas==2.1.0\nrequests-html==0.10.0</pre>
       </div>
       <div class="popup">
-        <div class="ph"><div class="pi">🛡️</div><div class="pt">CodeTrust</div><div class="pv">v2.8.2</div></div>
+        <div class="ph"><div class="pi">🛡️</div><div class="pt">CodeTrust</div><div class="pv">v2.8.5</div></div>
         <div class="rh"><span class="rt">🔍 Import Verification</span><span class="rb">1 risk</span></div>
         <div class="pkg-list">
           <div class="pkg"><div class="pkg-icon">📦</div><div class="pkg-info"><div class="pkg-name">requests 2.31.0</div><div class="pkg-detail">PyPI ✓ — 312M downloads/month</div></div><span class="pkg-badge ok">SAFE</span></div>
@@ -424,7 +424,7 @@ async function generateExtraDemoPages() {
       <div class="settings-card">
         <div class="sh">
           <div class="si">🛡️</div>
-          <div><div class="stitle">CodeTrust Settings</div><div class="sv">v2.8.2 — AI Code Safety Scanner</div></div>
+          <div><div class="stitle">CodeTrust Settings</div><div class="sv">v2.8.5 — AI Code Safety Scanner</div></div>
         </div>
         <div class="sbody">
           <div class="field-group">

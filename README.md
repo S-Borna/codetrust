@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.5</code> &middot; <code>1939 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.8.5</code> &middot; <code>1952 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,937 tests.
+**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 62 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,952 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -229,7 +229,7 @@ codetrust scan .
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 60 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **REST API** | 62 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 
@@ -637,7 +637,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1937 tests
+pytest                     # 1952 tests
 ruff check .               # zero warnings
 ```
 

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -34,9 +35,21 @@ class TestReadText:
     def test_returns_empty_on_missing_file(self, tmp_path: Path) -> None:
         assert _read_text(tmp_path / "missing.txt") == ""
 
-    def test_returns_empty_on_permission_error(self, tmp_path: Path) -> None:
+    def test_returns_empty_on_permission_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         f = tmp_path / "noperm.txt"
         f.write_text("x", encoding="utf-8")
+        if os.name == "nt":
+            def _raise_permission_error(_self: Path, encoding: str = "utf-8") -> str:
+                raise PermissionError
+
+            monkeypatch.setattr(Path, "read_text", _raise_permission_error)
+            assert _read_text(f) == ""
+            return
+
         f.chmod(0o000)
         result = _read_text(f)
         f.chmod(0o644)  # restore for cleanup

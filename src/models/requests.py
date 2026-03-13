@@ -134,6 +134,20 @@ class LicenseScanRequest(BaseModel):
     packages: list[str] = Field(..., min_length=1, max_length=200)
 
 
+class SbomGenerateRequest(BaseModel):
+    """Request to generate SBOM outputs in CycloneDX and SPDX formats."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    language: Language = Field(..., strict=False)
+    packages: list[str] = Field(..., min_length=1, max_length=500)
+    versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional package -> version mapping for deterministic output",
+    )
+    document_name: str = Field(default="codetrust-sbom", min_length=1, max_length=120)
+
+
 # --- Cross-file analysis ---
 
 

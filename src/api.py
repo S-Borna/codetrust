@@ -57,6 +57,7 @@ from src.models.requests import (
     OIDCCallbackRequest,
     RefreshRequest,
     SandboxRequest,
+    SbomGenerateRequest,
     SignatureScanRequest,
     StaticScanRequest,
     UpdateMemberRoleRequest,
@@ -91,6 +92,7 @@ from src.models.responses import (
     PublicStatsResponse,
     RevokeResponse,
     SandboxResponse,
+    SbomGenerateResponse,
     ScanHistoryResponse,
     ScanLogResponse,
     SignatureScanResponse,
@@ -2132,6 +2134,45 @@ async def license_scan(
     )
 
     return _build_license_scan_response(result)
+
+
+# --- SBOM Generation ---
+
+
+@app.post("/v1/sbom/generate", response_model=SbomGenerateResponse)
+async def sbom_generate(
+    request: Request,
+    req: SbomGenerateRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> SbomGenerateResponse:
+    """Generate CycloneDX and SPDX SBOM outputs for dependency inventories."""
+    await _enforce_rate_limit(auth, rate_limiter, request)
+    logger.info("api_sbom_generate", language=str(req.language), packages=len(req.packages))
+
+    from src.services.sbom import SbomService
+
+    sbom_svc = SbomService()
+    result = sbom_svc.generate(
+        language=req.language,
+        packages=req.packages,
+        versions=req.versions,
+        document_name=req.document_name,
+    )
+
+    await _log_scan(
+        request, auth, "sbom", "PASS", 0, result.latency_ms,
+        str(req.language), req.document_name,
+    )
+
+    return SbomGenerateResponse(
+        ecosystem=result.ecosystem,
+        document_name=result.document_name,
+        component_count=result.component_count,
+        cyclonedx_json=result.cyclonedx_json,
+        spdx_json=result.spdx_json,
+        latency_ms=result.latency_ms,
+    )
 
 
 # --- Cross-File Analysis ---

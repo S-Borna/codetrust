@@ -76,6 +76,19 @@ class VerifyDockerResponse(BaseModel):
     latency_ms: int
 
 
+class SbomGenerateResponse(BaseModel):
+    """Response for generating CycloneDX and SPDX SBOM documents."""
+
+    model_config = ConfigDict(strict=True)
+
+    ecosystem: str
+    document_name: str
+    component_count: int
+    cyclonedx_json: str
+    spdx_json: str
+    latency_ms: int
+
+
 class StaticScanResponse(BaseModel):
     """Response for static analysis scan."""
 

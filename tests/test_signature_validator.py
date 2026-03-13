@@ -415,6 +415,31 @@ class TestValidateSignaturesJS:
         hallucinated = [f for f in findings if "hallucinated" in f.rule_id]
         assert len(hallucinated) >= 1
 
+    def test_lodash_valid_usage(self) -> None:
+        """Valid lodash call should not produce BLOCK findings."""
+        code = "import _ from 'lodash'\nconst out = _.map([1, 2, 3], (n) => n * 2)"
+        findings = validate_signatures(code, "javascript", "app.js")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert len(blocks) == 0
+
+
+class TestValidateSignaturesExpandedPython:
+    """Tests for newly added Python signature modules."""
+
+    def test_math_valid_usage(self) -> None:
+        """Valid math calls should pass signature validation."""
+        code = "import math\nvalue = math.sqrt(9)\nstatus = math.isfinite(value)"
+        findings = validate_signatures(code, "python", "math_test.py")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert len(blocks) == 0
+
+    def test_math_hallucinated_function(self) -> None:
+        """Hallucinated math function should be flagged."""
+        code = "import math\nvalue = math.random_int(1, 10)"
+        findings = validate_signatures(code, "python", "math_bad.py")
+        hallucinated = [f for f in findings if "hallucinated" in f.rule_id]
+        assert len(hallucinated) >= 1
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  COVERAGE STATS
@@ -439,10 +464,10 @@ class TestCoverageStats:
         assert stats["hallucination_patterns"] > 0
 
     def test_minimum_coverage(self) -> None:
-        """We have at least 20 modules and 50 functions."""
+        """Signature DB expansion floor: at least 50 modules and 400 functions."""
         stats = get_coverage_stats()
-        assert stats["modules"] >= 20
-        assert stats["functions"] >= 50
+        assert stats["modules"] >= 50
+        assert stats["functions"] >= 400
 
 
 # ═══════════════════════════════════════════════════════════════════════

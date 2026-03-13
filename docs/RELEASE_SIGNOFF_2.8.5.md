@@ -96,3 +96,47 @@ matrix, this release is approved for publish with conditional enforcement:
 - Condition B: no new failures in Trust DOD or release smoke gates.
 
 If either condition fails, release is blocked.
+
+## Runbook Crosscheck Snapshot (2026-03-13)
+
+This snapshot maps current evidence to `docs/GLOBAL_VERIFICATION_RUNBOOK_2.8.5.md`.
+
+1. Section 1 (CI matrix): PASS with external evidence source.
+  - Latest workflow runs reported green for `Release Smoke Gate` and `Trust DOD Gate`.
+  - Note: GitHub UI/job links are external to this repository and must be attached in release evidence.
+
+2. Section 2 (local smoke + trust DOD): PASS.
+  - `bash scripts/release_smoke.sh` => `Summary: 8 passed, 0 failed`.
+  - `cd extension && npm run verify:trust-dod` => `DOD-T1..DOD-T9 PASS`.
+
+3. Section 3 (global MCP config state): PASS.
+  - VS Code global config uses `servers` key.
+  - Claude/Cursor/Claude Desktop use `mcpServers` key.
+  - `codetrust` and `codetrust-gateway` command entries present and resolvable.
+
+4. Section 4 (Copilot global injection): PASS.
+  - `github.copilot.chat.codeGeneration.instructions` contains `[codetrust-governance-v1]` marker in global settings.
+
+5. Section 5 (Windsurf): N/A with compensating control.
+  - Local check result: `WINDSURF_NOT_INSTALLED`.
+  - Compensating control: trust DOD source/test gate `DOD-T7` passing.
+
+6. Section 6 (published artifacts): BLOCK.
+  - Clean-venv check failed: `pip install codetrust==2.8.5` returned no matching distribution.
+  - Registry currently exposes `2.8.2` only.
+
+7. Section 7 (production smoke): BLOCK (not executed in this workspace context).
+  - Requires live environment/API + webhook verification evidence.
+
+8. Section 8 (dependency risk triage): PARTIAL.
+  - npm audit summary: `low=1, moderate=2, high=5, total=8`.
+  - pip-audit findings: `2` vulnerabilities:
+    - `cryptography 46.0.4` -> `CVE-2026-26007`, fix `46.0.5`
+    - `pip 25.3` -> `CVE-2026-1703`, fix `26.0`
+  - Owner/due-date assignments for accepted risk are still required.
+
+### Updated Decision
+
+Status remains `CONDITIONAL PASS`.
+
+Unconditional `APPROVED` requires closing all BLOCK/PARTIAL runbook items above.

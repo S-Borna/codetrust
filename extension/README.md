@@ -13,18 +13,15 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.8.2
+## What's New in 2.8.5
 
-- **Vision-complete release** — all 22 PRODUCT.md promises verified against actual code. Zero gaps between marketing and reality
-- **10-language AST analysis** — Python, JS, TS, Go, Rust, Java, C#, C++, Ruby, PHP with cyclomatic complexity, unused variables, unreachable code, deep nesting
-- **Signature Validation** — curated function database (33 modules, 223 functions) validates call signatures with min/max argument enforcement, catching AI hallucinations at the function-call level
-- **1100+ typosquatting-protected packages** across 8 registries (PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist)
-- **Universal IDE Injection** — governance rules injected into the global config of every AI IDE on your machine (Claude Code, Cursor, Windsurf, GitHub Copilot)
-- **Secret Storage hardening** — API key migration always overwrites stale credentials
-- **Global MCP config fix** — `${workspaceFolder}` no longer crashes in non-workspace contexts
-- **Tenant Policy Bundles & Signed Snapshots** — `/v1/governance/policy-bundles` and `/v1/governance/policy-snapshot`
-- **Explainable Gateway BLOCKs** — blocked responses include `root_cause` and `safe_fix`
-- **27 MCP tools, 60 API endpoints, 286 rules****
+- **GitHub App integration** — automatic pull request comments with CodeTrust results.
+- **SBOM generation** — CycloneDX and SPDX JSON output for supply-chain workflows.
+- **Signature Validation expansion** — curated database now covers 50 modules and 405 functions.
+- **Stronger extension reliability** — MCP recovery and scan stability hardening.
+- **MCP config self-healing** — malformed config recovery and prompt deduplication in auto-injection paths.
+- **Expanded IDE quick-fixes** — targeted fixes for `bare except` and hardcoded secrets.
+- **Release-smoke confidence gate** — tighter pre-release validation for extension + governance flows.
 
 ---
 
@@ -147,7 +144,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.2` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` |
 | **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
 | **REST API** | 60 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

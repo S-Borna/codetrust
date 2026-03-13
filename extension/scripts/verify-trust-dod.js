@@ -9,6 +9,8 @@ const MCP_TEST_PATH = path.resolve(EXT_ROOT, "src", "test", "suite", "mcp-config
 const RELEASE_GUARD_PATH = path.resolve(EXT_ROOT, "scripts", "check-release-sync.js");
 const PACKAGE_JSON_PATH = path.resolve(EXT_ROOT, "package.json");
 const GATEWAY_SERVER_PATH = path.resolve(REPO_ROOT, "src", "gateway", "server.py");
+const UNIVERSAL_INSTRUCTIONS_PATH = path.resolve(EXT_ROOT, "src", "universal-instructions.ts");
+const EXTENSION_SOURCE_PATH = path.resolve(EXT_ROOT, "src", "extension.ts");
 
 function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -39,6 +41,8 @@ function checkDOD() {
   const releaseGuard = readText(RELEASE_GUARD_PATH);
   const pkg = JSON.parse(readText(PACKAGE_JSON_PATH));
   const gatewayServer = readText(GATEWAY_SERVER_PATH);
+  const universalInstructions = readText(UNIVERSAL_INSTRUCTIONS_PATH);
+  const extensionSource = readText(EXTENSION_SOURCE_PATH);
 
   const checks = [];
 
@@ -133,6 +137,38 @@ function checkDOD() {
     id: "DOD-T6",
     ok: !hasVagueFallback,
     detail: "no known vague trust fallback message in extension source",
+  });
+
+  const hasWindsurfTarget =
+    universalInstructions.includes("Windsurf (~/.codeium/windsurf/memories/global_rules.md)") &&
+    universalInstructions.includes(".codeium") &&
+    universalInstructions.includes("watchForGovernanceDisruption");
+  checks.push({
+    id: "DOD-T7",
+    ok: hasWindsurfTarget,
+    detail: "Windsurf global-rule injection target + disruption watcher coverage exists",
+  });
+
+  const hasCopilotGlobalInjection =
+    extensionSource.includes("injectCopilotInstructions") &&
+    extensionSource.includes("github.copilot.chat") &&
+    extensionSource.includes("codeGeneration.instructions") &&
+    extensionSource.includes("vscode.ConfigurationTarget.Global");
+  checks.push({
+    id: "DOD-T8",
+    ok: hasCopilotGlobalInjection,
+    detail: "Copilot rules are injected via global settings scope (clean-profile safe)",
+  });
+
+  const hasWorkspaceVarGuard =
+    mcpInjection.includes("const VSCODE_WORKSPACE_VAR = \"${workspaceFolder}\"") &&
+    mcpInjection.includes("Only inject ${workspaceFolder} for workspace-level targets") &&
+    mcpInjection.includes("Global (User/mcp.json)") &&
+    mcpInjection.includes("serversKey: \"servers\"");
+  checks.push({
+    id: "DOD-T9",
+    ok: hasWorkspaceVarGuard,
+    detail: "global VS Code MCP targets enforce 'servers' key + workspaceFolder guardrails",
   });
 
   const npmTest = runCommand("npm", ["run", "test"], EXT_ROOT);

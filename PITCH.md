@@ -1,6 +1,6 @@
 # CodeTrust — Pitch & Säljdokumentation
 
-> **Version 2.8.2 | Mars 2026 | Live på PyPI, VS Code Marketplace, Railway & GitHub**
+> **Version 2.8.5 | Mars 2026 | Live på PyPI, VS Code Marketplace, Railway & GitHub**
 
 ---
 
@@ -30,7 +30,7 @@
 
 **20 content-regler:** hemligheter, private keys, SSL bypass, CORS wildcards, eval i filer, pickle, debug mode
 
-**Bevis:** Under byggandet av v2.8.2 försökte vår egen AI-agent skapa en fil med heredoc — gatewayen blockerade kommandot i realtid. Produkten skyddar sig själv.
+**Bevis:** Under byggandet av v2.8.5 försökte vår egen AI-agent skapa en fil med heredoc — gatewayen blockerade kommandot i realtid. Produkten skyddar sig själv.
 
 ### Moat 2: Live Import Verification
 
@@ -413,4 +413,4 @@ Nej. CodeTrust är proprietärt. Verktygen (CLI, extension, MCP-server) är grat
 
 ---
 
-*CodeTrust v2.8.2 — Built for the AI coding era. Live on PyPI, VS Code Marketplace & Railway.*
+*CodeTrust v2.8.5 — Built for the AI coding era. Live on PyPI, VS Code Marketplace & Railway.*

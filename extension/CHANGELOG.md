@@ -7,7 +7,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### What's New (since 2.8.2)
+### What's New (since 2.8.5)
+
+- No unreleased changes yet.
+
+## [2.8.5] - 2026-03-13
+
+### Added
+
+- IDE quick-fixes expanded to cover `bare except` and hardcoded secrets.
+- Governance rollout simulation controls surfaced in extension-driven workflows.
+
+### Changed
+
+- Extension health/release confidence improved with release smoke gate coverage.
+- Governance/protection UI signaling refined to capability-based labels and clearer stats behavior.
+
+### Fixed
+
+- MCP recovery and scan stability hardened.
+- Auto-injected MCP config handling now self-heals malformed entries and deduplicates repeated prompts.
+- MCP health test noise in the output channel reduced to improve signal quality.
 
 ## [2.8.2] - 2026-03-12
 

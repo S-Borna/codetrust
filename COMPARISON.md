@@ -1,6 +1,6 @@
-# CodeTrust vs. Marknaden — Ärlig Jämförelse (v2.8.2)
+# CodeTrust vs. Marknaden — Ärlig Jämförelse (v2.8.5)
 
-> **Uppdaterad: 12 mars 2026 · CodeTrust v2.8.2**
+> **Uppdaterad: 13 mars 2026 · CodeTrust v2.8.5**
 
 ---
 
@@ -20,7 +20,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | **Paketexistens-verifiering** | **✅ 8 registries** | ❌ | ❌ | ❌ | ❌ |
 | **Typosquatting-skydd** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **Docker image/tag-verifiering** | **✅** | ❌ | ❌ | Delvis¹ | ❌ |
-| **Signaturvalidering** | **✅ 33 moduler, 209 fn** | ❌ | ❌ | ❌ | ❌ |
+| **Signaturvalidering** | **✅ 50 moduler, 405 fn** | ❌ | ❌ | ❌ | ❌ |
 | **MCP Server (AI-integration)** | **✅ 27 tools** | ✅ (2025) | ❌ | ❌ | ❌ |
 | **Sandbox-exekvering** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **Trust Score & Drift** | **✅** | Quality Gate | ❌ | ❌ | ❌ |
@@ -156,4 +156,4 @@ With CodeTrust added:
 
 ---
 
-*CodeTrust v2.8.2 — AI Governance Enforcement Platform. 286 rules, 27 MCP tools, 60 API endpoints, 1,939 tests.*
+*CodeTrust v2.8.5 — AI Governance Enforcement Platform. 286 rules, 27 MCP tools, 60 API endpoints, 1,939 tests.*

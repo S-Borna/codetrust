@@ -435,6 +435,22 @@ class CrossFileAnalyzer:
             return self._resolve_csharp_import(import_name, all_files)
         return None
 
+    def _resolve_candidate_path(self, candidate: str, all_files: dict[str, str]) -> str | None:
+        """Resolve a candidate path against project files with cross-platform separators."""
+        normalized = os.path.normpath(candidate)
+        if normalized in all_files:
+            return normalized
+
+        as_posix = normalized.replace("\\", "/")
+        if as_posix in all_files:
+            return as_posix
+
+        as_windows = normalized.replace("/", "\\")
+        if as_windows in all_files:
+            return as_windows
+
+        return None
+
     def _resolve_python_import(
         self,
         source_dir: str,
@@ -459,9 +475,9 @@ class CrossFileAnalyzer:
         ])
 
         for candidate in candidates:
-            normalized = os.path.normpath(candidate)
-            if normalized in all_files:
-                return normalized
+            resolved = self._resolve_candidate_path(candidate, all_files)
+            if resolved is not None:
+                return resolved
 
         return None
 
@@ -487,9 +503,9 @@ class CrossFileAnalyzer:
         ]
 
         for candidate in candidates:
-            normalized = os.path.normpath(candidate)
-            if normalized in all_files:
-                return normalized
+            resolved = self._resolve_candidate_path(candidate, all_files)
+            if resolved is not None:
+                return resolved
 
         return None
 

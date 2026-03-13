@@ -87,7 +87,7 @@ log_step "Running extension build and quality gates"
 run_cmd "compile" bash -lc "cd '$EXT_DIR' && npm run compile"
 run_cmd "lint" bash -lc "cd '$EXT_DIR' && npm run lint"
 run_headless_or_plain "tests" bash -lc "cd '$EXT_DIR' && npm test -- --runInBand"
-run_cmd "trust DOD gate" bash -lc "cd '$EXT_DIR' && npm run verify:trust-dod"
+run_headless_or_plain "trust DOD gate" bash -lc "cd '$EXT_DIR' && npm run verify:trust-dod"
 
 log_step "Checking MCP startup prerequisites"
 if [[ "$AUTO_FIX_MCP" == "1" ]]; then

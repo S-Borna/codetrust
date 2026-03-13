@@ -7,8 +7,10 @@ and produces correct findings for all file types.
 import json
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from src.cli import (
@@ -48,6 +50,30 @@ from src.cli import (
     scan_path,
 )
 from src.rules.anti_patterns import ANTI_PATTERNS
+
+
+def _safe_rmtree(path: Path) -> None:
+    """Best-effort temp cleanup resilient to transient Windows file locks."""
+
+    def _onexc(func: object, target: str, _exc_info: tuple[type[BaseException], BaseException, object]) -> None:
+        try:
+            os.chmod(target, stat.S_IWRITE)
+        except OSError:
+            return
+        try:
+            if callable(func):
+                func(target)
+        except OSError:
+            return
+
+    for _ in range(3):
+        try:
+            shutil.rmtree(path, onexc=_onexc)
+            return
+        except PermissionError:
+            time.sleep(0.2)
+
+    shutil.rmtree(path, ignore_errors=True)
 
 
 class TestNoiseControl:
@@ -104,7 +130,7 @@ class TestChangedLines:
             # Should normalize file path to relative
             assert all(str(f.get("file", "")).endswith("a.py") for f in kept)
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestBaselineGating:
@@ -143,7 +169,7 @@ class TestBaselineGating:
             assert rc == 1
         finally:
             os.chdir(old_cwd)
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestAutofix:
@@ -188,7 +214,7 @@ class TestPolicyWizard:
             assert "[tool.codetrust.governance]" in py_text
         finally:
             os.chdir(old_cwd)
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestVerifyGates:
@@ -202,7 +228,7 @@ class TestVerifyGates:
             gates = _detect_verify_gates(tmp_dir)
             assert "npm run verify" in gates
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestSuppressLintNoise:
@@ -222,7 +248,7 @@ class TestSuppressLintNoise:
             assert any(f.get("rule_id") == "eval_exec" for f in kept)
             assert all(f.get("rule_id") != "console_log" for f in kept)
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestPrRiskRadar:
@@ -259,7 +285,7 @@ class TestPrRiskRadar:
             assert "Auth / identity" in labels
             assert "Tenancy / multi-tenant" in labels
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestTrustDiff:
@@ -284,7 +310,7 @@ class TestTrustDiff:
             assert isinstance(delta, dict)
             assert int(delta.get("blocks", 0) or 0) >= 1
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestAddStackPresets:
@@ -310,7 +336,7 @@ class TestAddStackPresets:
             assert data.get("codetrust.enabledLanguages") == ["javascript", "typescript"]
         finally:
             os.chdir(old_cwd)
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 
 class TestTrend:
@@ -336,7 +362,7 @@ class TestTrend:
             assert len(entries) == 1
             assert entries[0].get("git_sha")
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
     def test_add_settings_explicit_python(self) -> None:
         tmp_dir = Path(tempfile.mkdtemp())
@@ -360,7 +386,7 @@ class TestTrend:
             assert data.get("codetrust.enabledLanguages") == ["python"]
         finally:
             os.chdir(old_cwd)
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
     def test_pr_risk_detects_touched_endpoints(self) -> None:
         tmp_dir = Path(tempfile.mkdtemp())
@@ -393,7 +419,7 @@ class TestTrend:
             labels = {s.get("label") for s in risk.get("signals", []) if isinstance(s, dict)}
             assert "API endpoints touched" in labels
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
     def test_suppresses_print_debug_when_ruff_present(self) -> None:
         tmp_dir = Path(tempfile.mkdtemp())
@@ -411,7 +437,7 @@ class TestTrend:
             assert any(f.get("rule_id") == "hardcoded_secret" for f in kept)
             assert all(f.get("rule_id") != "print_debug" for f in kept)
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
     def test_detects_ruff_and_pytest_from_pyproject(self) -> None:
         tmp_dir = Path(tempfile.mkdtemp())
@@ -424,7 +450,7 @@ class TestTrend:
             assert "ruff check" in gates
             assert "pytest" in gates
         finally:
-            shutil.rmtree(tmp_dir)
+            _safe_rmtree(tmp_dir)
 
 # ═══════════════════════════════════════════════════════════════
 #  Rule Import Tests — no drift between CLI and backend

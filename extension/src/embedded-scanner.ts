@@ -1691,3 +1691,4 @@ function checkCINoTimeout(lines: string[], filename: string): Finding[] {
     }
     return findings;
 }
+

@@ -907,7 +907,8 @@ _FALLBACK_STATS_BASE: dict[str, int] = {
 def _coerce_stats_contract(stats: dict[str, object]) -> dict[str, object]:
     """Ensure stats payload includes required contract metadata."""
     out = dict(stats)
-    out.setdefault("schema_version", settings.version)
+    # Always pin schema metadata to running app version, even for cached payloads.
+    out["schema_version"] = settings.version
     out.setdefault("source_of_truth", "/v1/stats/public")
     out.setdefault("coverage", {
         "model": "coverage-v1",

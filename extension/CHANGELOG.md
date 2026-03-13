@@ -9,7 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### What's New (since 2.8.5)
 
-- No unreleased changes yet.
+### Fixed
+
+- Release smoke and trust verification flow hardened for cross-platform CI reliability.
+- Additional Windows-specific stability fixes for test and runtime edge cases.
+
+### Changed
+
+- Release metadata and public-facing counters synchronized to current measured values.
+- Chrome extension release surfaces aligned to 2.8.5 for store/runtime consistency.
 
 ## [2.8.5] - 2026-03-13
 
@@ -46,12 +54,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Corrected injected governance tool-name references to actual MCP gateway tools (`mcp_codetrust-gat_codetrust_*`) so new sessions use resolvable tool names.
-- Hardened MCP auto-injection runtime resolution to reuse a known valid CodeTrust source root from global MCP configs when the active workspace is not the CodeTrust repo.
-- Added venv-priority runtime resolution (`<source>/.venv/bin/python -m ...`) before PATH fallback to reduce cross-workspace "CodeTrust not available" regressions.
+- Hardened MCP runtime resolution to reduce cross-workspace availability regressions.
+- Improved environment/runtime selection order for more predictable startup behavior.
 
 ### Changed
 
-- Global MCP config entries now consistently support absolute runtime + `cwd` strategy for Claude Code, Claude Desktop, and Cursor.
+- Global MCP config handling standardized across supported IDE targets for consistent runtime behavior.
 
 ### Added
 
@@ -78,15 +86,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **MCP Auto-Injection** — new `mcp-config-injection.ts` (588 lines) automatically registers both Guardian and Gateway MCP servers in Claude Code, Claude Desktop, and Cursor config files on extension activation
-- **Smart Command Detection** — 3-strategy fallback (PATH → uvx → python3 -m) resolves the best available MCP server command for each IDE
-- **File Watcher + Focus Listener** — detects external config disruption and offers re-injection with debounce (2s file / 10s focus)
-- **Clean Uninstall** — `removeMcpServerConfigs()` removes only auto-injected entries on deactivation
-- **Malformed JSON Safety** — skips corrupt mcp.json files instead of overwriting
+- **MCP Auto-Injection** — extension activation now registers required MCP servers across supported IDE targets.
+- **Smart Runtime Detection** — improved command/runtime discovery with safe fallback behavior.
+- **Config Resilience** — disruption detection, safe recovery prompts, and malformed-config handling.
+- **Clean Uninstall** — deactivation removes only extension-injected MCP entries.
 
 ### Fixed
 
-- **Critical:** Extension injected governance instructions (CLAUDE.md, .cursorrules) but never registered MCP servers — agents saw proxy tool instructions but tools didn't exist at runtime. Governance enforcement was completely broken.
+- **Critical:** Governance instructions and runtime registration are now aligned so required tools are available at runtime.
 - **IDE config messaging polish:** corrected icon/character rendering in setup output to avoid ambiguous status signals.
 
 ## [2.7.0] - 2026-02-20

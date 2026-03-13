@@ -62,7 +62,7 @@ async def test_production_mode_exits_when_api_key_missing() -> None:
         mock_settings.production_mode = True
         mock_settings.jwt_secret = "x" * 32
         mock_settings.api_key = ""
-        mock_settings.version = "2.8.2"
+        mock_settings.version = "2.8.5"
 
         from src.api import app, lifespan
 

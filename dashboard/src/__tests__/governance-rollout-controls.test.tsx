@@ -19,7 +19,7 @@ vi.mock("@/lib/api", async () => {
                     policy: {},
                     signature: "sig1",
                     issued_at: "2026-03-12T00:00:00Z",
-                    version: "2.8.2",
+                    version: "2.8.5",
                 },
             ]),
             simulatePolicy: vi.fn().mockResolvedValue({

@@ -27,6 +27,10 @@ INSTALL_ID_REL: Path = Path(".codetrust") / "install_id"
 
 def _read_text(path: Path) -> str:
     try:
+        # Explicit mode-bit guard keeps behavior deterministic across platforms.
+        mode = path.stat().st_mode
+        if (mode & 0o444) == 0:
+            return ""
         return path.read_text(encoding="utf-8").strip()
     except Exception:
         return ""

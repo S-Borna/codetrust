@@ -171,7 +171,7 @@ function checkDOD() {
     detail: "global VS Code MCP targets enforce 'servers' key + workspaceFolder guardrails",
   });
 
-  const npmTest = runCommand("npm", ["run", "test"], EXT_ROOT);
+  const npmTest = runCommand("npm", ["run", "test", "--", "--runInBand"], EXT_ROOT);
   const releaseSync = runCommand("node", ["./scripts/check-release-sync.js"], EXT_ROOT);
 
   return {

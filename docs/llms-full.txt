@@ -8,7 +8,7 @@
 CodeTrust is an AI governance enforcement platform built by Said Borna.
 Website: https://codetrust.ai
 License: Proprietary (free tier available)
-Version: 2.8.2
+Version: 2.8.5
 
 ## Core Value Proposition
 
@@ -69,7 +69,7 @@ https://chrome.google.com/webstore/detail/codetrust-ai-code-safety
 
 ### GitHub Action
 ```yaml
-- uses: S-Borna/codetrust@v2.7.0
+- uses: S-Borna/codetrust@v2.8.5
   with:
     scan_type: deep
     fail_on: block

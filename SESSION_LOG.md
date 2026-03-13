@@ -3193,3 +3193,133 @@ Real user count analysis performed:
 ### Current State
 
 - Starting execution now at point 1 (roadmap truth-sync) with commit-after-completion enforcement.
+
+## [2026-03-12 23:55] Checkpoint — Execution Progress + Remaining Steps
+
+### Accomplished (Completed Points)
+
+1. Roadmap truth-sync
+  - Commit: `bfcf4321`
+  - Updated release highlights in `docs/index.html` to match actual delivery status.
+
+2. Team dashboard completion
+  - Commit: `58e965a6`
+  - Added org/member/policy workflows in dashboard:
+    - `dashboard/app/dashboard/team/page.tsx`
+    - `dashboard/src/components/team-dashboard.tsx`
+    - API methods in `dashboard/src/lib/api.ts`
+
+3. IDE inline auto-fix expansion
+  - Commit: `2f5658e7`
+  - Expanded extension quick-fixes for high-frequency rules in `extension/src/code-actions.ts`:
+    - `bare_except` / `except_swallow`
+    - `hardcoded_secret`
+    - Existing `print_debug` flow refactored and preserved
+
+4. Governance analytics completion
+  - Commit: `76d4a775`
+  - Added analytics surface (compliance score, block rate, 24h trend):
+    - `dashboard/src/components/governance-analytics.tsx`
+    - integrated in `dashboard/app/dashboard/governance/page.tsx`
+
+5. Policy rollout controls
+  - Commit: `01b98def`
+  - Added bundle simulation controls:
+    - `dashboard/src/components/governance-rollout-controls.tsx`
+    - integrated in `dashboard/src/components/governance-live.tsx`
+
+### Validation Completed
+
+- Dashboard unit tests: pass (`60/60`)
+- Dashboard build: pass
+- Dashboard E2E: pass (`7/7`)
+- Extension compile: pass
+- Extension tests: pass (`90/90`)
+- Guardian post-action scans: pass on completed points
+
+### Current Working Tree State
+
+- Intentionally untouched user/environment changes still present:
+  - `.github/workflows/release-smoke.yml` (modified)
+  - `dashboard/test-results/` (untracked test artifact)
+
+### Remaining Steps (In Order)
+
+6. GitHub App integration (without Action setup dependency)
+  - Implement backend App auth/install + PR comment workflow
+  - Add dashboard/API controls where needed
+  - Add unit/integration tests + E2E verification
+  - Commit after green verification
+
+7. SBOM generation outputs (CycloneDX + SPDX)
+  - Implement generator/service + CLI/API exposure
+  - Validate schema/output correctness with tests
+  - Add E2E/flow verification and commit
+
+8. Signature DB expansion toward target scope
+  - Expand curated signatures and coverage tests
+  - Reconcile all public counts/docs with verified totals
+  - Full verification + final commit for this point
+
+### Execution Rule Continues
+
+- No point starts before previous point is fully verified and committed.
+- No `git push` will be executed by agent.
+
+## [2026-03-13 00:25] Checkpoint — Point 7 Completed (SBOM)
+
+### Accomplished
+
+6. GitHub App integration
+  - Commit: `7bd6a634`
+  - Added webhook endpoint + service flow for installation-token PR scanning/comment updates.
+
+7. SBOM generation outputs
+  - Commit: `8a0c3170`
+  - Added dual-format SBOM generation (CycloneDX + SPDX):
+    - `src/services/sbom.py`
+    - `POST /v1/sbom/generate` in `src/api.py`
+    - request/response models in `src/models/requests.py` and `src/models/responses.py`
+    - tests in `tests/test_sbom.py`
+  - Truth-synced roadmap highlights in `docs/index.html`.
+
+### Validation
+
+- `ruff check src/ tests/` => pass
+- Focused regression: `tests/test_sbom.py tests/test_api_endpoints.py` => `27 passed`
+- Full suite: `1947 passed, 2 skipped`
+- Guardian full scan on changed files => `0 BLOCK, 0 WARN` (info-only notes)
+
+### Current State
+
+- Remaining roadmap item: point 8 (signature DB expansion).
+- Unrelated workspace changes still present and intentionally untouched:
+  - `.github/workflows/release-smoke.yml`
+  - `dashboard/test-results/`
+
+## [2026-03-13 00:55] Checkpoint — Point 8 Completed (Signature DB)
+
+### Accomplished
+
+8. Signature DB expansion
+  - Commit: `a7fce18f`
+  - Expanded curated signature database to:
+    - `50` unique modules
+    - `405` unique functions/submodule functions
+  - Added 17 new modules across Python and JS/TS in `src/rules/signatures.py`.
+  - Updated signature coverage threshold tests in `tests/test_signature_validator.py`.
+  - Truth-synced public signature counts in `docs/index.html`.
+
+### Validation
+
+- `ruff check src/ tests/` => pass
+- Focused tests: `tests/test_signature_validator.py tests/test_sbom.py` => `65 passed`
+- Full suite: `1950 passed, 2 skipped`
+- Guardian full scan on changed files => `0 BLOCK, 0 WARN` (info-only notes)
+
+### Current State
+
+- All roadmap items in current execution set are now implemented and committed.
+- Unrelated workspace changes remain untouched:
+  - `.github/workflows/release-smoke.yml`
+  - `dashboard/test-results/`

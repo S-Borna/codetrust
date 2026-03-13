@@ -146,7 +146,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | **CLI** | `pip install codetrust` |
 | **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` |
 | **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
-| **REST API** | 60 endpoints |
+| **REST API** | 62 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---

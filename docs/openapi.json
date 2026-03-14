@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.8.5"
+    "version": "2.8.6"
   },
   "paths": {
     "/v1/status": {
@@ -111,6 +111,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/feedback/report": {
+      "post": {
+        "summary": "Submit Feedback Report",
+        "description": "Accept a user report and dispatch it asynchronously.",
+        "operationId": "submit_feedback_report_v1_feedback_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReportResponse"
                 }
               }
             }
@@ -670,6 +709,50 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response License Scan V1 License Scan Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/sbom/generate": {
+      "post": {
+        "summary": "Sbom Generate",
+        "description": "Generate CycloneDX and SPDX SBOM outputs for dependency inventories.",
+        "operationId": "sbom_generate_v1_sbom_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SbomGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SbomGenerateResponse"
                 }
               }
             }
@@ -2143,6 +2226,25 @@
         }
       }
     },
+    "/v1/github/app/webhook": {
+      "post": {
+        "summary": "Github App Webhook",
+        "description": "Process GitHub App pull_request events and post sticky PR comments.",
+        "operationId": "github_app_webhook_v1_github_app_webhook_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubAppWebhookResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/github": {
       "post": {
         "summary": "Github Auth",
@@ -2924,6 +3026,101 @@
         "title": "DockerImageResult",
         "description": "Result for a Docker image/tag verification."
       },
+      "FeedbackReportRequest": {
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Report Type"
+          },
+          "surface": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 2,
+            "title": "Surface"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Version",
+            "default": ""
+          },
+          "environment": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Environment",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Summary"
+          },
+          "details": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 3,
+            "title": "Details"
+          },
+          "submitted_at_utc": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Submitted At Utc",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "report_type",
+          "surface",
+          "summary",
+          "details"
+        ],
+        "title": "FeedbackReportRequest",
+        "description": "Request payload for user-submitted bug reports and feature requests."
+      },
+      "FeedbackReportResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "report_id": {
+            "type": "string",
+            "title": "Report Id"
+          },
+          "current_usage": {
+            "type": "integer",
+            "title": "Current Usage"
+          },
+          "daily_limit": {
+            "type": "integer",
+            "title": "Daily Limit"
+          },
+          "plan": {
+            "type": "string",
+            "title": "Plan"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "report_id",
+          "current_usage",
+          "daily_limit",
+          "plan",
+          "message"
+        ],
+        "title": "FeedbackReportResponse",
+        "description": "Response for user-submitted feedback reports."
+      },
       "Finding": {
         "properties": {
           "rule_id": {
@@ -2973,6 +3170,60 @@
         ],
         "title": "Finding",
         "description": "Single verification finding."
+      },
+      "GitHubAppWebhookResponse": {
+        "properties": {
+          "processed": {
+            "type": "boolean",
+            "title": "Processed"
+          },
+          "event": {
+            "type": "string",
+            "title": "Event"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "comment_url": {
+            "type": "string",
+            "title": "Comment Url",
+            "default": ""
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings",
+            "default": 0
+          },
+          "blocks": {
+            "type": "integer",
+            "title": "Blocks",
+            "default": 0
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings",
+            "default": 0
+          },
+          "infos": {
+            "type": "integer",
+            "title": "Infos",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "processed",
+          "event",
+          "action",
+          "reason"
+        ],
+        "title": "GitHubAppWebhookResponse",
+        "description": "Response for GitHub App webhook processing."
       },
       "GithubAuthRequest": {
         "properties": {
@@ -4014,6 +4265,7 @@
           "typescript",
           "go",
           "rust",
+          "json",
           "java",
           "csharp",
           "cpp",
@@ -4712,6 +4964,84 @@
         ],
         "title": "SandboxResponse",
         "description": "Response for sandbox code execution."
+      },
+      "SbomGenerateRequest": {
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "packages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Packages"
+          },
+          "versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Versions",
+            "description": "Optional package -> version mapping for deterministic output"
+          },
+          "document_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Document Name",
+            "default": "codetrust-sbom"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "language",
+          "packages"
+        ],
+        "title": "SbomGenerateRequest",
+        "description": "Request to generate SBOM outputs in CycloneDX and SPDX formats."
+      },
+      "SbomGenerateResponse": {
+        "properties": {
+          "ecosystem": {
+            "type": "string",
+            "title": "Ecosystem"
+          },
+          "document_name": {
+            "type": "string",
+            "title": "Document Name"
+          },
+          "component_count": {
+            "type": "integer",
+            "title": "Component Count"
+          },
+          "cyclonedx_json": {
+            "type": "string",
+            "title": "Cyclonedx Json"
+          },
+          "spdx_json": {
+            "type": "string",
+            "title": "Spdx Json"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ecosystem",
+          "document_name",
+          "component_count",
+          "cyclonedx_json",
+          "spdx_json",
+          "latency_ms"
+        ],
+        "title": "SbomGenerateResponse",
+        "description": "Response for generating CycloneDX and SPDX SBOM documents."
       },
       "ScanHistoryResponse": {
         "properties": {

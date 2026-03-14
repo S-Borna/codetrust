@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "2.8.5"
+    version: str = "2.8.6"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
@@ -107,6 +107,21 @@ class Settings(BaseSettings):
 
     # --- Dashboard ---
     dashboard_url: str = "https://codetrust.ai"
+
+    # --- Feedback Intake ---
+    feedback_recipient_email: str = "said@saidborna.com"
+    feedback_smtp_host: str = ""
+    feedback_smtp_port: int = 587
+    feedback_smtp_username: str = ""
+    feedback_smtp_password: str = ""
+    feedback_smtp_from_email: str = ""
+    feedback_smtp_use_tls: bool = True
+    feedback_smtp_use_ssl: bool = False
+    feedback_smtp_timeout: float = 10.0
+    feedback_webhook_url: str = ""
+    feedback_webhook_token: str = ""
+    feedback_webhook_timeout: float = 8.0
+    feedback_report_sink_path: str = ".codetrust/report-intake.jsonl"
 
     # --- License ---
     license_key: str = ""  # Commercial license key for full feature access

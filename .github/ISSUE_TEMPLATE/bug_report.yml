@@ -1,0 +1,85 @@
+# Copyright (c) Said Borna. All rights reserved.
+name: Bug report
+description: Report a reproducible problem in CodeTrust
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this issue.
+        Please provide enough detail for us to reproduce and fix quickly.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      description: Where did the issue occur?
+      options:
+        - VS Code extension
+        - CLI
+        - MCP server
+        - GitHub Action
+        - Cloud API
+        - Website/docs
+        - Chrome extension
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: CodeTrust version
+      description: For example 2.8.6
+      placeholder: 2.8.6
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Brief summary of the bug.
+      placeholder: Describe the behavior you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, in order.
+      placeholder: |
+        1. Open ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Describe what should have happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste relevant logs and attach screenshots where possible.
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, editor, Python version, and any relevant setup info.
+      placeholder: macOS 15, Cursor 0.x, Python 3.12
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that can help triage this.

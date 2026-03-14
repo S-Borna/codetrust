@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeTrust Report Form</title>
+    <meta name="description" content="Structured bug report and feature request form for CodeTrust users.">
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b1020;
+            --panel: #121a31;
+            --text: #eef2ff;
+            --muted: #a6b0d4;
+            --primary: #4ea1ff;
+            --border: #2b355b;
+            --ok: #2bd67b;
+            --err: #ff7b7b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", "Segoe UI", sans-serif;
+            background: radial-gradient(1200px 700px at 10% -10%, #203463 0%, var(--bg) 50%), var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 2rem 1rem 3rem;
+        }
+
+        .support-strip {
+            margin-top: 0.8rem;
+            padding: 0.75rem 0.9rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(78, 161, 255, 0.08);
+            color: var(--text);
+            font-size: 0.92rem;
+        }
+
+        .support-strip a {
+            color: #8cc4ff;
+            font-weight: 600;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.00) 100%), var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.2rem;
+            margin-top: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.7rem;
+        }
+
+        p {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        label {
+            display: block;
+            font-size: 0.92rem;
+            margin-top: 0.9rem;
+            margin-bottom: 0.35rem;
+            color: #d8def8;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #0f1730;
+            color: var(--text);
+            padding: 0.65rem 0.75rem;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+
+        button,
+        .link-btn {
+            border: 1px solid var(--border);
+            background: #152044;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 0.62rem 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .primary {
+            background: var(--primary);
+            color: #061022;
+            border-color: transparent;
+            font-weight: 700;
+        }
+
+        .ok {
+            color: var(--ok);
+            min-height: 1.1rem;
+            margin-top: 0.7rem;
+            font-size: 0.9rem;
+        }
+
+        .error {
+            color: var(--err);
+        }
+
+        @media (max-width: 720px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>CodeTrust Bug and Feature Report</h1>
+        <p>Use this form to report bugs, request features, and send structured feedback. This route works even if the
+            repository is private.</p>
+        <div class="support-strip">Primary recipient: <a href="mailto:said@saidborna.com">said@saidborna.com</a></div>
+
+        <div class="card">
+            <form id="reportForm">
+                <div class="row">
+                    <div>
+                        <label for="type">Report type</label>
+                        <select id="type" name="type" required>
+                            <option value="Bug report">Bug report</option>
+                            <option value="Feature request">Feature request</option>
+                            <option value="General feedback">General feedback</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="surface">Affected surface</label>
+                        <select id="surface" name="surface" required>
+                            <option>VS Code extension</option>
+                            <option>CLI</option>
+                            <option>MCP server</option>
+                            <option>GitHub Action</option>
+                            <option>Cloud API</option>
+                            <option>Website/docs</option>
+                            <option>Chrome extension</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label for="version">CodeTrust version</label>
+                        <input id="version" name="version" placeholder="2.8.6" value="2.8.6">
+                    </div>
+                    <div>
+                        <label for="environment">Environment</label>
+                        <input id="environment" name="environment" placeholder="macOS, Cursor, Python 3.12">
+                    </div>
+                </div>
+
+                <label for="summary">Summary</label>
+                <input id="summary" name="summary" required placeholder="Short summary of the issue/request">
+
+                <label for="details">Details</label>
+                <textarea id="details" name="details" required
+                    placeholder="Steps, expected behavior, observed behavior, logs, links..."></textarea>
+
+                <div class="actions">
+                    <button type="submit" class="primary" id="submitBtn">Send report</button>
+                    <button type="button" id="copyPayload">Copy report text</button>
+                    <a class="link-btn" href="/" aria-label="Back to home">Back to Home</a>
+                </div>
+                <div class="ok" id="status"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('reportForm');
+        const statusEl = document.getElementById('status');
+        const copyBtn = document.getElementById('copyPayload');
+        const submitBtn = document.getElementById('submitBtn');
+
+        const API_BASE = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+            ? 'http://127.0.0.1:8000'
+            : 'https://api.codetrust.ai';
+        const REPORT_ENDPOINT = `${API_BASE}/v1/feedback/report`;
+
+        function buildPayload() {
+            const data = new FormData(form);
+            return {
+                report_type: String(data.get('type') || ''),
+                surface: String(data.get('surface') || ''),
+                version: String(data.get('version') || ''),
+                environment: String(data.get('environment') || ''),
+                summary: String(data.get('summary') || ''),
+                details: String(data.get('details') || ''),
+                submitted_at_utc: new Date().toISOString(),
+            };
+        }
+
+        function toReadableReport(payload) {
+            return [
+                `Report type: ${payload.report_type}`,
+                `Surface: ${payload.surface}`,
+                `Version: ${payload.version || '-'}`,
+                `Environment: ${payload.environment || '-'}`,
+                `Summary: ${payload.summary}`,
+                '',
+                'Details:',
+                payload.details,
+                '',
+                `Submitted at (UTC): ${payload.submitted_at_utc}`,
+            ].join('\n');
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            statusEl.classList.remove('error');
+            statusEl.textContent = 'Sending report...';
+            submitBtn.disabled = true;
+
+            const payload = buildPayload();
+
+            try {
+                const response = await fetch(REPORT_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Submission failed (${response.status})`);
+                }
+
+                const result = await response.json();
+                statusEl.textContent = `Report sent. Ticket: ${result.report_id}`;
+                form.reset();
+                document.getElementById('version').value = '2.8.6';
+            } catch (error) {
+                statusEl.classList.add('error');
+                statusEl.textContent = `Could not send report directly. ${String(error)}. Use "Copy report text" and send it to said@saidborna.com.`;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            const payload = buildPayload();
+            try {
+                await navigator.clipboard.writeText(toReadableReport(payload));
+                statusEl.classList.remove('error');
+                statusEl.textContent = 'Report text copied. Paste it in email or support chat if needed.';
+            } catch {
+                statusEl.classList.add('error');
+                statusEl.textContent = 'Copy failed. Please copy the fields manually.';
+            }
+        });
+    </script>
+</body>
+
+</html>

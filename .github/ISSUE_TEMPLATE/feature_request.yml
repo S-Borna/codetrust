@@ -1,0 +1,66 @@
+# Copyright (c) Said Borna. All rights reserved.
+name: Feature request
+description: Propose an improvement or new capability for CodeTrust
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea.
+        Clear problem statements help us prioritize effectively.
+
+  - type: input
+    id: title
+    attributes:
+      label: Requested feature
+      placeholder: Short title for the request
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      options:
+        - VS Code extension
+        - CLI
+        - MCP server
+        - GitHub Action
+        - Cloud API
+        - Website/docs
+        - Chrome extension
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+      placeholder: Describe the current friction.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should CodeTrust do?
+      placeholder: Describe the expected behavior and UX.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or alternative approaches you've considered.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who benefits and how should this be prioritized?
+      placeholder: Team size, release urgency, blocked workflows.

@@ -93,10 +93,14 @@ class AuditLogger:
         if not self._enabled:
             return
 
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(self._path, "a", encoding="utf-8") as f:
-            f.write(entry.to_json() + "\n")
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._path, "a", encoding="utf-8") as f:
+                f.write(entry.to_json() + "\n")
+        except OSError as exc:
+            # Never crash caller paths (e.g. gateway startup) on audit I/O errors.
+            self._buffer.append(entry)
+            logger.warning("audit_write_failed path=%s error=%s", self._path, exc)
 
     def log_intercept(
         self,

@@ -76,6 +76,11 @@ interface PlatformTarget {
     /** Absolute path to the global config file. */
     filePath: string;
     /**
+     * Optional install probe directory used to detect whether the IDE is installed.
+     * If omitted, the parent directory of filePath is used.
+     */
+    installProbeDir?: string;
+    /**
      * Build the content to write. Receives existing file content (or empty string)
      * and returns the new full file content.
      */
@@ -104,17 +109,21 @@ function buildTargets(): PlatformTarget[] {
         {
             name: "Claude Code (~/.claude/CLAUDE.md)",
             filePath: path.join(home, ".claude", "CLAUDE.md"),
+            installProbeDir: path.join(home, ".claude"),
             buildContent: (existing) => appendToFile(existing),
         },
         {
             name: "Cursor (~/.cursor/rules/codetrust.mdc)",
             filePath: path.join(home, ".cursor", "rules", "codetrust.mdc"),
+            // Cursor can exist without creating ~/.cursor/rules until first rules write.
+            installProbeDir: path.join(home, ".cursor"),
             buildContent: (_existing) =>
                 `---\ndescription: CodeTrust governance rules — mandatory for all sessions\nalwaysApply: true\n---\n${RULES_BLOCK.trimStart()}\n`,
         },
         {
             name: "Windsurf (~/.codeium/windsurf/memories/global_rules.md)",
             filePath: path.join(home, ".codeium", "windsurf", "memories", "global_rules.md"),
+            installProbeDir: path.join(home, ".codeium", "windsurf"),
             buildContent: (existing) => appendToFile(existing),
         },
     ];
@@ -139,14 +148,18 @@ export async function injectUniversalInstructions(
     for (const target of targets) {
         try {
             const dir = path.dirname(target.filePath);
+            const probeDir = target.installProbeDir ?? dir;
 
             // Skip if the parent directory doesn't exist — IDE is not installed
-            if (!fs.existsSync(dir)) {
+            if (!fs.existsSync(probeDir)) {
                 outputChannel.appendLine(
                     `CodeTrust: Skipping ${target.name} — directory not found (IDE not installed).`,
                 );
                 continue;
             }
+
+            // Ensure nested rules directories exist for first-time injection.
+            fs.mkdirSync(dir, { recursive: true });
 
             const existing = fs.existsSync(target.filePath)
                 ? fs.readFileSync(target.filePath, "utf8")
@@ -260,6 +273,7 @@ export function watchForGovernanceDisruption(
 ): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
     const targets = buildTargets();
+    const RECHECK_DELAY_MS = 300;
 
     // ── Layer 1: watch existing injected files for overwrites ──────────────────
     for (const target of targets) {
@@ -271,8 +285,9 @@ export function watchForGovernanceDisruption(
         const base = path.basename(target.filePath);
         const pattern = new vscode.RelativePattern(dir, base);
         const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+        let pendingRecheck: NodeJS.Timeout | undefined;
 
-        const handleChange = (): void => {
+        const validateAndPromptIfMissing = (): void => {
             try {
                 if (!fs.existsSync(target.filePath)) {
                     return; // Deletion handled below
@@ -302,7 +317,19 @@ export function watchForGovernanceDisruption(
             }
         };
 
+        const handleChange = (): void => {
+            // Some editors write files via truncate-then-write and can trigger
+            // transient change events before final content is flushed.
+            if (pendingRecheck) {
+                clearTimeout(pendingRecheck);
+            }
+            pendingRecheck = setTimeout(validateAndPromptIfMissing, RECHECK_DELAY_MS);
+        };
+
         const handleDelete = (): void => {
+            if (pendingRecheck) {
+                clearTimeout(pendingRecheck);
+            }
             outputChannel.appendLine(
                 `CodeTrust: Config file deleted for ${target.name} — showing recovery prompt.`,
             );
@@ -320,8 +347,15 @@ export function watchForGovernanceDisruption(
                 });
         };
 
+        const timerDisposable = new vscode.Disposable(() => {
+            if (pendingRecheck) {
+                clearTimeout(pendingRecheck);
+            }
+        });
+
         disposables.push(
             watcher,
+            timerDisposable,
             watcher.onDidChange(handleChange),
             watcher.onDidDelete(handleDelete),
         );

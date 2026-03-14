@@ -121,6 +121,10 @@ interface ResolvedCommand {
     strategy: ResolutionStrategy;
 }
 
+interface ResolutionOptions {
+    portableOnly: boolean;
+}
+
 type ResolutionStrategy =
     | "path_script"
     | "venv_script"
@@ -227,12 +231,16 @@ function detectSourceRoot(): string | undefined {
  * Falls through strategies in priority order:
  *   1. Console script directly on PATH (fastest, pip-installed)
  *   2. uvx zero-install (downloads automatically, no pip needed)
- *   3. python3 -m module (requires source checkout in workspace)
+ *   3. python3 -m module (requires package importable in interpreter)
+ *
+ * For portable-only targets (global/user-level configs), workspace-coupled
+ * strategies are intentionally skipped to avoid machine-specific failures.
  */
 function resolveServerCommand(
     consoleScript: string,
     modulePath: string,
     outputChannel: vscode.OutputChannel,
+    options: ResolutionOptions,
 ): ResolvedCommand {
     // Strategy 1: Console script on PATH
     if (commandExistsOnPath(consoleScript)) {
@@ -242,9 +250,10 @@ function resolveServerCommand(
         return { command: consoleScript, strategy: "path_script" };
     }
 
-    // Strategy 2: Console script in venv bin/ (detects source root first)
     const sourceRoot = detectSourceRoot();
-    if (sourceRoot) {
+
+    // Strategy 2: Console script in venv bin/ (workspace-coupled; skip for portable)
+    if (!options.portableOnly && sourceRoot) {
         const venvScript = process.platform === "win32"
             ? path.join(sourceRoot, ".venv", "Scripts", consoleScript + ".exe")
             : path.join(sourceRoot, ".venv", "bin", consoleScript);
@@ -259,11 +268,11 @@ function resolveServerCommand(
     // Strategy 3: uvx zero-install
     if (commandExistsOnPath("uvx")) {
         outputChannel.appendLine(
-            `CodeTrust MCP: '${consoleScript}' not on PATH or in venv, but 'uvx' available — using zero-install.`,
+            `CodeTrust MCP: '${consoleScript}' not on PATH${options.portableOnly ? "" : " or in venv"}, but 'uvx' available — using zero-install (quiet).`,
         );
         return {
             command: "uvx",
-            args: ["--from", PYPI_PACKAGE_NAME, consoleScript],
+            args: ["-q", "--no-progress", "--from", PYPI_PACKAGE_NAME, consoleScript],
             strategy: "uvx",
         };
     }
@@ -290,7 +299,7 @@ function resolveServerCommand(
     }
 
     // Strategy 5: python3 -m with source root venv
-    if (sourceRoot) {
+    if (!options.portableOnly && sourceRoot) {
         const venvPython = process.platform === "win32"
             ? path.join(sourceRoot, ".venv", "Scripts", "python.exe")
             : path.join(sourceRoot, ".venv", "bin", "python");
@@ -308,7 +317,7 @@ function resolveServerCommand(
     }
 
     const python = process.platform === "win32" ? "python" : "python3";
-    if (sourceRoot && commandExistsOnPath(python)) {
+    if (!options.portableOnly && sourceRoot && commandExistsOnPath(python)) {
         outputChannel.appendLine(
             `CodeTrust MCP: Using '${python} -m ${modulePath}' with cwd=${sourceRoot}.`,
         );
@@ -343,8 +352,17 @@ function logResolutionDecision(
 }
 
 /** Build the Guardian MCP server entry with auto-detected command. */
-function buildGuardianEntry(outputChannel: vscode.OutputChannel, targetName: string): McpServerEntry {
-    const resolved = resolveServerCommand(GUARDIAN_COMMAND, GUARDIAN_MODULE, outputChannel);
+function buildGuardianEntry(
+    outputChannel: vscode.OutputChannel,
+    targetName: string,
+    portableOnly: boolean,
+): McpServerEntry {
+    const resolved = resolveServerCommand(
+        GUARDIAN_COMMAND,
+        GUARDIAN_MODULE,
+        outputChannel,
+        { portableOnly },
+    );
     logResolutionDecision(outputChannel, GUARDIAN_SERVER_NAME, targetName, resolved);
     return {
         command: resolved.command,
@@ -370,8 +388,14 @@ function buildGatewayEntry(
     outputChannel: vscode.OutputChannel,
     isWorkspaceTarget: boolean,
     targetName: string,
+    portableOnly: boolean,
 ): McpServerEntry {
-    const resolved = resolveServerCommand(GATEWAY_COMMAND, GATEWAY_MODULE, outputChannel);
+    const resolved = resolveServerCommand(
+        GATEWAY_COMMAND,
+        GATEWAY_MODULE,
+        outputChannel,
+        { portableOnly },
+    );
     logResolutionDecision(outputChannel, GATEWAY_SERVER_NAME, targetName, resolved);
 
     const entry: McpServerEntry = {
@@ -762,8 +786,10 @@ export async function injectMcpServerConfigs(
             modified = migrateWrongKeyEntries(config, target, outputChannel) || modified;
 
             // Inject Guardian if missing or upgrade from unresolvable fallback
+            const portableOnly = target.isWorkspaceTarget !== true;
+
             if (!serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey)) {
-                const guardianEntry = buildGuardianEntry(outputChannel, target.name);
+                const guardianEntry = buildGuardianEntry(outputChannel, target.name, portableOnly);
                 const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
                 const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
                 if (
@@ -782,7 +808,7 @@ export async function injectMcpServerConfigs(
                     modified = true;
                 }
             } else if (shouldUpgradeEntry(servers[GUARDIAN_SERVER_NAME], GUARDIAN_COMMAND)) {
-                const upgraded = buildGuardianEntry(outputChannel, target.name);
+                const upgraded = buildGuardianEntry(outputChannel, target.name, portableOnly);
                 const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
                 const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
                 if (
@@ -814,6 +840,7 @@ export async function injectMcpServerConfigs(
                     outputChannel,
                     target.isWorkspaceTarget === true,
                     target.name,
+                    portableOnly,
                 );
                 const globalGateway = globalServers[GATEWAY_SERVER_NAME];
                 const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));
@@ -837,6 +864,7 @@ export async function injectMcpServerConfigs(
                     outputChannel,
                     target.isWorkspaceTarget === true,
                     target.name,
+                    portableOnly,
                 );
                 const globalGateway = globalServers[GATEWAY_SERVER_NAME];
                 const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));

@@ -284,6 +284,12 @@ After ALL checks AND security gates pass:
 - [ ] No vague trust fallback messaging in extension runtime paths.
 - [ ] User-facing recovery prompts are concrete (for example, re-inject now).
 
+### DOD-T7: Claude Desktop Runtime Safety
+
+- [ ] Claude Desktop MCP smoke test passes for both `codetrust` and `codetrust-gateway` in a clean session.
+- [ ] Documentation examples do not default `CODETRUST_WORKSPACE` to Desktop/Documents/Downloads (TCC-protected paths).
+- [ ] MCP startup keeps stdout protocol-clean (no non-JSON bootstrap output before initialize response).
+
 ### Trust Verification Command (mandatory)
 
 ```bash

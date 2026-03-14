@@ -3,7 +3,9 @@
 """MCP server entry point — CodeTrust Layers 1-4 + SARIF + Deep Scan tools."""
 
 import json
+import logging
 import os
+import sys
 import time
 
 import httpx
@@ -32,6 +34,22 @@ from src.utils.parsers import (
     parse_dockerfile_from,
 )
 
+
+def _configure_mcp_stdio_logging() -> None:
+    """Route structured logs to stderr to keep stdout clean for JSON-RPC."""
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.add_log_level,
+            structlog.processors.KeyValueRenderer(key_order=["event"]),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        cache_logger_on_first_use=True,
+    )
+
+
+_configure_mcp_stdio_logging()
 logger = structlog.get_logger()
 
 

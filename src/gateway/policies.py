@@ -240,14 +240,19 @@ class PolicyEngine:
         codetrust_toml = workspace / ".codetrust.toml"
         pyproject_toml = workspace / "pyproject.toml"
 
-        if codetrust_toml.is_file():
-            with open(codetrust_toml, "rb") as f:
-                raw = tomllib.load(f)
-                return raw.get("codetrust", raw)
-        if pyproject_toml.is_file():
-            with open(pyproject_toml, "rb") as f:
-                raw = tomllib.load(f)
-                return raw.get("tool", {}).get("codetrust", {})
+        try:
+            if codetrust_toml.is_file():
+                with open(codetrust_toml, "rb") as f:
+                    raw = tomllib.load(f)
+                    return raw.get("codetrust", raw)
+            if pyproject_toml.is_file():
+                with open(pyproject_toml, "rb") as f:
+                    raw = tomllib.load(f)
+                    return raw.get("tool", {}).get("codetrust", {})
+        except (OSError, tomllib.TOMLDecodeError):
+            # If workspace files are unreadable (e.g. OS privacy controls),
+            # keep defaults so the gateway process remains startable.
+            return {}
         return {}
 
     @staticmethod

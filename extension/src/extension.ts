@@ -181,11 +181,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void injectUniversalInstructions(outputChannel);
     void injectMcpServerConfigs(outputChannel).then(() => {
         const health = verifyMcpServerHealth(outputChannel);
+        const actionableIssues = health.issues.filter(
+            (issue) => issue.problem !== "No workspace folder open",
+        );
         if (!health.healthy) {
+            if (actionableIssues.length === 0) {
+                outputChannel.appendLine(
+                    "CodeTrust MCP: No workspace folder open; skipping workspace-specific health checks.",
+                );
+                return;
+            }
             // Only show the popup warning once per VS Code session
             if (!mcpHealthWarningShownThisSession) {
                 mcpHealthWarningShownThisSession = true;
-                const summary = health.issues.map((i) => i.problem).join("; ");
+                const summary = actionableIssues.map((i) => i.problem).join("; ");
                 void vscode.window.showWarningMessage(
                     `CodeTrust: MCP setup issues found — ${summary}. See Output > CodeTrust for details.`,
                     "Show Details",

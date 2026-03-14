@@ -28,7 +28,9 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
 import time
 from dataclasses import asdict
 
@@ -48,6 +50,22 @@ from src.gateway.policy_integrity import (
 from src.services.governance_bundles import get_bundle_policy
 from src.telemetry_client import send_telemetry
 
+
+def _configure_mcp_stdio_logging() -> None:
+    """Route structured logs to stderr to keep stdout clean for JSON-RPC."""
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.add_log_level,
+            structlog.processors.KeyValueRenderer(key_order=["event"]),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        cache_logger_on_first_use=True,
+    )
+
+
+_configure_mcp_stdio_logging()
 logger = structlog.get_logger()
 
 SECONDS_PER_HOUR: int = 3_600
@@ -95,7 +113,20 @@ def _detect_agent() -> str:
     return "unknown"
 
 
-_engine = PolicyEngine.from_workspace(_workspace)
+def _load_policy_engine(workspace: str) -> PolicyEngine:
+    """Load workspace policy engine without crashing gateway startup."""
+    try:
+        return PolicyEngine.from_workspace(workspace)
+    except OSError as exc:
+        logger.warning(
+            "gateway_policy_engine_workspace_unreadable",
+            workspace=workspace,
+            error=str(exc),
+        )
+        return PolicyEngine()
+
+
+_engine = _load_policy_engine(_workspace)
 _interceptor = CommandInterceptor(
     enabled=_engine.active or _engine.auditing,
     disabled_rules=_engine.get_disabled_rules(),

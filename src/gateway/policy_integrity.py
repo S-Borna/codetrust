@@ -65,8 +65,12 @@ def _build_current_hashes(workspace: Path) -> dict[str, str]:
     file_hashes: dict[str, str] = {}
     for rel_path in POLICY_TARGET_FILES:
         full_path = workspace / rel_path
-        if full_path.is_file():
-            file_hashes[rel_path] = _sha256_file(full_path)
+        try:
+            if full_path.is_file():
+                file_hashes[rel_path] = _sha256_file(full_path)
+        except OSError:
+            # Unreadable files should not crash integrity checks.
+            continue
     return file_hashes
 
 
@@ -74,9 +78,12 @@ def get_policy_manifest_hash(workspace_path: str | Path) -> str:
     """Return SHA-256 hash of policy integrity manifest, or 'missing'."""
     workspace = Path(workspace_path)
     manifest_path = workspace / POLICY_INTEGRITY_MANIFEST_REL
-    if not manifest_path.is_file():
+    try:
+        if not manifest_path.is_file():
+            return "missing"
+        return _sha256_file(manifest_path)
+    except OSError:
         return "missing"
-    return _sha256_file(manifest_path)
 
 
 def create_policy_integrity_manifest(

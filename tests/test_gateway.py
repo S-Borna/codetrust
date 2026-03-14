@@ -546,6 +546,18 @@ block_suspicious_packages = false
         assert engine.config.verify_before_install is False
         assert engine.config.block_suspicious_packages is False
 
+    def test_from_workspace_permission_denied_uses_defaults(self, tmp_path: Path) -> None:
+        (tmp_path / ".codetrust.toml").write_text('[codetrust.governance]\nmode = "audit"\n')
+
+        def _raise_permission(*_args: object, **_kwargs: object) -> object:
+            raise PermissionError("denied")
+
+        with patch("builtins.open", side_effect=_raise_permission):
+            engine = PolicyEngine.from_workspace(tmp_path)
+
+        assert engine.config.enabled is True
+        assert engine.config.mode == GovernanceMode.ENFORCE
+
 
 # ═══════════════════════════════════════════════════════════════
 #  AuditLogger tests
@@ -605,6 +617,27 @@ class TestAuditLogger:
         )
         logger.log(entry)
         assert not log_path.exists()
+
+    def test_log_permission_error_buffers_entry(self, log_path: Path) -> None:
+        logger = AuditLogger(log_path)
+        entry = AuditEntry(
+            timestamp=time.time(),
+            action_type="terminal_command",
+            verdict="BLOCK",
+            rule_id="gateway_test",
+            original_action="echo test",
+            message="test",
+            suggestion="",
+        )
+
+        def _raise_permission(*_args: object, **_kwargs: object) -> object:
+            raise PermissionError("denied")
+
+        with patch("builtins.open", side_effect=_raise_permission):
+            logger.log(entry)
+
+        assert len(logger._buffer) == 1
+        assert logger._buffer[0].rule_id == "gateway_test"
 
     def test_log_intercept(self, logger: AuditLogger) -> None:
         interceptor = CommandInterceptor()

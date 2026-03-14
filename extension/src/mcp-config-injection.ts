@@ -25,7 +25,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 
 /** Marker comment embedded in injected entries (stored as a field). */
 const MCP_INJECTION_MARKER = "codetrust-auto-injected";
@@ -174,6 +174,17 @@ function commandExistsOnPath(cmd: string): boolean {
     }
 }
 
+/** Check whether a Python executable can import a module path. */
+function pythonCanImportModule(pythonCommand: string, modulePath: string): boolean {
+    try {
+        const probeCode = `import importlib.util,sys;sys.exit(0 if importlib.util.find_spec(${JSON.stringify(modulePath)}) else 1)`;
+        const result = spawnSync(pythonCommand, ["-c", probeCode], { stdio: "ignore" });
+        return result.status === 0;
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Detect the CodeTrust source repository root.
  *
@@ -244,7 +255,27 @@ function resolveServerCommand(
         };
     }
 
-    // Strategy 4: python3 -m with source root venv
+    // Strategy 4: Use Python module execution if package is importable
+    const pythonCandidates = process.platform === "win32"
+        ? ["python", "py"]
+        : ["python3", "python"];
+    for (const pythonCommand of pythonCandidates) {
+        if (!commandExistsOnPath(pythonCommand)) {
+            continue;
+        }
+        if (!pythonCanImportModule(pythonCommand, modulePath)) {
+            continue;
+        }
+        outputChannel.appendLine(
+            `CodeTrust MCP: '${consoleScript}' not on PATH, using '${pythonCommand} -m ${modulePath}'.`,
+        );
+        return {
+            command: pythonCommand,
+            args: ["-m", modulePath],
+        };
+    }
+
+    // Strategy 5: python3 -m with source root venv
     if (sourceRoot) {
         const venvPython = process.platform === "win32"
             ? path.join(sourceRoot, ".venv", "Scripts", "python.exe")
@@ -563,6 +594,11 @@ function isCommandResolvable(entry: McpServerEntry): boolean {
     return commandExistsOnPath(cmd);
 }
 
+/** Return true when entry is a bare fallback command that still is not resolvable. */
+function isUnresolvableBareFallback(entry: McpServerEntry, bareCommand: string): boolean {
+    return entry.command === bareCommand && !commandExistsOnPath(bareCommand);
+}
+
 /**
  * Migrate CodeTrust entries from the wrong JSON key to the correct one.
  *
@@ -649,6 +685,17 @@ export async function injectMcpServerConfigs(
     const targets = buildMcpTargets();
     const injectedTargets: string[] = [];
 
+    const globalTarget = targets.find(
+        (target) => target.name.startsWith("VS Code Global") && target.serversKey === "servers",
+    );
+    let globalServers: Record<string, McpServerEntry> = {};
+    if (globalTarget) {
+        const globalConfig = readMcpConfig(globalTarget.filePath);
+        if (globalConfig?.servers) {
+            globalServers = globalConfig.servers;
+        }
+    }
+
     for (const target of targets) {
         try {
             const dir = path.dirname(target.filePath);
@@ -682,14 +729,39 @@ export async function injectMcpServerConfigs(
 
             // Inject Guardian if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey)) {
-                servers[GUARDIAN_SERVER_NAME] = buildGuardianEntry(outputChannel);
-                outputChannel.appendLine(
-                    `CodeTrust MCP: Added '${GUARDIAN_SERVER_NAME}' server → ${target.name}`,
-                );
-                modified = true;
+                const guardianEntry = buildGuardianEntry(outputChannel);
+                const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
+                const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
+                if (
+                    target.isWorkspaceTarget === true
+                    && isUnresolvableBareFallback(guardianEntry, GUARDIAN_COMMAND)
+                    && canUseGlobalGuardian
+                ) {
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Skipping unresolved workspace '${GUARDIAN_SERVER_NAME}' in ${target.name}; using resolvable global entry.`,
+                    );
+                } else {
+                    servers[GUARDIAN_SERVER_NAME] = guardianEntry;
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Added '${GUARDIAN_SERVER_NAME}' server → ${target.name}`,
+                    );
+                    modified = true;
+                }
             } else if (shouldUpgradeEntry(servers[GUARDIAN_SERVER_NAME], GUARDIAN_COMMAND)) {
                 const upgraded = buildGuardianEntry(outputChannel);
-                if (upgraded.command !== GUARDIAN_COMMAND) {
+                const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
+                const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
+                if (
+                    target.isWorkspaceTarget === true
+                    && isUnresolvableBareFallback(upgraded, GUARDIAN_COMMAND)
+                    && canUseGlobalGuardian
+                ) {
+                    delete servers[GUARDIAN_SERVER_NAME];
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Removed unresolved workspace '${GUARDIAN_SERVER_NAME}' in ${target.name}; falling back to global entry.`,
+                    );
+                    modified = true;
+                } else if (upgraded.command !== GUARDIAN_COMMAND) {
                     servers[GUARDIAN_SERVER_NAME] = upgraded;
                     outputChannel.appendLine(
                         `CodeTrust MCP: Upgraded '${GUARDIAN_SERVER_NAME}' command → ${upgraded.command} (${target.name})`,
@@ -704,14 +776,39 @@ export async function injectMcpServerConfigs(
 
             // Inject Gateway if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GATEWAY_SERVER_NAME, target.serversKey)) {
-                servers[GATEWAY_SERVER_NAME] = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
-                outputChannel.appendLine(
-                    `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
-                );
-                modified = true;
+                const gatewayEntry = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
+                const globalGateway = globalServers[GATEWAY_SERVER_NAME];
+                const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));
+                if (
+                    target.isWorkspaceTarget === true
+                    && isUnresolvableBareFallback(gatewayEntry, GATEWAY_COMMAND)
+                    && canUseGlobalGateway
+                ) {
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Skipping unresolved workspace '${GATEWAY_SERVER_NAME}' in ${target.name}; using resolvable global entry.`,
+                    );
+                } else {
+                    servers[GATEWAY_SERVER_NAME] = gatewayEntry;
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Added '${GATEWAY_SERVER_NAME}' server → ${target.name}`,
+                    );
+                    modified = true;
+                }
             } else if (shouldUpgradeEntry(servers[GATEWAY_SERVER_NAME], GATEWAY_COMMAND)) {
                 const upgraded = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
-                if (upgraded.command !== GATEWAY_COMMAND) {
+                const globalGateway = globalServers[GATEWAY_SERVER_NAME];
+                const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));
+                if (
+                    target.isWorkspaceTarget === true
+                    && isUnresolvableBareFallback(upgraded, GATEWAY_COMMAND)
+                    && canUseGlobalGateway
+                ) {
+                    delete servers[GATEWAY_SERVER_NAME];
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Removed unresolved workspace '${GATEWAY_SERVER_NAME}' in ${target.name}; falling back to global entry.`,
+                    );
+                    modified = true;
+                } else if (upgraded.command !== GATEWAY_COMMAND) {
                     servers[GATEWAY_SERVER_NAME] = upgraded;
                     outputChannel.appendLine(
                         `CodeTrust MCP: Upgraded '${GATEWAY_SERVER_NAME}' command → ${upgraded.command} (${target.name})`,
@@ -727,6 +824,10 @@ export async function injectMcpServerConfigs(
             if (modified) {
                 writeMcpConfig(target.filePath, config);
                 injectedTargets.push(target.name);
+
+                if (target === globalTarget && config.servers) {
+                    globalServers = config.servers;
+                }
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -817,9 +918,21 @@ export function verifyMcpServerHealth(
         for (const serverName of [GUARDIAN_SERVER_NAME, GATEWAY_SERVER_NAME]) {
             const workspaceEntry = workspaceServers[serverName];
             const globalEntry = globalServers[serverName];
-            const chosenEntry = workspaceEntry ?? globalEntry;
 
-            if (!chosenEntry) {
+            if (workspaceEntry && isCommandResolvable(workspaceEntry)) {
+                continue;
+            }
+
+            if (globalEntry && isCommandResolvable(globalEntry)) {
+                if (workspaceEntry && !isCommandResolvable(workspaceEntry)) {
+                    outputChannel.appendLine(
+                        `CodeTrust MCP: Workspace '${serverName}' command unresolved in ${folder.name}; using resolvable global entry.`,
+                    );
+                }
+                continue;
+            }
+
+            if (!workspaceEntry && !globalEntry) {
                 issues.push({
                     target: folder.name,
                     problem: `Server '${serverName}' missing from workspace and global MCP config`,
@@ -828,17 +941,13 @@ export function verifyMcpServerHealth(
                 continue;
             }
 
-            if (!isCommandResolvable(chosenEntry)) {
-                let source = "global User/mcp.json";
-                if (workspaceEntry) {
-                    source = ".vscode/mcp.json";
-                }
-                issues.push({
-                    target: folder.name,
-                    problem: `Server '${serverName}' command not resolvable in ${source}: ${chosenEntry.command}`,
-                    fix: "Install codetrust: pip install codetrust",
-                });
-            }
+            const unresolvedSource = workspaceEntry ? ".vscode/mcp.json" : "global User/mcp.json";
+            const unresolvedCommand = workspaceEntry ? workspaceEntry.command : globalEntry?.command ?? "<missing>";
+            issues.push({
+                target: folder.name,
+                problem: `Server '${serverName}' command not resolvable in ${unresolvedSource}: ${unresolvedCommand}`,
+                fix: "Install codetrust in a Python environment visible to VS Code, then run 'CodeTrust: Inject MCP Server Configs'.",
+            });
         }
     }
 

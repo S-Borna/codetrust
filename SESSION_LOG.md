@@ -3414,3 +3414,36 @@ Real user count analysis performed:
 
 - `main` now includes Plan A Phase 1B implementation and initial Phase 1 deterministic resolution slice.
 - Next implementation target: Phase 2 self-healing orchestration refinements and startup matrix hardening.
+
+## [2026-03-14 23:34] Checkpoint — Feedback intake + SMTP verified and release commits prepared
+### Accomplished
+
+- Commit: `2880da68`
+  - Added public feedback intake endpoint and models: `POST /v1/feedback/report`.
+  - Added report page and issue templates for bug/feature intake.
+  - Added SMTP delivery path with async dispatch and structured feedback payloads.
+- Commit: `06a07c84`
+  - Hardened MCP/gateway startup against unreadable policy/audit files.
+  - Routed MCP structured logging to stderr to keep stdout JSON-RPC clean.
+  - Reduced extension startup noise and improved MCP resolution/instruction watcher stability.
+- Commit: `44e3ed3c`
+  - Synced 2.8.6 release metadata/docs/changelogs and metrics.
+  - Updated website topbar support/report UX and release counters.
+
+### Validation
+
+- `ruff check src tests scripts/generate_metrics.py` => pass.
+- `npm --prefix extension run compile` => pass.
+- `python -m compileall src` => pass.
+- `pytest -q` => `1952 passed, 2 skipped`.
+- SMTP runtime verification (local) => `feedback_report_email_sent` and mail received in Zoho.
+
+### CI / Deploy State
+
+- Local quality gates pass for this change set.
+- Production API currently reports `v2.8.5`; live `POST /v1/feedback/report` returns 404 until these commits are pushed/deployed.
+
+### Current State
+
+- Working tree clean with 3 scoped commits ready to push.
+- No `git push` executed (user-owned step).

@@ -14,7 +14,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -91,11 +91,18 @@ def count_mcp_tools_gateway() -> int:
 
 
 def count_api_endpoints() -> int:
-    """Count REST API route registrations."""
-    return count_pattern(
-        SRC / "api.py",
-        r"@app\.(get|post|put|delete|patch)|app\.add_route",
-    )
+    """Count public REST API endpoints from OpenAPI paths."""
+    try:
+        from src.api import app
+
+        schema = app.openapi()
+        return len(schema.get("paths", {}))
+    except Exception:
+        # Fallback to decorator counting if OpenAPI generation fails.
+        return count_pattern(
+            SRC / "api.py",
+            r"@app\.(get|post|put|delete|patch)|app\.add_route",
+        )
 
 
 def count_tests() -> int:
@@ -144,7 +151,7 @@ def generate() -> dict:
 
     metrics = {
         "version": get_version(),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "scan_rules": scan_rules,
         "enterprise_rule_ids": count_enterprise_rule_ids(),
         "gateway_terminal_rules": terminal_rules,

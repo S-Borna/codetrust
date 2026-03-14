@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.5</code> &middot; <code>1952 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.8.6</code> &middot; <code>1954 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 62 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,952 tests.
+**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 54 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,954 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -46,8 +46,22 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v2.8.5`
-- **Release highlights:** Vision-complete release. All 22 PRODUCT.md promises verified against code. 10-language AST analysis, 1100+ typosquatting-protected packages, signature validation (50 modules, 405 functions), full AI Governance Gateway (82 rules, 17 MCP tools).
+- **Current release:** `v2.8.6`
+- **Release highlights:** Reliability hardening release for MCP startup, governance enforcement continuity, and cross-IDE consistency.
+
+### What's New in v2.8.6
+
+- Claude Desktop MCP startup resilience: gateway/scan startup no longer crashes on unreadable workspace policy/audit paths.
+- Protocol-safe stdio behavior: server logs routed to stderr to keep JSON-RPC stdout clean.
+- Portable MCP runtime resolution for global targets to avoid workspace-bound `.venv` assumptions.
+- Extension startup hardening: non-actionable no-workspace warnings reduced and governance disruption detection made less noisy.
+- Formal user intake: structured bug-report and feature-request forms now available.
+
+### What's Coming Next
+
+- Compliance policy packs (SOC 2 / ISO 27001 / PCI-DSS presets).
+- Org-level governance alerting for drift and repeat BLOCK events.
+- Exception lifecycle hardening with expiration and escalation ownership.
 
 ---
 
@@ -227,9 +241,9 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 62 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **REST API** | 54 endpoints with rate limiting | Integrate into any pipeline or platform |
 
 ---
 
@@ -329,7 +343,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.8.5
+      - uses: S-Borna/codetrust@v2.8.6
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -391,6 +405,34 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
+Recommended for stable Claude Desktop startup:
+
+- Set `CODETRUST_WORKSPACE` to a non-TCC path (for example `~/Projects/your-repo` or `~/codetrust-workspace`).
+- Avoid pointing runtime workspace to macOS-protected folders like Desktop, Documents, or Downloads.
+- Prefer installed binaries from `pip`/`pipx` (`codetrust-mcp`, `codetrust-gateway-mcp`).
+- If using `uvx` fallback, run it in quiet mode to keep stdio clean:
+
+```json
+{
+  "mcpServers": {
+    "codetrust": {
+      "command": "/opt/homebrew/bin/uvx",
+      "args": ["-q", "--no-progress", "--from", "codetrust", "codetrust-mcp"],
+      "env": {
+        "CODETRUST_WORKSPACE": "/Users/you/codetrust-workspace"
+      }
+    },
+    "codetrust-gateway": {
+      "command": "/opt/homebrew/bin/uvx",
+      "args": ["-q", "--no-progress", "--from", "codetrust", "codetrust-gateway-mcp"],
+      "env": {
+        "CODETRUST_WORKSPACE": "/Users/you/codetrust-workspace"
+      }
+    }
+  }
+}
+```
+
 ### Setup: Cursor
 
 Add to `.cursor/mcp.json` in your project root:
@@ -425,7 +467,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
-Requires `pip install codetrust` so that `codetrust-mcp` and `codetrust-gateway-mcp` are on your PATH.
+Requires `pip install codetrust` (or `pipx install codetrust`) so that `codetrust-mcp` and `codetrust-gateway-mcp` are on your PATH.
 
 ---
 
@@ -626,10 +668,18 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
+
+---
+
+## Support & Feedback
+
+- Report a bug: [CodeTrust Report Form](https://codetrust.ai/report.html)
+- Request a feature: [CodeTrust Request Form](https://codetrust.ai/report.html)
+- Security disclosures: follow [SECURITY.md](SECURITY.md)
 
 ---
 
@@ -637,7 +687,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1952 tests
+pytest                     # 1954 tests
 ruff check .               # zero warnings
 ```
 

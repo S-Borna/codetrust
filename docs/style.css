@@ -234,6 +234,20 @@
             box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
         }
 
+        .topbar-support {
+            margin-left: 0.35rem;
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            background: rgba(59, 130, 246, 0.12);
+            color: #bfdbfe !important;
+            font-weight: 600 !important;
+        }
+
+        .topbar-support:hover {
+            background: rgba(59, 130, 246, 0.2) !important;
+            border-color: rgba(147, 197, 253, 0.75);
+            color: #eff6ff !important;
+        }
+
         .mobile-toggle {
             display: none;
             background: none;
@@ -2214,6 +2228,13 @@
                 margin-left: 0 !important;
                 margin-top: 0.5rem;
                 text-align: center;
+                justify-content: center;
+                min-height: 48px;
+            }
+
+            .topbar-support {
+                margin-left: 0;
+                margin-top: 0.4rem;
                 justify-content: center;
                 min-height: 48px;
             }

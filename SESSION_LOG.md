@@ -3391,3 +3391,26 @@ Real user count analysis performed:
 
 - No new Plan A implementation code started.
 - Awaiting explicit user approval before executing roadmap phases.
+
+## [2026-03-14 15:32] Checkpoint — Plan A execution started (Phase 1B + Phase 1 slice)
+
+### Accomplished
+
+- Commit: `34910842`
+  - Started Plan A implementation with first-class JSON/JSONC support.
+  - Extension: activation, language map, workspace scan, parser exhaustiveness.
+  - Backend: added `Language.JSON` and extension-based `.json/.jsonc` detection.
+  - Tests: extension types tests + backend model and cross-file detection tests.
+- Commit: `8e72d28d`
+  - Implemented deterministic MCP resolution metadata and structured one-line decision logs in `extension/src/mcp-config-injection.ts`.
+
+### Validation
+
+- Extension compile: `npm --prefix extension run compile` => pass.
+- Extension tests: `npm --prefix extension test` => `94 passing`.
+- Backend targeted tests: `tests/test_models.py` + `tests/test_enterprise_features.py` => `87 passed, 0 failed`.
+
+### Current State
+
+- `main` now includes Plan A Phase 1B implementation and initial Phase 1 deterministic resolution slice.
+- Next implementation target: Phase 2 self-healing orchestration refinements and startup matrix hardening.

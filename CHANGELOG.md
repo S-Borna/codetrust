@@ -7,18 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### What's Coming
+
+- Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets.
+- Org-level governance alerting for drift and repeat BLOCK events.
+- Exception lifecycle tightening with owner assignment and escalation rules.
+
+## [2.8.6] - 2026-03-14
+
 ### What's New (since 2.8.5)
+
+### Added
+
+- Formal issue intake via GitHub issue templates for bug reports and feature requests.
+- Public report form route with direct API intake (`/v1/feedback/report`) so users can submit without repository access or local mail client dependency.
 
 ### Fixed
 
 - Cross-platform CI stability hardening for Windows path/permission edge cases in telemetry and test cleanup paths.
 - Trust DOD execution in release smoke now reuses already-passed test gates to avoid redundant flaky reruns.
+- Claude Desktop MCP startup reliability hardened for existing users: gateway/scan startup no longer crashes on unreadable workspace policy/audit files.
+- MCP stdio transport hardened: server logging is routed to stderr, preventing JSON-RPC corruption from stdout noise.
+- MCP runtime auto-resolution for global targets now prefers portable commands and avoids workspace-bound `.venv` defaults.
 
 ### Changed
 
 - Release metadata and public counters synchronized to current measured values (tests/endpoints).
-- Website and release sign-off documentation aligned with 2.8.5 publication and verification evidence.
-- Chrome extension release surfaces synchronized to 2.8.5 for store and runtime consistency.
+- Website and release sign-off documentation aligned with 2.8.6 publication and verification evidence.
+- Chrome extension release surfaces synchronized to 2.8.6 for store and runtime consistency.
+- Documentation now recommends non-TCC workspace paths (for example `~/Projects` or `~/codetrust-workspace`) for Claude Desktop MCP runtime stability.
 
 ## [2.8.5] - 2026-03-13
 

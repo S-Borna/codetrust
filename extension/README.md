@@ -13,15 +13,13 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.8.5
+## What's New in 2.8.6
 
-- **GitHub App integration** — automatic pull request comments with CodeTrust results.
-- **SBOM generation** — CycloneDX and SPDX JSON output for supply-chain workflows.
-- **Signature Validation expansion** — curated database now covers 50 modules and 405 functions.
-- **Stronger extension reliability** — MCP recovery and scan stability hardening.
-- **MCP config self-healing** — malformed config recovery and prompt deduplication in auto-injection paths.
-- **Expanded IDE quick-fixes** — targeted fixes for `bare except` and hardcoded secrets.
-- **Release-smoke confidence gate** — tighter pre-release validation for extension + governance flows.
+- **MCP startup reliability hardening** — safer command resolution for global targets with reduced workspace-coupled failures.
+- **Cleaner startup UX** — suppresses non-actionable MCP warning popups when no workspace is open.
+- **Governance watcher stability** — debounce/recheck flow reduces transient false-positive overwrite prompts.
+- **Claude Desktop guidance** — docs now explicitly recommend non-TCC workspace paths and quiet `uvx` fallback args.
+- **Formal feedback intake** — direct bug report and feature request forms linked from extension docs.
 
 ---
 
@@ -144,9 +142,9 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.5` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` |
 | **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
-| **REST API** | 62 endpoints |
+| **REST API** | 54 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---
@@ -166,6 +164,8 @@ All scan rules work offline. Import verification, AI governance, and deep scanni
 - [Website](https://codetrust.ai)
 - [PyPI](https://pypi.org/project/codetrust/)
 - [Changelog](https://codetrust.ai)
+- [Report a bug](https://codetrust.ai/report.html)
+- [Request a feature](https://codetrust.ai/report.html)
 
 ---
 

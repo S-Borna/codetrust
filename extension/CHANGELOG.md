@@ -7,17 +7,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### What's Coming
+
+- Additional governance disruption telemetry for faster root-cause diagnosis in mixed IDE environments.
+- Expanded startup checks for first-run IDE profile bootstrap scenarios.
+
+## [2.8.6] - 2026-03-14
+
 ### What's New (since 2.8.5)
 
 ### Fixed
 
 - Release smoke and trust verification flow hardened for cross-platform CI reliability.
 - Additional Windows-specific stability fixes for test and runtime edge cases.
+- Claude Desktop MCP startup path hardened for existing users by avoiding workspace-bound global runtime defaults.
+- Global MCP auto-resolution now prefers portable command strategies and safer upgrade behavior.
+- Runtime fallback startup behavior refined to reduce transport noise during initialization.
 
 ### Changed
 
 - Release metadata and public-facing counters synchronized to current measured values.
-- Chrome extension release surfaces aligned to 2.8.5 for store/runtime consistency.
+- Chrome extension release surfaces aligned to 2.8.6 for store/runtime consistency.
+- Docs and release guidance now call out safer non-protected workspace locations for stable desktop runtime behavior.
+
+### Added
+
+- Formal bug/feature intake links in extension-facing documentation.
+- Public report form workflow for direct submission to CodeTrust intake endpoints.
 
 ## [2.8.5] - 2026-03-13
 
@@ -53,7 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- Corrected injected governance tool-name references to actual MCP gateway tools (`mcp_codetrust-gat_codetrust_*`) so new sessions use resolvable tool names.
+- Corrected injected governance tool references so new sessions use resolvable runtime tools.
 - Hardened MCP runtime resolution to reduce cross-workspace availability regressions.
 - Improved environment/runtime selection order for more predictable startup behavior.
 

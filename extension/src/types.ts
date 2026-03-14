@@ -25,6 +25,7 @@ export type Language =
     | "typescript"
     | "go"
     | "rust"
+    | "json"
     | "sql"
     | "yaml"
     | "java"
@@ -185,6 +186,8 @@ export const LANGUAGE_MAP: Record<string, Language> = {
     javascriptreact: "javascript",
     go: "go",
     rust: "rust",
+    json: "json",
+    jsonc: "json",
     sql: "sql",
     yaml: "yaml",
     java: "java",

@@ -232,6 +232,8 @@ def detect_language_from_extension(filepath: str) -> Language | None:
         ".ts": Language.TYPESCRIPT,
         ".tsx": Language.TYPESCRIPT,
         ".go": Language.GO,
+        ".json": Language.JSON,
+        ".jsonc": Language.JSON,
         ".java": Language.JAVA,
         ".cs": Language.CSHARP,
         ".rs": Language.RUST,

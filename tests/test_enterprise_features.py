@@ -450,6 +450,8 @@ class TestCrossFileAnalyzer:
         assert detect_language_from_extension("test.py") == Language.PYTHON
         assert detect_language_from_extension("app.js") == Language.JAVASCRIPT
         assert detect_language_from_extension("file.ts") == Language.TYPESCRIPT
+        assert detect_language_from_extension("config.json") == Language.JSON
+        assert detect_language_from_extension("settings.jsonc") == Language.JSON
         assert detect_language_from_extension("main.go") == Language.GO
         assert detect_language_from_extension("Main.java") == Language.JAVA
         assert detect_language_from_extension("App.cs") == Language.CSHARP

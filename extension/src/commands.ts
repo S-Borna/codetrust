@@ -951,7 +951,7 @@ async function scanWorkspaceCommand(deps: CommandDeps): Promise<void> {
     }
 
     const config = getConfig();
-    const supportedExts = ["py", "js", "ts", "tsx", "jsx", "go", "rs", "sql", "yaml", "yml"];
+    const supportedExts = ["py", "js", "ts", "tsx", "jsx", "go", "rs", "json", "jsonc", "sql", "yaml", "yml"];
     const globPattern = `**/*.{${supportedExts.join(",")}}`;
     const excludePattern = "{**/node_modules/**,**/.venv/**,**/dist/**,**/build/**,**/__pycache__/**,**/out/**,**/.next/**,**/coverage/**}";
 

@@ -37,6 +37,14 @@ suite("Types Tests", () => {
             assert.strictEqual(LANGUAGE_MAP["rust"], "rust");
         });
 
+        test("maps json", () => {
+            assert.strictEqual(LANGUAGE_MAP["json"], "json");
+        });
+
+        test("maps jsonc to json", () => {
+            assert.strictEqual(LANGUAGE_MAP["jsonc"], "json");
+        });
+
         test("returns undefined for unknown languages", () => {
             assert.strictEqual(LANGUAGE_MAP["fortran"], undefined);
             assert.strictEqual(LANGUAGE_MAP["pascal"], undefined);

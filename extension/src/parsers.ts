@@ -19,6 +19,8 @@ export function extractImports(code: string, language: Language): string[] {
             return extractGoImports(code);
         case "rust":
             return extractRustImports(code);
+        case "json":
+            return [];
         case "sql":
         case "yaml":
         case "shell":

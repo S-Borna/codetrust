@@ -3378,3 +3378,16 @@ Real user count analysis performed:
 
 - `main` is clean at `6d01ac71`.
 - No `git push` performed (user-owned step).
+
+## [2026-03-14 00:00] Checkpoint — Plan A roadmap checkpointed (awaiting approval)
+
+### Accomplished
+
+- Updated repository memory context with MCP reliability state and next-step constraints.
+- Added detailed roadmap doc: `docs/PLAN_A_MCP_STARTUP_ROADMAP.md`.
+- Roadmap includes root causes, VSX patch release phase, deterministic Plan A phases, risks, controls, and Definition of Done.
+
+### Current State
+
+- No new Plan A implementation code started.
+- Awaiting explicit user approval before executing roadmap phases.

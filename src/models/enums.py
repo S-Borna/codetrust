@@ -33,6 +33,7 @@ class Language(StrEnum):
     TYPESCRIPT = "typescript"
     GO = "go"
     RUST = "rust"
+    JSON = "json"
     JAVA = "java"
     CSHARP = "csharp"
     CPP = "cpp"

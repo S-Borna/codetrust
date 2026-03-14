@@ -47,6 +47,7 @@ class TestEnums:
         assert Language.TYPESCRIPT == "typescript"
         assert Language.GO == "go"
         assert Language.RUST == "rust"
+        assert Language.JSON == "json"
 
     def test_registry_values(self) -> None:
         assert Registry.PYPI == "pypi"

@@ -53,6 +53,8 @@ interface McpServerEntry {
     env?: Record<string, string>;
     /** Internal marker — not consumed by IDEs. */
     _injectedBy?: string;
+    /** Internal: selected resolution strategy for deterministic upgrades. */
+    _resolvedStrategy?: ResolutionStrategy;
 }
 
 /**
@@ -116,7 +118,17 @@ interface ResolvedCommand {
     command: string;
     args?: string[];
     cwd?: string;
+    strategy: ResolutionStrategy;
 }
+
+type ResolutionStrategy =
+    | "path_script"
+    | "venv_script"
+    | "uvx"
+    | "python_module"
+    | "venv_python_module"
+    | "source_python_module"
+    | "bare_fallback";
 
 function isCodeTrustRoot(rootDir: string): boolean {
     const pyprojectPath = path.join(rootDir, "pyproject.toml");
@@ -227,7 +239,7 @@ function resolveServerCommand(
         outputChannel.appendLine(
             `CodeTrust MCP: '${consoleScript}' found on PATH — using direct invocation.`,
         );
-        return { command: consoleScript };
+        return { command: consoleScript, strategy: "path_script" };
     }
 
     // Strategy 2: Console script in venv bin/ (detects source root first)
@@ -240,7 +252,7 @@ function resolveServerCommand(
             outputChannel.appendLine(
                 `CodeTrust MCP: Found '${venvScript}' in venv — using direct invocation.`,
             );
-            return { command: venvScript };
+            return { command: venvScript, strategy: "venv_script" };
         }
     }
 
@@ -252,6 +264,7 @@ function resolveServerCommand(
         return {
             command: "uvx",
             args: ["--from", PYPI_PACKAGE_NAME, consoleScript],
+            strategy: "uvx",
         };
     }
 
@@ -272,6 +285,7 @@ function resolveServerCommand(
         return {
             command: pythonCommand,
             args: ["-m", modulePath],
+            strategy: "python_module",
         };
     }
 
@@ -288,6 +302,7 @@ function resolveServerCommand(
                 command: venvPython,
                 args: ["-m", modulePath],
                 cwd: sourceRoot,
+                strategy: "venv_python_module",
             };
         }
     }
@@ -301,6 +316,7 @@ function resolveServerCommand(
             command: python,
             args: ["-m", modulePath],
             cwd: sourceRoot,
+            strategy: "source_python_module",
         };
     }
 
@@ -310,17 +326,32 @@ function resolveServerCommand(
         `CodeTrust MCP: WARNING — '${consoleScript}' not found on PATH, 'uvx' not available, ` +
         `no source root detected. Writing '${consoleScript}' — server may fail to start.`,
     );
-    return { command: consoleScript };
+    return { command: consoleScript, strategy: "bare_fallback" };
+}
+
+function logResolutionDecision(
+    outputChannel: vscode.OutputChannel,
+    serverName: string,
+    targetName: string,
+    resolved: ResolvedCommand,
+): void {
+    const args = resolved.args ? resolved.args.join(" ") : "";
+    const cwd = resolved.cwd ?? "";
+    outputChannel.appendLine(
+        `CodeTrust MCP Decision | server=${serverName} target=${targetName} strategy=${resolved.strategy} command=${resolved.command} args=${args} cwd=${cwd}`,
+    );
 }
 
 /** Build the Guardian MCP server entry with auto-detected command. */
-function buildGuardianEntry(outputChannel: vscode.OutputChannel): McpServerEntry {
+function buildGuardianEntry(outputChannel: vscode.OutputChannel, targetName: string): McpServerEntry {
     const resolved = resolveServerCommand(GUARDIAN_COMMAND, GUARDIAN_MODULE, outputChannel);
+    logResolutionDecision(outputChannel, GUARDIAN_SERVER_NAME, targetName, resolved);
     return {
         command: resolved.command,
         ...(resolved.args && { args: resolved.args }),
         ...(resolved.cwd && { cwd: resolved.cwd }),
         _injectedBy: MCP_INJECTION_MARKER,
+        _resolvedStrategy: resolved.strategy,
     };
 }
 
@@ -338,14 +369,17 @@ const VSCODE_WORKSPACE_VAR = "${workspaceFolder}";
 function buildGatewayEntry(
     outputChannel: vscode.OutputChannel,
     isWorkspaceTarget: boolean,
+    targetName: string,
 ): McpServerEntry {
     const resolved = resolveServerCommand(GATEWAY_COMMAND, GATEWAY_MODULE, outputChannel);
+    logResolutionDecision(outputChannel, GATEWAY_SERVER_NAME, targetName, resolved);
 
     const entry: McpServerEntry = {
         command: resolved.command,
         ...(resolved.args && { args: resolved.args }),
         ...(resolved.cwd && { cwd: resolved.cwd }),
         _injectedBy: MCP_INJECTION_MARKER,
+        _resolvedStrategy: resolved.strategy,
     };
 
     // Only inject ${workspaceFolder} for workspace-level targets where
@@ -729,7 +763,7 @@ export async function injectMcpServerConfigs(
 
             // Inject Guardian if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GUARDIAN_SERVER_NAME, target.serversKey)) {
-                const guardianEntry = buildGuardianEntry(outputChannel);
+                const guardianEntry = buildGuardianEntry(outputChannel, target.name);
                 const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
                 const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
                 if (
@@ -748,7 +782,7 @@ export async function injectMcpServerConfigs(
                     modified = true;
                 }
             } else if (shouldUpgradeEntry(servers[GUARDIAN_SERVER_NAME], GUARDIAN_COMMAND)) {
-                const upgraded = buildGuardianEntry(outputChannel);
+                const upgraded = buildGuardianEntry(outputChannel, target.name);
                 const globalGuardian = globalServers[GUARDIAN_SERVER_NAME];
                 const canUseGlobalGuardian = Boolean(globalGuardian && isCommandResolvable(globalGuardian));
                 if (
@@ -776,7 +810,11 @@ export async function injectMcpServerConfigs(
 
             // Inject Gateway if missing or upgrade from unresolvable fallback
             if (!serverExists(config, GATEWAY_SERVER_NAME, target.serversKey)) {
-                const gatewayEntry = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
+                const gatewayEntry = buildGatewayEntry(
+                    outputChannel,
+                    target.isWorkspaceTarget === true,
+                    target.name,
+                );
                 const globalGateway = globalServers[GATEWAY_SERVER_NAME];
                 const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));
                 if (
@@ -795,7 +833,11 @@ export async function injectMcpServerConfigs(
                     modified = true;
                 }
             } else if (shouldUpgradeEntry(servers[GATEWAY_SERVER_NAME], GATEWAY_COMMAND)) {
-                const upgraded = buildGatewayEntry(outputChannel, target.isWorkspaceTarget === true);
+                const upgraded = buildGatewayEntry(
+                    outputChannel,
+                    target.isWorkspaceTarget === true,
+                    target.name,
+                );
                 const globalGateway = globalServers[GATEWAY_SERVER_NAME];
                 const canUseGlobalGateway = Boolean(globalGateway && isCommandResolvable(globalGateway));
                 if (
@@ -942,7 +984,12 @@ export function verifyMcpServerHealth(
             }
 
             const unresolvedSource = workspaceEntry ? ".vscode/mcp.json" : "global User/mcp.json";
-            const unresolvedCommand = workspaceEntry ? workspaceEntry.command : globalEntry?.command ?? "<missing>";
+            let unresolvedCommand = "<missing>";
+            if (workspaceEntry) {
+                unresolvedCommand = workspaceEntry.command;
+            } else if (globalEntry) {
+                unresolvedCommand = globalEntry.command;
+            }
             issues.push({
                 target: folder.name,
                 problem: `Server '${serverName}' command not resolvable in ${unresolvedSource}: ${unresolvedCommand}`,

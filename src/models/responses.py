@@ -728,10 +728,15 @@ class RateLimitError(BaseModel):
     model_config = ConfigDict(strict=True)
 
     error: str = "rate_limit_exceeded"
-    current_usage: int
-    daily_limit: int
-    plan: str
-    message: str
+
+
+class FeedbackReportResponse(BaseModel):
+    """Response for user-submitted feedback reports."""
+
+    model_config = ConfigDict(strict=True)
+
+    status: str
+    report_id: str
 
 
 # --- Vulnerability scanning responses ---

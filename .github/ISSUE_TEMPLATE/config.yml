@@ -1,0 +1,9 @@
+# Copyright (c) Said Borna. All rights reserved.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability disclosure
+    url: https://github.com/S-Borna/codetrust/blob/main/SECURITY.md
+    about: Please do not report security vulnerabilities in public issues.
+  - name: Contact
+    url: https://codetrust.ai/contact
+    about: General contact channel for non-bug and non-feature questions.

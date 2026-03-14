@@ -450,3 +450,17 @@ class TelemetryEventRequest(BaseModel):
     delta_findings_total: int = Field(default=0, ge=0, le=10_000_000)
     delta_hallucinated_packages_prevented: int = Field(default=0, ge=0, le=10_000)
     delta_destructive_commands_blocked: int = Field(default=0, ge=0, le=10_000)
+
+
+class FeedbackReportRequest(BaseModel):
+    """Request payload for user-submitted bug reports and feature requests."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    report_type: str = Field(..., min_length=2, max_length=40)
+    surface: str = Field(..., min_length=2, max_length=60)
+    version: str = Field(default="", max_length=32)
+    environment: str = Field(default="", max_length=500)
+    summary: str = Field(..., min_length=3, max_length=200)
+    details: str = Field(..., min_length=3, max_length=10_000)
+    submitted_at_utc: str = Field(default="", max_length=64)

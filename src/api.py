@@ -5,10 +5,14 @@
 import asyncio
 import json
 import os
+import smtplib
+import ssl
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from email.message import EmailMessage
+from pathlib import Path
 
 import httpx
 import structlog
@@ -47,6 +51,7 @@ from src.models.requests import (
     CreateOrgRequest,
     CrossFileScanRequest,
     DeepScanRequest,
+    FeedbackReportRequest,
     GithubAuthRequest,
     GovernanceApproveRequest,
     GovernancePolicySimulationRequest,
@@ -71,6 +76,7 @@ from src.models.responses import (
     ApiKeyResponse,
     AstScanResponse,
     DeepScanResponse,
+    FeedbackReportResponse,
     Finding,
     GitHubAppWebhookResponse,
     GovernanceApproveResponse,
@@ -1269,6 +1275,187 @@ async def _notify_ws_clients(request: Request, event_type: str) -> None:
             dead.add(ws)
     for ws in dead:
         ws_clients.discard(ws)
+
+
+def _feedback_report_id() -> str:
+    """Generate a stable, sortable report ID."""
+    return f"rep_{int(time.time() * 1000)}"
+
+
+def _feedback_recipient_email() -> str:
+    """Resolve recipient email with safe fallback."""
+    recipient = settings.feedback_recipient_email.strip()
+    if recipient:
+        return recipient
+    return "said@saidborna.com"
+
+
+def _append_feedback_report_sink(payload: dict[str, object]) -> None:
+    """Append report payload to a local JSONL sink if configured."""
+    sink = settings.feedback_report_sink_path.strip()
+    if not sink:
+        return
+
+    sink_path = Path(sink).expanduser()
+    sink_path.parent.mkdir(parents=True, exist_ok=True)
+    with sink_path.open("a", encoding="utf-8") as sink_file:
+        sink_file.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+async def _forward_feedback_report_webhook(
+    request: Request,
+    payload: dict[str, object],
+) -> None:
+    """Forward report payload to a configured webhook endpoint."""
+    webhook_url = settings.feedback_webhook_url.strip()
+    if not webhook_url:
+        logger.info("feedback_report_webhook_not_configured")
+        return
+
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    webhook_token = settings.feedback_webhook_token.strip()
+    if webhook_token:
+        headers["Authorization"] = f"Bearer {webhook_token}"
+
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    try:
+        response = await http_client.post(
+            webhook_url,
+            json=payload,
+            headers=headers,
+            timeout=settings.feedback_webhook_timeout,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "feedback_report_webhook_failed",
+                status_code=response.status_code,
+            )
+            return
+        logger.info("feedback_report_forwarded", status_code=response.status_code)
+    except httpx.TimeoutException as exc:
+        logger.warning("feedback_report_webhook_timeout", error=str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("feedback_report_webhook_http_error", error=str(exc))
+
+
+def _build_feedback_email_message(payload: dict[str, object]) -> EmailMessage:
+    """Build plain-text message for feedback delivery."""
+    recipient = str(payload.get("recipient_email") or _feedback_recipient_email())
+    from_email = settings.feedback_smtp_from_email.strip() or recipient
+    report_id = str(payload.get("report_id") or "")
+    report_type = str(payload.get("report_type") or "")
+    summary = str(payload.get("summary") or "")
+    subject = f"[CodeTrust] {report_type} - {summary} ({report_id})"
+
+    body_lines = [
+        f"Report ID: {report_id}",
+        f"Type: {report_type}",
+        f"Surface: {payload.get('surface', '')}",
+        f"Version: {payload.get('version', '')}",
+        f"Environment: {payload.get('environment', '')}",
+        f"Submitted (UTC): {payload.get('submitted_at_utc', '')}",
+        f"Received (UTC): {payload.get('received_at_utc', '')}",
+        "",
+        "Summary:",
+        summary,
+        "",
+        "Details:",
+        str(payload.get("details") or ""),
+    ]
+
+    message = EmailMessage()
+    message["From"] = from_email
+    message["To"] = recipient
+    message["Subject"] = subject
+    message.set_content("\n".join(body_lines))
+    return message
+
+
+def _send_feedback_report_email_sync(payload: dict[str, object]) -> bool:
+    """Send feedback email synchronously via configured SMTP settings."""
+    host = settings.feedback_smtp_host.strip()
+    username = settings.feedback_smtp_username.strip()
+    password = settings.feedback_smtp_password.strip()
+    if not host or not username or not password:
+        logger.info("feedback_report_email_not_configured")
+        return False
+
+    context = ssl.create_default_context()
+    message = _build_feedback_email_message(payload)
+    port = settings.feedback_smtp_port
+    timeout = settings.feedback_smtp_timeout
+
+    if settings.feedback_smtp_use_ssl:
+        with smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context) as smtp:
+            smtp.login(username, password)
+            smtp.send_message(message)
+        return True
+
+    with smtplib.SMTP(host=host, port=port, timeout=timeout) as smtp:
+        smtp.ehlo()
+        if settings.feedback_smtp_use_tls:
+            smtp.starttls(context=context)
+            smtp.ehlo()
+        smtp.login(username, password)
+        smtp.send_message(message)
+    return True
+
+
+async def _send_feedback_report_email(payload: dict[str, object]) -> None:
+    """Send feedback email off the event loop to avoid blocking API requests."""
+    try:
+        sent = await asyncio.to_thread(_send_feedback_report_email_sync, payload)
+        if sent:
+            logger.info("feedback_report_email_sent", report_id=payload.get("report_id", ""))
+    except smtplib.SMTPException as exc:
+        logger.warning("feedback_report_email_smtp_error", error=str(exc))
+    except OSError as exc:
+        logger.warning("feedback_report_email_os_error", error=str(exc))
+
+
+async def _dispatch_feedback_report(
+    request: Request,
+    payload: dict[str, object],
+) -> None:
+    """Best-effort report dispatch to local sink and webhook."""
+    try:
+        _append_feedback_report_sink(payload)
+    except OSError as exc:
+        logger.warning("feedback_report_sink_failed", error=str(exc))
+
+    await _forward_feedback_report_webhook(request=request, payload=payload)
+    await _send_feedback_report_email(payload=payload)
+
+
+@app.post("/v1/feedback/report", status_code=202, response_model=FeedbackReportResponse)
+async def submit_feedback_report(
+    req: FeedbackReportRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> FeedbackReportResponse:
+    """Accept a user report and dispatch it asynchronously."""
+    report_id = _feedback_report_id()
+    payload: dict[str, object] = {
+        "report_id": report_id,
+        "recipient_email": settings.feedback_recipient_email.strip(),
+        "report_type": req.report_type,
+        "surface": req.surface,
+        "version": req.version,
+        "environment": req.environment,
+        "summary": req.summary,
+        "details": req.details,
+        "submitted_at_utc": req.submitted_at_utc,
+        "received_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+    logger.info(
+        "feedback_report_received",
+        report_id=report_id,
+        report_type=req.report_type,
+        surface=req.surface,
+    )
+    background_tasks.add_task(_dispatch_feedback_report, request, payload)
+    return FeedbackReportResponse(status="accepted", report_id=report_id)
 
 
 @app.websocket("/v1/stats/live")

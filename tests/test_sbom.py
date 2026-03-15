@@ -105,6 +105,7 @@ class TestSbomEndpoint:
                 "versions": {"fastapi": "0.115.0", "httpx": "0.27.0"},
                 "document_name": "backend-sbom",
             },
+            headers={"X-API-Key": "ct_enterprise_test"},
         )
 
         assert response.status_code == 200

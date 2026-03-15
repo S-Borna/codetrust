@@ -1,11 +1,9 @@
 # Copyright (c) 2026 Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
-"""Client version enforcement middleware.
+"""Client version advisory middleware.
 
-Rejects API requests from clients below the minimum supported version.
-This forces old installations to upgrade, addressing security and IP concerns.
-
-Returns HTTP 426 Upgrade Required with upgrade instructions.
+Never blocks requests. It logs warnings for missing/outdated client versions
+and adds a response header when an upgrade is recommended.
 """
 
 from __future__ import annotations
@@ -14,10 +12,10 @@ from typing import TYPE_CHECKING
 
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, Response
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+    from starlette.responses import Response
 
 logger = structlog.get_logger()
 
@@ -36,8 +34,8 @@ VERSION_CHECK_EXEMPT_PATHS: frozenset[str] = frozenset({
     "/metrics",
 })
 
-# HTTP status for upgrade required
-HTTP_UPGRADE_REQUIRED: int = 426
+API_KEY_HEADER: str = "X-API-Key"
+UPGRADE_AVAILABLE_HEADER: str = "X-CodeTrust-Upgrade-Available"
 
 
 def _parse_version(version_str: str) -> tuple[int, ...]:
@@ -65,14 +63,7 @@ def _is_version_below(
 
 
 class VersionEnforcementMiddleware(BaseHTTPMiddleware):
-    """Enforce minimum client version on API requests.
-
-    Clients must send X-Client-Version header. Requests from clients
-    below min_client_version get HTTP 426 Upgrade Required.
-
-    Exempt paths (health, docs, etc.) are always allowed.
-    Requests without the header are allowed (browser, curl, etc.).
-    """
+    """Advise on minimum client version for authenticated requests only."""
 
     def __init__(self, app: object, min_version: str = "2.6.1") -> None:
         """Initialize with minimum required version."""
@@ -84,38 +75,34 @@ class VersionEnforcementMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: object,
     ) -> Response:
-        """Check client version before processing request."""
+        """Log advisory warnings and annotate response if upgrade is needed."""
         path = request.url.path
 
         # Exempt paths always pass
         if path in VERSION_CHECK_EXEMPT_PATHS:
             return await call_next(request)
 
-        # No version header = non-CLI client (browser, curl) — allow
-        client_version = request.headers.get(CLIENT_VERSION_HEADER)
-        if not client_version:
+        api_key = request.headers.get(API_KEY_HEADER, "").strip()
+        if not api_key:
             return await call_next(request)
 
-        # Check version
+        client_version = request.headers.get(CLIENT_VERSION_HEADER)
+        if not client_version:
+            logger.warning(
+                "client_version_missing",
+                path=path,
+                min_version=self.min_version,
+            )
+            return await call_next(request)
+
+        response = await call_next(request)
         if _is_version_below(client_version, self.min_version):
             logger.warning(
-                "client_version_rejected",
+                "client_version_outdated",
                 client_version=client_version,
                 min_version=self.min_version,
                 path=path,
             )
-            return JSONResponse(
-                status_code=HTTP_UPGRADE_REQUIRED,
-                content={
-                    "error": "upgrade_required",
-                    "message": (
-                        f"Client version {client_version} is no longer supported. "
-                        f"Minimum required: {self.min_version}. "
-                        f"Run: pip install --upgrade codetrust"
-                    ),
-                    "min_version": self.min_version,
-                    "upgrade_command": "pip install --upgrade codetrust",
-                },
-            )
+            response.headers[UPGRADE_AVAILABLE_HEADER] = "true"
 
-        return await call_next(request)
+        return response

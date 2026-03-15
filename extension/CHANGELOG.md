@@ -12,9 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Additional governance disruption telemetry for faster root-cause diagnosis in mixed IDE environments.
 - Expanded startup checks for first-run IDE profile bootstrap scenarios.
 
-## [2.8.6] - 2026-03-14
+## [2.9.0] - 2026-03-15
 
-### What's New (since 2.8.5)
+### What's New (since 2.8.6)
 
 ### Fixed
 
@@ -27,7 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Release metadata and public-facing counters synchronized to current measured values.
-- Chrome extension release surfaces aligned to 2.8.6 for store/runtime consistency.
+- Chrome extension release surfaces aligned to 2.9.0 for store/runtime consistency.
+
+## [2.8.6] - 2026-03-14
+
+### What's New (since 2.8.5)
 - Docs and release guidance now call out safer non-protected workspace locations for stable desktop runtime behavior.
 
 ### Added

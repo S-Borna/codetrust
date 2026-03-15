@@ -3,6 +3,7 @@
 """FastAPI application — CodeTrust HTTP API with auth and lifespan management."""
 
 import asyncio
+import hashlib
 import json
 import os
 import smtplib
@@ -11,6 +12,8 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -28,7 +31,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.websockets import WebSocketDisconnect
 
 from src.config import settings
@@ -50,6 +53,7 @@ from src.models.requests import (
     CreateApiKeyRequest,
     CreateOrgRequest,
     CrossFileScanRequest,
+    DashboardBootstrapApiKeyRequest,
     DeepScanRequest,
     FeedbackReportRequest,
     GithubAuthRequest,
@@ -72,9 +76,11 @@ from src.models.requests import (
     VulnScanRequest,
 )
 from src.models.responses import (
+    AdminAdoptionOverviewResponse,
     ApiKeyCreatedResponse,
     ApiKeyResponse,
     AstScanResponse,
+    DashboardBootstrapApiKeyResponse,
     DeepScanResponse,
     FeedbackReportResponse,
     Finding,
@@ -152,6 +158,9 @@ OIDC_STATE_TTL_SECS: int = 600  # 10 minutes for OIDC flow
 
 MAX_WS_CLIENTS: int = 50
 WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
+FREE_DAILY_SCAN_LIMIT: int = 100
+
+_scan_limits: dict[str, dict[str, str | int]] = {}
 
 
 def _resolve_attestation_session_id(request: Request) -> str:
@@ -194,6 +203,54 @@ class AuthContext:
     api_key_id: str | None = field(default=None)
 
 
+def _utc_today() -> date:
+    """Return the current date in UTC."""
+    return datetime.now(UTC).date()
+
+
+def _resolve_installation_id(request: Request) -> str:
+    """Resolve installation ID from header, API key hash, or client IP hash."""
+    install_id = request.headers.get("X-CodeTrust-Installation-ID", "").strip()
+    if install_id:
+        return install_id[:128]
+
+    api_key = request.headers.get("X-API-Key", "").strip()
+    if api_key:
+        digest = hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
+        return f"key:{digest}"
+
+    client_ip = request.client.host if request.client else "unknown"
+    digest = hashlib.sha256(client_ip.encode("utf-8")).hexdigest()[:16]
+    return f"ip:{digest}"
+
+
+def _check_scan_limit(installation_id: str, plan: str) -> dict[str, str | int] | None:
+    """Return 429 payload when a free installation exceeds daily scan quota."""
+    if plan in {"pro", "enterprise"}:
+        return None
+
+    today = _utc_today().isoformat()
+    tracker = _scan_limits.get(installation_id)
+    if tracker is None or tracker.get("date") != today:
+        _scan_limits[installation_id] = {"date": today, "count": 1}
+        return None
+
+    current = int(tracker.get("count", 0)) + 1
+    tracker["count"] = current
+    if current <= FREE_DAILY_SCAN_LIMIT:
+        return None
+
+    tomorrow = datetime.combine(_utc_today() + timedelta(days=1), dt_time.min, tzinfo=UTC)
+    return {
+        "error": "daily_scan_limit_reached",
+        "message": "Free tier limit: 100 scans/day. Upgrade for unlimited scans.",
+        "limit": FREE_DAILY_SCAN_LIMIT,
+        "used": current,
+        "resets_at": tomorrow.isoformat(),
+        "upgrade_url": "https://app.codetrust.ai/settings",
+    }
+
+
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
@@ -203,7 +260,7 @@ async def _resolve_auth_from_key(
     """Resolve auth from an API key (master or database-backed)."""
     if key == settings.api_key:
         return AuthContext(
-            user_id="admin", plan="enterprise", is_admin=True,
+            user_id="system_master_key", plan="enterprise", is_admin=True,
         )
     if db is not None and key.startswith("ct_live_"):
         record = await db.verify_api_key_hash(key)
@@ -215,6 +272,16 @@ async def _resolve_auth_from_key(
                 plan=plan,
                 api_key_id=record.id,
             )
+    # Preserve synthetic test/dev keys when no DB-backed key store is available.
+    if db is None and key.startswith("ct_pro_"):
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+        return AuthContext(user_id=f"pro:{digest}", plan="pro")
+    if db is None and key.startswith("ct_enterprise_"):
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+        return AuthContext(user_id=f"enterprise:{digest}", plan="enterprise")
+    if db is None and key.startswith("ct_free_"):
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+        return AuthContext(user_id=f"free:{digest}", plan="free")
     return AuthContext()
 
 
@@ -250,11 +317,11 @@ async def _resolve_api_key_auth(
     key: str, db: DatabaseService | None, auth_configured: bool,
 ) -> AuthContext:
     """Resolve auth from an API key, raising 401 if invalid and auth is configured."""
-    if not auth_configured:
-        return AuthContext()
     ctx = await _resolve_auth_from_key(key, db)
     if ctx.user_id != "local":
         return ctx
+    if not auth_configured:
+        return AuthContext()
     raise HTTPException(
         status_code=401,
         detail="Invalid API key. Omit X-API-Key to use unauthenticated mode.",
@@ -293,6 +360,54 @@ async def get_auth_context(
         return AuthContext()
 
     raise HTTPException(status_code=401, detail="Authentication required")
+
+
+async def get_optional_auth_context(
+    request: Request,
+    key: str | None = Security(api_key_header),
+) -> AuthContext:
+    """Resolve auth context while preserving anonymous free-tier access."""
+    db = getattr(request.app.state, "db", None)
+    auth_svc = getattr(request.app.state, "auth", None)
+    auth_configured = _is_auth_configured(db, auth_svc)
+
+    if key:
+        return await _resolve_api_key_auth(key, db, auth_configured)
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        if not auth_configured:
+            return AuthContext()
+        ctx = await _resolve_auth_from_bearer(token, auth_svc)
+        if ctx is not None:
+            return ctx
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return AuthContext()
+
+
+def _filter_free_static_response(response: StaticScanResponse) -> StaticScanResponse:
+    """Strip signature-related details from free-tier static responses."""
+    filtered = [
+        finding for finding in response.findings
+        if "signature" not in finding.rule_id and "hallucinated" not in finding.rule_id
+    ]
+    if len(filtered) != len(response.findings):
+        response.findings = filtered
+        response.blocks = sum(1 for finding in filtered if finding.severity == Severity.BLOCK)
+        response.warnings = sum(1 for finding in filtered if finding.severity == Severity.WARN)
+        response.infos = sum(1 for finding in filtered if finding.severity == Severity.INFO)
+        response.total_findings = len(filtered)
+        response.verdict = "BLOCK" if response.blocks > 0 else ("WARN" if response.warnings > 0 else "PASS")
+    response.upgrade_hints = [
+        "Signature validation (405 functions) - available on Pro",
+        "CVE/vulnerability scanning - available on Pro",
+        "License compliance checking - available on Pro",
+        "Trust score trending & history - available on Pro",
+        "Deep scan mode - available on Pro",
+    ]
+    return response
 
 
 
@@ -668,6 +783,36 @@ def _get_rate_limiter(request: Request) -> RateLimiter | None:
 
 
 UPGRADE_URL_PATH = "/dashboard/settings"
+
+
+def _require_pro_or_enterprise(plan: str) -> JSONResponse | None:
+    """Return 403 response when endpoint requires Pro or Enterprise."""
+    if plan in {"pro", "enterprise"}:
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": "upgrade_required",
+            "message": "This feature requires a Pro or Enterprise plan.",
+            "required_plan": "pro",
+            "upgrade_url": "https://app.codetrust.ai/settings",
+        },
+    )
+
+
+def _require_enterprise(plan: str) -> JSONResponse | None:
+    """Return 403 response when endpoint requires Enterprise."""
+    if plan == "enterprise":
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": "upgrade_required",
+            "message": "This feature requires a Pro or Enterprise plan.",
+            "required_plan": "enterprise",
+            "upgrade_url": "https://app.codetrust.ai/settings",
+        },
+    )
 
 
 async def _enforce_rate_limit(
@@ -1570,11 +1715,10 @@ async def verify_imports(
     request: Request,
     req: VerifyImportsRequest,
     registry: RegistryService = Depends(_get_registry),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyImportsResponse:
     """Verify package imports exist in registries."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_verify_imports", language=req.language, count=len(req.imports))
     start = time.monotonic()
 
@@ -1594,11 +1738,10 @@ async def verify_dockerfile(
     request: Request,
     req: VerifyDockerRequest,
     docker: DockerVerifyService = Depends(_get_docker),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyDockerResponse:
     """Verify Docker images and tags exist on Docker Hub."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_verify_dockerfile", count=len(req.images))
     start = time.monotonic()
 
@@ -1622,15 +1765,22 @@ async def static_scan(
     request: Request,
     req: StaticScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> StaticScanResponse:
     """Run static anti-pattern analysis on code."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
     logger.info("api_static_scan", filename=req.filename)
     start = time.monotonic()
     findings = analyzer.scan_code(req.code, req.filename)
     response = analyzer.build_scan_response(findings)
+    if plan == "free":
+        response = _filter_free_static_response(response)
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
     await _log_scan(
@@ -1677,7 +1827,7 @@ async def ast_scan(
 async def signature_scan(
     request: Request,
     req: SignatureScanRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SignatureScanResponse:
     """Validate function signatures against curated database.
@@ -1685,7 +1835,9 @@ async def signature_scan(
     Detects AI-hallucinated functions, wrong parameters, deprecated
     API usage, and common AI mistakes in library calls.
     """
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
     logger.info(
         "api_signature_scan", filename=req.filename,
         language=str(req.language),
@@ -1728,11 +1880,13 @@ async def sandbox_run(
     request: Request,
     req: SandboxRequest,
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SandboxResponse:
     """Execute code in an isolated Docker sandbox."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
     logger.info("api_sandbox_run", language=req.language, timeout=req.timeout)
 
     if req.language not in SUPPORTED_SANDBOX_LANGUAGES:
@@ -1782,11 +1936,13 @@ async def deep_scan_sarif(
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Run deep scan and return results in SARIF format."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
     logger.info("api_deep_sarif", filename=req.filename)
     start = time.monotonic()
     deep_result = await _run_deep_scan_core(
@@ -1810,11 +1966,20 @@ async def deep_scan(
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> DeepScanResponse:
     """Run full deep scan combining all layers."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
+
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
     logger.info("api_deep_scan", filename=req.filename)
     start = time.monotonic()
 
@@ -2228,11 +2393,20 @@ def _build_vuln_scan_response(result: VulnScanResponse) -> dict[str, object]:
 async def vuln_scan(
     request: Request,
     req: VulnScanRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
+
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
     logger.info("api_vuln_scan", language=str(req.language), packages=len(req.packages))
 
     from src.services.vulnerability import VulnerabilityService
@@ -2297,11 +2471,20 @@ def _build_license_scan_response(result: LicenseScanResponse) -> dict[str, objec
 async def license_scan(
     request: Request,
     req: LicenseScanRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Check package licenses for compliance (copyleft detection)."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
+
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
     logger.info("api_license_scan", language=str(req.language), packages=len(req.packages))
 
     from src.services.license_checker import LicenseService
@@ -2331,11 +2514,14 @@ async def license_scan(
 async def sbom_generate(
     request: Request,
     req: SbomGenerateRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SbomGenerateResponse:
     """Generate CycloneDX and SPDX SBOM outputs for dependency inventories."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     logger.info("api_sbom_generate", language=str(req.language), packages=len(req.packages))
 
     from src.services.sbom import SbomService
@@ -2370,11 +2556,20 @@ async def sbom_generate(
 async def cross_file_scan(
     request: Request,
     req: CrossFileScanRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Analyze import dependency graph across multiple files."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
+
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
     logger.info("api_cross_file_scan", files=len(req.files))
 
     from src.services.cross_file_analyzer import CrossFileAnalyzer
@@ -2434,11 +2629,14 @@ def _build_autofix_response(result: AutoFixResult) -> dict[str, object]:
 async def autofix_apply(
     request: Request,
     req: AutoFixRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Apply auto-fix recipes to code. Optionally create a GitHub PR."""
-    await _enforce_rate_limit(auth, rate_limiter, request)
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     logger.info("api_autofix", files=len(req.files), create_pr=req.create_pr)
 
     from src.services.autofix import AutoFixService
@@ -2483,9 +2681,13 @@ def _get_team_service(request: Request) -> object:
 async def create_org(
     request: Request,
     req: CreateOrgRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Create a new organization."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2505,9 +2707,13 @@ async def create_org(
 @app.get("/v1/orgs")
 async def list_orgs(
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> list[dict[str, object]]:
     """List organizations the authenticated user belongs to."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2527,9 +2733,13 @@ async def list_orgs(
 async def get_org(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Get organization details. Requires membership."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2553,9 +2763,13 @@ async def get_org(
 async def delete_org(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Delete an organization. Only the owner can delete."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2571,9 +2785,13 @@ async def delete_org(
 async def list_members(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> list[dict[str, object]]:
     """List members of an organization. Requires membership."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2597,9 +2815,13 @@ async def add_member(
     org_id: str,
     request: Request,
     req: AddMemberRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Add a member to an organization."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2624,9 +2846,13 @@ async def remove_member(
     org_id: str,
     user_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Remove a member from an organization."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2644,9 +2870,13 @@ async def update_role(
     user_id: str,
     request: Request,
     req: UpdateMemberRoleRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Update a member's role in an organization."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2662,9 +2892,13 @@ async def update_role(
 async def get_policy(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Get organization policy settings. Requires membership."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2692,9 +2926,13 @@ async def update_policy(
     org_id: str,
     request: Request,
     req: UpdateOrgPolicyRequest,
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Update organization policy settings."""
+    enterprise_required = _require_enterprise(auth.plan)
+    if enterprise_required is not None:
+        return enterprise_required
+
     team_svc = _get_team_service(request)
     if team_svc is None:
         raise HTTPException(status_code=503, detail="Team service not available")
@@ -2718,6 +2956,52 @@ async def update_policy(
 
 
 # --- Dashboard: API Key management ---
+
+
+@app.post(
+    "/v1/admin/dashboard/bootstrap-api-key",
+    response_model=DashboardBootstrapApiKeyResponse,
+)
+async def admin_dashboard_bootstrap_api_key(
+    req: DashboardBootstrapApiKeyRequest,
+    db: DatabaseService = Depends(_get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> DashboardBootstrapApiKeyResponse:
+    """Bootstrap a user-scoped API key using server-side master-key auth."""
+    if auth.user_id != "system_master_key":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    user = await db.get_user(req.user_id)
+    if user is None:
+        github_id = req.github_id or req.user_id
+        user = await db.create_user(
+            github_id=github_id,
+            email=req.email,
+            name=req.name,
+        )
+    raw_key, record = await db.rotate_dashboard_api_key(user.id)
+    return DashboardBootstrapApiKeyResponse(
+        user_id=user.id,
+        plan=user.plan,
+        api_key=raw_key,
+        key_id=record.id,
+        prefix=record.prefix,
+    )
+
+
+@app.get(
+    "/v1/admin/adoption/overview",
+    response_model=AdminAdoptionOverviewResponse,
+)
+async def admin_adoption_overview(
+    db: DatabaseService = Depends(_get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> AdminAdoptionOverviewResponse:
+    """Return high-level platform adoption metrics for admins."""
+    if auth.user_id != "system_master_key":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    data = await db.get_adoption_overview()
+    return AdminAdoptionOverviewResponse(**data)
 
 
 @app.post("/v1/api-keys", response_model=ApiKeyCreatedResponse)

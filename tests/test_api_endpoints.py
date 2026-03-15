@@ -1,5 +1,7 @@
 """Tests for FastAPI endpoints."""
 
+import asyncio
+from datetime import date, timedelta
 from http import HTTPStatus
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,17 +9,21 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import src.api as api_module
 from src.api import app
 from src.config import settings
 from src.models.enums import Registry, Severity, VerifyStatus
 from src.models.responses import (
     DockerImageResult,
+    Finding,
     PackageResult,
+    StaticScanResponse,
 )
 from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
 from src.services.billing import BillingService
 from src.services.cache import CacheService
+from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
 from src.services.sandbox import SandboxService
@@ -27,10 +33,8 @@ from src.services.static_analyzer import StaticAnalyzer
 @pytest.fixture()
 def _setup_app_state() -> None:
     """Set up app.state with test dependencies."""
-    import fakeredis.aioredis
-
     cache = CacheService("redis://localhost:6379")
-    cache._client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    cache._client = None
 
     original_api_key = settings.api_key
     settings.api_key = ""
@@ -47,6 +51,7 @@ def _setup_app_state() -> None:
     app.state.billing = MagicMock(spec=BillingService)
     app.state.auth = AuthService(http_client)
     app.state.rate_limiter = None  # No rate limiting without DB
+    api_module._scan_limits.clear()
 
     yield
 
@@ -119,10 +124,10 @@ class TestAuth:
         finally:
             settings.api_key = original
 
-    def test_auth_required_when_api_key_set(
+    def test_anonymous_scan_allowed_when_api_key_set(
         self, client: TestClient
     ) -> None:
-        """When CODETRUST_API_KEY is set, missing key returns unauthorized."""
+        """Static scan remains available without API key (free tier)."""
         original = settings.api_key
         settings.api_key = "k1"
         try:
@@ -130,7 +135,7 @@ class TestAuth:
                 "/v1/scan/static",
                 json={"code": "x = 1", "filename": "test.py"},
             )
-            assert response.status_code == HTTPStatus.UNAUTHORIZED
+            assert response.status_code == 200
         finally:
             settings.api_key = original
 
@@ -150,10 +155,10 @@ class TestAuth:
         finally:
             settings.api_key = original
 
-    def test_wrong_api_key_returns_401(
+    def test_unknown_api_key_returns_401(
         self, client: TestClient
     ) -> None:
-        """Wrong API key returns unauthorized."""
+        """Unknown API keys are rejected even on optional-auth scan endpoints."""
         original = settings.api_key
         settings.api_key = "k1"
         try:
@@ -162,7 +167,20 @@ class TestAuth:
                 json={"code": "x = 1", "filename": "test.py"},
                 headers={"X-API-Key": "no"},
             )
-            assert response.status_code == HTTPStatus.UNAUTHORIZED
+            assert response.status_code == 401
+        finally:
+            settings.api_key = original
+
+    def test_master_key_resolves_system_master_key_principal(
+        self,
+    ) -> None:
+        """Configured master key resolves to isolated system master principal."""
+        original = settings.api_key
+        settings.api_key = "k1"
+        try:
+            ctx = asyncio.run(api_module._resolve_auth_from_key("k1", None))
+            assert ctx.user_id == "system_master_key"
+            assert ctx.is_admin is True
         finally:
             settings.api_key = original
 
@@ -390,6 +408,7 @@ class TestDeepScan:
                 "verify_imports": False,
                 "verify_docker": False,
             },
+            headers={"X-API-Key": "ct_pro_test"},
         )
 
         assert response.status_code == 200
@@ -409,6 +428,7 @@ class TestDeepScan:
                 "verify_imports": False,
                 "verify_docker": False,
             },
+            headers={"X-API-Key": "ct_pro_test"},
         )
 
         assert response.status_code == 200
@@ -422,6 +442,7 @@ class TestDeepScan:
         response = client.post(
             "/v1/scan/deep",
             json={"filename": "test.py"},
+            headers={"X-API-Key": "ct_pro_test"},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -449,6 +470,7 @@ class TestDeepScan:
                 "verify_imports": True,
                 "verify_docker": False,
             },
+            headers={"X-API-Key": "ct_pro_test"},
         )
 
         assert response.status_code == 200
@@ -479,6 +501,7 @@ class TestDeepScan:
                 "verify_docker": True,
                 "dockerfile_content": "FROM python:3.12-slim\n",
             },
+            headers={"X-API-Key": "ct_pro_test"},
         )
 
         assert response.status_code == 200
@@ -509,9 +532,339 @@ class TestDeepScan:
                 "verify_imports": True,
                 "verify_docker": False,
             },
+            headers={"X-API-Key": "ct_pro_test"},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["overall_verdict"] == "BLOCK"
         assert data["import_verification"]["failed"] == 1
+
+
+class TestTierAndRateLimits:
+    """Tier enforcement and in-memory rate-limit behavior."""
+
+    def test_unauthenticated_scan_works(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "a.py"},
+        )
+        assert response.status_code == 200
+        assert "findings" in response.json()
+
+    def test_free_tier_100th_scan_succeeds(self, client: TestClient) -> None:
+        headers = {
+            "X-CodeTrust-Installation-ID": "install-free-100",
+            "X-Forwarded-For": "203.0.113.10",
+        }
+        for _ in range(100):
+            response = client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "f.py"},
+                headers=headers,
+            )
+        assert response.status_code == 200
+
+    def test_free_tier_101st_scan_returns_429(self, client: TestClient) -> None:
+        headers = {
+            "X-CodeTrust-Installation-ID": "install-free-101",
+            "X-Forwarded-For": "203.0.113.11",
+        }
+        for _ in range(100):
+            client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "f.py"},
+                headers=headers,
+            )
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "f.py"},
+            headers=headers,
+        )
+        assert response.status_code == 429
+        payload = response.json()
+        assert payload["error"] == "daily_scan_limit_reached"
+        assert payload["limit"] == 100
+        assert payload["used"] == 101
+        assert payload["upgrade_url"] == "https://app.codetrust.ai/settings"
+
+    def test_pro_user_unlimited_scans(self, client: TestClient) -> None:
+        headers = {
+            "X-API-Key": "ct_pro_unlimited",
+            "X-CodeTrust-Installation-ID": "install-pro-1",
+            "X-Forwarded-For": "203.0.113.12",
+        }
+        for _ in range(200):
+            response = client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "pro.py"},
+                headers=headers,
+            )
+            assert response.status_code == 200
+
+    def test_429_includes_resets_at(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        day = date(2026, 3, 15)
+        monkeypatch.setattr(api_module, "_utc_today", lambda: day)
+        headers = {
+            "X-CodeTrust-Installation-ID": "install-reset-header",
+            "X-Forwarded-For": "203.0.113.13",
+        }
+        for _ in range(100):
+            client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "reset.py"},
+                headers=headers,
+            )
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "reset.py"},
+            headers=headers,
+        )
+        assert response.status_code == 429
+        assert response.json()["resets_at"] == "2026-03-16T00:00:00+00:00"
+
+    def test_rate_limit_resets_next_day(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        first_day = date(2026, 3, 15)
+        second_day = first_day + timedelta(days=1)
+        monkeypatch.setattr(api_module, "_utc_today", lambda: first_day)
+        headers = {
+            "X-CodeTrust-Installation-ID": "install-day-roll",
+            "X-Forwarded-For": "203.0.113.14",
+        }
+        for _ in range(101):
+            client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "roll.py"},
+                headers=headers,
+            )
+
+        monkeypatch.setattr(api_module, "_utc_today", lambda: second_day)
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "roll.py"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+    def test_import_verification_free(self, client: TestClient) -> None:
+        with patch.object(
+            RegistryService,
+            "verify_packages",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            response = client.post(
+                "/v1/verify/imports",
+                json={"language": "python", "imports": ["fastapi"]},
+                headers={"X-Forwarded-For": "203.0.113.15"},
+            )
+        assert response.status_code == 200
+
+    def test_vuln_scan_requires_pro(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/vuln/scan",
+            json={"language": "python", "packages": ["fastapi"]},
+            headers={"X-API-Key": "ct_free_user", "X-Forwarded-For": "203.0.113.16"},
+        )
+        assert response.status_code == 403
+        assert response.json()["error"] == "upgrade_required"
+
+    def test_license_scan_requires_pro(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/license/scan",
+            json={"language": "python", "packages": ["fastapi"]},
+            headers={"X-API-Key": "ct_free_user", "X-Forwarded-For": "203.0.113.17"},
+        )
+        assert response.status_code == 403
+        assert response.json()["required_plan"] == "pro"
+
+    def test_sbom_requires_enterprise(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/sbom/generate",
+            json={"language": "python", "packages": ["fastapi"]},
+            headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.18"},
+        )
+        assert response.status_code == 403
+        assert response.json()["required_plan"] == "enterprise"
+
+    def test_fix_apply_requires_enterprise(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/fix/apply",
+            json={"files": {"a.py": "x = 1\n"}},
+            headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.19"},
+        )
+        assert response.status_code == 403
+        assert response.json()["required_plan"] == "enterprise"
+
+    def test_orgs_require_enterprise(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/orgs",
+            json={"name": "Acme"},
+            headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.20"},
+        )
+        assert response.status_code == 403
+        assert response.json()["required_plan"] == "enterprise"
+
+    def test_version_check_never_blocks(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "v.py"},
+            headers={
+                "X-API-Key": "ct_free_user",
+                "X-Client-Version": "2.5.0",
+                "X-Forwarded-For": "203.0.113.21",
+            },
+        )
+        assert response.status_code == 200
+        assert response.headers.get("X-CodeTrust-Upgrade-Available") == "true"
+
+    def test_upgrade_hints_in_free_scan(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "hint.py"},
+            headers={
+                "X-CodeTrust-Installation-ID": "install-hints",
+                "X-Forwarded-For": "203.0.113.22",
+            },
+        )
+        assert response.status_code == 200
+        hints = response.json().get("upgrade_hints", [])
+        assert isinstance(hints, list)
+        assert len(hints) > 0
+
+    def test_free_static_strips_signature_findings(self, client: TestClient) -> None:
+        signature_finding = Finding(
+            rule_id="signature_hallucinated_function",
+            severity=Severity.BLOCK,
+            message="Unknown function",
+            file="sample.py",
+            line=1,
+            suggestion="Use valid API",
+        )
+        with patch.object(
+            StaticAnalyzer,
+            "scan_code",
+            return_value=[signature_finding],
+        ), patch.object(
+            StaticAnalyzer,
+            "build_scan_response",
+            return_value=StaticScanResponse(
+                total_findings=1,
+                blocks=1,
+                warnings=0,
+                infos=0,
+                findings=[signature_finding],
+                verdict="BLOCK",
+            ),
+        ):
+            response = client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1\n", "filename": "sig.py"},
+                headers={
+                    "X-CodeTrust-Installation-ID": "install-free-filter",
+                    "X-Forwarded-For": "203.0.113.23",
+                },
+            )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total_findings"] == 0
+        assert payload["blocks"] == 0
+        assert payload["verdict"] == "PASS"
+        hints = payload.get("upgrade_hints", [])
+        assert any("Signature validation" in hint for hint in hints)
+
+
+class TestAdminBootstrap:
+    """Admin bootstrap and adoption overview behavior."""
+
+    def test_bootstrap_dashboard_api_key_requires_master(
+        self, client: TestClient,
+    ) -> None:
+        original = settings.api_key
+        settings.api_key = "master"
+        db = MagicMock(spec=DatabaseService)
+        key_record = MagicMock()
+        key_record.user_id = "u2"
+        key_record.id = "auth-key"
+        db_user = MagicMock()
+        db_user.plan = "pro"
+        db.verify_api_key_hash = AsyncMock(return_value=key_record)
+        db.get_user = AsyncMock(return_value=db_user)
+        app.state.db = db
+        try:
+            response = client.post(
+                "/v1/admin/dashboard/bootstrap-api-key",
+                json={"user_id": "u1", "email": "user@example.com", "name": "User"},
+                headers={"X-API-Key": "ct_live_non_master"},
+            )
+            assert response.status_code == 403
+        finally:
+            settings.api_key = original
+
+    def test_bootstrap_dashboard_api_key_success(
+        self, client: TestClient,
+    ) -> None:
+        original = settings.api_key
+        settings.api_key = "master"
+
+        db = MagicMock(spec=DatabaseService)
+        db_user = MagicMock()
+        db_user.id = "u1"
+        db_user.plan = "pro"
+        db.get_user = AsyncMock(return_value=db_user)
+        record = MagicMock()
+        record.id = "k1"
+        record.prefix = "ct_live_abc12345"
+        db.rotate_dashboard_api_key = AsyncMock(return_value=("ct_live_bootstrap", record))
+        app.state.db = db
+
+        try:
+            response = client.post(
+                "/v1/admin/dashboard/bootstrap-api-key",
+                json={"user_id": "u1", "email": "user@example.com", "name": "User"},
+                headers={"X-API-Key": "master"},
+            )
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["user_id"] == "u1"
+            assert payload["plan"] == "pro"
+            assert payload["api_key"] == "ct_live_bootstrap"
+        finally:
+            settings.api_key = original
+
+    def test_admin_adoption_overview_returns_metrics(
+        self, client: TestClient,
+    ) -> None:
+        original = settings.api_key
+        settings.api_key = "master"
+
+        db = MagicMock(spec=DatabaseService)
+        db.get_adoption_overview = AsyncMock(
+            return_value={
+                "total_users": 5,
+                "free_users": 3,
+                "pro_users": 1,
+                "enterprise_users": 1,
+                "total_api_keys": 7,
+                "active_api_keys": 6,
+                "active_users_30d": 4,
+                "total_scans_30d": 42,
+            },
+        )
+        app.state.db = db
+
+        try:
+            response = client.get(
+                "/v1/admin/adoption/overview",
+                headers={"X-API-Key": "master"},
+            )
+            assert response.status_code == 200
+            assert response.json()["total_users"] == 5
+        finally:
+            settings.api_key = original
+
+    def test_telemetry_opt_out(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.telemetry_client import _telemetry_suppressed
+
+        monkeypatch.setenv("CODETRUST_TELEMETRY", "0")
+        assert _telemetry_suppressed() is True

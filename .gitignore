@@ -30,6 +30,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+CODETRUST_API_KEY
 *.secret
 *.pem
 *.key
@@ -51,6 +52,8 @@ docker-compose.override.yml
 # CodeTrust runtime artifacts
 .codetrust/
 !.codetrust.toml
+audit.jsonl
+*.bak
 
 # Node (in case of front-end components)
 node_modules/

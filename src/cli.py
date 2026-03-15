@@ -3185,6 +3185,7 @@ def _scan_build_result(
         "drift_score": drift,
         "baseline": baseline_ref if baseline_mode else "",
         "fail_on_new": str(getattr(args, "fail_on_new", "")) if baseline_mode else "",
+        "upgrade_hints": [],
         "findings": all_findings,
     }
 
@@ -3295,12 +3296,47 @@ def _scan_output_findings_by_severity(
         _echo(color("  ✅ PASS — no issues found\n", GREEN))
 
 
+def _scan_output_upgrade_hints(upgrade_hints: list[str]) -> None:
+    """Print one-line Pro upgrade hint summary when available."""
+    if not upgrade_hints:
+        return
+    _echo(
+        "  i Pro features available: signature validation, CVE scanning, "
+        "license compliance, trust score trending"
+    )
+    _echo("    Upgrade: https://app.codetrust.ai/settings")
+
+
+def _scan_output_api_error(result: dict) -> bool:
+    """Render known API error payloads and indicate whether output was handled."""
+    error = str(result.get("error", ""))
+    if error == "daily_scan_limit_reached":
+        used = int(result.get("used", 0) or 0)
+        limit = int(result.get("limit", 0) or 0)
+        resets = str(result.get("resets_at", ""))
+        _echo(color("  ⚠️  Free tier daily limit reached", YELLOW))
+        _echo(f"    Usage: {used}/{limit}")
+        if resets:
+            _echo(f"    Resets at: {resets}")
+        _echo("    Upgrade: https://app.codetrust.ai/settings")
+        return True
+    if error == "upgrade_required":
+        required = str(result.get("required_plan", "pro"))
+        _echo(color(f"  ⛔ This feature requires {required} plan", RED))
+        _echo("    Upgrade: https://app.codetrust.ai/settings")
+        return True
+    return False
+
+
 def _scan_output_human(
     result: dict,
     suppressed_count: int,
     cwd: Path,
 ) -> None:
     """Render human-readable scan output to terminal."""
+    if _scan_output_api_error(result):
+        return
+
     gates = _detect_verify_gates(cwd)
     if gates:
         gates_str = ", ".join(gates[:_SCAN_MAX_GATES_DISPLAY]) + (
@@ -3323,6 +3359,10 @@ def _scan_output_human(
     warns = [f for f in findings if f.get("severity") == "WARN"]
     infos = [f for f in findings if f.get("severity") == "INFO"]
     _scan_output_findings_by_severity(blocks, warns, infos)
+
+    hints = result.get("upgrade_hints", [])
+    if isinstance(hints, list):
+        _scan_output_upgrade_hints([str(hint) for hint in hints])
 
 
 def _scan_output_machine(
@@ -4230,7 +4270,7 @@ def _get_setup_version() -> str:
         from importlib.metadata import version as _pkg_version
         return _pkg_version("codetrust")
     except Exception:
-        return "2.8.6"
+        return "2.9.0"
 
 
 def _setup_print_summary(installed_count: int) -> None:

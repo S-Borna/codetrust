@@ -5,6 +5,8 @@ import { GovernanceAuditView } from "@/components/governance-audit";
 import { GovernanceLive } from "@/components/governance-live";
 import { MultiWorkspaceView } from "@/components/multi-workspace-view";
 import { GovernanceAnalytics } from "@/components/governance-analytics";
+import { BackendAuthRequired } from "@/components/backend-auth-required";
+import { PlanGate } from "@/components/plan-gate";
 
 /**
  * Governance page — live dashboard with posture, drift alerts,
@@ -15,6 +17,11 @@ import { GovernanceAnalytics } from "@/components/governance-analytics";
  */
 export default async function GovernancePage() {
     const session = await getServerSession(authOptions);
+    let plan = "free";
+    if (session && session.user && session.user.plan) {
+        plan = session.user.plan.toLowerCase();
+    }
+    const isFree = plan === "free";
     let apiKey = "";
     if (
         session
@@ -22,6 +29,20 @@ export default async function GovernancePage() {
         && typeof session.user.apiKey === "string"
     ) {
         apiKey = session.user.apiKey;
+    }
+    if (!apiKey) {
+        return <BackendAuthRequired />;
+    }
+
+    if (isFree) {
+        return (
+            <PlanGate
+                currentPlan={plan}
+                requiredPlan="pro"
+                title="Pro Feature"
+                description="Governance dashboard is available on Pro. Upgrade for drift detection, audit logs, and posture monitoring."
+            />
+        );
     }
 
     const [audit, posture, approvals, exceptions, workspaces] = await Promise.all([

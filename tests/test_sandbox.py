@@ -777,7 +777,7 @@ class TestSandboxAPIEndpoint:
         resp = client.post("/v1/sandbox/run", json={
             "code": PYTHON_CODE,
             "language": "python",
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert resp.status_code == 200
         data = resp.json()
         # Sandbox is disabled by default, so we get an error
@@ -806,7 +806,7 @@ class TestSandboxAPIEndpoint:
             "verify_imports": False,
             "verify_docker": False,
             "sandbox_run": False,
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert resp.status_code == 200
         data = resp.json()
         assert "sandbox_result" in data

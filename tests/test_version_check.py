@@ -10,8 +10,9 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from src.middleware.version_check import (
+    API_KEY_HEADER,
     CLIENT_VERSION_HEADER,
-    HTTP_UPGRADE_REQUIRED,
+    UPGRADE_AVAILABLE_HEADER,
     VersionEnforcementMiddleware,
     _is_version_below,
     _parse_version,
@@ -121,21 +122,25 @@ class TestVersionEnforcementMiddleware:
         resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "3.0.0"})
         assert resp.status_code == 200
 
-    def test_old_version_rejected(self) -> None:
-        """Requests with old version should require upgrade."""
+    def test_old_version_allowed_with_upgrade_header(self) -> None:
+        """Outdated clients are allowed and receive advisory response header."""
         client = TestClient(_make_app())
-        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2." + "5.2"})
-        assert resp.status_code == HTTP_UPGRADE_REQUIRED
-        body = resp.json()
-        assert body["error"] == "upgrade_required"
-        assert "2." + "5.2" in body["message"]
-        assert body["min_version"] == "2.6.1"
+        resp = client.get(
+            "/v1/scan",
+            headers={API_KEY_HEADER: "ct_free_user", CLIENT_VERSION_HEADER: "2." + "5.2"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers.get(UPGRADE_AVAILABLE_HEADER) == "true"
 
-    def test_v260_rejected(self) -> None:
-        """The broken v2.6.0 should also be rejected."""
+    def test_v260_allowed(self) -> None:
+        """The broken v2.6.0 is still allowed in advisory mode."""
         client = TestClient(_make_app())
-        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2.6.0"})
-        assert resp.status_code == HTTP_UPGRADE_REQUIRED
+        resp = client.get(
+            "/v1/scan",
+            headers={API_KEY_HEADER: "ct_free_user", CLIENT_VERSION_HEADER: "2.6.0"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers.get(UPGRADE_AVAILABLE_HEADER) == "true"
 
     def test_exempt_path_passes(self) -> None:
         """Health endpoint should pass regardless of version."""
@@ -143,15 +148,19 @@ class TestVersionEnforcementMiddleware:
         resp = client.get("/health", headers={CLIENT_VERSION_HEADER: "1.0.0"})
         assert resp.status_code == 200
 
-    def test_upgrade_response_has_command(self) -> None:
-        """426 response should include upgrade command."""
+    def test_missing_client_version_with_api_key_is_allowed(self) -> None:
+        """Authenticated requests without client version remain allowed."""
         client = TestClient(_make_app())
-        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2.5.0"})
-        body = resp.json()
-        assert body["upgrade_command"] == "pip install --upgrade codetrust"
+        resp = client.get("/v1/scan", headers={API_KEY_HEADER: "ct_free_user"})
+        assert resp.status_code == 200
+        assert UPGRADE_AVAILABLE_HEADER not in resp.headers
 
     def test_custom_min_version(self) -> None:
-        """Middleware respects custom min_version."""
+        """Advisory header respects custom min_version."""
         client = TestClient(_make_app(min_version="3.0.0"))
-        resp = client.get("/v1/scan", headers={CLIENT_VERSION_HEADER: "2.6.1"})
-        assert resp.status_code == HTTP_UPGRADE_REQUIRED
+        resp = client.get(
+            "/v1/scan",
+            headers={API_KEY_HEADER: "ct_free_user", CLIENT_VERSION_HEADER: "2.6.1"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers.get(UPGRADE_AVAILABLE_HEADER) == "true"

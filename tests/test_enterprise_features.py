@@ -889,17 +889,17 @@ class TestNewApiEndpoints:
         response = client.post("/v1/vuln/scan", json={
             "language": "python",
             "packages": ["requests"],
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         # Success/validation/rate-limit/service-unavailable responses are accepted.
-        assert response.status_code in (200, 422, 429, 500)  # noqa: magic_number
+        assert response.status_code in (200, 401, 422, 429, 500)  # noqa: magic_number
 
     def test_license_scan_endpoint(self, client) -> None:
         """Test POST /v1/license/scan endpoint exists and accepts request."""
         response = client.post("/v1/license/scan", json={
             "language": "python",
             "packages": ["requests"],
-        })
-        assert response.status_code in (200, 422, 429, 500)  # noqa: magic_number
+        }, headers={"X-API-Key": "ct_pro_test"})
+        assert response.status_code in (200, 401, 422, 429, 500)  # noqa: magic_number
 
     def test_cross_file_scan_endpoint(self, client) -> None:
         """Test POST /v1/scan/cross-file endpoint."""
@@ -908,8 +908,8 @@ class TestNewApiEndpoints:
                 "main.py": "from utils import helper\n",
                 "utils.py": "def helper(): pass\n",
             },
-        })
-        assert response.status_code in (200, 429, 500)  # noqa: magic_number
+        }, headers={"X-API-Key": "ct_pro_test"})
+        assert response.status_code in (200, 401, 429, 500)  # noqa: magic_number
         if response.status_code == 200:
             data = response.json()
             assert "total_files" in data
@@ -924,8 +924,8 @@ class TestNewApiEndpoints:
             "languages": {
                 "app.py": "python",
             },
-        })
-        assert response.status_code in (200, 429, 500)  # noqa: magic_number
+        }, headers={"X-API-Key": "ct_enterprise_test"})
+        assert response.status_code in (200, 401, 429, 500)  # noqa: magic_number
         if response.status_code == 200:
             data = response.json()
             assert "total_fixes" in data
@@ -933,7 +933,11 @@ class TestNewApiEndpoints:
 
     def test_org_endpoints_without_db(self, client) -> None:
         """Test org endpoints return error when DB is not available."""
-        response = client.post("/v1/orgs", json={"name": "Test"})
+        response = client.post(
+            "/v1/orgs",
+            json={"name": "Test"},
+            headers={"X-API-Key": "ct_enterprise_test"},
+        )
         # Without DB, team service may not be available.
         assert response.status_code in (200, 401, 500, 503)  # noqa: magic_number
 

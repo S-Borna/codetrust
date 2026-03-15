@@ -171,6 +171,7 @@ class TestIPRateLimitIntegration:
             resp = rate_limit_client.post(
                 "/v1/scan/static",
                 json={"code": "x = 1", "filename": "test.py"},
+                headers={"X-API-Key": "ct_pro_test"},
             )
             if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
                 blocked = True
@@ -188,6 +189,7 @@ class TestIPRateLimitIntegration:
             resp = rate_limit_client.post(
                 "/v1/scan/static",
                 json={"code": "x = 1", "filename": "test.py"},
+                headers={"X-API-Key": "ct_pro_test"},
             )
             if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
                 assert "retry-after" in resp.headers
@@ -214,6 +216,7 @@ class TestIPRateLimitIntegration:
         resp = rate_limit_client.post(
             "/v1/scan/static",
             json={"code": "x = 1\n", "filename": "small.py"},
+            headers={"X-API-Key": "ct_pro_test"},
         )
         # Should get success or auth failure, but not payload-too-large or rate-limit.
         assert resp.status_code not in (HTTPStatus.REQUEST_ENTITY_TOO_LARGE, HTTPStatus.TOO_MANY_REQUESTS)

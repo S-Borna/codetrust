@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI Governance Enforcement Platform — 286 rules, 10 enforcement layers, 4 capabilities no other tool has: AI Governance Gateway (82 real-time interception rules), Hallucination Detection (live import verification against PyPI/npm/crates.io/Go/Maven/NuGet/RubyGems/Packagist), Trust Score with governance drift tracking, and Universal IDE Injection (governance rules injected globally into Claude Code, Cursor, Windsurf, and GitHub Copilot on install). Works with Claude Code, Cursor, Windsurf, and GitHub Copilot.",
-    "version": "2.8.6",
+    "version": "2.9.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

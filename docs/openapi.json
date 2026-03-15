@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.8.6"
+    "version": "2.9.0"
   },
   "paths": {
     "/v1/status": {

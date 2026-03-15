@@ -13,6 +13,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
 from src.cli import (
     BLOCK_RULES,
     CI_WARN_RULES,
@@ -38,6 +40,7 @@ from src.cli import (
     _findings_to_sarif,
     _get_git_changed_files,
     _normalize_path_for_git,
+    _scan_output_api_error,
     _sort_findings,
     _suppress_lint_covered_findings,
     _trend_read,
@@ -98,6 +101,30 @@ class TestNoiseControl:
         assert out[0]["file"] == "a.py"
         assert out[1]["file"] == "a.py"
         assert int(out[1]["line"]) == 1
+
+
+class TestScanApiErrorOutput:
+    def test_daily_limit_error_output(self, capsys: pytest.CaptureFixture[str]) -> None:
+        handled = _scan_output_api_error(
+            {
+                "error": "daily_scan_limit_reached",
+                "limit": 100,
+                "used": 101,
+                "resets_at": "2026-03-16T00:00:00+00:00",
+            },
+        )
+        assert handled is True
+        out = capsys.readouterr().out
+        assert "daily limit reached" in out.lower()
+        assert "101/100" in out
+
+    def test_upgrade_required_error_output(self, capsys: pytest.CaptureFixture[str]) -> None:
+        handled = _scan_output_api_error(
+            {"error": "upgrade_required", "required_plan": "enterprise"},
+        )
+        assert handled is True
+        out = capsys.readouterr().out
+        assert "requires enterprise" in out.lower()
 
 
 class TestChangedLines:

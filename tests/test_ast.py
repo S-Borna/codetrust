@@ -648,6 +648,7 @@ class TestAstScanEndpoint:
         from src.services.cache import CacheService
         from src.services.docker_verify import DockerVerifyService
         from src.services.registry import RegistryService
+        from src.services.sandbox import SandboxService
         from src.services.static_analyzer import StaticAnalyzer
 
         cache = CacheService("redis://localhost:6379")
@@ -660,6 +661,7 @@ class TestAstScanEndpoint:
         app.state.docker = DockerVerifyService(cache, http_client)
         app.state.analyzer = StaticAnalyzer()
         app.state.ast_analyzer = AstAnalyzer()
+        app.state.sandbox = SandboxService()
         app.state.db = None
         app.state.billing = None
         app.state.auth = None
@@ -762,7 +764,7 @@ class TestDeepScanAstIntegration:
             "code": "def foo():\n    return 1\n",
             "language": "python",
             "verify_imports": False,
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert response.status_code == 200
         data = response.json()
         assert "ast_scan" in data
@@ -778,7 +780,7 @@ class TestDeepScanAstIntegration:
             "code": code,
             "language": "python",
             "verify_imports": False,
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert response.status_code == 200
         data = response.json()
         ast_findings = data["ast_scan"]["total_findings"]

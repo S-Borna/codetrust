@@ -2662,6 +2662,39 @@ def _init_gitignore_and_governance(
     return installed
 
 
+def _init_policy_integrity_manifest(project_dir: Path) -> list[str]:
+    """Create a signed policy integrity manifest for gateway startup checks."""
+    installed: list[str] = []
+
+    from src.gateway.policy_integrity import create_policy_integrity_manifest
+
+    sign_key = (
+        os.environ.get("CODETRUST_RULES_HMAC_SECRET")
+        or os.environ.get("CODETRUST_JWT_SECRET")
+        or "codetrust"
+    )
+    try:
+        from importlib.metadata import version as _pkg_version
+        version = _pkg_version("codetrust")
+    except Exception:
+        version = "unknown"
+
+    try:
+        create_policy_integrity_manifest(
+            project_dir,
+            sign_key=sign_key,
+            version=version,
+        )
+        installed.append(".codetrust/policy-integrity.json")
+        _echo(f"  {color('✅', GREEN)} Policy integrity manifest signed")
+    except OSError as exc:
+        _echo(
+            f"  {color('⚠️', YELLOW)}  Could not create policy integrity manifest: {exc}",
+        )
+
+    return installed
+
+
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
@@ -2696,6 +2729,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     _init_precommit_hook(project_dir)
     _init_github_action(project_dir, force=args.force)
     _init_gitignore_and_governance(project_dir, force=args.force)
+    _init_policy_integrity_manifest(project_dir)
     _init_print_summary()
 
     return 0

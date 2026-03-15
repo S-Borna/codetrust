@@ -40,7 +40,6 @@
 - CI-remediation patch is committed and ready to push.
 - Next step is to rerun GitHub Actions matrices and confirm hosted-runner parity.
 
-
 ## [2026-03-12 02:25] Checkpoint — MCP Discovery Breakthrough
 
 ### Root Cause Found
@@ -3234,34 +3233,39 @@ Real user count analysis performed:
 ### Accomplished (Completed Points)
 
 1. Roadmap truth-sync
-  - Commit: `bfcf4321`
-  - Updated release highlights in `docs/index.html` to match actual delivery status.
 
-2. Team dashboard completion
-  - Commit: `58e965a6`
-  - Added org/member/policy workflows in dashboard:
-    - `dashboard/app/dashboard/team/page.tsx`
-    - `dashboard/src/components/team-dashboard.tsx`
-    - API methods in `dashboard/src/lib/api.ts`
+- Commit: `bfcf4321`
+- Updated release highlights in `docs/index.html` to match actual delivery status.
 
-3. IDE inline auto-fix expansion
-  - Commit: `2f5658e7`
-  - Expanded extension quick-fixes for high-frequency rules in `extension/src/code-actions.ts`:
-    - `bare_except` / `except_swallow`
-    - `hardcoded_secret`
-    - Existing `print_debug` flow refactored and preserved
+1. Team dashboard completion
 
-4. Governance analytics completion
-  - Commit: `76d4a775`
-  - Added analytics surface (compliance score, block rate, 24h trend):
-    - `dashboard/src/components/governance-analytics.tsx`
-    - integrated in `dashboard/app/dashboard/governance/page.tsx`
+- Commit: `58e965a6`
+- Added org/member/policy workflows in dashboard:
+  - `dashboard/app/dashboard/team/page.tsx`
+  - `dashboard/src/components/team-dashboard.tsx`
+  - API methods in `dashboard/src/lib/api.ts`
 
-5. Policy rollout controls
-  - Commit: `01b98def`
-  - Added bundle simulation controls:
-    - `dashboard/src/components/governance-rollout-controls.tsx`
-    - integrated in `dashboard/src/components/governance-live.tsx`
+1. IDE inline auto-fix expansion
+
+- Commit: `2f5658e7`
+- Expanded extension quick-fixes for high-frequency rules in `extension/src/code-actions.ts`:
+  - `bare_except` / `except_swallow`
+  - `hardcoded_secret`
+  - Existing `print_debug` flow refactored and preserved
+
+1. Governance analytics completion
+
+- Commit: `76d4a775`
+- Added analytics surface (compliance score, block rate, 24h trend):
+  - `dashboard/src/components/governance-analytics.tsx`
+  - integrated in `dashboard/app/dashboard/governance/page.tsx`
+
+1. Policy rollout controls
+
+- Commit: `01b98def`
+- Added bundle simulation controls:
+  - `dashboard/src/components/governance-rollout-controls.tsx`
+  - integrated in `dashboard/src/components/governance-live.tsx`
 
 ### Validation Completed
 
@@ -3280,21 +3284,24 @@ Real user count analysis performed:
 
 ### Remaining Steps (In Order)
 
-6. GitHub App integration (without Action setup dependency)
-  - Implement backend App auth/install + PR comment workflow
-  - Add dashboard/API controls where needed
-  - Add unit/integration tests + E2E verification
-  - Commit after green verification
+1. GitHub App integration (without Action setup dependency)
 
-7. SBOM generation outputs (CycloneDX + SPDX)
-  - Implement generator/service + CLI/API exposure
-  - Validate schema/output correctness with tests
-  - Add E2E/flow verification and commit
+- Implement backend App auth/install + PR comment workflow
+- Add dashboard/API controls where needed
+- Add unit/integration tests + E2E verification
+- Commit after green verification
 
-8. Signature DB expansion toward target scope
-  - Expand curated signatures and coverage tests
-  - Reconcile all public counts/docs with verified totals
-  - Full verification + final commit for this point
+1. SBOM generation outputs (CycloneDX + SPDX)
+
+- Implement generator/service + CLI/API exposure
+- Validate schema/output correctness with tests
+- Add E2E/flow verification and commit
+
+1. Signature DB expansion toward target scope
+
+- Expand curated signatures and coverage tests
+- Reconcile all public counts/docs with verified totals
+- Full verification + final commit for this point
 
 ### Execution Rule Continues
 
@@ -3305,18 +3312,20 @@ Real user count analysis performed:
 
 ### Accomplished
 
-6. GitHub App integration
-  - Commit: `7bd6a634`
-  - Added webhook endpoint + service flow for installation-token PR scanning/comment updates.
+1. GitHub App integration
 
-7. SBOM generation outputs
-  - Commit: `8a0c3170`
-  - Added dual-format SBOM generation (CycloneDX + SPDX):
-    - `src/services/sbom.py`
-    - `POST /v1/sbom/generate` in `src/api.py`
-    - request/response models in `src/models/requests.py` and `src/models/responses.py`
-    - tests in `tests/test_sbom.py`
-  - Truth-synced roadmap highlights in `docs/index.html`.
+- Commit: `7bd6a634`
+- Added webhook endpoint + service flow for installation-token PR scanning/comment updates.
+
+1. SBOM generation outputs
+
+- Commit: `8a0c3170`
+- Added dual-format SBOM generation (CycloneDX + SPDX):
+  - `src/services/sbom.py`
+  - `POST /v1/sbom/generate` in `src/api.py`
+  - request/response models in `src/models/requests.py` and `src/models/responses.py`
+  - tests in `tests/test_sbom.py`
+- Truth-synced roadmap highlights in `docs/index.html`.
 
 ### Validation
 
@@ -3336,14 +3345,15 @@ Real user count analysis performed:
 
 ### Accomplished
 
-8. Signature DB expansion
-  - Commit: `a7fce18f`
-  - Expanded curated signature database to:
-    - `50` unique modules
-    - `405` unique functions/submodule functions
-  - Added 17 new modules across Python and JS/TS in `src/rules/signatures.py`.
-  - Updated signature coverage threshold tests in `tests/test_signature_validator.py`.
-  - Truth-synced public signature counts in `docs/index.html`.
+1. Signature DB expansion
+
+- Commit: `a7fce18f`
+- Expanded curated signature database to:
+  - `50` unique modules
+  - `405` unique functions/submodule functions
+- Added 17 new modules across Python and JS/TS in `src/rules/signatures.py`.
+- Updated signature coverage threshold tests in `tests/test_signature_validator.py`.
+- Truth-synced public signature counts in `docs/index.html`.
 
 ### Validation
 
@@ -3416,6 +3426,7 @@ Real user count analysis performed:
 - Next implementation target: Phase 2 self-healing orchestration refinements and startup matrix hardening.
 
 ## [2026-03-14 23:34] Checkpoint — Feedback intake + SMTP verified and release commits prepared
+
 ### Accomplished
 
 - Commit: `2880da68`
@@ -3447,3 +3458,26 @@ Real user count analysis performed:
 
 - Working tree clean with 3 scoped commits ready to push.
 - No `git push` executed (user-owned step).
+
+## [2026-03-15 00:12] Checkpoint — Focused integrity commit, local-only changes excluded
+### Accomplished
+
+- Commit: `94431113`
+  - Added init-time bootstrap for signed policy integrity manifest in `src/cli.py`.
+  - `codetrust init` now creates `.codetrust/policy-integrity.json` with signing key + package version fallback.
+  - This removes recurring startup integrity-missing drift for fresh sessions.
+
+### Commit Scope Decision
+
+- Included on `main`: runtime-critical integrity bootstrap fix (`src/cli.py`).
+- Explicitly excluded (kept local-only for now):
+  - local/editor config changes (`.vscode/mcp.json`, `.cursorrules`)
+  - generated backups and local artifacts (`backups/*`)
+  - untracked extension/store asset files (`chrome-extension/*`, `store-assets/*`)
+  - broader docs/changelog/metrics formatting deltas pending separate review
+
+### CI / Validation State
+
+- Commit created successfully with focused scope.
+- No push performed (user-owned step).
+- No full CI rerun executed in this checkpoint window.

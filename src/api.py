@@ -16,7 +16,6 @@ from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
 from email.message import EmailMessage
 from pathlib import Path
-from typing import TypeVar
 
 import httpx
 import structlog
@@ -163,7 +162,6 @@ WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 FREE_DAILY_SCAN_LIMIT: int = 100
 
 _scan_limits: dict[str, dict[str, str | int]] = {}
-RequestModelT = TypeVar("RequestModelT", bound=BaseModel)
 
 
 def _resolve_attestation_session_id(request: Request) -> str:
@@ -818,7 +816,7 @@ def _require_enterprise(plan: str) -> JSONResponse | None:
     )
 
 
-async def _parse_request_model(
+async def _parse_request_model[RequestModelT: BaseModel](
     request: Request,
     model_type: type[RequestModelT],
 ) -> RequestModelT:

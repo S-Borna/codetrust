@@ -110,6 +110,15 @@ class TestTelemetrySuppressed:
         monkeypatch.setenv("CODETRUST_TELEMETRY", "0")
         assert _telemetry_suppressed() is True
 
+    @pytest.mark.parametrize("value", ["false", "FALSE", "off", "NO"])
+    def test_suppressed_when_env_false_like(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        value: str,
+    ) -> None:
+        monkeypatch.setenv("CODETRUST_TELEMETRY", value)
+        assert _telemetry_suppressed() is True
+
     def test_not_suppressed_when_env_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("CODETRUST_TELEMETRY", "1")
         assert _telemetry_suppressed() is False

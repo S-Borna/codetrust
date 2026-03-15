@@ -12,6 +12,7 @@
  */
 
 import * as vscode from "vscode";
+import { createHash } from "crypto";
 import { ApiClient } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
@@ -33,6 +34,8 @@ import { injectMcpServerConfigs, removeMcpServerConfigs, watchForMcpConfigDisrup
 
 /** Unique marker embedded in every injected instruction text. */
 const COPILOT_INSTRUCTION_MARKER = "[codetrust-governance-v1]";
+const COPILOT_HASH_ALGORITHM = "sha256";
+const ACTION_INJECT = "Inject Now";
 
 /** Globalstate key tracking whether instructions have been injected. */
 const COPILOT_INJECTION_STATE_KEY = "codetrust.copilotInstructionsInjected.v1";
@@ -82,6 +85,95 @@ All validations are logged to .codetrust/audit.jsonl. Bypasses are auditable.`;
 /** Instruction shape accepted by github.copilot.chat.codeGeneration.instructions. */
 type CopilotInstruction = { text: string } | { file: string };
 
+function normalizeForHash(content: string): string {
+    return content.replace(/\r\n/g, "\n").trim();
+}
+
+function computeHash(content: string): string {
+    return createHash(COPILOT_HASH_ALGORITHM)
+        .update(normalizeForHash(content), "utf8")
+        .digest("hex");
+}
+
+function findInjectedCopilotEntry(
+    instructions: CopilotInstruction[],
+): { index: number; text: string } | null {
+    const index = instructions.findIndex(
+        (entry) => "text" in entry && entry.text.includes(COPILOT_INSTRUCTION_MARKER),
+    );
+    if (index < 0) {
+        return null;
+    }
+
+    const entry = instructions[index];
+    if (!("text" in entry)) {
+        return null;
+    }
+
+    return { index, text: entry.text };
+}
+
+function isCopilotGovernanceCurrent(instructions: CopilotInstruction[]): boolean {
+    const injected = findInjectedCopilotEntry(instructions);
+    if (!injected) {
+        return false;
+    }
+    return computeHash(injected.text) === computeHash(COPILOT_RULES_TEXT);
+}
+
+function watchForCopilotGovernanceDisruption(
+    context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel,
+): vscode.Disposable[] {
+    const disposables: vscode.Disposable[] = [];
+    let promptActive = false;
+
+    const checkAndPrompt = (): void => {
+        const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
+        const existing = copilotCfg.get<CopilotInstruction[]>("codeGeneration.instructions", []);
+
+        if (isCopilotGovernanceCurrent(existing) || promptActive) {
+            return;
+        }
+
+        promptActive = true;
+        outputChannel.appendLine(
+            "CodeTrust: Copilot governance instructions are missing or outdated — showing recovery prompt.",
+        );
+        void vscode.window
+            .showWarningMessage(
+                "CodeTrust: GitHub Copilot governance rules are missing or changed. " +
+                "Inject now to restore enforcement?",
+                ACTION_INJECT,
+                "Dismiss",
+            )
+            .then((action) => {
+                promptActive = false;
+                if (action === ACTION_INJECT) {
+                    void injectCopilotInstructions(context, outputChannel);
+                }
+            });
+    };
+
+    disposables.push(
+        vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration("github.copilot.chat.codeGeneration.instructions")) {
+                checkAndPrompt();
+            }
+        }),
+    );
+
+    disposables.push(
+        vscode.window.onDidChangeWindowState((state) => {
+            if (state.focused) {
+                checkAndPrompt();
+            }
+        }),
+    );
+
+    return disposables;
+}
+
 /**
  * Inject CodeTrust governance rules into VS Code's global Copilot instructions.
  *
@@ -96,15 +188,20 @@ async function injectCopilotInstructions(
         const copilotCfg = vscode.workspace.getConfiguration("github.copilot.chat");
         const existing = copilotCfg.get<CopilotInstruction[]>("codeGeneration.instructions", []);
 
-        const alreadyPresent = existing.some(
-            (entry) => "text" in entry && entry.text.includes(COPILOT_INSTRUCTION_MARKER),
-        );
-        if (alreadyPresent) {
+        if (isCopilotGovernanceCurrent(existing)) {
             outputChannel.appendLine("CodeTrust: Copilot instructions already injected — skipping.");
             return;
         }
 
-        const updated: CopilotInstruction[] = [...existing, { text: COPILOT_RULES_TEXT }];
+        const injectedEntry = findInjectedCopilotEntry(existing);
+        let updated: CopilotInstruction[];
+        if (injectedEntry) {
+            updated = [...existing];
+            updated[injectedEntry.index] = { text: COPILOT_RULES_TEXT };
+        } else {
+            updated = [...existing, { text: COPILOT_RULES_TEXT }];
+        }
+
         await copilotCfg.update(
             "codeGeneration.instructions",
             updated,
@@ -213,6 +310,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Watch for IDE updates that overwrite injected rules, or new IDEs installed after CodeTrust
     const watchDisposables = watchForGovernanceDisruption(outputChannel);
     context.subscriptions.push(...watchDisposables);
+
+    // Watch for Copilot global instruction changes and repair only when needed
+    const copilotWatchDisposables = watchForCopilotGovernanceDisruption(context, outputChannel);
+    context.subscriptions.push(...copilotWatchDisposables);
 
     // Watch for MCP config files being modified (server entries removed)
     const mcpWatchDisposables = watchForMcpConfigDisruption(outputChannel);

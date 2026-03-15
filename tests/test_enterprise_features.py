@@ -942,19 +942,27 @@ class TestNewApiEndpoints:
         assert response.status_code in (200, 401, 500, 503)  # noqa: magic_number
 
     def test_vuln_scan_validation(self, client) -> None:
-        """Test that vuln scan validates input properly."""
+        """Free-tier callers are plan-gated before request validation."""
         response = client.post("/v1/vuln/scan", json={
             "language": "python",
             "packages": [],  # Empty — should fail validation.
         })
-        assert response.status_code in (422, 500)  # noqa: magic_number
+        assert response.status_code in (403, 500)  # noqa: magic_number
+        if response.status_code == 403:
+            body = response.json()
+            assert body["error"] == "upgrade_required"
+            assert body["required_plan"] == "pro"
 
     def test_cross_file_scan_validation(self, client) -> None:
-        """Test that cross-file scan validates input."""
+        """Free-tier callers are plan-gated before request validation."""
         response = client.post("/v1/scan/cross-file", json={
             "files": {},  # Empty — should fail validation.
         })
-        assert response.status_code in (422, 500)  # noqa: magic_number
+        assert response.status_code in (403, 500)  # noqa: magic_number
+        if response.status_code == 403:
+            body = response.json()
+            assert body["error"] == "upgrade_required"
+            assert body["required_plan"] == "pro"
 
 
 # ──────────────────────────────────────────────

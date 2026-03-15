@@ -119,7 +119,7 @@ class TestSbomEndpoint:
         assert spdx["spdxVersion"] == "SPDX-2.3"
 
     def test_sbom_endpoint_rejects_empty_package_list(self, client: TestClient) -> None:
-        """Validation error is returned for empty package input."""
+        """Free-tier callers are enterprise-gated before request validation."""
         response = client.post(
             "/v1/sbom/generate",
             json={
@@ -129,4 +129,7 @@ class TestSbomEndpoint:
             },
         )
 
-        assert response.status_code == 422
+        assert response.status_code == 403
+        body = response.json()
+        assert body["error"] == "upgrade_required"
+        assert body["required_plan"] == "enterprise"

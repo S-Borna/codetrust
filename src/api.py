@@ -16,6 +16,7 @@ from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
 from email.message import EmailMessage
 from pathlib import Path
+from typing import TypeVar
 
 import httpx
 import structlog
@@ -31,6 +32,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
+from pydantic import BaseModel, ValidationError
 from starlette.responses import JSONResponse, Response
 from starlette.websockets import WebSocketDisconnect
 
@@ -161,6 +163,7 @@ WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 FREE_DAILY_SCAN_LIMIT: int = 100
 
 _scan_limits: dict[str, dict[str, str | int]] = {}
+RequestModelT = TypeVar("RequestModelT", bound=BaseModel)
 
 
 def _resolve_attestation_session_id(request: Request) -> str:
@@ -262,7 +265,7 @@ async def _resolve_auth_from_key(
         return AuthContext(
             user_id="system_master_key", plan="enterprise", is_admin=True,
         )
-    if db is not None and key.startswith("ct_live_"):
+    if db is not None:
         record = await db.verify_api_key_hash(key)
         if record is not None:
             user = await db.get_user(record.user_id)
@@ -813,6 +816,36 @@ def _require_enterprise(plan: str) -> JSONResponse | None:
             "upgrade_url": "https://app.codetrust.ai/settings",
         },
     )
+
+
+async def _parse_request_model(
+    request: Request,
+    model_type: type[RequestModelT],
+) -> RequestModelT:
+    """Parse and validate a JSON request body after auth/plan guards run."""
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {
+                    "type": "json_invalid",
+                    "loc": ["body"],
+                    "msg": "Invalid JSON",
+                    "input": None,
+                    "ctx": {"error": str(exc)},
+                },
+            ],
+        ) from exc
+
+    try:
+        return model_type.model_validate(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=exc.errors(include_url=False),
+        ) from exc
 
 
 async def _enforce_rate_limit(
@@ -2392,7 +2425,6 @@ def _build_vuln_scan_response(result: VulnScanResponse) -> dict[str, object]:
 @app.post("/v1/vuln/scan")
 async def vuln_scan(
     request: Request,
-    req: VulnScanRequest,
     auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
@@ -2400,6 +2432,7 @@ async def vuln_scan(
     pro_required = _require_pro_or_enterprise(auth.plan)
     if pro_required is not None:
         return pro_required
+    req = await _parse_request_model(request, VulnScanRequest)
 
     installation_id = _resolve_installation_id(request)
     plan = auth.plan if auth else "free"
@@ -2470,7 +2503,6 @@ def _build_license_scan_response(result: LicenseScanResponse) -> dict[str, objec
 @app.post("/v1/license/scan")
 async def license_scan(
     request: Request,
-    req: LicenseScanRequest,
     auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
@@ -2478,6 +2510,7 @@ async def license_scan(
     pro_required = _require_pro_or_enterprise(auth.plan)
     if pro_required is not None:
         return pro_required
+    req = await _parse_request_model(request, LicenseScanRequest)
 
     installation_id = _resolve_installation_id(request)
     plan = auth.plan if auth else "free"
@@ -2513,7 +2546,6 @@ async def license_scan(
 @app.post("/v1/sbom/generate", response_model=SbomGenerateResponse)
 async def sbom_generate(
     request: Request,
-    req: SbomGenerateRequest,
     auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SbomGenerateResponse:
@@ -2521,6 +2553,7 @@ async def sbom_generate(
     enterprise_required = _require_enterprise(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
+    req = await _parse_request_model(request, SbomGenerateRequest)
 
     logger.info("api_sbom_generate", language=str(req.language), packages=len(req.packages))
 
@@ -2555,7 +2588,6 @@ async def sbom_generate(
 @app.post("/v1/scan/cross-file")
 async def cross_file_scan(
     request: Request,
-    req: CrossFileScanRequest,
     auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
@@ -2563,6 +2595,7 @@ async def cross_file_scan(
     pro_required = _require_pro_or_enterprise(auth.plan)
     if pro_required is not None:
         return pro_required
+    req = await _parse_request_model(request, CrossFileScanRequest)
 
     installation_id = _resolve_installation_id(request)
     plan = auth.plan if auth else "free"

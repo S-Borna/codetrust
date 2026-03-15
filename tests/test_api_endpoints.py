@@ -171,6 +171,27 @@ class TestAuth:
         finally:
             settings.api_key = original
 
+    def test_unknown_database_api_key_returns_401_without_anonymous_fallback(
+        self, client: TestClient,
+    ) -> None:
+        """Unknown API keys should 401 even when a DB-backed key store is configured."""
+        original = settings.api_key
+        settings.api_key = "master"
+        db = MagicMock(spec=DatabaseService)
+        db.verify_api_key_hash = AsyncMock(return_value=None)
+        app.state.db = db
+        try:
+            response = client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1", "filename": "test.py"},
+                headers={"X-API-Key": "arbitrary_key_without_prefix"},
+            )
+            assert response.status_code == 401
+            db.verify_api_key_hash.assert_awaited_once_with("arbitrary_key_without_prefix")
+        finally:
+            settings.api_key = original
+            app.state.db = None
+
     def test_master_key_resolves_system_master_key_principal(
         self,
     ) -> None:
@@ -686,6 +707,28 @@ class TestTierAndRateLimits:
         )
         assert response.status_code == 403
         assert response.json()["required_plan"] == "enterprise"
+
+    @pytest.mark.parametrize(
+        ("path", "payload", "required_plan"),
+        [
+            ("/v1/vuln/scan", {"packages": [{"name": "requests"}]}, "pro"),
+            ("/v1/license/scan", {"packages": [{"name": "requests"}]}, "pro"),
+            ("/v1/scan/cross-file", {"files": [{"filename": "a.py", "code": "import b"}]}, "pro"),
+            ("/v1/sbom/generate", {"packages": [{"name": "requests"}]}, "enterprise"),
+        ],
+    )
+    def test_paid_endpoints_gate_before_body_validation(
+        self,
+        client: TestClient,
+        path: str,
+        payload: dict[str, object],
+        required_plan: str,
+    ) -> None:
+        """Free-tier callers should get plan gating before payload schema validation."""
+        response = client.post(path, json=payload)
+        assert response.status_code == 403
+        assert response.json()["error"] == "upgrade_required"
+        assert response.json()["required_plan"] == required_plan
 
     def test_fix_apply_requires_enterprise(self, client: TestClient) -> None:
         response = client.post(

@@ -23,6 +23,7 @@ logger = structlog.get_logger()
 TELEMETRY_URL: str = "https://api.codetrust.ai/v1/telemetry"
 TELEMETRY_TIMEOUT_SECONDS: float = 3.0
 INSTALL_ID_REL: Path = Path(".codetrust") / "install_id"
+TELEMETRY_OPTOUT_VALUES: frozenset[str] = frozenset({"0", "false", "off", "no"})
 
 
 def _read_text(path: Path) -> str:
@@ -65,7 +66,8 @@ def _telemetry_suppressed() -> bool:
     outbound HTTP during ``pytest``.
     """
 
-    return os.environ.get("CODETRUST_TELEMETRY", "1").strip() == "0"
+    value = os.environ.get("CODETRUST_TELEMETRY", "1").strip().lower()
+    return value in TELEMETRY_OPTOUT_VALUES
 
 
 def send_telemetry(

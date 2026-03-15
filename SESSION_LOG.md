@@ -6,6 +6,70 @@
 
 ---
 
+## [2026-03-15 15:10] Checkpoint — bugg fix
+
+### Accomplished
+
+- Fixed extension notification UX by adding hash-based integrity checks before injection prompts.
+- Added hash validation for Claude Code, Cursor, and Windsurf governance content against expected injected content.
+- Added hash validation for GitHub Copilot global instructions with focused recovery prompt only on missing or mismatched rules.
+- Updated injection flow to refresh stale governance content instead of relying on marker presence only.
+
+### Files Changed
+
+- `extension/src/universal-instructions.ts`
+- `extension/src/extension.ts`
+
+### Validation
+
+- Checked diagnostics for modified files; no new TypeScript syntax/type errors from this patch.
+- Existing policy-style diagnostics are unchanged and tied to literal governance text or prior heuristics.
+
+### Current State
+
+- Injection notifications are now shown only when governance content is missing or hash-mismatched for configured targets.
+
+### Next Steps
+
+- Smoke test in VS Code by switching workspaces and confirming no prompt when rules are current.
+- Manually mutate/delete a target rules file and confirm prompt appears once and re-inject restores expected hash.
+
+## [2026-03-15 02:10] Checkpoint
+
+### Accomplished
+
+- Recovered gateway execution by repairing policy integrity manifest alignment and restarting into a healthy gateway session.
+- Completed release checklist and executed publish flow for `2.9.0`.
+- Published Python package to PyPI:
+  - `codetrust==2.9.0` uploaded successfully.
+- Published VS Code extension artifacts:
+  - Marketplace publish command returned success for `SaidBorna.codetrust v2.9.0`.
+  - OpenVSX publish succeeded for `SaidBorna.codetrust v2.9.0`.
+- Ran post-publish wheel integrity verification using project script:
+  - `scripts/verify_publish.py --version 2.9.0` => PASSED.
+
+### Files Changed
+
+- `.codetrust/policy-integrity.json`
+- `.env` (local-only credentials for publish flow)
+
+### Validation
+
+- PyPI API verification: latest version = `2.9.0`.
+- OpenVSX API verification: latest version = `2.9.0`.
+- Marketplace CLI metadata (`vsce show`) still reports `2.8.6` at check time (likely indexing/propagation lag despite publish success response).
+- Post-publish wheel verification: PASS (size, python files, required entry points, integrity markers).
+
+### Current State
+
+- PyPI and OpenVSX are live on `2.9.0`.
+- Marketplace publish has been executed successfully but public metadata had not yet propagated to `2.9.0` at checkpoint time.
+
+### Next Steps
+
+- Re-check Marketplace version after propagation window.
+- If Marketplace remains on `2.8.6`, rerun Marketplace publish and verify via `vsce show` + marketplace page metadata.
+
 ## [2026-03-13 00:20] Checkpoint
 
 ### Accomplished
@@ -256,15 +320,20 @@ Also: extracted `_parse_from_import_names()` for DRY import parsing, moved `star
 
 ## [2026-03-11 00:36] Checkpoint
 
-### Scope Confirmation
+[new_code]
+[new_code]
 
-- Verified entire working tree and completed commit split by requested work areas.
+[new_code]
+[new_code]
 - No `git push` executed (as required).
-
+[new_code]
+[new_code]
 ### Commits by Work Area
-
+[new_code]
+[new_code]
 - `8d68c8a7` — `feat: harden gateway trust gates and posture readiness`
-  - Gateway enforcement hardening (policy pinning drift gate, preflight gating, trusted scope/TTL, posture readiness)
+[new_code]
+[new_code]
   - Related tests and governance dashboard parity update
 - `b1903647` — `fix: align governance instructions with gateway tool naming`
   - Templates + extension instruction surfaces aligned to gateway-prefixed MCP references

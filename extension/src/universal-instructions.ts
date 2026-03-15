@@ -19,10 +19,13 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { createHash } from "crypto";
 import * as vscode from "vscode";
 
 /** Unique marker used to detect existing injections. Must not contain eval/exec. */
 const MARKER = "[codetrust-governance-v1]";
+const GOVERNANCE_SECTION_HEADER = "## CodeTrust Governance";
+const HASH_ALGORITHM = "sha256";
 
 /** Rules content — describes the outcome and prohibited behaviours, not the mechanism. */
 const RULES_BLOCK = `
@@ -87,9 +90,83 @@ interface PlatformTarget {
     buildContent: (existing: string) => string;
 }
 
-/** Returns true if the file already contains our marker. */
-function alreadyInjected(content: string): boolean {
-    return content.includes(MARKER);
+function normalizeForHash(content: string): string {
+    return content.replace(/\r\n/g, "\n").trim();
+}
+
+function computeHash(content: string): string {
+    return createHash(HASH_ALGORITHM).update(normalizeForHash(content), "utf8").digest("hex");
+}
+
+function extractGovernanceSection(content: string): string | null {
+    const headerIndex = content.lastIndexOf(GOVERNANCE_SECTION_HEADER);
+    if (headerIndex === -1) {
+        return null;
+    }
+
+    const section = content.slice(headerIndex);
+    if (!section.includes(MARKER)) {
+        return null;
+    }
+
+    return section;
+}
+
+function isCursorTarget(target: PlatformTarget): boolean {
+    return target.filePath.endsWith(path.join("rules", "codetrust.mdc"));
+}
+
+function governanceStateHash(target: PlatformTarget, existing: string): string | null {
+    if (isCursorTarget(target)) {
+        return computeHash(existing);
+    }
+
+    const section = extractGovernanceSection(existing);
+    if (!section) {
+        return null;
+    }
+
+    return computeHash(section);
+}
+
+function expectedGovernanceHash(target: PlatformTarget): string {
+    if (isCursorTarget(target)) {
+        return computeHash(target.buildContent(""));
+    }
+
+    return computeHash(RULES_BLOCK.trimStart());
+}
+
+function isGovernanceCurrent(target: PlatformTarget, existing: string): boolean {
+    const currentHash = governanceStateHash(target, existing);
+    if (!currentHash) {
+        return false;
+    }
+    return currentHash === expectedGovernanceHash(target);
+}
+
+function stripGovernanceSection(content: string): string {
+    const withSeparator = /\n---\n## CodeTrust Governance[\s\S]*?\[codetrust-governance-v1\][\s\S]*$/;
+    const withoutSeparator = /(^|\n)## CodeTrust Governance[\s\S]*?\[codetrust-governance-v1\][\s\S]*$/;
+
+    if (withSeparator.test(content)) {
+        return content.replace(withSeparator, "\n").trimEnd();
+    }
+
+    if (withoutSeparator.test(content)) {
+        return content.replace(withoutSeparator, "\n").trimEnd();
+    }
+
+    return content;
+}
+
+function buildInjectedContent(target: PlatformTarget, existing: string): string {
+    if (isCursorTarget(target)) {
+        return target.buildContent("");
+    }
+
+    const cleaned = stripGovernanceSection(existing);
+    return appendToFile(cleaned);
 }
 
 /** Append rules block to the end of an existing file, with a separator. */
@@ -165,17 +242,17 @@ export async function injectUniversalInstructions(
                 ? fs.readFileSync(target.filePath, "utf8")
                 : "";
 
-            if (alreadyInjected(existing)) {
+            if (isGovernanceCurrent(target, existing)) {
                 outputChannel.appendLine(
-                    `CodeTrust: ${target.name} — already injected, skipping.`,
+                    `CodeTrust: ${target.name} — rules are current, skipping.`,
                 );
                 continue;
             }
 
-            const newContent = target.buildContent(existing);
+            const newContent = buildInjectedContent(target, existing);
             fs.writeFileSync(target.filePath, newContent, "utf8");
             outputChannel.appendLine(
-                `CodeTrust: Governance rules injected → ${target.name}`,
+                `CodeTrust: Governance rules injected or refreshed → ${target.name}`,
             );
             injectedNames.push(target.name);
         } catch (err: unknown) {
@@ -216,7 +293,7 @@ export function removeUniversalInstructions(outputChannel: vscode.OutputChannel)
             }
 
             const existing = fs.readFileSync(target.filePath, "utf8");
-            if (!alreadyInjected(existing)) {
+            if (!governanceStateHash(target, existing)) {
                 continue;
             }
 
@@ -228,8 +305,7 @@ export function removeUniversalInstructions(outputChannel: vscode.OutputChannel)
             }
 
             // For shared files, strip only the injected block
-            const separatorPattern = /\n---\n## CodeTrust Governance[\s\S]*?\[codetrust-governance-v1\][\s\S]*$/;
-            const cleaned = existing.replace(separatorPattern, "\n").trimEnd();
+            const cleaned = stripGovernanceSection(existing);
             fs.writeFileSync(target.filePath, cleaned + "\n", "utf8");
             outputChannel.appendLine(`CodeTrust: Rules removed from ${target.name}`);
         } catch (err: unknown) {
@@ -293,7 +369,7 @@ export function watchForGovernanceDisruption(
                     return; // Deletion handled below
                 }
                 const content = fs.readFileSync(target.filePath, "utf8");
-                if (alreadyInjected(content)) {
+                if (isGovernanceCurrent(target, content)) {
                     return; // Still intact
                 }
                 outputChannel.appendLine(
@@ -376,7 +452,7 @@ export function watchForGovernanceDisruption(
                 return true; // IDE installed, file missing entirely
             }
             try {
-                return !alreadyInjected(fs.readFileSync(t.filePath, "utf8"));
+                return !isGovernanceCurrent(t, fs.readFileSync(t.filePath, "utf8"));
             } catch {
                 return false;
             }

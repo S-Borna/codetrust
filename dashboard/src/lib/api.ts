@@ -3,6 +3,7 @@
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.codetrust.ai";
+const CLIENT_VERSION = process.env.NEXT_PUBLIC_CLIENT_VERSION || "2.9.0";
 
 interface ScanLog {
     id: string;
@@ -88,6 +89,7 @@ async function apiFetch<T>(
 ): Promise<T> {
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
+        "X-Client-Version": CLIENT_VERSION,
         ...(apiKey ? { "X-API-Key": apiKey } : {}),
         ...(options.headers as Record<string, string> || {}),
     };

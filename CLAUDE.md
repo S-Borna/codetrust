@@ -72,7 +72,7 @@ Workflow: Call proxy → if APPROVED, call native tool with identical params. If
 | `mcp_codetrust-gat_codetrust_list_gateway_rules` | List all gateway interception rules |
 | `mcp_guardian_guardian_list_rules` | List all anti-pattern and structure rules |
 
-### Layer F: Import and Docker Verification (PLANNED — v2.8.5)
+### Layer F: Import and Docker Verification (PLANNED — v2.9.0)
 
 > These gateway tools will be implemented to provide automated verification
 > during import additions and Dockerfile modifications.

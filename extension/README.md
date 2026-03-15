@@ -13,7 +13,7 @@ Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and an
 
 ---
 
-## What's New in 2.8.6
+## What's New in 2.9.0
 
 - **MCP startup reliability hardening** — safer command resolution for global targets with reduced workspace-coupled failures.
 - **Cleaner startup UX** — suppresses non-actionable MCP warning popups when no workspace is open.
@@ -142,7 +142,7 @@ SonarQube, Snyk, Semgrep, Ruff — none of them intercept AI agents, verify impo
 | Surface | Install |
 |---------|---------|
 | **CLI** | `pip install codetrust` |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.9.0` |
 | **MCP Server** | 27 tools for Claude Code / Cursor / Windsurf |
 | **REST API** | 54 endpoints |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

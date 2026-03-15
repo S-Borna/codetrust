@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Org-level governance alerting for drift and repeat BLOCK events.
 - Exception lifecycle tightening with owner assignment and escalation rules.
 
-## [2.8.6] - 2026-03-14
+## [2.9.0] - 2026-03-15
 
-### What's New (since 2.8.5)
+### What's New (since 2.8.6)
 
 ### Added
 
@@ -33,8 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Release metadata and public counters synchronized to current measured values (tests/endpoints).
-- Website and release sign-off documentation aligned with 2.8.6 publication and verification evidence.
-- Chrome extension release surfaces synchronized to 2.8.6 for store and runtime consistency.
+- Website and release sign-off documentation aligned with 2.9.0 publication and verification evidence.
+- Chrome extension release surfaces synchronized to 2.9.0 for store and runtime consistency.
+
+## [2.8.6] - 2026-03-14
+
+### What's New (since 2.8.5)
 - Documentation now recommends non-TCC workspace paths (for example `~/Projects` or `~/codetrust-workspace`) for Claude Desktop MCP runtime stability.
 
 ## [2.8.5] - 2026-03-13

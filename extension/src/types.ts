@@ -63,6 +63,7 @@ export interface StaticScanResponse {
     infos: number;
     findings: Finding[];
     verdict: string;
+    upgrade_hints?: string[];
 }
 
 /** Response from POST /v1/scan/ast */

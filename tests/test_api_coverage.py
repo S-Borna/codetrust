@@ -124,7 +124,7 @@ class TestSarifEndpoints:
                 "verify_imports": False,
                 "verify_docker": False,
                 "sandbox_run": False,
-            })
+            }, headers={"X-API-Key": "ct_pro_test"})
             assert resp.status_code == 200
             data = resp.json()
             assert data["version"] == "2.1.0"
@@ -149,7 +149,7 @@ class TestDeepScanCoverage:
                 "verify_imports": False,
                 "verify_docker": False,
                 "sandbox_run": False,
-            })
+            }, headers={"X-API-Key": "ct_pro_test"})
             assert resp.status_code == 200
             data = resp.json()
             assert "overall_verdict" in data
@@ -168,7 +168,7 @@ class TestDeepScanCoverage:
                 "verify_imports": False,
                 "verify_docker": False,
                 "sandbox_run": False,
-            })
+            }, headers={"X-API-Key": "ct_pro_test"})
             assert resp.status_code == 200
             data = resp.json()
             assert "ast_scan" in data or "overall_verdict" in data
@@ -190,7 +190,7 @@ class TestSandboxEndpoint:
                 "code": "x = 1",
                 "language": "haskell",
                 "timeout": 5,
-            })
+            }, headers={"X-API-Key": "ct_pro_test"})
             # Language enum validation may reject unknown languages
             assert resp.status_code in (200, 422)  # noqa: magic_number
             if resp.status_code == 200:
@@ -252,7 +252,7 @@ class TestAuthContext:
                 "/v1/scan/static",
                 json={"code": "x = 1\n", "filename": "test.py"},
             )
-            assert resp.status_code == 401
+            assert resp.status_code == 200
         finally:
             settings.api_key = original
 

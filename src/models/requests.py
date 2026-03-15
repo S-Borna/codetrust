@@ -356,6 +356,17 @@ class CreateApiKeyRequest(BaseModel):
     name: str = Field(default="Default", max_length=100)
 
 
+class DashboardBootstrapApiKeyRequest(BaseModel):
+    """Request to bootstrap a per-user dashboard API key."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    user_id: str = Field(..., min_length=1, max_length=64)
+    github_id: str = Field(default="", max_length=64)
+    email: str = Field(default="", max_length=255)
+    name: str = Field(default="", max_length=255)
+
+
 class ScanHistoryQuery(BaseModel):
     """Query parameters for scan history pagination."""
 

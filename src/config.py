@@ -15,10 +15,11 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    version: str = "2.8.6"
+    version: str = "2.9.0"
 
     # --- Auth ---
     api_key: str = ""  # Empty = no auth required (local dev)
+    require_auth_for_all_requests: bool = False
 
     # --- Redis ---
     redis_url: str = "redis://localhost:6379"
@@ -129,7 +130,7 @@ class Settings(BaseSettings):
     license_offline_grace_days: int = 7  # Days allowed offline before lockout
 
     # --- Client Version Enforcement ---
-    min_client_version: str = "2.6.1"  # Clients below this version get 426 Upgrade Required
+    min_client_version: str = "2.6.1"  # Advisory minimum client version
 
     # --- Production Mode ---
     production_mode: bool = False  # True = hard-fail on invalid license (API server)

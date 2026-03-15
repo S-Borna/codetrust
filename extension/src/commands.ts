@@ -407,6 +407,7 @@ async function runStaticScan(
     } catch (err) {
         logApiError(deps, err);
         if (err instanceof ApiError && err.statusCode === 429) {
+            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to embedded offline scanner");
             showRateLimitBlockedNotification();
         }
         // Fallback to embedded offline scanner when API is unavailable
@@ -514,6 +515,7 @@ async function runDeepScan(
     } catch (err) {
         logApiError(deps, err);
         if (err instanceof ApiError && err.statusCode === 429) {
+            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to embedded offline scanner");
             showRateLimitBlockedNotification();
         }
         // Fallback to embedded offline scanner when API is unavailable
@@ -629,9 +631,8 @@ function apiErrorHint(statusCode: number): string {
     return "Request failed";
 }
 
-const UPGRADE_URL = "https://app.codetrust.ai/dashboard/settings";
+const UPGRADE_URL = "https://app.codetrust.ai/settings";
 const RATE_LIMIT_WARNING_THRESHOLD = 0.8;
-const PRO_DAILY_SCAN_LIMIT = 10_000;
 let rateLimitWarningShown = false;
 let rateLimitBlockedShown = false;
 
@@ -669,11 +670,11 @@ function showRateLimitBlockedNotification(): void {
         return;
     }
     rateLimitBlockedShown = true;
-    vscode.window.showErrorMessage(
-        `CodeTrust: Daily scan limit exceeded. Upgrade to Pro for ${PRO_DAILY_SCAN_LIMIT.toLocaleString("en-US")} scans/day.`,
-        "Upgrade to Pro",
+    vscode.window.showInformationMessage(
+        "Daily scan limit reached (100/day on free tier). Upgrade for unlimited scans.",
+        "Upgrade",
     ).then((choice) => {
-        if (choice === "Upgrade to Pro") {
+        if (choice === "Upgrade") {
             vscode.env.openExternal(vscode.Uri.parse(UPGRADE_URL));
         }
     });

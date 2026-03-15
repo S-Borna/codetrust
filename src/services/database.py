@@ -45,6 +45,7 @@ def _generate_api_key() -> str:
 
 
 POOL_TIMEOUT_SECS: int = 30
+DASHBOARD_SESSION_KEY_NAME = "Dashboard Web Session"
 
 
 def _build_db_engine(database_url: str, echo: bool) -> AsyncEngine:
@@ -231,6 +232,96 @@ class DatabaseService:
                 record.last_used_at = datetime.datetime.now(datetime.UTC)
                 await session.commit()
             return record
+
+    async def rotate_dashboard_api_key(
+        self, user_id: str,
+    ) -> tuple[str, ApiKeyRecord]:
+        """Rotate a dashboard-scoped API key and return a fresh raw key."""
+        raw_key = _generate_api_key()
+        key_hash = _hash_key(raw_key)
+        prefix = raw_key[:16]
+        now = datetime.datetime.now(datetime.UTC)
+
+        async with self._session_factory() as session:
+            stmt = select(ApiKeyRecord).where(
+                ApiKeyRecord.user_id == user_id,
+                ApiKeyRecord.name == DASHBOARD_SESSION_KEY_NAME,
+                ApiKeyRecord.is_revoked.is_(False),
+            )
+            rows = await session.execute(stmt)
+            for existing in rows.scalars().all():
+                existing.is_revoked = True
+                existing.revoked_at = now
+
+            record = ApiKeyRecord(
+                user_id=user_id,
+                key_hash=key_hash,
+                prefix=prefix,
+                name=DASHBOARD_SESSION_KEY_NAME,
+            )
+            session.add(record)
+            await session.commit()
+            await session.refresh(record)
+            logger.info("dashboard_api_key_rotated", user_id=user_id, key_id=record.id)
+            return raw_key, record
+
+    async def get_adoption_overview(self) -> dict[str, int]:
+        """Return aggregate adoption metrics for admin dashboards."""
+        now = datetime.datetime.now(datetime.UTC)
+        since = now - datetime.timedelta(days=30)
+
+        async with self._session_factory() as session:
+            total_users = int((await session.execute(select(func.count()).select_from(User))).scalar() or 0)
+
+            plan_rows = await session.execute(
+                select(User.plan, func.count()).group_by(User.plan),
+            )
+            plan_counts = {str(plan): int(count) for plan, count in plan_rows.all()}
+
+            total_api_keys = int(
+                (await session.execute(select(func.count()).select_from(ApiKeyRecord))).scalar() or 0,
+            )
+            active_api_keys = int(
+                (
+                    await session.execute(
+                        select(func.count()).select_from(ApiKeyRecord).where(
+                            ApiKeyRecord.is_revoked.is_(False),
+                        ),
+                    )
+                ).scalar()
+                or 0
+            )
+            active_users_30d = int(
+                (
+                    await session.execute(
+                        select(func.count(func.distinct(ScanLog.user_id))).where(
+                            ScanLog.created_at >= since,
+                        ),
+                    )
+                ).scalar()
+                or 0
+            )
+            total_scans_30d = int(
+                (
+                    await session.execute(
+                        select(func.count()).select_from(ScanLog).where(
+                            ScanLog.created_at >= since,
+                        ),
+                    )
+                ).scalar()
+                or 0
+            )
+
+            return {
+                "total_users": total_users,
+                "free_users": plan_counts.get("free", 0),
+                "pro_users": plan_counts.get("pro", 0),
+                "enterprise_users": plan_counts.get("enterprise", 0),
+                "total_api_keys": total_api_keys,
+                "active_api_keys": active_api_keys,
+                "active_users_30d": active_users_30d,
+                "total_scans_30d": total_scans_30d,
+            }
 
     # --- Scan Log operations ---
 

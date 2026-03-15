@@ -536,7 +536,7 @@ class TestSarifAPIEndpoints:
             "filename": "test.py",
             "language": "python",
             "verify_imports": False,
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["version"] == "2.1.0"
@@ -548,7 +548,7 @@ class TestSarifAPIEndpoints:
             "code": "x = 1\n",
             "filename": "test.py",
             "verify_imports": False,
-        })
+        }, headers={"X-API-Key": "ct_pro_test"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["version"] == "2.1.0"

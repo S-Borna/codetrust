@@ -226,7 +226,7 @@ class TestPolicyIntegrity:
         create_policy_integrity_manifest(
             tmp_path,
             sign_key="integrity-sign-key",
-            version="2.8.5",
+            version="2.9.0",
         )
 
         (tmp_path / "CLAUDE.md").write_text("tampered policy", encoding="utf-8")
@@ -262,7 +262,7 @@ class TestPolicyIntegrity:
         create_policy_integrity_manifest(
             tmp_path,
             sign_key="integrity-sign-key",
-            version="2.8.5",
+            version="2.9.0",
         )
 
         monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))

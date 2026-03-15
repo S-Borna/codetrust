@@ -3,6 +3,51 @@ import GithubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.codetrust.ai";
+
+interface BootstrapApiKeyResponse {
+    user_id: string;
+    plan: string;
+    api_key: string;
+    key_id: string;
+    prefix: string;
+}
+
+async function bootstrapDashboardApiKey(params: {
+    userId: string;
+    email?: string | null;
+    name?: string | null;
+}): Promise<BootstrapApiKeyResponse | null> {
+    const masterKey = process.env.CODETRUST_API_KEY || "";
+    if (!masterKey) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/v1/admin/dashboard/bootstrap-api-key`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-API-Key": masterKey,
+                "X-Client-Version": "2.9.0",
+            },
+            body: JSON.stringify({
+                user_id: params.userId,
+                github_id: params.userId,
+                email: params.email || "",
+                name: params.name || "",
+            }),
+            cache: "no-store",
+        });
+        if (!response.ok) {
+            return null;
+        }
+        return await response.json() as BootstrapApiKeyResponse;
+    } catch {
+        return null;
+    }
+}
+
 declare module "next-auth" {
     interface User {
         plan?: string;
@@ -41,9 +86,17 @@ export const authOptions: NextAuthOptions = {
                     select: { plan: true, stripeId: true },
                 });
                 session.user.plan = dbUser?.plan || "free";
-                // Use stripeId as API key proxy or generate deterministic key
-                // The API key is the user's backend auth credential
-                session.user.apiKey = process.env.CODETRUST_API_KEY || dbUser?.stripeId || "";
+                const bootstrap = await bootstrapDashboardApiKey({
+                    userId: user.id,
+                    email: session.user.email,
+                    name: session.user.name,
+                });
+                if (bootstrap) {
+                    session.user.apiKey = bootstrap.api_key;
+                    session.user.plan = bootstrap.plan || session.user.plan;
+                } else {
+                    session.user.apiKey = "";
+                }
             }
             return session;
         },

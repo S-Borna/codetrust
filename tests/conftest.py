@@ -27,6 +27,18 @@ def _disable_api_key_auth(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _sanitize_governance_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep governance tests deterministic regardless of shell exports.
+
+    Local developer shells may export governance toggles (for manual runtime tests),
+    but unit tests should rely on per-test fixtures and config files instead.
+    """
+
+    monkeypatch.delenv("CODETRUST_GOVERNANCE_MODE", raising=False)
+    monkeypatch.delenv("CODETRUST_GOVERNANCE_ENABLED", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _reset_ip_rate_limiter() -> None:
     """Clear IP rate limiter buckets before every test.
 

@@ -73,6 +73,9 @@ async def user_with_key(db: DatabaseService) -> tuple[str, str]:
         email="e2e@codetrust.ai",
         name="E2E Tester",
     )
+    updated_user = await db.update_user_plan(user.id, "pro")
+    if updated_user is not None:
+        user = updated_user
     raw_key, _record = await db.create_api_key(user.id, "E2E Key")
     return user.id, raw_key
 
@@ -184,7 +187,12 @@ class TestE2EStaticScan:
 
 
 class TestE2EDeepScan:
-    def test_deep_scan_python(self, e2e_client: TestClient) -> None:
+    def test_deep_scan_python(
+        self,
+        e2e_client: TestClient,
+        user_with_key: tuple[str, str],
+    ) -> None:
+        _user_id, raw_key = user_with_key
         resp = e2e_client.post(
             "/v1/scan/deep",
             json={
@@ -195,6 +203,7 @@ class TestE2EDeepScan:
                 "verify_docker": False,
                 "sandbox_run": False,
             },
+            headers={"X-API-Key": raw_key},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -202,7 +211,12 @@ class TestE2EDeepScan:
         assert "static_scan" in data
         assert "total_findings" in data
 
-    def test_deep_scan_sarif(self, e2e_client: TestClient) -> None:
+    def test_deep_scan_sarif(
+        self,
+        e2e_client: TestClient,
+        user_with_key: tuple[str, str],
+    ) -> None:
+        _user_id, raw_key = user_with_key
         resp = e2e_client.post(
             "/v1/scan/deep/sarif",
             json={
@@ -213,6 +227,7 @@ class TestE2EDeepScan:
                 "verify_docker": False,
                 "sandbox_run": False,
             },
+            headers={"X-API-Key": raw_key},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -313,7 +328,7 @@ class TestE2EHistoryUsage:
         assert resp.status_code == 200
         data = resp.json()
         assert data["email"] == "e2e@codetrust.ai"
-        assert data["plan"] == "free"
+        assert data["plan"] == "pro"
 
 
 # ---------------------------------------------------------------------------

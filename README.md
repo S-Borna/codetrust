@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v2.8.6</code> &middot; <code>1954 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v2.9.0</code> &middot; <code>1974 tests</code> &middot; <code>286 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 54 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,954 tests.
+**AI Governance Enforcement Platform** — 286 rules across 10 enforcement layers, 27 MCP tools, 54 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 1,974 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -46,10 +46,10 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v2.8.6`
+- **Current release:** `v2.9.0`
 - **Release highlights:** Reliability hardening release for MCP startup, governance enforcement continuity, and cross-IDE consistency.
 
-### What's New in v2.8.6
+### What's New in v2.9.0
 
 - Claude Desktop MCP startup resilience: gateway/scan startup no longer crashes on unreadable workspace policy/audit paths.
 - Protocol-safe stdio behavior: server logs routed to stderr to keep JSON-RPC stdout clean.
@@ -241,7 +241,7 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.9.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 54 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -343,7 +343,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v2.8.6
+      - uses: S-Borna/codetrust@v2.9.0
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -668,7 +668,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v2.8.6` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v2.9.0` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
@@ -687,7 +687,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 1954 tests
+pytest                     # 1974 tests
 ruff check .               # zero warnings
 ```
 

@@ -183,7 +183,7 @@
                 <div class="row">
                     <div>
                         <label for="version">CodeTrust version</label>
-                        <input id="version" name="version" placeholder="2.8.6" value="2.8.6">
+                        <input id="version" name="version" placeholder="2.9.0" value="2.9.0">
                     </div>
                     <div>
                         <label for="environment">Environment</label>
@@ -271,7 +271,7 @@
                 const result = await response.json();
                 statusEl.textContent = `Report sent. Ticket: ${result.report_id}`;
                 form.reset();
-                document.getElementById('version').value = '2.8.6';
+                document.getElementById('version').value = '2.9.0';
             } catch (error) {
                 statusEl.classList.add('error');
                 statusEl.textContent = `Could not send report directly. ${String(error)}. Use "Copy report text" and send it to said@saidborna.com.`;

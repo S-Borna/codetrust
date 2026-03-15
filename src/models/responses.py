@@ -100,6 +100,7 @@ class StaticScanResponse(BaseModel):
     infos: int
     findings: list[Finding]
     verdict: str  # "PASS", "WARN", "BLOCK"
+    upgrade_hints: list[str] = Field(default_factory=list)
 
 
 class AstScanResponse(BaseModel):
@@ -193,6 +194,33 @@ class ApiKeyCreatedResponse(BaseModel):
     id: str
     name: str
     prefix: str
+
+
+class DashboardBootstrapApiKeyResponse(BaseModel):
+    """Response for dashboard API key bootstrap."""
+
+    model_config = ConfigDict(strict=True)
+
+    user_id: str
+    plan: str
+    api_key: str
+    key_id: str
+    prefix: str
+
+
+class AdminAdoptionOverviewResponse(BaseModel):
+    """Admin adoption metrics across users, keys, and recent activity."""
+
+    model_config = ConfigDict(strict=True)
+
+    total_users: int
+    free_users: int
+    pro_users: int
+    enterprise_users: int
+    total_api_keys: int
+    active_api_keys: int
+    active_users_30d: int
+    total_scans_30d: int
 
 
 class ScanLogResponse(BaseModel):

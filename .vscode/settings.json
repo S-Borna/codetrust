@@ -1,5 +1,8 @@
 {
     "codetrust.apiUrl": "https://codetrust-api-production.up.railway.app",
     "codetrust.scanOnSave": true,
-    "codetrust.severityThreshold": "INFO"
+    "codetrust.severityThreshold": "INFO",
+    "terminal.integrated.env.osx": {
+        "CODETRUST_API_KEY": "[I will paste the key myself]"
+    }
 }

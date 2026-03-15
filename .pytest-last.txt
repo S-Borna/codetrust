@@ -1,0 +1,2276 @@
+........................................................................ [  3%]
+..............................FF........................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 14%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 29%]
+..........FF....................................................FFFFF... [ 32%]
+........................................................................ [ 36%]
+........................................................................ [ 40%]
+............................................FF.......................... [ 43%]
+........................................................................ [ 47%]
+......................................................................FF [ 51%]
+.F...................................................................... [ 54%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 65%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+................................................................F.F..... [ 80%]
+..........................................F............................. [ 83%]
+........................................................................ [ 87%]
+...................................................................ss... [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+................................                                         [100%]
+=================================== FAILURES ===================================
+____________ TestDeepScanAstIntegration.test_deep_scan_includes_ast ____________
+
+self = <tests.test_ast.TestDeepScanAstIntegration object at 0x109c7fed0>
+client = <starlette.testclient.TestClient object at 0x10fcee9c0>
+
+    def test_deep_scan_includes_ast(self, client: TestClient) -> None:
+        """Deep scan includes AST results when language is supported."""
+        response = client.post("/v1/scan/deep", json={
+            "code": "def foo():\n    return 1\n",
+            "language": "python",
+            "verify_imports": False,
+        })
+>       assert response.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_ast.py:766: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:04.913051Z' level='info'
+_______ TestDeepScanAstIntegration.test_deep_scan_ast_findings_in_total ________
+
+self = <tests.test_ast.TestDeepScanAstIntegration object at 0x109d40050>
+client = <starlette.testclient.TestClient object at 0x10fceecf0>
+
+    def test_deep_scan_ast_findings_in_total(
+        self, client: TestClient
+    ) -> None:
+        """AST findings are counted in total_findings."""
+        code = "def foo():\n    unused = 42\n    return 1\n"
+        response = client.post("/v1/scan/deep", json={
+            "code": code,
+            "language": "python",
+            "verify_imports": False,
+        })
+>       assert response.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_ast.py:782: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:04.948371Z' level='info'
+____________________ TestE2EDeepScan.test_deep_scan_python _____________________
+
+self = <tests.test_e2e_integration.TestE2EDeepScan object at 0x10c9b3390>
+e2e_client = <starlette.testclient.TestClient object at 0x10d8639b0>
+
+    def test_deep_scan_python(self, e2e_client: TestClient) -> None:
+        resp = e2e_client.post(
+            "/v1/scan/deep",
+            json={
+                "code": "import os\ndef main():\n    return os.getcwd()\n",
+                "filename": "app.py",
+                "language": "python",
+                "verify_imports": False,
+                "verify_docker": False,
+                "sandbox_run": False,
+            },
+        )
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_e2e_integration.py:199: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='database_tables_created' timestamp='2026-03-15T03:14:28.241710Z' level='info'
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:28.246155Z' level='info'
+event='stripe_not_configured' timestamp='2026-03-15T03:14:28.246193Z' level='warning'
+--------------------------- Captured stderr teardown ---------------------------
+event='database_closed' timestamp='2026-03-15T03:14:28.252419Z' level='info'
+_____________________ TestE2EDeepScan.test_deep_scan_sarif _____________________
+
+self = <tests.test_e2e_integration.TestE2EDeepScan object at 0x10c9b34d0>
+e2e_client = <starlette.testclient.TestClient object at 0x10d863ce0>
+
+    def test_deep_scan_sarif(self, e2e_client: TestClient) -> None:
+        resp = e2e_client.post(
+            "/v1/scan/deep/sarif",
+            json={
+                "code": "x = 1\n",
+                "filename": "simple.py",
+                "language": "python",
+                "verify_imports": False,
+                "verify_docker": False,
+                "sandbox_run": False,
+            },
+        )
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_e2e_integration.py:217: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='database_tables_created' timestamp='2026-03-15T03:14:28.261239Z' level='info'
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:28.265239Z' level='info'
+event='stripe_not_configured' timestamp='2026-03-15T03:14:28.265259Z' level='warning'
+--------------------------- Captured stderr teardown ---------------------------
+event='database_closed' timestamp='2026-03-15T03:14:28.270903Z' level='info'
+_________________ TestNewApiEndpoints.test_vuln_scan_endpoint __________________
+
+self = <tests.test_enterprise_features.TestNewApiEndpoints object at 0x10cabce10>
+client = <starlette.testclient.TestClient object at 0x138906ad0>
+
+    def test_vuln_scan_endpoint(self, client) -> None:
+        """Test POST /v1/vuln/scan endpoint exists and accepts request."""
+        response = client.post("/v1/vuln/scan", json={
+            "language": "python",
+            "packages": ["requests"],
+        })
+        # Success/validation/rate-limit/service-unavailable responses are accepted.
+>       assert response.status_code in (200, 422, 429, 500)  # noqa: magic_number
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 403 in (200, 422, 429, 500)
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_enterprise_features.py:894: AssertionError
+________________ TestNewApiEndpoints.test_license_scan_endpoint ________________
+
+self = <tests.test_enterprise_features.TestNewApiEndpoints object at 0x10cabcf50>
+client = <starlette.testclient.TestClient object at 0x138906be0>
+
+    def test_license_scan_endpoint(self, client) -> None:
+        """Test POST /v1/license/scan endpoint exists and accepts request."""
+        response = client.post("/v1/license/scan", json={
+            "language": "python",
+            "packages": ["requests"],
+        })
+>       assert response.status_code in (200, 422, 429, 500)  # noqa: magic_number
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 403 in (200, 422, 429, 500)
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_enterprise_features.py:902: AssertionError
+______________ TestNewApiEndpoints.test_cross_file_scan_endpoint _______________
+
+self = <tests.test_enterprise_features.TestNewApiEndpoints object at 0x10c87efd0>
+client = <starlette.testclient.TestClient object at 0x138850380>
+
+    def test_cross_file_scan_endpoint(self, client) -> None:
+        """Test POST /v1/scan/cross-file endpoint."""
+        response = client.post("/v1/scan/cross-file", json={
+            "files": {
+                "main.py": "from utils import helper\n",
+                "utils.py": "def helper(): pass\n",
+            },
+        })
+>       assert response.status_code in (200, 429, 500)  # noqa: magic_number
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 403 in (200, 429, 500)
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_enterprise_features.py:912: AssertionError
+__________________ TestNewApiEndpoints.test_autofix_endpoint ___________________
+
+self = <tests.test_enterprise_features.TestNewApiEndpoints object at 0x10c87f820>
+client = <starlette.testclient.TestClient object at 0x138852140>
+
+    def test_autofix_endpoint(self, client) -> None:
+        """Test POST /v1/fix/apply endpoint."""
+        response = client.post("/v1/fix/apply", json={
+            "files": {
+                "app.py": 'print("hello")\n',
+            },
+            "languages": {
+                "app.py": "python",
+            },
+        })
+>       assert response.status_code in (200, 429, 500)  # noqa: magic_number
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 403 in (200, 429, 500)
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_enterprise_features.py:928: AssertionError
+______________ TestNewApiEndpoints.test_org_endpoints_without_db _______________
+
+self = <tests.test_enterprise_features.TestNewApiEndpoints object at 0x10c8968d0>
+client = <starlette.testclient.TestClient object at 0x138853350>
+
+    def test_org_endpoints_without_db(self, client) -> None:
+        """Test org endpoints return error when DB is not available."""
+        response = client.post("/v1/orgs", json={"name": "Test"})
+        # Without DB, team service may not be available.
+>       assert response.status_code in (200, 401, 500, 503)  # noqa: magic_number
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 403 in (200, 401, 500, 503)
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_enterprise_features.py:938: AssertionError
+________________ TestSarifAPIEndpoints.test_deep_sarif_endpoint ________________
+
+self = <tests.test_github_action.TestSarifAPIEndpoints object at 0x10cb76fd0>
+client = <starlette.testclient.TestClient object at 0x119cc5590>
+
+    def test_deep_sarif_endpoint(self, client: TestClient) -> None:
+        """POST /v1/scan/deep/sarif returns SARIF JSON."""
+        resp = client.post("/v1/scan/deep/sarif", json={
+            "code": "result = " + "ev" + "al('1+1')\n",
+            "filename": "test.py",
+            "language": "python",
+            "verify_imports": False,
+        })
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_github_action.py:540: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:29.281161Z' level='info'
+______________ TestSarifAPIEndpoints.test_deep_sarif_no_language _______________
+
+self = <tests.test_github_action.TestSarifAPIEndpoints object at 0x10cb77100>
+client = <starlette.testclient.TestClient object at 0x119c048d0>
+
+    def test_deep_sarif_no_language(self, client: TestClient) -> None:
+        """Deep SARIF without language still works."""
+        resp = client.post("/v1/scan/deep/sarif", json={
+            "code": "x = 1\n",
+            "filename": "test.py",
+            "verify_imports": False,
+        })
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_github_action.py:552: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:29.293285Z' level='info'
+______ TestIPRateLimitIntegration.test_scan_endpoint_returns_429_on_flood ______
+
+self = <tests.test_ip_rate_limit.TestIPRateLimitIntegration object at 0x10cc74410>
+rate_limit_client = <starlette.testclient.TestClient object at 0x11854b130>
+
+    def test_scan_endpoint_returns_429_on_flood(
+        self, rate_limit_client: TestClient,
+    ) -> None:
+        """Scan endpoints should return too-many-requests when flooded from same IP."""
+        blocked = False
+        for _ in range(IP_BURST_LIMIT + 5):
+            resp = rate_limit_client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1", "filename": "test.py"},
+            )
+            if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                blocked = True
+                data = resp.json()
+>               assert data["error"] == "too_many_requests"
+E               AssertionError: assert 'daily_scan_limit_reached' == 'too_many_requests'
+E                 
+E                 - too_many_requests
+E                 + daily_scan_limit_reached
+
+tests/test_ip_rate_limit.py:178: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:29.602063Z' level='info'
+----------------------------- Captured stderr call -----------------------------
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.604035Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.604167Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.606850Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.606968Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.608779Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.608880Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.610621Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.610727Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.612454Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.612548Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.614225Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.614315Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.615963Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.616053Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.617703Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.617791Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.619445Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.619533Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.621197Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.621292Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.622991Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.623083Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.627143Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.627237Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.628939Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.629032Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.630671Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.630761Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.632406Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.632496Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.634176Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.634267Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.635939Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.636036Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.637700Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.637789Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.639439Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.639528Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.641219Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.641316Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.642964Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.643058Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.644743Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.644838Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.646504Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.646594Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.648792Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.648881Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.650523Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.650611Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.652248Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.652338Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.654011Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.654100Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.656176Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.656265Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.657943Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.658032Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.659661Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.659750Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.661427Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.661519Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.663884Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.663973Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.665616Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.665704Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.667353Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.667446Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.669115Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.669203Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.671442Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.671532Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.673190Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.673281Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.674932Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.675021Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.676685Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.676781Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.680095Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.680210Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.681936Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.682028Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.683678Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.683767Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.685433Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.685522Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.707223Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.707365Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.709303Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.709410Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.711280Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.711389Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.713110Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.713203Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.714887Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.714980Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.716679Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.716772Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.718449Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.718543Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.720219Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.720309Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.721977Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.722066Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.723722Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.723810Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.725473Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.725565Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.727221Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.727314Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.729050Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.729162Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.730841Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.730938Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.732870Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.732983Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.734665Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.734754Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.736399Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.736488Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.738187Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.738288Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.739957Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.740046Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.741700Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.741790Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.743463Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.743559Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.745224Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.745314Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.746976Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.747072Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.748710Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.748800Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.750459Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.750551Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.752219Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.752309Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.753946Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.754034Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.755705Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.755794Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.757436Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.757525Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.759174Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.759262Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.760930Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.761020Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.762673Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.762762Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.764415Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.764505Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.766174Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.766263Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.767934Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.768025Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.769678Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.769766Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.771419Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.771509Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.773158Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.773246Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.774875Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.774964Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.776605Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.776694Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.778356Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.778444Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.780087Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.780178Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.781835Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.781927Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.783624Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.783715Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.785367Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.785455Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.787107Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.787196Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.788871Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.788975Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.790672Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.790762Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.792406Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.792495Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.794148Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.794241Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.795907Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.795996Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.797640Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.797731Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.799363Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.799451Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.801074Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.801162Z' level='info'
+event='api_static_scan' filename='test.py' timestamp='2026-03-15T03:14:29.802794Z' level='info'
+event='static_scan_complete' filename='test.py' total_findings=0 timestamp='2026-03-15T03:14:29.802883Z' level='info'
+_______ TestIPRateLimitIntegration.test_429_includes_retry_after_header ________
+
+self = <tests.test_ip_rate_limit.TestIPRateLimitIntegration object at 0x10cc223f0>
+rate_limit_client = <starlette.testclient.TestClient object at 0x10f964c00>
+
+    def test_429_includes_retry_after_header(
+        self, rate_limit_client: TestClient,
+    ) -> None:
+        """Too-many-requests response should include Retry-After header."""
+        for _ in range(IP_BURST_LIMIT + 5):
+            resp = rate_limit_client.post(
+                "/v1/scan/static",
+                json={"code": "x = 1", "filename": "test.py"},
+            )
+            if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+>               assert "retry-after" in resp.headers
+E               AssertionError: assert 'retry-after' in Headers({'content-length': '222', 'content-type': 'application/json'})
+E                +  where Headers({'content-length': '222', 'content-type': 'application/json'}) = <Response [429 Too Many Requests]>.headers
+
+tests/test_ip_rate_limit.py:193: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:29.812617Z' level='info'
+___________ TestIPRateLimitIntegration.test_normal_payload_accepted ____________
+
+self = <tests.test_ip_rate_limit.TestIPRateLimitIntegration object at 0x10cc02e70>
+rate_limit_client = <starlette.testclient.TestClient object at 0x10fb46030>
+
+    def test_normal_payload_accepted(
+        self, rate_limit_client: TestClient,
+    ) -> None:
+        """Normal-sized requests should pass through."""
+        resp = rate_limit_client.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "small.py"},
+        )
+        # Should get success or auth failure, but not payload-too-large or rate-limit.
+>       assert resp.status_code not in (HTTPStatus.REQUEST_ENTITY_TOO_LARGE, HTTPStatus.TOO_MANY_REQUESTS)
+E       assert 429 not in (<HTTPStatus.CONTENT_TOO_LARGE: 413>, <HTTPStatus.TOO_MANY_REQUESTS: 429>)
+E        +  where 429 = <Response [429 Too Many Requests]>.status_code
+
+tests/test_ip_rate_limit.py:219: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:29.831629Z' level='info'
+_______________ TestSandboxAPIEndpoint.test_sandbox_run_disabled _______________
+
+self = <tests.test_sandbox.TestSandboxAPIEndpoint object at 0x10d1082d0>
+client = <starlette.testclient.TestClient object at 0x10ff73020>
+
+    def test_sandbox_run_disabled(self, client: TestClient) -> None:
+        """Sandbox endpoint returns result when disabled."""
+        resp = client.post("/v1/sandbox/run", json={
+            "code": PYTHON_CODE,
+            "language": "python",
+        })
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_sandbox.py:781: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:30.282645Z' level='info'
+________ TestSandboxAPIEndpoint.test_deep_scan_includes_sandbox_fields _________
+
+self = <tests.test_sandbox.TestSandboxAPIEndpoint object at 0x10d0bbce0>
+client = <starlette.testclient.TestClient object at 0x118520380>
+
+    def test_deep_scan_includes_sandbox_fields(
+        self, client: TestClient,
+    ) -> None:
+        """Deep scan response includes sandbox_result field."""
+        resp = client.post("/v1/scan/deep", json={
+            "code": PYTHON_CODE,
+            "filename": "test.py",
+            "language": "python",
+            "verify_imports": False,
+            "verify_docker": False,
+            "sandbox_run": False,
+        })
+>       assert resp.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_sandbox.py:810: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:30.302308Z' level='info'
+____________ TestSbomEndpoint.test_sbom_endpoint_returns_documents _____________
+
+self = <tests.test_sbom.TestSbomEndpoint object at 0x10d10a850>
+client = <starlette.testclient.TestClient object at 0x118521150>
+
+    def test_sbom_endpoint_returns_documents(self, client: TestClient) -> None:
+        """Endpoint responds with CycloneDX and SPDX payload strings."""
+        response = client.post(
+            "/v1/sbom/generate",
+            json={
+                "language": "python",
+                "packages": ["fastapi", "httpx"],
+                "versions": {"fastapi": "0.115.0", "httpx": "0.27.0"},
+                "document_name": "backend-sbom",
+            },
+        )
+    
+>       assert response.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+tests/test_sbom.py:110: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+event='static_analyzer_initialized' rule_count=204 timestamp='2026-03-15T03:14:30.327267Z' level='info'
+event='stripe_not_configured' timestamp='2026-03-15T03:14:30.327297Z' level='warning'
+=============================== warnings summary ===============================
+tests/test_auth_service.py::TestJwtOperations::test_create_and_decode_jwt
+tests/test_auth_service.py::TestJwtOperations::test_decode_expired_jwt
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 15 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_auth_service.py::TestJwtOperations::test_create_and_decode_jwt
+tests/test_auth_service.py::TestJwtOperations::test_decode_expired_jwt
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 15 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+tests/test_auth_service.py::TestJwtOperations::test_decode_wrong_secret
+tests/test_auth_service.py::TestJwtOperations::test_jwt_contains_plan
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 8 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_auth_service.py::TestJwtOperations::test_decode_wrong_secret
+tests/test_auth_service.py::TestJwtOperations::test_jwt_contains_plan
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 8 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+tests/test_dashboard_api.py: 18 warnings
+  /Users/mrebadi/Desktop/DevOps/Codetrust/tests/test_dashboard_api.py:219: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-680 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-682 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-773 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-778 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-772 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-783 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-790 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-661 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-667 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-698 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-782 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-793 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-694 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-780 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-777 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-678 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-784 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-689 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-674 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-671 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-804 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-794 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-785 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-776 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-663 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-786 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-665 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-686 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-700 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-792 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-676 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-795 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-684 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-774 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-696 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-791 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-803 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-787 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-775 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-789 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-781 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-788 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-771 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_gateway_server.py::TestTrustedExecutionAndApprovals::test_zero_slop_mode_requires_allow_reason_and_agent_bound_token
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-779 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/aiosqlite/core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_oidc_integration.py::TestOIDCTokenExchange::test_exchange_valid_code
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 17 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_sso.py::TestExchangeCode::test_exchange_with_id_token
+tests/test_sso.py::TestParseIdToken::test_parse_roles_as_list
+tests/test_sso.py::TestParseIdToken::test_parse_roles_as_string
+tests/test_sso.py::TestParseIdToken::test_parse_no_roles
+tests/test_sso.py::TestParseIdToken::test_raw_claims_preserved
+  /Users/mrebadi/Desktop/DevOps/Codetrust/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 6 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_ast.py::TestDeepScanAstIntegration::test_deep_scan_includes_ast
+FAILED tests/test_ast.py::TestDeepScanAstIntegration::test_deep_scan_ast_findings_in_total
+FAILED tests/test_e2e_integration.py::TestE2EDeepScan::test_deep_scan_python
+FAILED tests/test_e2e_integration.py::TestE2EDeepScan::test_deep_scan_sarif
+FAILED tests/test_enterprise_features.py::TestNewApiEndpoints::test_vuln_scan_endpoint
+FAILED tests/test_enterprise_features.py::TestNewApiEndpoints::test_license_scan_endpoint
+FAILED tests/test_enterprise_features.py::TestNewApiEndpoints::test_cross_file_scan_endpoint
+FAILED tests/test_enterprise_features.py::TestNewApiEndpoints::test_autofix_endpoint
+FAILED tests/test_enterprise_features.py::TestNewApiEndpoints::test_org_endpoints_without_db
+FAILED tests/test_github_action.py::TestSarifAPIEndpoints::test_deep_sarif_endpoint
+FAILED tests/test_github_action.py::TestSarifAPIEndpoints::test_deep_sarif_no_language
+FAILED tests/test_ip_rate_limit.py::TestIPRateLimitIntegration::test_scan_endpoint_returns_429_on_flood
+FAILED tests/test_ip_rate_limit.py::TestIPRateLimitIntegration::test_429_includes_retry_after_header
+FAILED tests/test_ip_rate_limit.py::TestIPRateLimitIntegration::test_normal_payload_accepted
+FAILED tests/test_sandbox.py::TestSandboxAPIEndpoint::test_sandbox_run_disabled
+FAILED tests/test_sandbox.py::TestSandboxAPIEndpoint::test_deep_scan_includes_sandbox_fields
+FAILED tests/test_sbom.py::TestSbomEndpoint::test_sbom_endpoint_returns_documents
+17 failed, 1957 passed, 2 skipped, 76 warnings in 27.88s
+
+=== STDERR ===

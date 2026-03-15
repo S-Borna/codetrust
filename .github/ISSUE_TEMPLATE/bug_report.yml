@@ -30,8 +30,8 @@ body:
     id: version
     attributes:
       label: CodeTrust version
-      description: For example 2.8.6
-      placeholder: 2.8.6
+      description: For example 2.9.0
+      placeholder: 2.9.0
     validations:
       required: true
 

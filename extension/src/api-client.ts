@@ -7,6 +7,8 @@
 
 import * as https from "https";
 import * as http from "http";
+import * as crypto from "crypto";
+import * as os from "os";
 import { URL } from "url";
 import type {
     StaticScanResponse,
@@ -55,6 +57,7 @@ export class ApiClient {
     private baseUrl: string;
     private apiKey: string;
     private timeoutMs: number;
+    private installationId: string;
 
     /** Last rate limit info from API response headers. */
     public lastRateLimit: RateLimitInfo | null = null;
@@ -72,6 +75,7 @@ export class ApiClient {
         this.baseUrl = config.apiUrl.replace(/\/+$/, "");
         this.apiKey = config.apiKey;
         this.timeoutMs = config.timeout;
+        this.installationId = this.resolveInstallationId();
     }
 
     /** Whether the client is in rate-limit cooldown. */
@@ -107,6 +111,13 @@ export class ApiClient {
         this.baseUrl = config.apiUrl.replace(/\/+$/, "");
         this.apiKey = config.apiKey;
         this.timeoutMs = config.timeout;
+    }
+
+    /** Build a stable, anonymous installation identifier for API rate tracking. */
+    private resolveInstallationId(): string {
+        const seed = `${os.hostname()}|${os.userInfo().username}|${os.homedir()}`;
+        const digest = crypto.createHash("sha256").update(seed).digest("hex").slice(0, 16);
+        return `vscode:${digest}`;
     }
 
     /** Check API health. */
@@ -197,6 +208,7 @@ export class ApiClient {
             const headers: Record<string, string> = {
                 "Content-Type": "application/json",
                 Accept: "application/json",
+                "X-CodeTrust-Installation-ID": this.installationId,
             };
 
             if (this.apiKey) {

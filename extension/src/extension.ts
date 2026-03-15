@@ -25,8 +25,8 @@ import { VerificationCache } from "./verification-cache";
 import { scanCodeOffline } from "./embedded-scanner";
 import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets";
 import { sendTelemetry } from "./telemetry";
-import { injectUniversalInstructions, removeUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
-import { injectMcpServerConfigs, removeMcpServerConfigs, watchForMcpConfigDisruption, verifyMcpServerHealth } from "./mcp-config-injection";
+import { injectUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
+import { injectMcpServerConfigs, watchForMcpConfigDisruption, verifyMcpServerHealth } from "./mcp-config-injection";
 
 // ─────────────────────────────────────────────────────────────────
 //  Copilot global instruction injection
@@ -531,13 +531,15 @@ async function maybePromptAlwaysOn(
 /** Extension deactivation — cleanup. */
 export function deactivate(): void {
     // All disposables are cleaned up via context.subscriptions.
-    // Best-effort removal of injected governance instructions from all IDEs.
+    // Do not remove global governance instructions on ordinary window/workspace
+    // close. Removing here causes other open VS Code windows to detect missing
+    // rules and repeatedly prompt for re-injection.
     if (!codetrustOutputChannel) {
         return;
     }
-    void removeCopilotInstructions(codetrustOutputChannel);
-    removeUniversalInstructions(codetrustOutputChannel);
-    removeMcpServerConfigs(codetrustOutputChannel);
+    codetrustOutputChannel.appendLine(
+        "CodeTrust: deactivate called — preserving injected global governance state.",
+    );
 }
 
 /** Build language selectors for code action registration. */

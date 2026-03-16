@@ -52,14 +52,14 @@ BASELINES: dict[str, int] = {
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
-    "ct:total_findings": 5,
-    "ct:total_scans": 1,
-    "ct:files_scanned": 3,
-    "ct:total_blocks": 2,
+    "ct:total_findings": 66724,
+    "ct:total_scans": 12277,
+    "ct:files_scanned": 12277,
+    "ct:total_blocks": 9708,
     "ct:scans_by_source:cli": 0,
-    "ct:scans_by_source:vscode": 0,
+    "ct:scans_by_source:vscode": 7305,
     "ct:scans_by_source:github_action": 0,
-    "ct:scans_by_source:cloud_api": 3,
+    "ct:scans_by_source:cloud_api": 4972,
 }
 
 EXT_STATS_TTL_SECONDS: int = 300

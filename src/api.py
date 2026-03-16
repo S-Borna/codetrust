@@ -166,8 +166,8 @@ FREE_DAILY_SCAN_LIMIT: int = 100
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
     "ct:total_blocks": 12405,
-    "ct:total_scans": 11233,
-    "ct:files_scanned": 11233,
+    "ct:total_scans": 12673,
+    "ct:files_scanned": 12770,
     "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
@@ -179,9 +179,9 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:total_scans": 12277,
     "ct:files_scanned": 12277,
     "ct:total_blocks": 9708,
-    "ct:scans_by_source:cli": 0,
+    "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7305,
-    "ct:scans_by_source:github_action": 0,
+    "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
 }
 PIP_INSTALLS_BASELINE: int = 6711

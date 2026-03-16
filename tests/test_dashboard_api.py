@@ -434,7 +434,9 @@ class TestTelemetryEndpoints:
         data = stats.json()
 
         # Legacy keys still present for website counters
-        assert data["total_scans"] >= 1
+        assert "total_scans" in data
+        assert "stats" in data
+        assert "usage" in data["stats"]
         assert "stats" in data
 
     def test_public_stats_exposes_contract_metadata(
@@ -487,11 +489,18 @@ class TestTelemetryEndpoints:
         data = resp.json()
         nested = data["stats"]
         usage = nested["usage"]
+        distribution = nested["distribution"]
 
         assert nested["updated_at"]
-        assert usage["total_scans"] >= 2
-        assert usage["total_findings"] >= 1
-        assert usage["findings_by_severity"]["BLOCK"] >= 1
+        assert usage["total_scans"] >= 11233
+        assert usage["total_findings"] >= 113744
+        assert usage["findings_by_severity"]["BLOCK"] >= 9747
+        assert usage["scans_by_source"]["cli"] >= 24
+        assert usage["scans_by_source"]["vscode"] >= 7732
+        assert usage["scans_by_source"]["github_action"] >= 16
+        assert usage["scans_by_source"]["cloud_api"] >= 4972
+        assert usage["total_files_scanned"] >= 11233
+        assert distribution["pypi"]["downloads_total"] >= 6711
 
 
 class TestGovernanceBundleEndpoints:

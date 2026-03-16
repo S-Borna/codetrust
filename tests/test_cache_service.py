@@ -8,7 +8,7 @@ import fakeredis.aioredis
 import pytest
 
 from src.services.cache import CacheService
-from src.services.telemetry import SCANS_TODAY_KEY, STATS_CACHE_KEY, warm_up_redis_counters
+from src.services.telemetry import BASELINES, SCANS_TODAY_KEY, STATS_CACHE_KEY, warm_up_redis_counters
 
 
 @pytest.fixture()
@@ -133,16 +133,18 @@ class TestWarmUpRedisCounters:
         """When Redis has no counters, DB values are written."""
         db = self._make_db({"ct:total_scans": 500, SCANS_TODAY_KEY: 42})  # noqa: magic_number
         await warm_up_redis_counters(r=fake_redis, db=db)
-        assert int(await fake_redis.get("ct:total_scans")) == 500
+        assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"]
         assert int(await fake_redis.get(SCANS_TODAY_KEY)) == 42
 
     @pytest.mark.asyncio()
-    async def test_does_not_decrement_live_counter(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
-        """When Redis already has a higher value, it is not overwritten."""
-        await fake_redis.set("ct:total_scans", 1000)
-        db = self._make_db({"ct:total_scans": 500})  # noqa: magic_number
+    async def test_applies_baseline_floor_for_required_keys(
+        self, fake_redis: fakeredis.aioredis.FakeRedis,
+    ) -> None:
+        """Required counters are forced to at least baseline when DB is below floors."""
+        db = self._make_db({"ct:total_scans": 1, "ct:total_findings": 2})
         await warm_up_redis_counters(r=fake_redis, db=db)
-        assert int(await fake_redis.get("ct:total_scans")) == 1000
+        assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"]
+        assert int(await fake_redis.get("ct:total_findings")) == BASELINES["ct:total_findings"]
 
     @pytest.mark.asyncio()
     async def test_invalidates_stats_cache_when_restored(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
@@ -161,8 +163,8 @@ class TestWarmUpRedisCounters:
         assert await fake_redis.get("ct:total_scans") is None
 
     @pytest.mark.asyncio()
-    async def test_skips_zero_counters(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
-        """Zero values from the DB are not written to Redis."""
+    async def test_sets_baselines_even_when_db_zero(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
+        """Baseline floors are applied even when DB returns zero values."""
         db = self._make_db({"ct:total_scans": 0, SCANS_TODAY_KEY: 0})
         await warm_up_redis_counters(r=fake_redis, db=db)
-        assert await fake_redis.get("ct:total_scans") is None
+        assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"]

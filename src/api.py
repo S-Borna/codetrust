@@ -165,7 +165,7 @@ FREE_DAILY_SCAN_LIMIT: int = 100
 
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
-    "ct:total_blocks": 9747,
+    "ct:total_blocks": 12405,
     "ct:total_scans": 11239,
     "ct:files_scanned": 11239,
     "ct:scans_by_source:cli": 24,
@@ -720,29 +720,15 @@ def _build_request_telemetry_event(
     )
 
 
-def _schedule_telemetry_emit(
+async def _schedule_telemetry_emit(
     request: Request, event: TelemetryIngestEvent,
     redis_client: object | None, queue: asyncio.Queue[object] | None,
+    db: DatabaseService | None,
 ) -> None:
-    """Schedule telemetry emission as a background task."""
-    async def _emit() -> None:
-        try:
-            await process_telemetry_event(r=redis_client, queue=queue, event=event)
-        except Exception:
-            return
-
+    """Emit telemetry event best-effort without failing the request path."""
+    _ = request
     try:
-        task = asyncio.create_task(_emit())
-        tasks: set[asyncio.Task[None]] = getattr(
-            request.app.state, "telemetry_bg_tasks", set(),
-        )
-        tasks.add(task)
-        request.app.state.telemetry_bg_tasks = tasks
-
-        def _cleanup(done: asyncio.Task[None]) -> None:
-            tasks.discard(done)
-
-        task.add_done_callback(_cleanup)
+        await process_telemetry_event(r=redis_client, db=db, queue=queue, event=event)
     except Exception:
         return
 
@@ -772,6 +758,7 @@ async def api_request_telemetry(
         cache: CacheService | None = getattr(request.app.state, "cache", None)
         redis_client = cache.raw_client() if cache is not None else None
         queue = getattr(request.app.state, "telemetry_queue", None)
+        db = getattr(request.app.state, "db", None)
 
         try:
             event = _build_request_telemetry_event(
@@ -780,7 +767,7 @@ async def api_request_telemetry(
         except Exception:
             return
 
-        _schedule_telemetry_emit(request, event, redis_client, queue)
+        await _schedule_telemetry_emit(request, event, redis_client, queue, db)
 
 
 @app.middleware("http")
@@ -995,6 +982,7 @@ async def _log_scan_to_db(
 async def _emit_scan_telemetry(
     redis_client: object,
     queue: asyncio.Queue[object] | None,
+    db: DatabaseService | None,
     scan_type: str,
     findings_count: int,
     verdict: str,
@@ -1016,7 +1004,7 @@ async def _emit_scan_telemetry(
                 "scan_duration_ms": latency_ms,
             },
         )
-        await process_telemetry_event(r=redis_client, queue=queue, event=event)
+        await process_telemetry_event(r=redis_client, db=db, queue=queue, event=event)
     except Exception as exc:
         logger.debug("scan_telemetry_emit_failed", error=str(exc))
 
@@ -1046,10 +1034,11 @@ async def _log_scan(
 
     cache = getattr(request.app.state, "cache", None)
     redis_client = cache.raw_client() if cache is not None else None
+    db = getattr(request.app.state, "db", None)
     queue = getattr(request.app.state, "telemetry_queue", None)
     if redis_client is not None:
         await _emit_scan_telemetry(
-            redis_client, queue, scan_type, findings_count, verdict, latency_ms,
+            redis_client, queue, db, scan_type, findings_count, verdict, latency_ms,
         )
 
 
@@ -1153,6 +1142,9 @@ _FALLBACK_STATS_BASE: dict[str, int] = {
     "total_scans": 0,
     "hallucinated_packages_prevented": 0,
     "destructive_commands_blocked": 0,
+    "gateway_commands_allowed": 0,
+    "gateway_commands_warned": 0,
+    "imports_verified": 0,
     "pypi_downloads_last_day": 0,
     "pypi_downloads_last_week": 0,
     "pypi_downloads_last_month": 0,
@@ -1289,9 +1281,9 @@ async def _build_fallback_public_stats(
             "impact": {
                 "hallucinations_caught": base.get("hallucinated_packages_prevented", 0),
                 "gateway_commands_blocked": base.get("destructive_commands_blocked", 0),
-                "gateway_commands_allowed": 0,
-                "gateway_commands_warned": 0,
-                "imports_verified": 0,
+                "gateway_commands_allowed": base.get("gateway_commands_allowed", 0),
+                "gateway_commands_warned": base.get("gateway_commands_warned", 0),
+                "imports_verified": base.get("imports_verified", 0),
                 "docker_images_verified": 0,
                 "fixes_applied": 0,
                 "fix_files_changed": 0,
@@ -1369,9 +1361,9 @@ async def _build_fallback_public_stats(
         "impact": {
             "hallucinations_caught": merged.get("hallucinated_packages_prevented", 0),
             "gateway_commands_blocked": merged.get("destructive_commands_blocked", 0),
-            "gateway_commands_allowed": 0,
-            "gateway_commands_warned": 0,
-            "imports_verified": 0,
+            "gateway_commands_allowed": merged.get("gateway_commands_allowed", 0),
+            "gateway_commands_warned": merged.get("gateway_commands_warned", 0),
+            "imports_verified": merged.get("imports_verified", 0),
             "docker_images_verified": 0,
             "fixes_applied": 0,
             "fix_files_changed": 0,
@@ -1541,11 +1533,13 @@ async def ingest_telemetry(
 
     cache = getattr(request.app.state, "cache", None)
     redis_client = cache.raw_client() if cache is not None else None
+    db = getattr(request.app.state, "db", None)
     queue = getattr(request.app.state, "telemetry_queue", None)
 
     background_tasks.add_task(
         process_telemetry_event,
         r=redis_client,
+        db=db,
         queue=queue,
         event=parsed,
     )

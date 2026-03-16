@@ -85,7 +85,7 @@ async def get_pypi_download_stats(
     Falls back to zeros on any failure.
     """
     cached = await cache.get_json(_cache_key("pypi"))
-    if cached is not None:
+    if isinstance(cached, dict):
         return {
             k: int(cached.get(k, 0)) for k in _PYPI_ZERO_RESULT
         }
@@ -144,7 +144,7 @@ async def get_marketplace_stats(
 ) -> dict[str, int]:
     """Fetch VS Code Marketplace install/download statistics."""
     cached = await cache.get_json(_cache_key("marketplace"))
-    if cached is not None:
+    if isinstance(cached, dict):
         return {k: int(cached.get(k, 0)) for k in _MARKETPLACE_ZERO_RESULT}
 
     body = {
@@ -201,7 +201,7 @@ async def get_open_vsx_stats(
     Falls back to zeros on any failure.
     """
     cached = await cache.get_json(_cache_key("openvsx"))
-    if cached is not None:
+    if isinstance(cached, dict):
         return {"openvsx_downloads": int(cached.get("openvsx_downloads", 0))}
 
     url = OPEN_VSX_EXTENSION_URL_TEMPLATE.format(
@@ -250,7 +250,7 @@ async def get_pepy_download_stats(
     Falls back to zeros on any failure.
     """
     cached = await cache.get_json(_cache_key("pepy"))
-    if cached is not None:
+    if isinstance(cached, dict):
         return {
             "pypi_downloads_total": int(
                 cached.get("pypi_downloads_total", 0)

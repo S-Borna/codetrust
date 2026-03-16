@@ -42,7 +42,7 @@ STATS_CACHE_TTL_SECONDS: int = 60
 
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
-    "ct:total_blocks": 9747,
+    "ct:total_blocks": 12405,
     "ct:total_scans": 11239,
     "ct:files_scanned": 11239,
     "ct:scans_by_source:cli": 24,
@@ -513,8 +513,9 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
             if key in BASELINES:
                 continue
             db_value = int(db_raw)
-            await r.set(key, db_value)
-            logger.info(f"Set {key}: db={db_value}, baseline=0, final={db_value}")
+            final_value = max(db_value, 0)
+            await r.set(key, final_value)
+            logger.info(f"Set {key}: db={db_value}, baseline=0, final={final_value}")
             if key == SCANS_TODAY_KEY:
                 await r.expire(key, _end_of_day_ttl_seconds())
             restored += 1

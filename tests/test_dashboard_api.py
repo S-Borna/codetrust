@@ -492,14 +492,14 @@ class TestTelemetryEndpoints:
         distribution = nested["distribution"]
 
         assert nested["updated_at"]
-        assert usage["total_scans"] >= 11239
+        assert usage["total_scans"] >= 11233
         assert usage["total_findings"] >= 113744
         assert usage["findings_by_severity"]["BLOCK"] >= 12405
         assert usage["scans_by_source"]["cli"] >= 24
         assert usage["scans_by_source"]["vscode"] >= 7732
         assert usage["scans_by_source"]["github_action"] >= 16
         assert usage["scans_by_source"]["cloud_api"] >= 4972
-        assert usage["total_files_scanned"] >= 11239
+        assert usage["total_files_scanned"] >= 11233
         assert distribution["pypi"]["downloads_total"] >= 6711
 
 

@@ -9,6 +9,7 @@ import pytest
 
 from src.services.cache import CacheService
 from src.services.telemetry import (
+    BASELINE_DB_SNAPSHOT,
     BASELINES,
     SCANS_TODAY_KEY,
     STATS_CACHE_KEY,
@@ -138,7 +139,8 @@ class TestWarmUpRedisCounters:
         """When Redis has no counters, DB values are written."""
         db = self._make_db({"ct:total_scans": 500, SCANS_TODAY_KEY: 42})  # noqa: magic_number
         await warm_up_redis_counters(r=fake_redis, db=db)
-        assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"]
+        expected = BASELINES["ct:total_scans"] + max(500 - BASELINE_DB_SNAPSHOT["ct:total_scans"], 0)
+        assert int(await fake_redis.get("ct:total_scans")) == expected
         assert int(await fake_redis.get(SCANS_TODAY_KEY)) == 42
 
     @pytest.mark.asyncio()
@@ -179,7 +181,7 @@ class TestWarmUpRedisCounters:
         self, fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         """When DB is above baseline snapshot, final value is baseline plus delta."""
-        # Snapshot for total scans is 12308; +3 should be reflected over baseline.
-        db = self._make_db({"ct:total_scans": 12311})
+        snapshot_total_scans = int(BASELINE_DB_SNAPSHOT["ct:total_scans"])
+        db = self._make_db({"ct:total_scans": snapshot_total_scans + 3})
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"] + 3

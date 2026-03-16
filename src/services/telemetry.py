@@ -43,8 +43,8 @@ STATS_CACHE_TTL_SECONDS: int = 60
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
     "ct:total_blocks": 12405,
-    "ct:total_scans": 11239,
-    "ct:files_scanned": 11239,
+    "ct:total_scans": 11233,
+    "ct:files_scanned": 11233,
     "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
@@ -61,6 +61,8 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:scans_by_source:github_action": 0,
     "ct:scans_by_source:cloud_api": 4972,
 }
+
+FORCE_RESET_ON_STARTUP: bool = True
 
 EXT_STATS_TTL_SECONDS: int = 300
 EXT_STATS_POLL_SECONDS: float = 300.0
@@ -518,6 +520,17 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
         return 0
 
     try:
+        if FORCE_RESET_ON_STARTUP:
+            batch: list[str] = []
+            async for key in r.scan_iter(match="ct:*"):
+                if isinstance(key, str):
+                    batch.append(key)
+                if len(batch) >= 500:
+                    await r.delete(*batch)
+                    batch.clear()
+            if batch:
+                await r.delete(*batch)
+
         restored = 0
         for key, baseline in BASELINES.items():
             db_value = int(db_counters.get(key, 0))

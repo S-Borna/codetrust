@@ -166,8 +166,8 @@ FREE_DAILY_SCAN_LIMIT: int = 100
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
     "ct:total_blocks": 12405,
-    "ct:total_scans": 11239,
-    "ct:files_scanned": 11239,
+    "ct:total_scans": 11233,
+    "ct:files_scanned": 11233,
     "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
@@ -175,7 +175,7 @@ BASELINES: dict[str, int] = {
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
-    "ct:total_findings": 5,
+    "ct:total_findings": 66724,
     "ct:total_scans": 12277,
     "ct:files_scanned": 12277,
     "ct:total_blocks": 9708,

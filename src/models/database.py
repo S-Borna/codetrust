@@ -5,7 +5,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import JSON, BigInteger, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, BigInteger, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -201,6 +201,18 @@ class MetricsCounter(Base):
     metric_value: Mapped[int] = mapped_column(BigInteger, default=0)
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+    )
+
+
+class CounterSnapshot(Base):
+    """Point-in-time snapshot of Redis counters for durability fallback."""
+
+    __tablename__ = "counter_snapshots"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[int] = mapped_column(BigInteger, default=0)
+    snapshot_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), primary_key=True, server_default=func.now(),
     )
 
 

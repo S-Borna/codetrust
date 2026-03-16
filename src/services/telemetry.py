@@ -43,8 +43,8 @@ STATS_CACHE_TTL_SECONDS: int = 60
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
     "ct:total_blocks": 9747,
-    "ct:total_scans": 11233,
-    "ct:files_scanned": 11233,
+    "ct:total_scans": 11239,
+    "ct:files_scanned": 11239,
     "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
@@ -53,6 +53,7 @@ BASELINES: dict[str, int] = {
 
 EXT_STATS_TTL_SECONDS: int = 300
 EXT_STATS_POLL_SECONDS: float = 300.0
+SNAPSHOT_SYNC_INTERVAL_SECONDS: float = 300.0
 
 ACTIVE_SESSIONS_KEY: str = "ct:active_sessions"
 ACTIVE_SESSIONS_TODAY_KEY: str = "ct:active_sessions_today"
@@ -486,20 +487,16 @@ async def _fetch_openvsx_external(
         logger.warning("ext_stats_openvsx_failed", error=str(exc))
 
 
-async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> None:
-    """Seed Redis counters from the database after a server restart.
-
-    Only sets a counter when the persisted DB value exceeds the current Redis
-    value, so this is always monotonic and safe to call concurrently.
-    """
+async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
+    """Seed Redis counters from the database after a server restart."""
     try:
         db_counters: dict[str, int] = await db.get_redis_warmup_counters()
     except Exception as exc:
         logger.warning("redis_warmup_db_failed", error=str(exc), error_type=type(exc).__name__)
-        return
+        return 0
 
     if not db_counters:
-        return
+        return 0
 
     try:
         restored = 0
@@ -530,8 +527,36 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> None:
             counters_restored=restored,
             total_db_scans=db_counters.get("ct:total_scans", 0),
         )
+        return restored
     except redis.RedisError as exc:
         logger.warning("redis_warmup_set_failed", error=str(exc), error_type=type(exc).__name__)
+        return 0
+
+
+async def sync_redis_counters_to_snapshots(r: redis.Redis, db: DatabaseService) -> int:
+    """Persist the latest Redis counter values into counter_snapshots."""
+    pipe = r.pipeline()
+    for key in _COUNTER_KEYS:
+        pipe.get(key)
+    values = await pipe.execute()
+    counters: dict[str, int] = {key: _safe_int(val) for key, val in zip(_COUNTER_KEYS, values, strict=True)}
+    await db.insert_counter_snapshots(counters)
+    return len(counters)
+
+
+async def counter_snapshot_worker(*, r: redis.Redis, db: DatabaseService, stop: asyncio.Event) -> None:
+    """Periodically persist Redis counters into PostgreSQL snapshots."""
+    while not stop.is_set():
+        try:
+            written = await sync_redis_counters_to_snapshots(r=r, db=db)
+            logger.info("counter_snapshot_sync_complete", counters_written=written)
+        except Exception as exc:
+            logger.warning("counter_snapshot_sync_failed", error=str(exc), error_type=type(exc).__name__)
+
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=SNAPSHOT_SYNC_INTERVAL_SECONDS)
+        except TimeoutError:
+            continue
 
 
 async def fetch_external_stats(r: redis.Redis, http_client: httpx.AsyncClient) -> None:

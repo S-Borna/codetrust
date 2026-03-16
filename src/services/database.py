@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import (
 from src.models.database import (
     ApiKeyRecord,
     Base,
+    CounterSnapshot,
     MetricsCounter,
     ScanLog,
     TelemetryEvent,
@@ -31,6 +32,18 @@ logger = structlog.get_logger()
 
 API_KEY_PREFIX = "ct_live_"
 API_KEY_BYTES = 32
+
+USAGE_SNAPSHOT_KEY_MAP: dict[str, str] = {
+    "total_scans": "ct:total_scans",
+    "total_findings": "ct:total_findings",
+    "blocks_found": "ct:total_blocks",
+    "total_files_scanned": "ct:files_scanned",
+    "src_cli": "ct:scans_by_source:cli",
+    "src_vscode": "ct:scans_by_source:vscode",
+    "src_mcp": "ct:scans_by_source:mcp",
+    "src_github_action": "ct:scans_by_source:github_action",
+    "src_cloud_api": "ct:scans_by_source:cloud_api",
+}
 
 
 def _hash_key(raw_key: str) -> str:
@@ -593,6 +606,24 @@ class DatabaseService:
             unique_total = len(unique_ids)
             unique_today = len(unique_today_ids)
 
+            snapshot_values = await self.get_latest_counter_snapshots(tuple(USAGE_SNAPSHOT_KEY_MAP.values()))
+            total_scans = max(total_scans, _payload_int(snapshot_values.get("ct:total_scans")))
+            total_findings = max(total_findings, _payload_int(snapshot_values.get("ct:total_findings")))
+            blocks_found = max(blocks_found, _payload_int(snapshot_values.get("ct:total_blocks")))
+            total_files_scanned = max(total_files_scanned, _payload_int(snapshot_values.get("ct:files_scanned")))
+
+            by_source["cli"] = max(by_source["cli"], _payload_int(snapshot_values.get("ct:scans_by_source:cli")))
+            by_source["vscode"] = max(by_source["vscode"], _payload_int(snapshot_values.get("ct:scans_by_source:vscode")))
+            by_source["mcp"] = max(by_source["mcp"], _payload_int(snapshot_values.get("ct:scans_by_source:mcp")))
+            by_source["github_action"] = max(
+                by_source["github_action"],
+                _payload_int(snapshot_values.get("ct:scans_by_source:github_action")),
+            )
+            by_source["cloud_api"] = max(
+                by_source["cloud_api"],
+                _payload_int(snapshot_values.get("ct:scans_by_source:cloud_api")),
+            )
+
             return {
                 "total_scans": total_scans,
                 "scans_today": scans_today,
@@ -608,6 +639,43 @@ class DatabaseService:
                 "src_github_action": int(by_source.get("github_action", 0)),
                 "src_cloud_api": int(by_source.get("cloud_api", 0)),
             }
+
+    async def insert_counter_snapshots(self, counters: dict[str, int]) -> None:
+        """Persist a timestamped snapshot row for each Redis counter key."""
+        if not counters:
+            return
+
+        async with self._session_factory() as session:
+            rows: list[CounterSnapshot] = []
+            for key, value in counters.items():
+                rows.append(CounterSnapshot(key=str(key), value=int(value)))
+            session.add_all(rows)
+            await session.commit()
+
+    async def get_latest_counter_snapshots(self, keys: tuple[str, ...]) -> dict[str, int]:
+        """Return latest snapshot value per counter key for the requested keys."""
+        if not keys:
+            return {}
+
+        async with self._session_factory() as session:
+            stmt = (
+                select(
+                    CounterSnapshot.key,
+                    CounterSnapshot.value,
+                    CounterSnapshot.snapshot_at,
+                )
+                .where(CounterSnapshot.key.in_(keys))
+                .order_by(CounterSnapshot.key.asc(), CounterSnapshot.snapshot_at.desc())
+            )
+            rows = (await session.execute(stmt)).all()
+
+        latest: dict[str, int] = {}
+        for key, value, _snapshot_at in rows:
+            key_str = str(key)
+            if key_str in latest:
+                continue
+            latest[key_str] = _payload_int(value)
+        return latest
 
     async def get_redis_warmup_counters(self) -> dict[str, int]:
         """Return aggregate counters needed to warm up Redis after a restart.

@@ -8,7 +8,12 @@ import fakeredis.aioredis
 import pytest
 
 from src.services.cache import CacheService
-from src.services.telemetry import BASELINES, SCANS_TODAY_KEY, STATS_CACHE_KEY, warm_up_redis_counters
+from src.services.telemetry import (
+    BASELINES,
+    SCANS_TODAY_KEY,
+    STATS_CACHE_KEY,
+    warm_up_redis_counters,
+)
 
 
 @pytest.fixture()

@@ -43,6 +43,19 @@ USAGE_SNAPSHOT_KEY_MAP: dict[str, str] = {
     "src_mcp": "ct:scans_by_source:mcp",
     "src_github_action": "ct:scans_by_source:github_action",
     "src_cloud_api": "ct:scans_by_source:cloud_api",
+    "hallucinated_packages_prevented": "ct:hallucinations_caught",
+    "destructive_commands_blocked": "ct:gateway_blocks",
+    "gateway_commands_allowed": "ct:gateway_allowed",
+    "gateway_commands_warned": "ct:gateway_warned",
+    "imports_verified": "ct:imports_verified",
+}
+
+DISTRIBUTION_SNAPSHOT_KEY_MAP: dict[str, str] = {
+    "pypi_downloads_total": "ct:ext:pepy_total_downloads",
+    "marketplace_installs": "ct:ext:marketplace_installs",
+    "marketplace_downloads": "ct:ext:marketplace_downloads",
+    "marketplace_updates": "ct:ext:marketplace_updates",
+    "openvsx_downloads": "ct:ext:openvsx_downloads",
 }
 
 
@@ -569,6 +582,7 @@ class DatabaseService:
             raw_findings = 0
             raw_blocks = 0
             raw_files_scanned = 0
+            raw_hallucinations = 0
             raw_today = 0
             raw_last_hour = 0
             by_source: dict[str, int] = {"cli": 0, "vscode": 0, "mcp": 0, "github_action": 0, "cloud_api": 0}
@@ -582,6 +596,7 @@ class DatabaseService:
                     (payload_obj.get("findings_by_severity") or {}).get("BLOCK"),
                 )
                 raw_files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
+                raw_hallucinations += _payload_int(payload_obj.get("hallucinations_found"))
 
                 source_key = str(source or "")
                 if source_key in by_source:
@@ -603,10 +618,46 @@ class DatabaseService:
             scans_today = max(scanlog_today, raw_today)
             scans_last_hour = max(scanlog_last_hour, raw_last_hour)
             total_files_scanned = max(total_scans, raw_files_scanned)
+            hallucinations_caught = raw_hallucinations
             unique_total = len(unique_ids)
             unique_today = len(unique_today_ids)
 
-            snapshot_values = await self.get_latest_counter_snapshots(tuple(USAGE_SNAPSHOT_KEY_MAP.values()))
+            gateway_rows = (
+                await session.execute(
+                    select(TelemetryEventRaw.payload).where(
+                        TelemetryEventRaw.event_type == "gateway_check",
+                    )
+                )
+            ).all()
+            gateway_blocks = 0
+            gateway_allowed = 0
+            gateway_warned = 0
+            for (payload,) in gateway_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                action = str(payload_obj.get("action", "")).upper()
+                if action == "BLOCKED":
+                    gateway_blocks += 1
+                elif action == "ALLOWED":
+                    gateway_allowed += 1
+                elif action == "WARNED":
+                    gateway_warned += 1
+
+            import_rows = (
+                await session.execute(
+                    select(TelemetryEventRaw.payload).where(
+                        TelemetryEventRaw.event_type == "import_verified",
+                    )
+                )
+            ).all()
+            imports_verified = 0
+            for (payload,) in import_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                imports_verified += _payload_int(payload_obj.get("total_imports_checked"))
+                hallucinations_caught += _payload_int(payload_obj.get("hallucinations_caught"))
+
+            snapshot_values = await self.get_latest_counter_snapshots(
+                tuple(set(USAGE_SNAPSHOT_KEY_MAP.values()) | set(DISTRIBUTION_SNAPSHOT_KEY_MAP.values())),
+            )
             total_scans = max(total_scans, _payload_int(snapshot_values.get("ct:total_scans")))
             total_findings = max(total_findings, _payload_int(snapshot_values.get("ct:total_findings")))
             blocks_found = max(blocks_found, _payload_int(snapshot_values.get("ct:total_blocks")))
@@ -623,6 +674,19 @@ class DatabaseService:
                 by_source["cloud_api"],
                 _payload_int(snapshot_values.get("ct:scans_by_source:cloud_api")),
             )
+            hallucinations_caught = max(
+                hallucinations_caught,
+                _payload_int(snapshot_values.get("ct:hallucinations_caught")),
+            )
+            gateway_blocks = max(gateway_blocks, _payload_int(snapshot_values.get("ct:gateway_blocks")))
+            gateway_allowed = max(gateway_allowed, _payload_int(snapshot_values.get("ct:gateway_allowed")))
+            gateway_warned = max(gateway_warned, _payload_int(snapshot_values.get("ct:gateway_warned")))
+            imports_verified = max(imports_verified, _payload_int(snapshot_values.get("ct:imports_verified")))
+            pypi_downloads_total = _payload_int(snapshot_values.get("ct:ext:pepy_total_downloads"))
+            marketplace_installs = _payload_int(snapshot_values.get("ct:ext:marketplace_installs"))
+            marketplace_downloads = _payload_int(snapshot_values.get("ct:ext:marketplace_downloads"))
+            marketplace_updates = _payload_int(snapshot_values.get("ct:ext:marketplace_updates"))
+            openvsx_downloads = _payload_int(snapshot_values.get("ct:ext:openvsx_downloads"))
 
             return {
                 "total_scans": total_scans,
@@ -638,6 +702,16 @@ class DatabaseService:
                 "src_mcp": int(by_source.get("mcp", 0)),
                 "src_github_action": int(by_source.get("github_action", 0)),
                 "src_cloud_api": int(by_source.get("cloud_api", 0)),
+                "hallucinated_packages_prevented": hallucinations_caught,
+                "destructive_commands_blocked": gateway_blocks,
+                "gateway_commands_allowed": gateway_allowed,
+                "gateway_commands_warned": gateway_warned,
+                "imports_verified": imports_verified,
+                "pypi_downloads_total": pypi_downloads_total,
+                "marketplace_installs": marketplace_installs,
+                "marketplace_downloads": marketplace_downloads,
+                "marketplace_updates": marketplace_updates,
+                "openvsx_downloads": openvsx_downloads,
             }
 
     async def insert_counter_snapshots(self, counters: dict[str, int]) -> None:
@@ -701,6 +775,7 @@ class DatabaseService:
             scans_today = 0
             total_findings = 0
             total_blocks = 0
+            hallucinations_caught = 0
             files_scanned = 0
             sources = ("cli", "vscode", "mcp", "github_action", "cloud_api")
             by_source: dict[str, int] = {source: 0 for source in sources}
@@ -710,6 +785,7 @@ class DatabaseService:
                 total_blocks += _payload_int(
                     (payload_obj.get("findings_by_severity") or {}).get("BLOCK"),
                 )
+                hallucinations_caught += _payload_int(payload_obj.get("hallucinations_found"))
                 files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
                 if created_at is not None and created_at >= today_utc:
                     scans_today += 1
@@ -726,10 +802,30 @@ class DatabaseService:
                 )
             ).all()
             gateway_blocks = 0
+            gateway_allowed = 0
+            gateway_warned = 0
             for (payload,) in gateway_rows:
                 payload_obj = payload if isinstance(payload, dict) else {}
-                if str(payload_obj.get("action", "")).upper() == "BLOCKED":
+                action = str(payload_obj.get("action", "")).upper()
+                if action == "BLOCKED":
                     gateway_blocks += 1
+                elif action == "ALLOWED":
+                    gateway_allowed += 1
+                elif action == "WARNED":
+                    gateway_warned += 1
+
+            import_rows = (
+                await session.execute(
+                    select(TelemetryEventRaw.payload).where(
+                        TelemetryEventRaw.event_type == "import_verified",
+                    )
+                )
+            ).all()
+            imports_verified = 0
+            for (payload,) in import_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                imports_verified += _payload_int(payload_obj.get("total_imports_checked"))
+                hallucinations_caught += _payload_int(payload_obj.get("hallucinations_caught"))
 
         counters: dict[str, int] = {
             "ct:total_scans": total_scans,
@@ -737,8 +833,19 @@ class DatabaseService:
             "ct:total_findings": total_findings,
             "ct:total_blocks": total_blocks,
             "ct:files_scanned": max(files_scanned, total_scans),
+            "ct:hallucinations_caught": hallucinations_caught,
             "ct:gateway_blocks": gateway_blocks,
+            "ct:gateway_allowed": gateway_allowed,
+            "ct:gateway_warned": gateway_warned,
+            "ct:imports_verified": imports_verified,
         }
+
+        snapshot_values = await self.get_latest_counter_snapshots(tuple(DISTRIBUTION_SNAPSHOT_KEY_MAP.values()))
+        counters["ct:ext:pepy_total_downloads"] = _payload_int(snapshot_values.get("ct:ext:pepy_total_downloads"))
+        counters["ct:ext:marketplace_installs"] = _payload_int(snapshot_values.get("ct:ext:marketplace_installs"))
+        counters["ct:ext:marketplace_downloads"] = _payload_int(snapshot_values.get("ct:ext:marketplace_downloads"))
+        counters["ct:ext:marketplace_updates"] = _payload_int(snapshot_values.get("ct:ext:marketplace_updates"))
+        counters["ct:ext:openvsx_downloads"] = _payload_int(snapshot_values.get("ct:ext:openvsx_downloads"))
         counters.update({f"ct:scans_by_source:{src}": cnt for src, cnt in by_source.items()})
         return counters
 

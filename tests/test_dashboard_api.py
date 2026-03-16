@@ -494,7 +494,7 @@ class TestTelemetryEndpoints:
         assert nested["updated_at"]
         assert usage["total_scans"] >= 11239
         assert usage["total_findings"] >= 113744
-        assert usage["findings_by_severity"]["BLOCK"] >= 9747
+        assert usage["findings_by_severity"]["BLOCK"] >= 12405
         assert usage["scans_by_source"]["cli"] >= 24
         assert usage["scans_by_source"]["vscode"] >= 7732
         assert usage["scans_by_source"]["github_action"] >= 16

@@ -152,3 +152,65 @@ async def test_process_telemetry_event_cloud_api_increments_redis_when_db_fails(
 
     assert await r.get("ct:total_scans") == "1"
     assert await r.get("ct:scans_by_source:cloud_api") == "1"
+
+
+@pytest.mark.asyncio
+async def test_scan_completed_findings_list_increments_impact_and_top_rules(
+    fake_cache: CacheService,
+) -> None:
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    event = TelemetryIngestEvent(
+        event_type="scan_completed",
+        source="cloud_api",
+        installation_id=None,
+        version="test",
+        payload={
+            "scan_type": "static",
+            "files_scanned": 1,
+            "total_findings": 2,
+            "findings_by_severity": {"BLOCK": 1, "WARN": 1},
+            "findings": [
+                {"rule": "eval_exec"},
+                {"rule_id": "hardcoded_secret"},
+                {"rule": "eval_exec"},
+            ],
+        },
+    )
+
+    await process_telemetry_event(r=r, db=None, queue=None, event=event)
+
+    assert await r.get("ct:impact:injection_attacks") == "2"
+    assert await r.get("ct:impact:secrets_exposure") == "1"
+    assert await r.get("ct:top_rules:eval_exec") == "2"
+    assert await r.get("ct:top_rules:hardcoded_secret") == "1"
+    assert await r.get("ct:impact:last_seen:injection_attacks") is not None
+    assert await r.get("ct:impact:last_seen:secrets_exposure") is not None
+
+
+@pytest.mark.asyncio
+async def test_scan_completed_findings_integer_skips_impact_counters(
+    fake_cache: CacheService,
+) -> None:
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    event = TelemetryIngestEvent(
+        event_type="scan_completed",
+        source="cloud_api",
+        installation_id=None,
+        version="test",
+        payload={
+            "scan_type": "static",
+            "files_scanned": 1,
+            "total_findings": 5,
+            "findings_by_severity": {"BLOCK": 2},
+            "findings": 5,
+        },
+    )
+
+    await process_telemetry_event(r=r, db=None, queue=None, event=event)
+
+    assert await r.get("ct:impact:injection_attacks") is None
+    assert await r.get("ct:top_rules:eval_exec") is None

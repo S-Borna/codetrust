@@ -44,6 +44,16 @@ def _generate_api_key() -> str:
     return f"{API_KEY_PREFIX}{token}"
 
 
+def _payload_int(value: object, *, default: int = 0) -> int:
+    """Safely convert payload values to integers."""
+    if not isinstance(value, (int, float, str, bytes, bytearray, bool)):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 POOL_TIMEOUT_SECS: int = 30
 DASHBOARD_SESSION_KEY_NAME = "Dashboard Web Session"
 
@@ -491,6 +501,114 @@ class DatabaseService:
                 "destructive_commands_blocked": blocked or 0,
             }
 
+    async def get_public_usage_aggregates(self) -> dict[str, int]:
+        """Return usage aggregates for public stats fallback when Redis is unavailable."""
+        now_utc = datetime.datetime.now(datetime.UTC)
+        today_start = datetime.datetime.combine(now_utc.date(), datetime.time.min, tzinfo=datetime.UTC)
+        last_hour = now_utc - datetime.timedelta(hours=1)
+
+        async with self._session_factory() as session:
+            scanlog_total = int((await session.execute(select(func.count()).select_from(ScanLog))).scalar_one() or 0)
+            raw_rows = (
+                await session.execute(
+                    select(
+                        TelemetryEventRaw.payload,
+                        TelemetryEventRaw.source,
+                        TelemetryEventRaw.installation_id,
+                        TelemetryEventRaw.created_at,
+                    ).where(TelemetryEventRaw.event_type == "scan_completed")
+                )
+            ).all()
+            raw_scan_total = len(raw_rows)
+            total_scans = max(scanlog_total, raw_scan_total)
+            scanlog_findings = int(
+                (
+                    await session.execute(
+                        select(func.coalesce(func.sum(ScanLog.findings_count), 0)).select_from(ScanLog)
+                    )
+                ).scalar_one()
+                or 0
+            )
+            scanlog_today = int(
+                (
+                    await session.execute(
+                        select(func.count()).select_from(ScanLog).where(ScanLog.created_at >= today_start)
+                    )
+                ).scalar_one()
+                or 0
+            )
+            scanlog_last_hour = int(
+                (
+                    await session.execute(
+                        select(func.count()).select_from(ScanLog).where(ScanLog.created_at >= last_hour)
+                    )
+                ).scalar_one()
+                or 0
+            )
+            scanlog_blocks = int(
+                (
+                    await session.execute(
+                        select(func.count()).select_from(ScanLog).where(ScanLog.verdict == "BLOCK")
+                    )
+                ).scalar_one()
+                or 0
+            )
+            raw_findings = 0
+            raw_blocks = 0
+            raw_files_scanned = 0
+            raw_today = 0
+            raw_last_hour = 0
+            by_source: dict[str, int] = {"cli": 0, "vscode": 0, "mcp": 0, "github_action": 0, "cloud_api": 0}
+            unique_ids: set[str] = set()
+            unique_today_ids: set[str] = set()
+
+            for payload, source, installation_id, created_at in raw_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                raw_findings += _payload_int(payload_obj.get("total_findings"))
+                raw_blocks += _payload_int(
+                    (payload_obj.get("findings_by_severity") or {}).get("BLOCK"),
+                )
+                raw_files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
+
+                source_key = str(source or "")
+                if source_key in by_source:
+                    by_source[source_key] += 1
+
+                if created_at is not None and created_at >= today_start:
+                    raw_today += 1
+                if created_at is not None and created_at >= last_hour:
+                    raw_last_hour += 1
+
+                installation = str(installation_id or "").strip()
+                if installation:
+                    unique_ids.add(installation)
+                    if created_at is not None and created_at >= today_start:
+                        unique_today_ids.add(installation)
+
+            total_findings = max(scanlog_findings, raw_findings)
+            blocks_found = max(scanlog_blocks, raw_blocks)
+            scans_today = max(scanlog_today, raw_today)
+            scans_last_hour = max(scanlog_last_hour, raw_last_hour)
+            total_files_scanned = max(total_scans, raw_files_scanned)
+            unique_total = len(unique_ids)
+            unique_today = len(unique_today_ids)
+
+            return {
+                "total_scans": total_scans,
+                "scans_today": scans_today,
+                "scans_last_hour": scans_last_hour,
+                "total_findings": total_findings,
+                "blocks_found": blocks_found,
+                "total_files_scanned": total_files_scanned,
+                "unique_installations_total": unique_total,
+                "unique_installations_today": unique_today,
+                "src_cli": int(by_source.get("cli", 0)),
+                "src_vscode": int(by_source.get("vscode", 0)),
+                "src_mcp": int(by_source.get("mcp", 0)),
+                "src_github_action": int(by_source.get("github_action", 0)),
+                "src_cloud_api": int(by_source.get("cloud_api", 0)),
+            }
+
     async def get_redis_warmup_counters(self) -> dict[str, int]:
         """Return aggregate counters needed to warm up Redis after a restart.
 
@@ -501,39 +619,57 @@ class DatabaseService:
             datetime.date.today(), datetime.time.min, tzinfo=datetime.UTC,
         )
         async with self._session_factory() as session:
-            total_stmt = (
-                select(func.count())
-                .select_from(TelemetryEventRaw)
-                .where(TelemetryEventRaw.event_type == "scan_completed")
-            )
-            total_scans: int = (await session.execute(total_stmt)).scalar_one() or 0
-
-            today_stmt = (
-                select(func.count())
-                .select_from(TelemetryEventRaw)
-                .where(
-                    TelemetryEventRaw.event_type == "scan_completed",
-                    TelemetryEventRaw.created_at >= today_utc,
+            scan_rows = (
+                await session.execute(
+                    select(
+                        TelemetryEventRaw.payload,
+                        TelemetryEventRaw.source,
+                        TelemetryEventRaw.created_at,
+                    ).where(TelemetryEventRaw.event_type == "scan_completed")
                 )
-            )
-            scans_today: int = (await session.execute(today_stmt)).scalar_one() or 0
+            ).all()
 
+            total_scans: int = len(scan_rows)
+            scans_today = 0
+            total_findings = 0
+            total_blocks = 0
+            files_scanned = 0
             sources = ("cli", "vscode", "mcp", "github_action", "cloud_api")
-            by_source: dict[str, int] = {}
-            for source in sources:
-                src_stmt = (
-                    select(func.count())
-                    .select_from(TelemetryEventRaw)
-                    .where(
-                        TelemetryEventRaw.event_type == "scan_completed",
-                        TelemetryEventRaw.source == source,
+            by_source: dict[str, int] = {source: 0 for source in sources}
+            for payload, source, created_at in scan_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                total_findings += _payload_int(payload_obj.get("total_findings"))
+                total_blocks += _payload_int(
+                    (payload_obj.get("findings_by_severity") or {}).get("BLOCK"),
+                )
+                files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
+                if created_at is not None and created_at >= today_utc:
+                    scans_today += 1
+
+                source_key = str(source or "")
+                if source_key in by_source:
+                    by_source[source_key] += 1
+
+            gateway_rows = (
+                await session.execute(
+                    select(TelemetryEventRaw.payload).where(
+                        TelemetryEventRaw.event_type == "gateway_check",
                     )
                 )
-                by_source[source] = (await session.execute(src_stmt)).scalar_one() or 0
+            ).all()
+            gateway_blocks = 0
+            for (payload,) in gateway_rows:
+                payload_obj = payload if isinstance(payload, dict) else {}
+                if str(payload_obj.get("action", "")).upper() == "BLOCKED":
+                    gateway_blocks += 1
 
         counters: dict[str, int] = {
             "ct:total_scans": total_scans,
             "ct:scans_today": scans_today,
+            "ct:total_findings": total_findings,
+            "ct:total_blocks": total_blocks,
+            "ct:files_scanned": max(files_scanned, total_scans),
+            "ct:gateway_blocks": gateway_blocks,
         }
         counters.update({f"ct:scans_by_source:{src}": cnt for src, cnt in by_source.items()})
         return counters
@@ -590,7 +726,7 @@ class DatabaseService:
                 select(func.coalesce(func.sum(column), 0))
             )
         ).scalar_one() or 0
-        return int(result)
+        return _payload_int(result)
 
     @staticmethod
     async def _query_telemetry_aggregates(

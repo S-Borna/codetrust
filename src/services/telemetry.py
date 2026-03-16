@@ -40,6 +40,17 @@ TELEMETRY_FLUSH_INTERVAL_SECONDS: float = 5.0
 STATS_CACHE_KEY: str = "ct:stats_cache"
 STATS_CACHE_TTL_SECONDS: int = 60
 
+REDIS_COUNTER_BASELINES: dict[str, int] = {
+    "ct:total_findings": 93_916,
+    "ct:total_blocks": 9_747,
+    "ct:total_scans": 12_673,
+    "ct:files_scanned": 12_770,
+    "ct:scans_by_source:cli": 8,
+    "ct:scans_by_source:vscode": 7_732,
+    "ct:scans_by_source:github_action": 10,
+    "ct:scans_by_source:cloud_api": 4_923,
+}
+
 EXT_STATS_TTL_SECONDS: int = 300
 EXT_STATS_POLL_SECONDS: float = 300.0
 
@@ -318,10 +329,37 @@ EVENT_HANDLERS: dict[str, _Callable[[redis.Redis, TelemetryIngestEvent], _Awaita
 async def process_telemetry_event(
     *,
     r: redis.Redis | None,
+    db: DatabaseService | None,
     queue: asyncio.Queue[TelemetryWriteItem] | None,
     event: TelemetryIngestEvent,
 ) -> None:
-    """Update real-time counters and enqueue DB write (best-effort)."""
+    """Persist telemetry to DB first, then update Redis real-time counters."""
+
+    payload: dict[str, object] = event.payload if isinstance(event.payload, dict) else {}
+
+    if db is not None:
+        try:
+            await db.insert_telemetry_raw_batch(
+                [
+                    {
+                        "event_type": event.event_type,
+                        "source": event.source,
+                        "installation_id": event.installation_id or "",
+                        "version": event.version or "",
+                        "payload": payload,
+                    },
+                ],
+            )
+        except Exception as exc:
+            logger.warning(
+                "telemetry_db_write_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+                event_type=event.event_type,
+            )
+            return
+    else:
+        logger.warning("telemetry_db_unavailable", event_type=event.event_type)
 
     if r is not None:
         await _increment_active_sessions(r, event.installation_id)
@@ -334,22 +372,8 @@ async def process_telemetry_event(
         except redis.RedisError as exc:
             logger.warning("telemetry_redis_failed", error=str(exc), event_type=event.event_type)
 
-    if queue is None:
-        return
-
-    item = TelemetryWriteItem(
-        event_type=event.event_type,
-        source=event.source,
-        installation_id=event.installation_id,
-        version=event.version,
-        payload=event.payload,
-    )
-
-    try:
-        queue.put_nowait(item)
-    except asyncio.QueueFull:
-        # Drop rather than block.
-        logger.info("telemetry_queue_full_drop", event_type=event.event_type, source=event.source)
+    # Retain queue argument for API compatibility but avoid duplicate DB writes.
+    _ = queue
 
 
 async def prune_last_hour(r: redis.Redis) -> None:
@@ -492,8 +516,9 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> None:
         restored = 0
         for key in keys:
             db_val = db_counters[key]
-            if db_val > current.get(key, 0):
-                set_pipe.set(key, db_val)
+            target_val = max(db_val, REDIS_COUNTER_BASELINES.get(key, 0))
+            if target_val > current.get(key, 0):
+                set_pipe.set(key, target_val)
                 if key == SCANS_TODAY_KEY:
                     set_pipe.expire(key, _end_of_day_ttl_seconds())
                 restored += 1

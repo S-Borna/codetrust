@@ -51,6 +51,17 @@ BASELINES: dict[str, int] = {
     "ct:scans_by_source:cloud_api": 4972,
 }
 
+BASELINE_DB_SNAPSHOT: dict[str, int] = {
+    "ct:total_findings": 66724,
+    "ct:total_scans": 12308,
+    "ct:files_scanned": 12308,
+    "ct:total_blocks": 9710,
+    "ct:scans_by_source:cli": 0,
+    "ct:scans_by_source:vscode": 7336,
+    "ct:scans_by_source:github_action": 0,
+    "ct:scans_by_source:cloud_api": 4972,
+}
+
 EXT_STATS_TTL_SECONDS: int = 300
 EXT_STATS_POLL_SECONDS: float = 300.0
 SNAPSHOT_SYNC_INTERVAL_SECONDS: float = 300.0
@@ -150,6 +161,14 @@ def _safe_str(value: object, *, default: str = "", max_length: int = 128) -> str
     if not isinstance(value, str):
         return default
     return value[:max_length]
+
+
+def _additive_baseline_value(key: str, current_db: int) -> int:
+    """Apply additive baseline: baseline + max(current_db - baseline_snapshot, 0)."""
+    baseline = int(BASELINES.get(key, 0))
+    baseline_snapshot = int(BASELINE_DB_SNAPSHOT.get(key, 0))
+    new_since_baseline = max(int(current_db) - baseline_snapshot, 0)
+    return baseline + new_since_baseline
 
 
 async def _increment_active_sessions(
@@ -502,7 +521,7 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
         restored = 0
         for key, baseline in BASELINES.items():
             db_value = int(db_counters.get(key, 0))
-            final_value = max(db_value, baseline)
+            final_value = _additive_baseline_value(key, db_value)
             await r.set(key, final_value)
             logger.info(f"Set {key}: db={db_value}, baseline={baseline}, final={final_value}")
             if key == SCANS_TODAY_KEY:
@@ -541,6 +560,12 @@ async def sync_redis_counters_to_snapshots(r: redis.Redis, db: DatabaseService) 
         pipe.get(key)
     values = await pipe.execute()
     counters: dict[str, int] = {key: _safe_int(val) for key, val in zip(_COUNTER_KEYS, values, strict=True)}
+    try:
+        db_counters: dict[str, int] = await db.get_redis_warmup_counters()
+        for key in BASELINES:
+            counters[key] = _additive_baseline_value(key, int(db_counters.get(key, 0)))
+    except Exception as exc:
+        logger.warning("counter_snapshot_db_counters_failed", error=str(exc), error_type=type(exc).__name__)
     await db.insert_counter_snapshots(counters)
     return len(counters)
 

@@ -173,3 +173,13 @@ class TestWarmUpRedisCounters:
         db = self._make_db({"ct:total_scans": 0, SCANS_TODAY_KEY: 0})
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"]
+
+    @pytest.mark.asyncio()
+    async def test_applies_additive_baseline_when_db_exceeds_snapshot(
+        self, fake_redis: fakeredis.aioredis.FakeRedis,
+    ) -> None:
+        """When DB is above baseline snapshot, final value is baseline plus delta."""
+        # Snapshot for total scans is 12308; +3 should be reflected over baseline.
+        db = self._make_db({"ct:total_scans": 12311})
+        await warm_up_redis_counters(r=fake_redis, db=db)
+        assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"] + 3

@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from unittest.mock import AsyncMock
 
 from src.config import settings
 from src.services.cache import CacheService
@@ -13,6 +14,8 @@ from src.services.telemetry import (
     PYPI_RECENT_URL,
     build_public_stats,
     fetch_external_stats,
+    process_telemetry_event,
+    TelemetryIngestEvent,
 )
 
 
@@ -118,3 +121,33 @@ async def test_build_public_stats_includes_open_vsx_distribution(
     assert isinstance(impact, dict)
     assert impact.get("hallucinations_caught") == 2
     assert impact.get("gateway_commands_blocked") == 1
+
+
+@pytest.mark.asyncio
+async def test_process_telemetry_event_cloud_api_increments_redis_when_db_fails(
+    fake_cache: CacheService,
+) -> None:
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    failing_db = AsyncMock()
+    failing_db.insert_telemetry_raw_batch.side_effect = RuntimeError("db down")
+
+    event = TelemetryIngestEvent(
+        event_type="scan_completed",
+        source="cloud_api",
+        installation_id=None,
+        version="test",
+        payload={
+            "scan_type": "static",
+            "files_scanned": 1,
+            "total_findings": 3,
+            "findings_by_severity": {"BLOCK": 1},
+            "scan_duration_ms": 42,
+        },
+    )
+
+    await process_telemetry_event(r=r, db=failing_db, queue=None, event=event)
+
+    assert await r.get("ct:total_scans") == "1"
+    assert await r.get("ct:scans_by_source:cloud_api") == "1"

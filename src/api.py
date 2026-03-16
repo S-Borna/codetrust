@@ -573,7 +573,8 @@ async def _init_telemetry_tasks(
 async def _startup(app: FastAPI) -> None:
     """Create and attach shared resources to app state."""
     redis_url_from_env = os.getenv("CODETRUST_REDIS_URL") or os.getenv("REDIS_URL")
-    startup_logger.info("Redis URL configured: %s", bool(redis_url_from_env))
+    redis_url_effective = redis_url_from_env or settings.redis_url
+    startup_logger.warning("STARTUP REDIS URL (effective): %s", redis_url_effective)
     if not redis_url_from_env:
         startup_logger.warning("NO REDIS_URL FOUND — falling back to database stats")
 

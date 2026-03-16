@@ -379,7 +379,7 @@ async def process_telemetry_event(
                 error_type=type(exc).__name__,
                 event_type=event.event_type,
             )
-            return
+            # Do NOT return — Redis INCR must always run regardless of DB success.
     else:
         logger.warning("telemetry_db_unavailable", event_type=event.event_type)
 

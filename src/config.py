@@ -2,7 +2,7 @@
 # Proprietary — see LICENSE for terms.
 """Application settings via pydantic-settings, loaded from environment variables."""
 
-from pydantic import ConfigDict
+from pydantic import AliasChoices, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     require_auth_for_all_requests: bool = False
 
     # --- Redis ---
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = Field(
+        default="redis://localhost:6379",
+        validation_alias=AliasChoices("CODETRUST_REDIS_URL", "REDIS_URL"),
+    )
     redis_enabled: bool = True
 
     # --- Cache TTLs (seconds) ---

@@ -5,6 +5,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import smtplib
 import ssl
@@ -152,6 +153,7 @@ from src.utils.parsers import (
 )
 
 logger = structlog.get_logger()
+startup_logger = logging.getLogger("codetrust")
 
 SECONDS_PER_HOUR: int = 3_600
 OIDC_STATE_PREFIX: str = "oidc:state:"
@@ -497,8 +499,23 @@ async def _init_telemetry_tasks(
 
 async def _startup(app: FastAPI) -> None:
     """Create and attach shared resources to app state."""
+    redis_url_from_env = os.getenv("CODETRUST_REDIS_URL") or os.getenv("REDIS_URL")
+    startup_logger.info("Redis URL configured: %s", bool(redis_url_from_env))
+    if not redis_url_from_env:
+        startup_logger.warning("NO REDIS_URL FOUND — falling back to database stats")
+
     cache = CacheService(settings.redis_url)
     await cache.connect()
+    if settings.production_mode and settings.redis_enabled:
+        connected = await cache.is_connected()
+        if not connected:
+            logger.critical(
+                "redis_unavailable_startup",
+                message=(
+                    "Redis is unavailable at startup; continuing with database-backed fallback stats. "
+                    "Set CODETRUST_REDIS_URL or REDIS_URL to a reachable Redis instance to restore live aggregation."
+                ),
+            )
     http_client = await _init_http_client()
     db = await _init_database()
     _attach_core_services(app, cache, http_client, db)
@@ -1164,12 +1181,16 @@ async def _build_fallback_public_stats(
             base.update(await db.get_public_stats())
         except Exception as exc:
             logger.warning("public_stats_failed", error=str(exc))
+        try:
+            base.update(await db.get_public_usage_aggregates())
+        except Exception as exc:
+            logger.warning("public_usage_aggregates_failed", error=str(exc))
 
     if cache is None or http_client is None:
         stats: dict[str, object] = {
             "schema_version": settings.version,
             "source_of_truth": "/v1/stats/public",
-            "updated_at": "",
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "distribution": {
                 "pypi": {
                     "downloads_today": base.get("pypi_downloads_last_day", 0),
@@ -1186,20 +1207,20 @@ async def _build_fallback_public_stats(
             },
             "usage": {
                 "total_scans": base.get("total_scans", 0),
-                "scans_today": 0,
-                "scans_last_hour": 0,
+                "scans_today": base.get("scans_today", 0),
+                "scans_last_hour": base.get("scans_last_hour", 0),
                 "scans_by_source": {
-                    "cli": 0,
-                    "vscode": 0,
-                    "mcp": 0,
-                    "github_action": 0,
-                    "cloud_api": 0,
+                    "cli": base.get("src_cli", 0),
+                    "vscode": base.get("src_vscode", 0),
+                    "mcp": base.get("src_mcp", 0),
+                    "github_action": base.get("src_github_action", 0),
+                    "cloud_api": base.get("src_cloud_api", 0),
                 },
-                "total_files_scanned": 0,
-                "total_findings": 0,
-                "findings_by_severity": {"BLOCK": 0, "WARN": 0, "INFO": 0},
-                "unique_installations_total": 0,
-                "unique_installations_today": 0,
+                "total_files_scanned": base.get("total_files_scanned", 0),
+                "total_findings": base.get("total_findings", 0),
+                "findings_by_severity": {"BLOCK": base.get("blocks_found", 0), "WARN": 0, "INFO": 0},
+                "unique_installations_total": base.get("unique_installations_total", 0),
+                "unique_installations_today": base.get("unique_installations_today", 0),
             },
             "impact": {
                 "hallucinations_caught": base.get("hallucinated_packages_prevented", 0),
@@ -1247,7 +1268,7 @@ async def _build_fallback_public_stats(
     stats = {
         "schema_version": settings.version,
         "source_of_truth": "/v1/stats/public",
-        "updated_at": "",
+        "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "distribution": {
             "pypi": {
                 "downloads_today": merged.get("pypi_downloads_last_day", 0),
@@ -1264,14 +1285,20 @@ async def _build_fallback_public_stats(
         },
         "usage": {
             "total_scans": merged.get("total_scans", 0),
-            "scans_today": 0,
-            "scans_last_hour": 0,
-            "scans_by_source": {"cli": 0, "vscode": 0, "mcp": 0, "github_action": 0, "cloud_api": 0},
-            "total_files_scanned": 0,
-            "total_findings": 0,
-            "findings_by_severity": {"BLOCK": 0, "WARN": 0, "INFO": 0},
-            "unique_installations_total": 0,
-            "unique_installations_today": 0,
+            "scans_today": merged.get("scans_today", 0),
+            "scans_last_hour": merged.get("scans_last_hour", 0),
+            "scans_by_source": {
+                "cli": merged.get("src_cli", 0),
+                "vscode": merged.get("src_vscode", 0),
+                "mcp": merged.get("src_mcp", 0),
+                "github_action": merged.get("src_github_action", 0),
+                "cloud_api": merged.get("src_cloud_api", 0),
+            },
+            "total_files_scanned": merged.get("total_files_scanned", 0),
+            "total_findings": merged.get("total_findings", 0),
+            "findings_by_severity": {"BLOCK": merged.get("blocks_found", 0), "WARN": 0, "INFO": 0},
+            "unique_installations_total": merged.get("unique_installations_total", 0),
+            "unique_installations_today": merged.get("unique_installations_today", 0),
         },
         "impact": {
             "hallucinations_caught": merged.get("hallucinated_packages_prevented", 0),
@@ -1320,8 +1347,39 @@ async def public_stats(request: Request) -> PublicStatsResponse:
     http_client = getattr(request.app.state, "http_client", None)
 
     redis_client = cache.raw_client() if cache is not None else None
-    if redis_client is not None:
-        return PublicStatsResponse.model_validate(await _build_redis_public_stats(redis_client))
+    redis_connected = False
+    if cache is not None:
+        try:
+            redis_connected = await cache.is_connected()
+        except Exception as exc:
+            logger.warning("public_stats_redis_health_check_failed", error=str(exc))
+
+    redis_available = redis_client is not None and redis_connected
+    logger.info(
+        "stats_endpoint_source_decision",
+        redis_available=redis_available,
+        using="redis" if redis_available else "fallback",
+    )
+
+    if redis_available:
+        try:
+            logger.info("public_stats_source_selected", source="redis")
+            return PublicStatsResponse.model_validate(await _build_redis_public_stats(redis_client))
+        except Exception as exc:
+            logger.warning("public_stats_redis_failed_falling_back", error=str(exc))
+
+    reason = "cache_service_missing"
+    if cache is not None and redis_client is None:
+        reason = "redis_client_uninitialized"
+    elif cache is not None and not redis_connected:
+        reason = "redis_connectivity_check_failed"
+    logger.warning(
+        "public_stats_source_selected",
+        source="fallback",
+        reason=reason,
+        has_db=db is not None,
+        has_http_client=http_client is not None,
+    )
 
     return PublicStatsResponse.model_validate(await _build_fallback_public_stats(db, cache, http_client))
 

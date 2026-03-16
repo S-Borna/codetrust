@@ -461,6 +461,38 @@ class TestTelemetryEndpoints:
         assert "active_surfaces" in coverage
         assert "surfaces" in coverage
 
+    def test_public_stats_fallback_uses_database_aggregates(
+        self, client_with_db: TestClient,
+    ) -> None:
+        """Fallback stats return DB-backed counters and populated timestamp when Redis is down."""
+        blocked_scan = client_with_db.post(
+            "/v1/scan/static",
+            json={"code": "import os\nos.system('rm -rf /')\n", "filename": "bad.py"},
+        )
+        assert blocked_scan.status_code == 200
+
+        clean_scan = client_with_db.post(
+            "/v1/scan/static",
+            json={"code": "x = 1\n", "filename": "ok.py"},
+        )
+        assert clean_scan.status_code == 200
+
+        from src.api import app
+
+        app.state.cache.raw_client.return_value = None
+
+        resp = client_with_db.get("/v1/stats/public")
+        assert resp.status_code == 200, resp.text
+
+        data = resp.json()
+        nested = data["stats"]
+        usage = nested["usage"]
+
+        assert nested["updated_at"]
+        assert usage["total_scans"] >= 2
+        assert usage["total_findings"] >= 1
+        assert usage["findings_by_severity"]["BLOCK"] >= 1
+
 
 class TestGovernanceBundleEndpoints:
     """Tests for governance policy bundle and snapshot endpoints."""

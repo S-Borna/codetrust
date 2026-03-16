@@ -40,15 +40,15 @@ TELEMETRY_FLUSH_INTERVAL_SECONDS: float = 5.0
 STATS_CACHE_KEY: str = "ct:stats_cache"
 STATS_CACHE_TTL_SECONDS: int = 60
 
-REDIS_COUNTER_BASELINES: dict[str, int] = {
-    "ct:total_findings": 93_916,
-    "ct:total_blocks": 9_747,
-    "ct:total_scans": 12_673,
-    "ct:files_scanned": 12_770,
-    "ct:scans_by_source:cli": 8,
-    "ct:scans_by_source:vscode": 7_732,
-    "ct:scans_by_source:github_action": 10,
-    "ct:scans_by_source:cloud_api": 4_923,
+BASELINES: dict[str, int] = {
+    "ct:total_findings": 113744,
+    "ct:total_blocks": 9747,
+    "ct:total_scans": 11233,
+    "ct:files_scanned": 11233,
+    "ct:scans_by_source:cli": 24,
+    "ct:scans_by_source:vscode": 7732,
+    "ct:scans_by_source:github_action": 16,
+    "ct:scans_by_source:cloud_api": 4972,
 }
 
 EXT_STATS_TTL_SECONDS: int = 300
@@ -502,29 +502,27 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> None:
         return
 
     try:
-        keys = list(db_counters.keys())
-        fetch_pipe = r.pipeline()
-        for key in keys:
-            fetch_pipe.get(key)
-        current_raws = await fetch_pipe.execute()
-        current: dict[str, int] = {
-            key: int(raw) if raw else 0
-            for key, raw in zip(keys, current_raws, strict=True)
-        }
-
-        set_pipe = r.pipeline()
         restored = 0
-        for key in keys:
-            db_val = db_counters[key]
-            target_val = max(db_val, REDIS_COUNTER_BASELINES.get(key, 0))
-            if target_val > current.get(key, 0):
-                set_pipe.set(key, target_val)
-                if key == SCANS_TODAY_KEY:
-                    set_pipe.expire(key, _end_of_day_ttl_seconds())
-                restored += 1
+        for key, baseline in BASELINES.items():
+            db_value = int(db_counters.get(key, 0))
+            final_value = max(db_value, baseline)
+            await r.set(key, final_value)
+            logger.info(f"Set {key}: db={db_value}, baseline={baseline}, final={final_value}")
+            if key == SCANS_TODAY_KEY:
+                await r.expire(key, _end_of_day_ttl_seconds())
+            restored += 1
+
+        for key, db_raw in db_counters.items():
+            if key in BASELINES:
+                continue
+            db_value = int(db_raw)
+            await r.set(key, db_value)
+            logger.info(f"Set {key}: db={db_value}, baseline=0, final={db_value}")
+            if key == SCANS_TODAY_KEY:
+                await r.expire(key, _end_of_day_ttl_seconds())
+            restored += 1
 
         if restored:
-            await set_pipe.execute()
             await r.delete(STATS_CACHE_KEY)  # force fresh build on next request
 
         logger.info(

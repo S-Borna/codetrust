@@ -163,7 +163,54 @@ MAX_WS_CLIENTS: int = 50
 WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 FREE_DAILY_SCAN_LIMIT: int = 100
 
+BASELINES: dict[str, int] = {
+    "ct:total_findings": 113744,
+    "ct:total_blocks": 9747,
+    "ct:total_scans": 11233,
+    "ct:files_scanned": 11233,
+    "ct:scans_by_source:cli": 24,
+    "ct:scans_by_source:vscode": 7732,
+    "ct:scans_by_source:github_action": 16,
+    "ct:scans_by_source:cloud_api": 4972,
+}
+PIP_INSTALLS_BASELINE: int = 6711
+
 _scan_limits: dict[str, dict[str, str | int]] = {}
+
+
+def _apply_public_usage_baselines(stats_values: dict[str, int]) -> dict[str, int]:
+    """Ensure fallback usage counters never go below required baseline floors."""
+    adjusted = dict(stats_values)
+    adjusted["total_findings"] = max(int(adjusted.get("total_findings", 0)), BASELINES["ct:total_findings"])
+    adjusted["blocks_found"] = max(int(adjusted.get("blocks_found", 0)), BASELINES["ct:total_blocks"])
+    adjusted["total_scans"] = max(int(adjusted.get("total_scans", 0)), BASELINES["ct:total_scans"])
+    adjusted["total_files_scanned"] = max(
+        int(adjusted.get("total_files_scanned", 0)),
+        BASELINES["ct:files_scanned"],
+    )
+    adjusted["src_cli"] = max(int(adjusted.get("src_cli", 0)), BASELINES["ct:scans_by_source:cli"])
+    adjusted["src_vscode"] = max(int(adjusted.get("src_vscode", 0)), BASELINES["ct:scans_by_source:vscode"])
+    adjusted["src_github_action"] = max(
+        int(adjusted.get("src_github_action", 0)),
+        BASELINES["ct:scans_by_source:github_action"],
+    )
+    adjusted["src_cloud_api"] = max(
+        int(adjusted.get("src_cloud_api", 0)),
+        BASELINES["ct:scans_by_source:cloud_api"],
+    )
+    return adjusted
+
+
+def _apply_pip_downloads_baseline(stats_payload: dict[str, object]) -> dict[str, object]:
+    """Ensure pip installs/reach display never falls below historical baseline."""
+    distribution = stats_payload.get("distribution")
+    if not isinstance(distribution, dict):
+        return stats_payload
+    pypi = distribution.get("pypi")
+    if not isinstance(pypi, dict):
+        return stats_payload
+    pypi["downloads_total"] = max(int(pypi.get("downloads_total", 0)), PIP_INSTALLS_BASELINE)
+    return stats_payload
 
 
 def _resolve_attestation_session_id(request: Request) -> str:
@@ -1157,6 +1204,7 @@ async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
     from src.services.telemetry import build_public_stats
 
     stats = _coerce_stats_contract(await build_public_stats(r=redis_client, use_cache=True))
+    stats = _apply_pip_downloads_baseline(stats)
     legacy = _build_legacy_public_stats(stats)
     return {**legacy, "stats": stats}
 
@@ -1185,6 +1233,8 @@ async def _build_fallback_public_stats(
             base.update(await db.get_public_usage_aggregates())
         except Exception as exc:
             logger.warning("public_usage_aggregates_failed", error=str(exc))
+
+    base = _apply_public_usage_baselines(base)
 
     if cache is None or http_client is None:
         stats: dict[str, object] = {
@@ -1258,6 +1308,7 @@ async def _build_fallback_public_stats(
             "languages": {},
             "layers": {},
         }
+        stats = _apply_pip_downloads_baseline(stats)
         return {**_build_legacy_public_stats(stats), "stats": stats}
 
     pypi = await get_pypi_download_stats(http_client=http_client, cache=cache)
@@ -1265,6 +1316,7 @@ async def _build_fallback_public_stats(
     marketplace = await get_marketplace_stats(http_client=http_client, cache=cache)
     openvsx = await get_open_vsx_stats(http_client=http_client, cache=cache)
     merged = {**base, **pypi, **pepy, **marketplace, **openvsx}
+    merged = _apply_public_usage_baselines(merged)
     stats = {
         "schema_version": settings.version,
         "source_of_truth": "/v1/stats/public",
@@ -1336,6 +1388,7 @@ async def _build_fallback_public_stats(
         "languages": {},
         "layers": {},
     }
+    stats = _apply_pip_downloads_baseline(stats)
     return {**_build_legacy_public_stats(stats), "stats": stats}
 
 

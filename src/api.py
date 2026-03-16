@@ -166,8 +166,8 @@ FREE_DAILY_SCAN_LIMIT: int = 100
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
     "ct:total_blocks": 9747,
-    "ct:total_scans": 11233,
-    "ct:files_scanned": 11233,
+    "ct:total_scans": 11239,
+    "ct:files_scanned": 11239,
     "ct:scans_by_source:cli": 24,
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
@@ -529,15 +529,28 @@ async def _init_telemetry_tasks(
 
     redis_client = cache.raw_client()
     if redis_client is not None:
-        from src.services.telemetry import stats_worker, warm_up_redis_counters
+        from src.services.telemetry import (
+            counter_snapshot_worker,
+            stats_worker,
+            warm_up_redis_counters,
+        )
 
         app.state.stats_worker_task = asyncio.create_task(
             stats_worker(r=redis_client, http_client=http_client, stop=app.state.telemetry_stop),
         )
+        app.state.counter_snapshot_task = None
         if db is not None:
-            await warm_up_redis_counters(r=redis_client, db=db)
+            restored = await warm_up_redis_counters(r=redis_client, db=db)
+            startup_logger.info(f"STARTUP COMPLETE: Redis connected, {restored} counters restored")
+            app.state.counter_snapshot_task = asyncio.create_task(
+                counter_snapshot_worker(r=redis_client, db=db, stop=app.state.telemetry_stop),
+            )
+        else:
+            startup_logger.info("STARTUP COMPLETE: Redis connected, 0 counters restored")
     else:
+        startup_logger.warning("STARTUP: Redis unavailable, running in DB-fallback mode")
         app.state.stats_worker_task = None
+        app.state.counter_snapshot_task = None
 
     app.state.telemetry_writer_task = None
     if db is not None:
@@ -556,6 +569,7 @@ async def _startup(app: FastAPI) -> None:
     if settings.production_mode and settings.redis_enabled:
         connected = await cache.is_connected()
         if not connected:
+            startup_logger.warning("STARTUP: Redis unavailable, running in DB-fallback mode")
             logger.critical(
                 "redis_unavailable_startup",
                 message=(
@@ -578,7 +592,7 @@ async def _shutdown(app: FastAPI) -> None:
     if isinstance(stop, asyncio.Event):
         stop.set()
 
-    for task_name in ("telemetry_writer_task", "stats_worker_task"):
+    for task_name in ("telemetry_writer_task", "stats_worker_task", "counter_snapshot_task"):
         task = getattr(app.state, task_name, None)
         if task is not None:
             task.cancel()

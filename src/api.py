@@ -175,14 +175,14 @@ BASELINES: dict[str, int] = {
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
-    "ct:total_findings": 66724,
-    "ct:total_scans": 12308,
-    "ct:files_scanned": 12308,
-    "ct:total_blocks": 9710,
+    "ct:total_findings": 5,
+    "ct:total_scans": 1,
+    "ct:files_scanned": 3,
+    "ct:total_blocks": 2,
     "ct:scans_by_source:cli": 0,
-    "ct:scans_by_source:vscode": 7336,
+    "ct:scans_by_source:vscode": 0,
     "ct:scans_by_source:github_action": 0,
-    "ct:scans_by_source:cloud_api": 4972,
+    "ct:scans_by_source:cloud_api": 3,
 }
 PIP_INSTALLS_BASELINE: int = 6711
 

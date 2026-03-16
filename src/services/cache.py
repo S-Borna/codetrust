@@ -2,12 +2,17 @@
 # Proprietary — see LICENSE for terms.
 """Redis-backed cache with TTL support. Gracefully degrades if Redis unavailable."""
 
+import asyncio
 import json
+from urllib.parse import urlsplit, urlunsplit
 
 import redis.asyncio as redis
 import structlog
 
 logger = structlog.get_logger()
+
+REDIS_CONNECT_RETRIES: int = 3
+REDIS_RETRY_DELAY_SECONDS: int = 2
 
 
 class CacheService:
@@ -18,20 +23,60 @@ class CacheService:
         self._redis_url = redis_url
         self._client: redis.Redis | None = None
 
+    def _redis_url_candidates(self) -> list[str]:
+        """Build prioritized Redis URL candidates for startup connection."""
+        candidates: list[str] = [self._redis_url]
+        try:
+            parsed = urlsplit(self._redis_url)
+            is_railway_internal = parsed.hostname == "redis.railway.internal"
+            has_credentials = parsed.username is not None or parsed.password is not None
+            if is_railway_internal and not has_credentials:
+                netloc = f"default:@{parsed.hostname}"
+                if parsed.port is not None:
+                    netloc = f"{netloc}:{parsed.port}"
+                fallback = urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+                if fallback not in candidates:
+                    candidates.append(fallback)
+        except Exception:
+            # Keep primary URL only if parsing unexpectedly fails.
+            return candidates
+        return candidates
+
     async def connect(self) -> None:
         """Initialize Redis connection pool."""
-        try:
-            self._client = redis.from_url(
-                self._redis_url,
-                decode_responses=True,
-                socket_timeout=5,
-                socket_connect_timeout=5,
-            )
-            await self._client.ping()
-            logger.info("redis_connected", url=self._redis_url)
-        except redis.RedisError as exc:
-            logger.warning("redis_connect_failed", error=str(exc))
-            self._client = None
+        candidates = self._redis_url_candidates()
+        total_attempts = REDIS_CONNECT_RETRIES + 1
+        for url in candidates:
+            for attempt in range(1, total_attempts + 1):
+                try:
+                    logger.warning(
+                        "redis_connect_attempt",
+                        url=url,
+                        attempt=attempt,
+                        max_attempts=total_attempts,
+                    )
+                    self._client = redis.from_url(
+                        url,
+                        decode_responses=True,
+                        socket_timeout=5,
+                        socket_connect_timeout=5,
+                    )
+                    await self._client.ping()
+                    self._redis_url = url
+                    logger.warning("redis_connected", url=url, attempt=attempt)
+                    return
+                except redis.RedisError as exc:
+                    logger.warning(
+                        "redis_connect_failed",
+                        url=url,
+                        attempt=attempt,
+                        max_attempts=total_attempts,
+                        error=str(exc),
+                    )
+                    self._client = None
+                    if attempt < total_attempts:
+                        await asyncio.sleep(REDIS_RETRY_DELAY_SECONDS)
+        logger.warning("redis_connection_unavailable", tried_urls=candidates)
 
     def raw_client(self) -> redis.Redis | None:
         """Return the underlying redis client (or None if unavailable)."""

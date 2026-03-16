@@ -173,30 +173,43 @@ BASELINES: dict[str, int] = {
     "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
 }
+
+BASELINE_DB_SNAPSHOT: dict[str, int] = {
+    "ct:total_findings": 66724,
+    "ct:total_scans": 12308,
+    "ct:files_scanned": 12308,
+    "ct:total_blocks": 9710,
+    "ct:scans_by_source:cli": 0,
+    "ct:scans_by_source:vscode": 7336,
+    "ct:scans_by_source:github_action": 0,
+    "ct:scans_by_source:cloud_api": 4972,
+}
 PIP_INSTALLS_BASELINE: int = 6711
 
 _scan_limits: dict[str, dict[str, str | int]] = {}
 
 
 def _apply_public_usage_baselines(stats_values: dict[str, int]) -> dict[str, int]:
-    """Ensure fallback usage counters never go below required baseline floors."""
+    """Apply additive baselines for fallback usage counters."""
     adjusted = dict(stats_values)
-    adjusted["total_findings"] = max(int(adjusted.get("total_findings", 0)), BASELINES["ct:total_findings"])
-    adjusted["blocks_found"] = max(int(adjusted.get("blocks_found", 0)), BASELINES["ct:total_blocks"])
-    adjusted["total_scans"] = max(int(adjusted.get("total_scans", 0)), BASELINES["ct:total_scans"])
-    adjusted["total_files_scanned"] = max(
-        int(adjusted.get("total_files_scanned", 0)),
-        BASELINES["ct:files_scanned"],
+
+    def _additive(redis_key: str, current_db: int) -> int:
+        baseline = int(BASELINES.get(redis_key, 0))
+        snapshot = int(BASELINE_DB_SNAPSHOT.get(redis_key, 0))
+        new_since_baseline = max(int(current_db) - snapshot, 0)
+        return baseline + new_since_baseline
+
+    adjusted["total_findings"] = _additive("ct:total_findings", int(adjusted.get("total_findings", 0)))
+    adjusted["blocks_found"] = _additive("ct:total_blocks", int(adjusted.get("blocks_found", 0)))
+    adjusted["total_scans"] = _additive("ct:total_scans", int(adjusted.get("total_scans", 0)))
+    adjusted["total_files_scanned"] = _additive("ct:files_scanned", int(adjusted.get("total_files_scanned", 0)))
+    adjusted["src_cli"] = _additive("ct:scans_by_source:cli", int(adjusted.get("src_cli", 0)))
+    adjusted["src_vscode"] = _additive("ct:scans_by_source:vscode", int(adjusted.get("src_vscode", 0)))
+    adjusted["src_github_action"] = _additive(
+        "ct:scans_by_source:github_action", int(adjusted.get("src_github_action", 0)),
     )
-    adjusted["src_cli"] = max(int(adjusted.get("src_cli", 0)), BASELINES["ct:scans_by_source:cli"])
-    adjusted["src_vscode"] = max(int(adjusted.get("src_vscode", 0)), BASELINES["ct:scans_by_source:vscode"])
-    adjusted["src_github_action"] = max(
-        int(adjusted.get("src_github_action", 0)),
-        BASELINES["ct:scans_by_source:github_action"],
-    )
-    adjusted["src_cloud_api"] = max(
-        int(adjusted.get("src_cloud_api", 0)),
-        BASELINES["ct:scans_by_source:cloud_api"],
+    adjusted["src_cloud_api"] = _additive(
+        "ct:scans_by_source:cloud_api", int(adjusted.get("src_cloud_api", 0)),
     )
     return adjusted
 

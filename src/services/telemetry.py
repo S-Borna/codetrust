@@ -23,6 +23,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config import settings
+from src.services.impact_categories import get_rule_category
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable as _Awaitable
@@ -212,6 +213,22 @@ def _parse_scan_payload(
     return languages, layers, rules, trust_score, trend
 
 
+def _parse_finding_rule_ids(payload: dict[str, object]) -> list[str]:
+    """Extract normalized rule IDs from detailed findings payload."""
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return []
+
+    rule_ids: list[str] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        rule_id = _safe_str(finding.get("rule") or finding.get("rule_id"), max_length=80)
+        if rule_id:
+            rule_ids.append(rule_id)
+    return rule_ids
+
+
 async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) -> None:
     """Handle scan_completed event by updating Redis counters."""
     p = event.payload
@@ -246,6 +263,19 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
         pipe.incr("ct:trust_score_count")
     if trend in {"improving", "stable", "degrading"}:
         pipe.incr(f"ct:trend:{trend}")
+
+    findings = p.get("findings")
+    if isinstance(findings, list):
+        seen_at = datetime.datetime.now(datetime.UTC).isoformat()
+        for rule_id in _parse_finding_rule_ids(p):
+            category = get_rule_category(rule_id)
+            pipe.incr(f"ct:impact:{category}")
+            pipe.set(f"ct:impact:last_seen:{category}", seen_at)
+            pipe.incr(f"ct:top_rules:{rule_id}")
+    elif isinstance(findings, int):
+        # findings count without per-finding details cannot be categorized.
+        pass
+
     await pipe.execute()
 
 

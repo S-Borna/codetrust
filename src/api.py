@@ -1019,7 +1019,7 @@ async def _emit_scan_telemetry(
         )
         await process_telemetry_event(r=redis_client, db=db, queue=queue, event=event)
     except Exception as exc:
-        logger.debug("scan_telemetry_emit_failed", error=str(exc))
+        logger.warning("scan_telemetry_emit_failed", error=str(exc))
 
 
 async def _log_scan(

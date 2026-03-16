@@ -54,3 +54,15 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model TelemetryEventRaw {
+  id             String   @id @db.VarChar(32)
+  event_type     String   @db.VarChar(64)
+  source         String   @db.VarChar(20)
+  installation_id String  @default("") @db.VarChar(128)
+  version        String   @default("") @db.VarChar(32)
+  payload        Json
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("telemetry_events_raw")
+}

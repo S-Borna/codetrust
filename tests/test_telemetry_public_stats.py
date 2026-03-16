@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock
+
 import httpx
 import pytest
-from unittest.mock import AsyncMock
 
 from src.config import settings
 from src.services.cache import CacheService
@@ -12,10 +13,10 @@ from src.services.telemetry import (
     PEPY_API_URL_TEMPLATE,
     PEPY_PROJECT,
     PYPI_RECENT_URL,
+    TelemetryIngestEvent,
     build_public_stats,
     fetch_external_stats,
     process_telemetry_event,
-    TelemetryIngestEvent,
 )
 
 

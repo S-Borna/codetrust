@@ -35,6 +35,7 @@ from src.rules.anti_patterns import (
     DEVOPS_FILENAMES,
     SQL_EXTENSIONS,
 )
+from src.services.rule_catalog import RULE_CATALOG
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -2774,17 +2775,30 @@ def _sarif_collect_rules_and_results(
 
     for f in findings:
         rid = str(f.get("rule_id", "unknown"))
-        sev = str(f.get("severity", "INFO"))
+        rule_meta = RULE_CATALOG.get(rid, {})
+        sev = str(f.get("severity", rule_meta.get("severity", "INFO")))
         level = _SARIF_SEVERITY.get(sev, "note")
+        sarif_rule_id = f"codetrust/{rid}"
         if rid not in seen_rules:
             seen_rules.add(rid)
+            short_desc = str(rule_meta.get("description", f.get("message", "")))
+            help_uri = str(rule_meta.get("help_uri", ""))
+            rule_name = str(rule_meta.get("name", rid))
+            properties: dict[str, object] = {}
+            cwe_id = str(rule_meta.get("cwe", "")).strip()
+            if cwe_id:
+                properties["problem.severity"] = level
+                properties["tags"] = [cwe_id]
             rules.append({
-                "id": rid,
-                "shortDescription": {"text": str(f.get("message", ""))},
+                "id": sarif_rule_id,
+                "name": rule_name,
+                "shortDescription": {"text": short_desc},
                 "defaultConfiguration": {"level": level},
+                "helpUri": help_uri,
+                "properties": properties,
             })
         results.append({
-            "ruleId": rid,
+            "ruleId": sarif_rule_id,
             "level": level,
             "message": {"text": str(f.get("message", ""))},
             "locations": [{

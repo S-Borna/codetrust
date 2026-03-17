@@ -353,6 +353,13 @@ class TestFindingsToSarif:
         assert sarif["version"] == "2.1.0"
         assert len(sarif["runs"]) == 1
         assert len(sarif["runs"][0]["results"]) == 1
+        result = sarif["runs"][0]["results"][0]
+        assert result["ruleId"] == "codetrust/eval_exec"
+
+        rules = sarif["runs"][0]["tool"]["driver"]["rules"]
+        assert rules[0]["id"] == "codetrust/eval_exec"
+        assert rules[0]["shortDescription"]["text"]
+        assert rules[0]["helpUri"].endswith("#eval_exec")
 
     def test_sarif_empty(self) -> None:
         sarif = _findings_to_sarif([])

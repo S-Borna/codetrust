@@ -137,7 +137,7 @@ from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.sso import OIDCConfig, OIDCService
 from src.services.static_analyzer import StaticAnalyzer
-from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
+from src.services.telemetry import STATS_CACHE_KEY, TelemetryIngestEvent, process_telemetry_event
 from src.services.unified_session import UnifiedSessionStore
 from src.services.vulnerability import VulnScanResponse
 from src.services.workspace_registry import WorkspaceRegistry
@@ -1283,11 +1283,15 @@ def _build_legacy_public_stats(stats: dict[str, object]) -> dict[str, int]:
     }
 
 
-async def _build_redis_public_stats(redis_client: object) -> dict[str, object]:
+async def _build_redis_public_stats(
+    redis_client: object,
+    *,
+    use_cache: bool = True,
+) -> dict[str, object]:
     """Build public stats from Redis with backwards-compatible flat keys."""
     from src.services.telemetry import build_public_stats
 
-    stats = _coerce_stats_contract(await build_public_stats(r=redis_client, use_cache=True))
+    stats = _coerce_stats_contract(await build_public_stats(r=redis_client, use_cache=use_cache))
     stats = _apply_pip_downloads_baseline(stats)
     legacy = _build_legacy_public_stats(stats)
     return {**legacy, "stats": stats}
@@ -1492,7 +1496,11 @@ async def _build_fallback_public_stats(
 
 
 @app.get("/v1/stats/public", response_model=PublicStatsResponse)
-async def public_stats(request: Request) -> PublicStatsResponse:
+async def public_stats(
+    request: Request,
+    refresh: bool = Query(default=False, description="Force uncached stats rebuild"),
+    cache_bust: str | None = Query(default=None, alias="_bust"),
+) -> PublicStatsResponse:
     """Public aggregate stats for landing page — no auth required."""
     db = getattr(request.app.state, "db", None)
     cache = getattr(request.app.state, "cache", None)
@@ -1515,8 +1523,16 @@ async def public_stats(request: Request) -> PublicStatsResponse:
 
     if redis_available:
         try:
+            force_uncached = refresh or bool(cache_bust)
+            if force_uncached:
+                try:
+                    await redis_client.delete(STATS_CACHE_KEY)
+                except Exception as exc:
+                    logger.warning("public_stats_cache_invalidate_failed", error=str(exc))
             logger.info("public_stats_source_selected", source="redis")
-            return PublicStatsResponse.model_validate(await _build_redis_public_stats(redis_client))
+            return PublicStatsResponse.model_validate(
+                await _build_redis_public_stats(redis_client, use_cache=not force_uncached),
+            )
         except Exception as exc:
             logger.warning("public_stats_redis_failed_falling_back", error=str(exc))
 

@@ -24,7 +24,7 @@ trap 'rm -f "$BEFORE_JSON" "$AFTER_JSON"' EXIT
 
 printf '[telemetry-smoke] Fetching baseline public stats from %s\n' "$PUBLIC_STATS_URL"
 baseline_cache_bust="$(date +%s)-$RANDOM"
-curl -fsS "$PUBLIC_STATS_URL?smoke_cache_bust=$baseline_cache_bust" \
+curl -fsS "$PUBLIC_STATS_URL?refresh=true&_bust=$baseline_cache_bust" \
     -H 'Cache-Control: no-cache' \
     -H 'Pragma: no-cache' > "$BEFORE_JSON"
 
@@ -46,7 +46,7 @@ validation_passed=0
 while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
     printf '[telemetry-smoke] Fetching updated public stats (attempt %s/%s)\n' "$attempt" "$MAX_ATTEMPTS"
         attempt_cache_bust="$(date +%s)-$RANDOM-$attempt"
-        curl -fsS "$PUBLIC_STATS_URL?smoke_cache_bust=$attempt_cache_bust" \
+        curl -fsS "$PUBLIC_STATS_URL?refresh=true&_bust=$attempt_cache_bust" \
             -H 'Cache-Control: no-cache' \
             -H 'Pragma: no-cache' > "$AFTER_JSON"
 

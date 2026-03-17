@@ -23,7 +23,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config import settings
-from src.services.impact_categories import get_rule_category
+from src.services.impact_categories import CATEGORY_DISPLAY, IMPACT_CATEGORIES, get_rule_category
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable as _Awaitable
@@ -732,6 +732,7 @@ _LANG_KEYS: tuple[str, ...] = (
 _LAYER_RANGE: range = range(1, 11)
 _MAX_RULE_KEYS: int = 500
 _TOP_RULES_LIMIT: int = 15
+_IMPACT_TOP_RULES_LIMIT: int = 10
 
 
 async def _fetch_redis_counters(
@@ -794,6 +795,57 @@ async def _fetch_top_rules(r: redis.Redis) -> list[dict[str, object]]:
         return []
 
 
+async def _fetch_impact_top_rules(r: redis.Redis) -> list[dict[str, object]]:
+    """Return top triggered finding rules with category mapping for impact stats."""
+    try:
+        rule_keys: list[str] = []
+        async for key in r.scan_iter(match="ct:top_rules:*"):
+            if isinstance(key, str):
+                rule_keys.append(key)
+            if len(rule_keys) >= _MAX_RULE_KEYS:
+                break
+        if not rule_keys:
+            return []
+
+        pipe = r.pipeline()
+        for key in rule_keys:
+            pipe.get(key)
+        values = await pipe.execute()
+
+        ranked: list[tuple[str, int]] = []
+        for key, val in zip(rule_keys, values, strict=True):
+            rule_id = key.replace("ct:top_rules:", "", 1)
+            ranked.append((rule_id, _safe_int(val)))
+
+        ranked.sort(key=lambda item: item[1], reverse=True)
+        return [
+            {
+                "rule": rule_id,
+                "count": count,
+                "category": get_rule_category(rule_id),
+            }
+            for rule_id, count in ranked[:_IMPACT_TOP_RULES_LIMIT]
+            if count > 0
+        ]
+    except (redis.RedisError, TypeError):
+        return []
+
+
+async def _fetch_impact_last_seen(r: redis.Redis) -> dict[str, str | None]:
+    """Fetch last_seen timestamps for each impact category."""
+    try:
+        pipe = r.pipeline()
+        for category in IMPACT_CATEGORIES:
+            pipe.get(f"ct:impact:last_seen:{category}")
+        values = await pipe.execute()
+        return {
+            category: value if isinstance(value, str) and value else None
+            for category, value in zip(IMPACT_CATEGORIES, values, strict=True)
+        }
+    except (redis.RedisError, TypeError):
+        return {category: None for category in IMPACT_CATEGORIES}
+
+
 def _build_distribution_stats(kv: dict[str, int]) -> dict[str, object]:
     """Build distribution section of stats payload."""
     return {
@@ -846,8 +898,21 @@ def _build_usage_stats(
     }
 
 
-def _build_impact_stats(kv: dict[str, int]) -> dict[str, object]:
+def _build_impact_stats(
+    kv: dict[str, int],
+    impact_top_rules: list[dict[str, object]],
+    impact_last_seen: dict[str, str | None],
+) -> dict[str, object]:
     """Build impact section of stats payload."""
+    categories: dict[str, dict[str, object]] = {}
+    for category in IMPACT_CATEGORIES:
+        display = CATEGORY_DISPLAY.get(category, {})
+        categories[category] = {
+            "label": str(display.get("label", category.replace("_", " ").title())),
+            "count": kv.get(f"ct:impact:{category}", 0),
+            "last_seen": impact_last_seen.get(category),
+        }
+
     return {
         "hallucinations_caught": kv.get("ct:hallucinations_caught", 0),
         "gateway_commands_blocked": kv.get("ct:gateway_blocks", 0),
@@ -863,6 +928,8 @@ def _build_impact_stats(kv: dict[str, int]) -> dict[str, object]:
         "ci_runs_total": kv.get("ct:ci_runs_total", 0),
         "ci_gates_passed": kv.get("ct:ci_gates_passed", 0),
         "ci_gates_failed": kv.get("ct:ci_gates_failed", 0),
+        "categories": categories,
+        "top_rules": impact_top_rules,
     }
 
 
@@ -979,9 +1046,11 @@ async def build_public_stats(
     languages = await _fetch_language_distribution(r)
     layers = await _fetch_layer_distribution(r)
     top_rules = await _fetch_top_rules(r)
+    impact_top_rules = await _fetch_impact_top_rules(r)
+    impact_last_seen = await _fetch_impact_last_seen(r)
 
     usage = _build_usage_stats(kv, active_total, active_today, scans_last_hour)
-    impact = _build_impact_stats(kv)
+    impact = _build_impact_stats(kv, impact_top_rules, impact_last_seen)
     coverage = _build_governance_coverage(usage, impact)
 
     stats: dict[str, object] = {

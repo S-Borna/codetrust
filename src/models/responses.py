@@ -366,6 +366,28 @@ class PublicStatsImpactResponse(BaseModel):
     ci_runs_total: int
     ci_gates_passed: int
     ci_gates_failed: int
+    categories: dict[str, "PublicStatsImpactCategoryResponse"]
+    top_rules: list["PublicStatsImpactTopRuleResponse"]
+
+
+class PublicStatsImpactCategoryResponse(BaseModel):
+    """Single impact category stats entry."""
+
+    model_config = ConfigDict(strict=True)
+
+    label: str
+    count: int
+    last_seen: str | None
+
+
+class PublicStatsImpactTopRuleResponse(BaseModel):
+    """Single impact leaderboard entry."""
+
+    model_config = ConfigDict(strict=True)
+
+    rule: str
+    count: int
+    category: str
 
 
 class PublicStatsTopRuleResponse(BaseModel):

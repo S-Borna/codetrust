@@ -1235,12 +1235,23 @@ async def _build_fallback_public_stats(
     http_client: httpx.AsyncClient | None,
 ) -> dict[str, object]:
     """Build public stats from database and external APIs."""
+    from src.services.impact_categories import CATEGORY_DISPLAY, IMPACT_CATEGORIES
     from src.services.public_stats import (
         get_marketplace_stats,
         get_open_vsx_stats,
         get_pepy_download_stats,
         get_pypi_download_stats,
     )
+
+    def _build_impact_categories(source: dict[str, int]) -> dict[str, dict[str, object]]:
+        categories: dict[str, dict[str, object]] = {}
+        for category in IMPACT_CATEGORIES:
+            categories[category] = {
+                "label": str(CATEGORY_DISPLAY.get(category, {}).get("label", category.replace("_", " ").title())),
+                "count": int(source.get(f"impact_{category}", 0)),
+                "last_seen": None,
+            }
+        return categories
 
     base: dict[str, int] = dict(_FALLBACK_STATS_BASE)
 
@@ -1307,6 +1318,8 @@ async def _build_fallback_public_stats(
                 "ci_runs_total": 0,
                 "ci_gates_passed": 0,
                 "ci_gates_failed": 0,
+                "categories": _build_impact_categories(base),
+                "top_rules": [],
             },
             "quality": {
                 "average_trust_score": 0,
@@ -1387,6 +1400,8 @@ async def _build_fallback_public_stats(
             "ci_runs_total": 0,
             "ci_gates_passed": 0,
             "ci_gates_failed": 0,
+            "categories": _build_impact_categories(merged),
+            "top_rules": [],
         },
         "quality": {
             "average_trust_score": 0,

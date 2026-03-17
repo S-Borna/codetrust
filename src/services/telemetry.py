@@ -81,7 +81,7 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
 IMPACT_BASELINES: dict[str, int] = {}
 IMPACT_BASELINE_DB_SNAPSHOT: dict[str, int] = {}
 
-FORCE_RESET_ON_STARTUP: bool = True
+FORCE_RESET_ON_STARTUP: bool = False
 
 EXT_STATS_TTL_SECONDS: int = 300
 EXT_STATS_POLL_SECONDS: float = 300.0

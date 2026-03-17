@@ -259,6 +259,7 @@ _SCAN_MAX_WARN_DISPLAY: int = 20
 _SCAN_MAX_INFO_DISPLAY: int = 10
 _SCAN_MAX_GATES_DISPLAY: int = 4
 _SCAN_MAX_RULES_TELEMETRY: int = 50
+_SCAN_MAX_FINDINGS_TELEMETRY: int = 50
 _AUDIT_ENTRY_LIMIT: int = 50
 _AUDIT_TOP_RULES_DISPLAY: int = 5
 
@@ -3219,6 +3220,25 @@ def _scan_telemetry_payload(
 ) -> dict[str, object]:
     """Build telemetry payload for scan_completed event."""
     all_findings = result.get("findings", [])
+    findings_payload: list[dict[str, str]] = []
+    if isinstance(all_findings, list):
+        for finding in all_findings[:_SCAN_MAX_FINDINGS_TELEMETRY]:
+            if not isinstance(finding, dict):
+                continue
+            rule_id = str(finding.get("rule_id", "") or "").strip()
+            if not rule_id:
+                continue
+            item: dict[str, str] = {
+                "rule": rule_id,
+                "rule_id": rule_id,
+            }
+            severity = str(finding.get("severity", "") or "").strip().upper()
+            if severity:
+                item["severity"] = severity
+            file_name = str(finding.get("file", "") or "").strip()
+            if file_name:
+                item["file"] = file_name
+            findings_payload.append(item)
     drift = result.get("drift_score", {})
     unique_rules = list({str(f.get("rule_id", "")) for f in all_findings if f.get("rule_id")})
     output_format, _output_path = _scan_resolve_output_options(args)
@@ -3233,6 +3253,7 @@ def _scan_telemetry_payload(
             "INFO": int(result.get("infos", 0) or 0),
         },
         "rules_triggered": unique_rules[:_SCAN_MAX_RULES_TELEMETRY],
+        "findings": findings_payload,
         "layers_hit": [],
         "trust_score": int(drift.get("score", 0) or 0),
         "grade": str(drift.get("grade", "")),

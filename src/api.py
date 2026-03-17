@@ -10,7 +10,7 @@ import os
 import smtplib
 import ssl
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -162,6 +162,7 @@ OIDC_STATE_TTL_SECS: int = 600  # 10 minutes for OIDC flow
 MAX_WS_CLIENTS: int = 50
 WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
 FREE_DAILY_SCAN_LIMIT: int = 100
+SCAN_TELEMETRY_FINDINGS_CAP: int = 50
 
 BASELINES: dict[str, int] = {
     "ct:total_findings": 113744,
@@ -1001,6 +1002,7 @@ async def _emit_scan_telemetry(
     findings_count: int,
     verdict: str,
     latency_ms: int,
+    findings: list[dict[str, str]] | None = None,
 ) -> None:
     """Emit scan completion telemetry event via Redis."""
     blocks_count = findings_count if verdict == "BLOCK" else 0
@@ -1016,11 +1018,64 @@ async def _emit_scan_telemetry(
                 "total_findings": findings_count,
                 "findings_by_severity": {"BLOCK": blocks_count},
                 "scan_duration_ms": latency_ms,
+                "findings": findings or [],
             },
         )
         await process_telemetry_event(r=redis_client, db=db, queue=queue, event=event)
     except Exception as exc:
         logger.warning("scan_telemetry_emit_failed", error=str(exc))
+
+
+def _serialize_finding_for_telemetry(finding: object) -> dict[str, str] | None:
+    """Normalize finding shape for telemetry impact/category aggregation."""
+    if isinstance(finding, dict):
+        raw_rule = finding.get("rule") or finding.get("rule_id")
+        raw_severity = finding.get("severity")
+        raw_file = finding.get("file") or finding.get("filename")
+    else:
+        raw_rule = getattr(finding, "rule", None) or getattr(finding, "rule_id", None)
+        raw_severity = getattr(finding, "severity", None)
+        raw_file = getattr(finding, "file", None) or getattr(finding, "filename", None)
+
+    rule = str(raw_rule).strip() if raw_rule else ""
+    if not rule:
+        return None
+
+    if isinstance(raw_severity, Severity):
+        severity = raw_severity.value
+    else:
+        severity = str(raw_severity).strip().upper() if raw_severity else ""
+
+    file_name = str(raw_file).strip() if raw_file else ""
+    entry: dict[str, str] = {"rule": rule, "rule_id": rule}
+    if severity:
+        entry["severity"] = severity
+    if file_name:
+        entry["file"] = file_name
+    return entry
+
+
+def _build_scan_findings_for_telemetry(findings: Sequence[object] | None) -> list[dict[str, str]]:
+    """Build capped per-finding telemetry payload from API scan response findings."""
+    if findings is None:
+        return []
+
+    serialized: list[dict[str, str]] = []
+    for finding in findings[:SCAN_TELEMETRY_FINDINGS_CAP]:
+        item = _serialize_finding_for_telemetry(finding)
+        if item is not None:
+            serialized.append(item)
+    return serialized
+
+
+def _collect_deep_scan_findings(result: DeepScanResponse) -> list[Finding]:
+    """Flatten findings from deep scan layers for telemetry impact attribution."""
+    combined: list[Finding] = list(result.static_scan.findings)
+    if result.ast_scan is not None:
+        combined.extend(result.ast_scan.findings)
+    if result.signature_validation is not None:
+        combined.extend(result.signature_validation.findings)
+    return combined
 
 
 async def _log_scan(
@@ -1032,6 +1087,7 @@ async def _log_scan(
     latency_ms: int,
     language: str = "",
     filename: str = "",
+    findings: Sequence[object] | None = None,
 ) -> None:
     """Log a scan execution, increment usage counters, and emit telemetry.
 
@@ -1051,8 +1107,16 @@ async def _log_scan(
     db = getattr(request.app.state, "db", None)
     queue = getattr(request.app.state, "telemetry_queue", None)
     if redis_client is not None:
+        findings_payload = _build_scan_findings_for_telemetry(findings)
         await _emit_scan_telemetry(
-            redis_client, queue, db, scan_type, findings_count, verdict, latency_ms,
+            redis_client,
+            queue,
+            db,
+            scan_type,
+            findings_count,
+            verdict,
+            latency_ms,
+            findings_payload,
         )
 
 
@@ -1965,6 +2029,7 @@ async def static_scan(
     await _log_scan(
         request, auth, "static", response.verdict,
         response.total_findings, elapsed_ms, filename=req.filename,
+        findings=response.findings,
     )
     return response
 
@@ -1998,6 +2063,7 @@ async def ast_scan(
     await _log_scan(
         request, auth, "ast", response.verdict,
         response.total_findings, elapsed_ms, str(req.language), req.filename,
+        findings=response.findings,
     )
     return response
 
@@ -2050,6 +2116,7 @@ async def signature_scan(
     await _log_scan(
         request, auth, "signatures", verdict,
         len(findings), elapsed_ms, lang_str, req.filename,
+        findings=findings,
     )
     return response
 
@@ -2102,6 +2169,7 @@ async def static_scan_sarif(
         request, auth, "static_sarif", response.verdict,
         response.total_findings, elapsed_ms,
         str(req.language) if req.language else "", req.filename,
+        findings=response.findings,
     )
     return static_scan_to_sarif(response)
 
@@ -2132,6 +2200,7 @@ async def deep_scan_sarif(
         request, auth, "deep_sarif", deep_result.overall_verdict,
         deep_result.total_findings, elapsed_ms,
         str(req.language) if req.language else "", req.filename,
+        findings=_collect_deep_scan_findings(deep_result),
     )
     return deep_scan_to_sarif(deep_result)
 
@@ -2172,6 +2241,7 @@ async def deep_scan(
         request, auth, "deep", result.overall_verdict,
         result.total_findings, elapsed_ms,
         str(req.language) if req.language else "", req.filename,
+        findings=_collect_deep_scan_findings(result),
     )
     return result
 

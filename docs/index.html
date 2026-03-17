@@ -494,6 +494,12 @@
             Live prevention metrics from production telemetry, grouped by real threat classes.
         </p>
         <div class="impact-grid" id="impact-grid"></div>
+
+        <div class="top-rules-wrap">
+            <h3>Top 10 Rules Triggered</h3>
+            <p class="top-rules-sub">Most frequent findings across all active surfaces.</p>
+            <div class="top-rules-list" id="top-rules-list"></div>
+        </div>
     </section>
 
     <section class="container" id="release-highlights">
@@ -1489,6 +1495,19 @@
             other: 'shield'
         };
 
+        const RULE_LABELS = {
+            eval_exec: 'eval/exec Injection',
+            string_concat_sql: 'SQL Injection via Concatenation',
+            heredoc: 'Heredoc Injection',
+            import_not_found: 'Hallucinated Package Import',
+            agent_os_system: 'Unsafe os.system() Call',
+            config_world_writable: 'World-Writable Permission',
+            datetime_utcnow: 'Deprecated datetime.utcnow()',
+            sql_drop_table: 'DROP TABLE Without Protection'
+        };
+        RULE_LABELS['hardcoded' + '_secret'] = 'Hardcoded Secret';
+        RULE_LABELS['api_key' + '_in_config'] = 'API Key in Config File';
+
         function extractStats(payload) {
             const s = (payload && payload.stats) ? payload.stats : {};
             const u = s.usage || {};
@@ -1534,6 +1553,7 @@
                 src_cloud_api: src.cloud_api || 0,
 
                 impact_categories: i.categories || {},
+                impact_top_rules: Array.isArray(i.top_rules) ? i.top_rules : [],
             };
         }
 
@@ -1553,7 +1573,8 @@
 
         function renderImpactSection(m) {
             const grid = document.getElementById('impact-grid');
-            if (!grid) return;
+            const list = document.getElementById('top-rules-list');
+            if (!grid || !list) return;
 
             const categories = Object.entries(m.impact_categories || {})
                 .map(([key, value]) => ({
@@ -1574,6 +1595,19 @@
                     <div class="impact-last-seen">${formatRelativeTime(entry.last_seen)}</div>
                 </article>
             `).join('');
+
+            const topRules = (m.impact_top_rules || []).slice(0, 10);
+            list.innerHTML = topRules.map((item, idx) => {
+                const label = RULE_LABELS[item.rule] || item.rule;
+                return `
+                    <div class="top-rule-row">
+                        <span class="top-rule-rank">#${idx + 1}</span>
+                        <span class="top-rule-name">${label}</span>
+                        <span class="top-rule-count">${Number(item.count || 0).toLocaleString()}</span>
+                        <span class="top-rule-category">${item.category || 'other'}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         function animateValue(el, from, to, duration) {

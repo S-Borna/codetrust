@@ -490,6 +490,7 @@ class TestTelemetryEndpoints:
         nested = data["stats"]
         usage = nested["usage"]
         distribution = nested["distribution"]
+        impact = nested["impact"]
 
         assert nested["updated_at"]
         assert usage["total_scans"] >= 11233
@@ -501,6 +502,10 @@ class TestTelemetryEndpoints:
         assert usage["scans_by_source"]["cloud_api"] >= 4972
         assert usage["total_files_scanned"] >= 11233
         assert distribution["pypi"]["downloads_total"] >= 6711
+        assert "categories" in impact
+        assert "top_rules" in impact
+        assert isinstance(impact["categories"], dict)
+        assert isinstance(impact["top_rules"], list)
 
 
 class TestGovernanceBundleEndpoints:

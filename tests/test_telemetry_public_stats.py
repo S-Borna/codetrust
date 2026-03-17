@@ -214,3 +214,37 @@ async def test_scan_completed_findings_integer_skips_impact_counters(
 
     assert await r.get("ct:impact:injection_attacks") is None
     assert await r.get("ct:top_rules:eval_exec") is None
+
+
+@pytest.mark.asyncio
+async def test_build_public_stats_exposes_impact_categories_and_top_rules(
+    fake_cache: CacheService,
+) -> None:
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    await r.set("ct:impact:injection_attacks", "5")
+    await r.set("ct:impact:secrets_exposure", "3")
+    await r.set("ct:impact:last_seen:injection_attacks", "2026-03-16T14:23:00Z")
+    await r.set("ct:impact:last_seen:secrets_exposure", "2026-03-16T14:22:00Z")
+    await r.set("ct:top_rules:eval_exec", "5")
+    await r.set("ct:top_rules:hardcoded_secret", "3")
+
+    stats = await build_public_stats(r=r, use_cache=False)
+
+    impact = stats.get("impact")
+    assert isinstance(impact, dict)
+
+    categories = impact.get("categories")
+    assert isinstance(categories, dict)
+    assert categories["injection_attacks"]["count"] == 5
+    assert categories["secrets_exposure"]["count"] == 3
+    assert categories["injection_attacks"]["last_seen"] == "2026-03-16T14:23:00Z"
+
+    top_rules = impact.get("top_rules")
+    assert isinstance(top_rules, list)
+    assert len(top_rules) >= 2
+    assert top_rules[0]["rule"] == "eval_exec"
+    assert top_rules[0]["count"] == 5
+    assert top_rules[0]["category"] == "injection_attacks"
+    assert top_rules[1]["rule"] == "hardcoded_secret"

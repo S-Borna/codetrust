@@ -23,7 +23,12 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config import settings
-from src.services.impact_categories import CATEGORY_DISPLAY, IMPACT_CATEGORIES, get_rule_category
+from src.services.impact_categories import (
+    CATEGORY_DISPLAY,
+    IMPACT_CATEGORY_OTHER,
+    PUBLIC_IMPACT_CATEGORIES,
+    get_rule_category,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable as _Awaitable
@@ -56,7 +61,6 @@ BASELINES: dict[str, int] = {
     "ct:impact:injection_attacks": 52380,
     "ct:impact:unsafe_config": 31205,
     "ct:impact:supply_chain": 2104,
-    "ct:impact:other": 19109,
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
@@ -74,7 +78,6 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:impact:injection_attacks": 0,
     "ct:impact:unsafe_config": 0,
     "ct:impact:supply_chain": 0,
-    "ct:impact:other": 0,
 }
 
 # Impact baselines are intentionally merged into BASELINES and BASELINE_DB_SNAPSHOT.
@@ -819,10 +822,11 @@ async def _fetch_impact_top_rules(r: redis.Redis) -> list[dict[str, object]]:
             {
                 "rule": rule_id,
                 "count": count,
-                "category": get_rule_category(rule_id),
+                "category": category,
             }
             for rule_id, count in ranked[:_IMPACT_TOP_RULES_LIMIT]
-            if count > 0
+            for category in [get_rule_category(rule_id)]
+            if count > 0 and category != IMPACT_CATEGORY_OTHER
         ]
     except (redis.RedisError, TypeError):
         return []
@@ -832,15 +836,15 @@ async def _fetch_impact_last_seen(r: redis.Redis) -> dict[str, str | None]:
     """Fetch last_seen timestamps for each impact category."""
     try:
         pipe = r.pipeline()
-        for category in IMPACT_CATEGORIES:
+        for category in PUBLIC_IMPACT_CATEGORIES:
             pipe.get(f"ct:impact:last_seen:{category}")
         values = await pipe.execute()
         return {
             category: value if isinstance(value, str) and value else None
-            for category, value in zip(IMPACT_CATEGORIES, values, strict=True)
+            for category, value in zip(PUBLIC_IMPACT_CATEGORIES, values, strict=True)
         }
     except (redis.RedisError, TypeError):
-        return {category: None for category in IMPACT_CATEGORIES}
+        return {category: None for category in PUBLIC_IMPACT_CATEGORIES}
 
 
 def _build_distribution_stats(kv: dict[str, int]) -> dict[str, object]:
@@ -902,7 +906,7 @@ def _build_impact_stats(
 ) -> dict[str, object]:
     """Build impact section of stats payload."""
     categories: dict[str, dict[str, object]] = {}
-    for category in IMPACT_CATEGORIES:
+    for category in PUBLIC_IMPACT_CATEGORIES:
         display = CATEGORY_DISPLAY.get(category, {})
         categories[category] = {
             "label": str(display.get("label", category.replace("_", " ").title())),

@@ -6,6 +6,7 @@ from src.rules.anti_patterns import ANTI_PATTERNS
 from src.services.impact_categories import (
     IMPACT_CATEGORIES,
     IMPACT_CATEGORY_OTHER,
+    PUBLIC_IMPACT_CATEGORIES,
     RULE_TO_CATEGORY,
     get_rule_category,
 )
@@ -24,6 +25,11 @@ def test_spec_rule_examples_are_mapped_to_expected_categories() -> None:
 def test_unknown_rule_falls_back_to_other() -> None:
     """Unknown rule ids must safely fall back to 'other'."""
     assert get_rule_category("__unknown_rule__") == IMPACT_CATEGORY_OTHER
+
+
+def test_public_categories_exclude_fallback_other() -> None:
+    """Public impact payload must hide fallback/internal bucket."""
+    assert IMPACT_CATEGORY_OTHER not in PUBLIC_IMPACT_CATEGORIES
 
 
 def test_rule_mapping_keys_are_unique() -> None:

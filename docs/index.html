@@ -487,6 +487,15 @@
         <div class="telemetry-note" style="margin-top:.4rem">PyPI installs via <a href="https://pepy.tech/projects/codetrust" style="color:var(--text-3)" target="_blank" rel="noopener">pepy.tech</a>. VS Code &amp; Open VSX via public marketplace APIs.</div>
     </section>
 
+    <section class="container impact-threats reveal" id="impact-threats">
+        <div class="section-tag section-center">Threat Intelligence</div>
+        <h2 class="reveal" style="text-align:center">Threats Prevented - By Category</h2>
+        <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
+            Live prevention metrics from production telemetry, grouped by real threat classes.
+        </p>
+        <div class="impact-grid" id="impact-grid"></div>
+    </section>
+
     <section class="container" id="release-highlights">
         <div class="section-tag section-center">Release Highlights</div>
         <h2 class="reveal">What&rsquo;s new in v2.9.0 &amp; what comes next</h2>
@@ -1470,6 +1479,16 @@
         let pollTimer = null;
         let ws = null;
 
+        const IMPACT_ICONS = {
+            destructive_commands: 'shield-alert',
+            hallucinations: 'brain-circuit',
+            secrets_exposure: 'key-round',
+            injection_attacks: 'bug',
+            unsafe_config: 'settings',
+            supply_chain: 'package-search',
+            other: 'shield'
+        };
+
         function extractStats(payload) {
             const s = (payload && payload.stats) ? payload.stats : {};
             const u = s.usage || {};
@@ -1513,7 +1532,48 @@
                 src_vscode: src.vscode || 0,
                 src_github_action: src.github_action || 0,
                 src_cloud_api: src.cloud_api || 0,
+
+                impact_categories: i.categories || {},
             };
+        }
+
+        function formatRelativeTime(iso) {
+            if (!iso) return 'no recent event';
+            const date = new Date(iso);
+            if (Number.isNaN(date.getTime())) return 'no recent event';
+            const diffMs = Date.now() - date.getTime();
+            const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+            if (diffMin < 1) return 'last seen just now';
+            if (diffMin < 60) return `last seen ${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+            const diffHr = Math.floor(diffMin / 60);
+            if (diffHr < 24) return `last seen ${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
+            const diffDay = Math.floor(diffHr / 24);
+            return `last seen ${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+        }
+
+        function renderImpactSection(m) {
+            const grid = document.getElementById('impact-grid');
+            if (!grid) return;
+
+            const categories = Object.entries(m.impact_categories || {})
+                .map(([key, value]) => ({
+                    key,
+                    label: value && value.label ? value.label : key,
+                    count: Number((value && value.count) || 0),
+                    last_seen: value ? value.last_seen : null,
+                }))
+                .sort((a, b) => b.count - a.count);
+
+            grid.innerHTML = categories.map((entry) => `
+                <article class="impact-card" data-category="${entry.key}">
+                    <div class="impact-card-head">
+                        <span class="impact-icon">${IMPACT_ICONS[entry.key] || IMPACT_ICONS.other}</span>
+                        <span class="impact-label">${entry.label}</span>
+                    </div>
+                    <div class="impact-count">${entry.count.toLocaleString()}</div>
+                    <div class="impact-last-seen">${formatRelativeTime(entry.last_seen)}</div>
+                </article>
+            `).join('');
         }
 
         function animateValue(el, from, to, duration) {
@@ -1545,6 +1605,8 @@
                 }
             });
             firstLoad = false;
+
+            renderImpactSection(m);
 
             const ts = payload && payload.stats && payload.stats.updated_at;
             const tsEl = document.getElementById('live-updated-at');

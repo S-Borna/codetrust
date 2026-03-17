@@ -1536,15 +1536,17 @@
 
         .impact-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.9rem;
         }
 
         .impact-card {
-            background: linear-gradient(150deg, var(--surface), rgba(255, 255, 255, 0.01));
+            background: linear-gradient(150deg, var(--surface), rgba(255, 255, 255, 0.02));
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 0.95rem;
+            min-height: 124px;
+            box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
         }
 
         .impact-card-head {
@@ -1555,11 +1557,8 @@
         }
 
         .impact-icon {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.66rem;
-            color: var(--text-3);
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
+            font-size: 1rem;
+            line-height: 1;
         }
 
         .impact-label {
@@ -2255,6 +2254,10 @@
                 grid-template-columns: 1fr 1fr;
             }
 
+            .impact-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
             .install-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -2494,6 +2497,10 @@
 
             /* --- Live dashboard --- */
             .dash-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .impact-grid {
                 grid-template-columns: 1fr;
             }
 

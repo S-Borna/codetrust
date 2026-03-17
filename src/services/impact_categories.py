@@ -77,32 +77,32 @@ CATEGORY_DISPLAY: dict[str, dict[str, str]] = {
     "destructive_commands": {
         "label": "Destructive Commands Blocked",
         "description": "rm -rf, DROP TABLE, force push, privileged containers",
-        "icon": "shield-alert",
+        "icon": "🛡️",
     },
     "hallucinations": {
         "label": "AI Hallucinations Caught",
         "description": "Non-existent packages, unknown functions, wrong signatures",
-        "icon": "brain-circuit",
+        "icon": "🧠",
     },
     "secrets_exposure": {
         "label": "Secrets Exposure Prevented",
         "description": "Hardcoded API keys, passwords, tokens, credentials",
-        "icon": "key-round",
+        "icon": "🔑",
     },
     "injection_attacks": {
         "label": "Injection Attacks Stopped",
         "description": "eval/exec, SQL injection, heredoc injection",
-        "icon": "bug",
+        "icon": "🐛",
     },
     "unsafe_config": {
         "label": "Unsafe Configurations Detected",
         "description": "World-writable permissions, debug mode, deprecated APIs",
-        "icon": "settings",
+        "icon": "⚙️",
     },
     "supply_chain": {
         "label": "Supply Chain Risks Identified",
         "description": "CVE-affected packages, license violations, unverified images",
-        "icon": "package-search",
+        "icon": "📦",
     },
 }
 

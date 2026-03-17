@@ -6,6 +6,388 @@
 
 ---
 
+## [2026-03-17 03:12] Checkpoint — impact baselines activation fix
+
+### Root Cause Found
+
+- `warm_up_redis_counters()` returned early when DB warmup counters were empty, so baseline seeding was skipped entirely.
+- Impact baselines were also duplicated in separate `IMPACT_*` dicts, creating ambiguity about source-of-truth.
+
+### Changes Applied
+
+- Consolidated behavior to use `BASELINES` and `BASELINE_DB_SNAPSHOT` as source-of-truth for impact keys.
+- Kept `IMPACT_BASELINES` and `IMPACT_BASELINE_DB_SNAPSHOT` as empty compatibility placeholders.
+- Updated warmup/snapshot logic to iterate baseline keys from `BASELINES` only.
+- Set one-time deploy toggle `FORCE_RESET_ON_STARTUP = True` in telemetry.
+- Fixed warmup to seed baselines even when DB returns no warmup counters.
+- Updated dashboard header to `Findings Breakdown — By Category`.
+- Ensured icon mappings render real emoji and aligned category icon metadata to emoji.
+
+### Files Changed
+
+- `src/services/telemetry.py`
+- `src/services/impact_categories.py`
+- `tests/test_cache_service.py`
+- `docs/index.html`
+
+### Validation
+
+- `ruff check src tests` => PASS
+- `.venv/bin/python -m pytest -q tests/test_cache_service.py tests/test_telemetry_public_stats.py tests/test_dashboard_api.py` => PASS (`53 passed`)
+- Public-stats structure verification via `build_public_stats(...)` after warmup:
+  - impact counts: `4710, 7823, 18491, 52380, 31205, 2104, 19109`
+  - impact sum: `135822`
+  - `matched_requested_impact_sum = True`
+
+### Notes
+
+- No `git push` performed.
+- After deploy confirmation, reset `FORCE_RESET_ON_STARTUP` back to `False`.
+
+## [2026-03-17 03:05] Checkpoint — telemetry impact alignment + dashboard clarity
+
+### Accomplished
+
+- Disabled forced startup reset by setting `FORCE_RESET_ON_STARTUP = False` in telemetry.
+- Applied stable impact baselines for category counters to reflect total findings distribution.
+- Added requested impact category keys to both `BASELINES` and `BASELINE_DB_SNAPSHOT` (snapshot values set to zero).
+- Confirmed ingest behavior tracks impact categories from detailed findings list independent of severity filtering, and added explicit regression test for mixed BLOCK/WARN/INFO findings.
+- Fixed frontend impact section icons (replaced non-rendering icon names with universal emoji) and clarified section purpose.
+- Updated impact section layout to render as dashboard-style cards in responsive 3/2/1 grid.
+- Updated header copy from "Threats Prevented" to "Findings Breakdown - By Category".
+
+### Files Changed
+
+- `src/services/telemetry.py`
+- `tests/test_telemetry_public_stats.py`
+- `tests/test_cache_service.py`
+- `docs/index.html`
+- `docs/style.css`
+
+### Validation
+
+- `ruff check src tests` => PASS
+- `.venv/bin/python -m pytest -q tests/test_telemetry_public_stats.py tests/test_cache_service.py tests/test_dashboard_api.py` => PASS (`53 passed`)
+- `.venv/bin/python -m pytest -q` => PASS (`2007 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Consistency Check Notes
+
+- Configured impact baseline totals sum to `135,822`, aligned with requested findings-total breakdown.
+- Added test asserting mixed severity findings increment both `ct:total_findings` and impact category counters in lockstep (`+1` per finding to total and exactly one category).
+
+### Current State
+
+- Changes are applied and validated locally.
+- No `git push` performed.
+- `SESSION_LOG.md` remains intentionally uncommitted.
+
+## [2026-03-17 02:52] Checkpoint — Pause requested
+
+### Accomplished Since Last Checkpoint
+
+- E1.2 completed and committed.
+- E1.3 completed and committed.
+- E1.4 preflight started: GitHub CLI available and authenticated in current environment.
+
+### Commit References
+
+- `c437bf22` — `feat(E1.2): add complete SARIF rule catalog mapping`
+- `60a7ae05` — `test(E1.3): validate SARIF output against official schema`
+
+### Current State
+
+- E1.1, E1.2, E1.3 are done.
+- E1.4 upload verification not executed yet (paused by user request).
+- `SESSION_LOG.md` remains intentionally uncommitted.
+
+### Next Step On Resume
+
+- Continue E1.4 by generating SARIF from current HEAD and executing GitHub Code Scanning upload verification flow.
+
+## [2026-03-17 02:44] Checkpoint — E1.3 complete
+
+### Accomplished
+
+- Completed E1.3 SARIF schema validation.
+- Added cached official SARIF schema fixture at `tests/fixtures/sarif-schema-2.1.0.json`.
+- Added integration-style schema tests in `tests/test_sarif_output.py` for real scan output, empty scan, and mixed severity levels.
+- Added `jsonschema` to development dependencies for deterministic local validation.
+
+### Files Changed
+
+- `pyproject.toml`
+- `tests/fixtures/sarif-schema-2.1.0.json`
+- `tests/test_sarif_output.py`
+
+### Validation
+
+- `ruff check src tests` => PASS
+- `.venv/bin/python -m pytest -q tests/test_sarif_output.py` => PASS (`3 passed`)
+- `.venv/bin/python -m pytest -q` => PASS (`2006 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `60a7ae05` — `test(E1.3): validate SARIF output against official schema`
+
+### Current State
+
+- E1.1, E1.2, E1.3 are complete and committed.
+- E7.7 remains pending baseline values from Said.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Proceed to E1.4 and verify SARIF upload into GitHub Code Scanning.
+
+## [2026-03-17 02:30] Checkpoint — E1.2 complete
+
+### Accomplished
+
+- Completed E1.2 rule mapping for SARIF descriptors.
+- Added central rule catalog in `src/services/rule_catalog.py` covering all anti-pattern rules with name, description, severity, and help URI metadata.
+- Updated CLI SARIF emission to use `codetrust/<rule_id>` IDs and to populate `shortDescription` and `helpUri` from the catalog.
+- Added test coverage for catalog completeness and SARIF descriptor mapping.
+
+### Files Changed
+
+- `src/services/rule_catalog.py`
+- `src/cli.py`
+- `tests/test_rule_catalog.py`
+- `tests/test_cli_coverage.py`
+
+### Validation
+
+- `ruff check src tests` => PASS
+- `.venv/bin/python -m pytest -q tests/test_rule_catalog.py tests/test_cli_coverage.py` => PASS (`41 passed`)
+- `.venv/bin/python -m pytest -q` => PASS (`2003 passed, 2 skipped`)
+- Guardian post-action => WARN (`nested_ternary` + `magic_number` in existing `src/cli.py` regions; no block findings)
+
+### Commit
+
+- `c437bf22` — `feat(E1.2): add complete SARIF rule catalog mapping`
+
+### Current State
+
+- E1.1 and E1.2 are complete and committed.
+- E7.7 remains pending baseline values from Said.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Proceed to E1.3 (official SARIF schema validation) with one commit per subtask.
+
+## [2026-03-17 02:10] Checkpoint — E1.1 complete
+
+### Accomplished
+
+- Completed E1.1 CLI output interface alignment for `scan`.
+- Added new `scan --format {text,json,sarif}` and `scan --output <path>` options.
+- Preserved backward compatibility for legacy `--json`, `--sarif`, and `--sarif-file` behavior.
+- Updated scan telemetry output flags to track resolved output mode consistently.
+- Added unit tests for new/legacy output option resolution.
+
+### Files Changed
+
+- `src/cli.py`
+- `tests/test_cli.py`
+
+### Validation
+
+- `ruff check src tests` => PASS
+- `.venv/bin/python -m pytest -q tests/test_cli.py` => PASS (`87 passed`)
+- `.venv/bin/python -m pytest -q` => PASS (`2001 passed, 2 skipped`)
+- Guardian post-action => WARN (`nested_ternary` + `magic_number` reported at existing early-file locations in `src/cli.py`; no new blockers)
+
+### Commit
+
+- `2e01c356` — `feat(E1.1): add scan format/output flags with legacy compatibility`
+
+### Current State
+
+- E1.1 is complete and committed.
+- E7.7 remains pending baseline values from Said.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Continue to E1.2 in roadmap order with one commit per subtask and full validations.
+
+## [2026-03-17 01:23] Checkpoint — E7.8 complete
+
+### Accomplished
+
+- Completed E7.8 regression assurance for impact telemetry changes.
+- Added explicit regression test to verify legacy telemetry fields remain intact while new impact fields are present.
+- Executed the roadmap-specified regression bundle (`test_cache_service`, `test_dashboard_api`, `test_telemetry_public_stats`, `test_public_stats`) and full suite.
+
+### Files Changed
+
+- `tests/test_telemetry_public_stats.py`
+
+### Validation
+
+- `ruff check src/ tests/` => PASS
+- `.venv/bin/pytest tests/test_cache_service.py tests/test_dashboard_api.py tests/test_telemetry_public_stats.py tests/test_public_stats.py -v` => PASS (`57 passed`)
+- `.venv/bin/pytest` => PASS (`1998 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `f70c781c` — `test(E7.8): add telemetry regression coverage for legacy fields`
+
+### Current State
+
+- E7.1, E7.2, E7.3, E7.4, E7.5, E7.6, E7.8 completed and committed.
+- E7.7 remains pending baseline values from Said.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Await baseline values for E7.7 (`IMPACT_BASELINES` + snapshot capture) to finalize E7.
+- Start E1 phase work once E7.7 direction is confirmed.
+
+## [2026-03-17 01:19] Checkpoint — E7.6 complete
+
+### Accomplished
+
+- Completed E7.6 frontend leaderboard section "Top 10 Rules Triggered" on codetrust.ai.
+- Added ranked list rendering from `stats.impact.top_rules` with human-readable labels and category badges.
+- Kept leaderboard synchronized with existing 30-second polling and websocket live updates.
+
+### Files Changed
+
+- `docs/index.html`
+- `docs/style.css`
+
+### Validation
+
+- `ruff check src/ tests/` => PASS
+- `.venv/bin/pytest` => PASS (`1997 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `cc2d93a1` — `feat(E7.6): add top-10 triggered rules leaderboard`
+
+### Current State
+
+- E7.1, E7.2, E7.3, E7.4, E7.5, E7.6 completed and committed.
+- E7.7 is pending baseline values from Said.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Run/record E7.8 regression verification bundle and prepare final E7 status handoff.
+
+## [2026-03-17 01:16] Checkpoint — E7.5 complete
+
+### Accomplished
+
+- Completed E7.5 frontend section "Threats Prevented - By Category" on codetrust.ai.
+- Added dynamic rendering of impact category cards from `stats.impact.categories`.
+- Added relative "last seen" time formatting and live refresh integration with existing polling/websocket update path.
+
+### Files Changed
+
+- `docs/index.html`
+- `docs/style.css`
+
+### Validation
+
+- `ruff check src/ tests/` => PASS
+- `.venv/bin/pytest` => PASS (`1997 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `830aeb90` — `feat(E7.5): render categorized threats prevented section`
+
+### Current State
+
+- E7.1, E7.2, E7.3, E7.4, E7.5 completed and committed.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Start E7.6: implement Top 10 Rules Triggered leaderboard section in the same live dashboard area.
+
+## [2026-03-17 01:12] Checkpoint — E7.4 complete
+
+### Accomplished
+
+- Completed E7.4 by extending `/v1/stats/public` with categorized impact telemetry and top-rules leaderboard data.
+- Added impact categories payload (`label`, `count`, `last_seen`) for all categories.
+- Added `impact.top_rules` payload with `rule`, `count`, and resolved `category`.
+- Updated fallback stats builder so Redis-down mode also returns the new impact contract fields.
+- Extended response models and API tests to cover the new schema.
+
+### Files Changed
+
+- `src/api.py`
+- `src/models/responses.py`
+- `src/services/telemetry.py`
+- `tests/test_dashboard_api.py`
+- `tests/test_telemetry_public_stats.py`
+
+### Validation
+
+- `ruff check src/ tests/` => PASS
+- `.venv/bin/pytest tests/test_telemetry_public_stats.py tests/test_dashboard_api.py -v` => PASS
+- `.venv/bin/pytest` => PASS (`1997 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `a29ba73b` — `feat(E7.4): expose impact categories and top-rules in public stats`
+
+### Current State
+
+- E7.1, E7.2, E7.3, E7.4 completed and committed.
+- `SESSION_LOG.md` remains locally modified (intentionally not committed).
+
+### Next Steps
+
+- Start E7.5: implement frontend “Threats Prevented” section on codetrust.ai using `stats.impact.categories`.
+
+## [2026-03-17 01:07] Checkpoint — E7.3 complete
+
+### Accomplished
+
+- Completed E7.3: warmup, fallback, and snapshot now cover impact telemetry counters and top-rule counters.
+- Added impact baseline coverage in Redis warmup and snapshot sync paths.
+- Added DB fallback aggregation for categorized impact counts and per-rule leaderboard counts from telemetry raw events.
+- Added/updated tests for warmup restore, snapshot persistence, and DB fallback impact aggregation.
+- Added local ignore rule for roadmap drafts folder to keep roadmap docs out of product commits.
+
+### Files Changed
+
+- `.gitignore`
+- `src/services/database.py`
+- `src/services/telemetry.py`
+- `tests/test_cache_service.py`
+- `tests/test_database_impact_aggregates.py`
+
+### Validation
+
+- `ruff check src/ tests/` => PASS
+- `.venv/bin/pytest` => PASS (`1996 passed, 2 skipped`)
+- Guardian post-action => PASSED (`0 block, 0 warn`)
+
+### Commit
+
+- `d06f84b8` — `feat(E7.3): cover impact counters in warmup fallback snapshot`
+
+### Current State
+
+- E7.1, E7.2, E7.3 completed and committed.
+- Working tree is clean for code changes from this subtask.
+
+### Next Steps
+
+- Start E7.4: extend `/v1/stats/public` payload to include categorized impact section and top-rules list.
+
 ## [2026-03-15 15:10] Checkpoint — bugg fix
 
 ### Accomplished

@@ -248,3 +248,41 @@ async def test_build_public_stats_exposes_impact_categories_and_top_rules(
     assert top_rules[0]["count"] == 5
     assert top_rules[0]["category"] == "injection_attacks"
     assert top_rules[1]["rule"] == "hardcoded_secret"
+
+
+@pytest.mark.asyncio
+async def test_regression_existing_telemetry_fields_remain_unchanged(
+    fake_cache: CacheService,
+) -> None:
+    """Legacy fields remain available while new impact payload is present."""
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    await r.set("ct:total_scans", "10")
+    await r.set("ct:total_findings", "50")
+    await r.set("ct:total_blocks", "7")
+    await r.set("ct:gateway_blocks", "3")
+    await r.set("ct:hallucinations_caught", "4")
+    await r.set("ct:impact:injection_attacks", "9")
+    await r.set("ct:top_rules:eval_exec", "6")
+
+    stats = await build_public_stats(r=r, use_cache=False)
+
+    usage = stats.get("usage")
+    impact = stats.get("impact")
+    quality = stats.get("quality")
+
+    assert isinstance(usage, dict)
+    assert isinstance(impact, dict)
+    assert isinstance(quality, dict)
+
+    assert usage["total_scans"] == 10
+    assert usage["total_findings"] == 50
+    assert usage["findings_by_severity"]["BLOCK"] == 7
+
+    assert impact["gateway_commands_blocked"] == 3
+    assert impact["hallucinations_caught"] == 4
+    assert isinstance(impact["categories"], dict)
+    assert isinstance(impact["top_rules"], list)
+
+    assert isinstance(quality["top_rules_triggered"], list)

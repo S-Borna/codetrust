@@ -50,6 +50,13 @@ BASELINES: dict[str, int] = {
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
+    "ct:impact:destructive_commands": 4710,
+    "ct:impact:hallucinations": 7823,
+    "ct:impact:secrets_exposure": 18491,
+    "ct:impact:injection_attacks": 52380,
+    "ct:impact:unsafe_config": 31205,
+    "ct:impact:supply_chain": 2104,
+    "ct:impact:other": 19109,
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
@@ -61,9 +68,6 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:scans_by_source:vscode": 7305,
     "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
-}
-
-IMPACT_BASELINES: dict[str, int] = {
     "ct:impact:destructive_commands": 0,
     "ct:impact:hallucinations": 0,
     "ct:impact:secrets_exposure": 0,
@@ -73,15 +77,9 @@ IMPACT_BASELINES: dict[str, int] = {
     "ct:impact:other": 0,
 }
 
-IMPACT_BASELINE_DB_SNAPSHOT: dict[str, int] = {
-    "ct:impact:destructive_commands": 0,
-    "ct:impact:hallucinations": 0,
-    "ct:impact:secrets_exposure": 0,
-    "ct:impact:injection_attacks": 0,
-    "ct:impact:unsafe_config": 0,
-    "ct:impact:supply_chain": 0,
-    "ct:impact:other": 0,
-}
+# Impact baselines are intentionally merged into BASELINES and BASELINE_DB_SNAPSHOT.
+IMPACT_BASELINES: dict[str, int] = {}
+IMPACT_BASELINE_DB_SNAPSHOT: dict[str, int] = {}
 
 FORCE_RESET_ON_STARTUP: bool = True
 
@@ -188,8 +186,8 @@ def _safe_str(value: object, *, default: str = "", max_length: int = 128) -> str
 
 def _additive_baseline_value(key: str, current_db: int) -> int:
     """Apply additive baseline: baseline + max(current_db - baseline_snapshot, 0)."""
-    baseline = int(BASELINES.get(key, IMPACT_BASELINES.get(key, 0)))
-    baseline_snapshot = int(BASELINE_DB_SNAPSHOT.get(key, IMPACT_BASELINE_DB_SNAPSHOT.get(key, 0)))
+    baseline = int(BASELINES.get(key, 0))
+    baseline_snapshot = int(BASELINE_DB_SNAPSHOT.get(key, 0))
     new_since_baseline = max(int(current_db) - baseline_snapshot, 0)
     return baseline + new_since_baseline
 
@@ -565,9 +563,8 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
     except Exception as exc:
         logger.warning("redis_warmup_db_failed", error=str(exc), error_type=type(exc).__name__)
         return 0
-
     if not db_counters:
-        return 0
+        db_counters = {}
 
     try:
         if FORCE_RESET_ON_STARTUP:
@@ -582,7 +579,7 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
                 await r.delete(*batch)
 
         restored = 0
-        baseline_keys: dict[str, int] = {**BASELINES, **IMPACT_BASELINES}
+        baseline_keys: dict[str, int] = dict(BASELINES)
         for key, baseline in baseline_keys.items():
             db_value = int(db_counters.get(key, 0))
             final_value = _additive_baseline_value(key, db_value)
@@ -626,7 +623,7 @@ async def sync_redis_counters_to_snapshots(r: redis.Redis, db: DatabaseService) 
     counters: dict[str, int] = {key: _safe_int(val) for key, val in zip(_COUNTER_KEYS, values, strict=True)}
     try:
         db_counters: dict[str, int] = await db.get_redis_warmup_counters()
-        for key in {**BASELINES, **IMPACT_BASELINES}:
+        for key in BASELINES:
             baseline_value = _additive_baseline_value(key, int(db_counters.get(key, 0)))
             counters[key] = max(int(counters.get(key, 0)), baseline_value)
     except Exception as exc:

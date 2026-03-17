@@ -489,9 +489,9 @@
 
     <section class="container impact-threats reveal" id="impact-threats">
         <div class="section-tag section-center">Threat Intelligence</div>
-        <h2 class="reveal" style="text-align:center">Threats Prevented - By Category</h2>
+        <h2 class="reveal" style="text-align:center">Findings Breakdown — By Category</h2>
         <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
-            Live prevention metrics from production telemetry, grouped by real threat classes.
+            Live breakdown of total findings from production telemetry, grouped by category.
         </p>
         <div class="impact-grid" id="impact-grid"></div>
 
@@ -1486,13 +1486,13 @@
         let ws = null;
 
         const IMPACT_ICONS = {
-            destructive_commands: 'shield-alert',
-            hallucinations: 'brain-circuit',
-            secrets_exposure: 'key-round',
-            injection_attacks: 'bug',
-            unsafe_config: 'settings',
-            supply_chain: 'package-search',
-            other: 'shield'
+            destructive_commands: '🛡️',
+            hallucinations: '🧠',
+            secrets_exposure: '🔑',
+            injection_attacks: '🐛',
+            unsafe_config: '⚙️',
+            supply_chain: '📦',
+            other: '🔒'
         };
 
         const RULE_LABELS = {

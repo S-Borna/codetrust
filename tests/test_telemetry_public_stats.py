@@ -217,6 +217,44 @@ async def test_scan_completed_findings_integer_skips_impact_counters(
 
 
 @pytest.mark.asyncio
+async def test_scan_completed_impact_breakdown_tracks_all_findings_severities(
+    fake_cache: CacheService,
+) -> None:
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    event = TelemetryIngestEvent(
+        event_type="scan_completed",
+        source="cloud_api",
+        installation_id=None,
+        version="test",
+        payload={
+            "scan_type": "static",
+            "files_scanned": 1,
+            "total_findings": 4,
+            "findings_by_severity": {"BLOCK": 1, "WARN": 1, "INFO": 2},
+            "findings": [
+                {"rule": "eval_exec"},
+                {"rule_id": "hardcoded_secret"},
+                {"rule": "todo_hack"},
+                {"rule": "any_type"},
+            ],
+        },
+    )
+
+    await process_telemetry_event(r=r, db=None, queue=None, event=event)
+
+    assert await r.get("ct:total_findings") == "4"
+    impact_sum = (
+        int(await r.get("ct:impact:injection_attacks") or 0)
+        + int(await r.get("ct:impact:secrets_exposure") or 0)
+        + int(await r.get("ct:impact:unsafe_config") or 0)
+        + int(await r.get("ct:impact:other") or 0)
+    )
+    assert impact_sum == 4
+
+
+@pytest.mark.asyncio
 async def test_build_public_stats_exposes_impact_categories_and_top_rules(
     fake_cache: CacheService,
 ) -> None:

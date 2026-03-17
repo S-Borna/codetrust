@@ -489,17 +489,11 @@
 
     <section class="container impact-threats reveal" id="impact-threats">
         <div class="section-tag section-center">Threat Intelligence</div>
-        <h2 class="reveal" style="text-align:center">Findings Breakdown — By Category</h2>
+        <h2 class="reveal" style="text-align:center">Findings Breakdown</h2>
         <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
-            Live breakdown of total findings from production telemetry, grouped by category.
+            Live production findings grouped into six high-impact risk categories.
         </p>
         <div class="impact-grid" id="impact-grid"></div>
-
-        <div class="top-rules-wrap">
-            <h3>Top 10 Rules Triggered</h3>
-            <p class="top-rules-sub">Most frequent findings across all active surfaces.</p>
-            <div class="top-rules-list" id="top-rules-list"></div>
-        </div>
     </section>
 
     <section class="container" id="release-highlights">
@@ -1491,22 +1485,8 @@
             secrets_exposure: '🔑',
             injection_attacks: '🐛',
             unsafe_config: '⚙️',
-            supply_chain: '📦',
-            other: '🔒'
+            supply_chain: '📦'
         };
-
-        const RULE_LABELS = {
-            eval_exec: 'eval/exec Injection',
-            string_concat_sql: 'SQL Injection via Concatenation',
-            heredoc: 'Heredoc Injection',
-            import_not_found: 'Hallucinated Package Import',
-            agent_os_system: 'Unsafe os.system() Call',
-            config_world_writable: 'World-Writable Permission',
-            datetime_utcnow: 'Deprecated datetime.utcnow()',
-            sql_drop_table: 'DROP TABLE Without Protection'
-        };
-        RULE_LABELS['hardcoded' + '_secret'] = 'Hardcoded Secret';
-        RULE_LABELS['api_key' + '_in_config'] = 'API Key in Config File';
 
         function extractStats(payload) {
             const s = (payload && payload.stats) ? payload.stats : {};
@@ -1553,17 +1533,16 @@
                 src_cloud_api: src.cloud_api || 0,
 
                 impact_categories: i.categories || {},
-                impact_top_rules: Array.isArray(i.top_rules) ? i.top_rules : [],
             };
         }
 
         function formatRelativeTime(iso) {
-            if (!iso) return 'no recent event';
+            if (!iso) return 'active category';
             const date = new Date(iso);
-            if (Number.isNaN(date.getTime())) return 'no recent event';
+            if (Number.isNaN(date.getTime())) return 'active category';
             const diffMs = Date.now() - date.getTime();
             const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-            if (diffMin < 1) return 'last seen just now';
+            if (diffMin < 1) return 'updated just now';
             if (diffMin < 60) return `last seen ${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
             const diffHr = Math.floor(diffMin / 60);
             if (diffHr < 24) return `last seen ${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
@@ -1573,8 +1552,7 @@
 
         function renderImpactSection(m) {
             const grid = document.getElementById('impact-grid');
-            const list = document.getElementById('top-rules-list');
-            if (!grid || !list) return;
+            if (!grid) return;
 
             const categories = Object.entries(m.impact_categories || {})
                 .map(([key, value]) => ({
@@ -1583,31 +1561,19 @@
                     count: Number((value && value.count) || 0),
                     last_seen: value ? value.last_seen : null,
                 }))
+                .filter((entry) => entry.key !== 'other')
                 .sort((a, b) => b.count - a.count);
 
             grid.innerHTML = categories.map((entry) => `
                 <article class="impact-card" data-category="${entry.key}">
                     <div class="impact-card-head">
-                        <span class="impact-icon">${IMPACT_ICONS[entry.key] || IMPACT_ICONS.other}</span>
+                        <span class="impact-icon">${IMPACT_ICONS[entry.key] || '🧩'}</span>
                         <span class="impact-label">${entry.label}</span>
                     </div>
                     <div class="impact-count">${entry.count.toLocaleString()}</div>
                     <div class="impact-last-seen">${formatRelativeTime(entry.last_seen)}</div>
                 </article>
             `).join('');
-
-            const topRules = (m.impact_top_rules || []).slice(0, 10);
-            list.innerHTML = topRules.map((item, idx) => {
-                const label = RULE_LABELS[item.rule] || item.rule;
-                return `
-                    <div class="top-rule-row">
-                        <span class="top-rule-rank">#${idx + 1}</span>
-                        <span class="top-rule-name">${label}</span>
-                        <span class="top-rule-count">${Number(item.count || 0).toLocaleString()}</span>
-                        <span class="top-rule-category">${item.category || 'other'}</span>
-                    </div>
-                `;
-            }).join('');
         }
 
         function animateValue(el, from, to, duration) {

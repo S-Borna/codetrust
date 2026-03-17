@@ -278,6 +278,7 @@ async def test_build_public_stats_exposes_impact_categories_and_top_rules(
     assert categories["injection_attacks"]["count"] == 5
     assert categories["secrets_exposure"]["count"] == 3
     assert categories["injection_attacks"]["last_seen"] == "2026-03-16T14:23:00Z"
+    assert "other" not in categories
 
     top_rules = impact.get("top_rules")
     assert isinstance(top_rules, list)

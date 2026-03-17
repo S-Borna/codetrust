@@ -116,6 +116,15 @@ IMPACT_CATEGORIES: tuple[str, ...] = (
     IMPACT_CATEGORY_OTHER,
 )
 
+PUBLIC_IMPACT_CATEGORIES: tuple[str, ...] = (
+    "destructive_commands",
+    "hallucinations",
+    "secrets_exposure",
+    "injection_attacks",
+    "unsafe_config",
+    "supply_chain",
+)
+
 
 def get_rule_category(rule_id: str) -> str:
     """Return the impact category for a rule id.

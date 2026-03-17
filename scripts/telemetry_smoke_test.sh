@@ -60,9 +60,12 @@ with open(before_path, "r", encoding="utf-8") as fh:
 with open(after_path, "r", encoding="utf-8") as fh:
     after = json.load(fh)
 
-usage_before = before.get("usage", {})
-usage_after = after.get("usage", {})
-impact_after = after.get("impact", {})
+stats_before = before.get("stats", {}) if isinstance(before, dict) else {}
+stats_after = after.get("stats", {}) if isinstance(after, dict) else {}
+
+usage_before = stats_before.get("usage", {}) if isinstance(stats_before, dict) else {}
+usage_after = stats_after.get("usage", {}) if isinstance(stats_after, dict) else {}
+impact_after = stats_after.get("impact", {}) if isinstance(stats_after, dict) else {}
 
 errors = []
 

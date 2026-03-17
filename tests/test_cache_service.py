@@ -193,7 +193,7 @@ class TestWarmUpRedisCounters:
         db = self._make_db({"ct:impact:injection_attacks": 7})
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:impact:injection_attacks")) == BASELINES["ct:impact:injection_attacks"] + 7
-        assert int(await fake_redis.get("ct:impact:other")) == BASELINES["ct:impact:other"]
+        assert await fake_redis.get("ct:impact:other") is None
 
 
 class TestCounterSnapshots:

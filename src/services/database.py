@@ -27,6 +27,7 @@ from src.models.database import (
     UsageDay,
     User,
 )
+from src.services.impact_categories import IMPACT_CATEGORIES, get_rule_category
 
 logger = structlog.get_logger()
 
@@ -48,6 +49,13 @@ USAGE_SNAPSHOT_KEY_MAP: dict[str, str] = {
     "gateway_commands_allowed": "ct:gateway_allowed",
     "gateway_commands_warned": "ct:gateway_warned",
     "imports_verified": "ct:imports_verified",
+    "impact_destructive_commands": "ct:impact:destructive_commands",
+    "impact_hallucinations": "ct:impact:hallucinations",
+    "impact_secrets_exposure": "ct:impact:secrets_exposure",
+    "impact_injection_attacks": "ct:impact:injection_attacks",
+    "impact_unsafe_config": "ct:impact:unsafe_config",
+    "impact_supply_chain": "ct:impact:supply_chain",
+    "impact_other": "ct:impact:other",
 }
 
 DISTRIBUTION_SNAPSHOT_KEY_MAP: dict[str, str] = {
@@ -78,6 +86,32 @@ def _payload_int(value: object, *, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _payload_rule_ids(payload: dict[str, object]) -> list[str]:
+    """Extract rule IDs from a scan telemetry payload's findings list."""
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return []
+
+    rule_ids: list[str] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        rule_id_obj = finding.get("rule") or finding.get("rule_id")
+        if isinstance(rule_id_obj, str) and rule_id_obj:
+            rule_ids.append(rule_id_obj)
+    return rule_ids
+
+
+def _is_on_or_after(ts: object, threshold: datetime.datetime) -> bool:
+    """Return whether a timestamp is on/after threshold, normalizing naive UTC."""
+    if not isinstance(ts, datetime.datetime):
+        return False
+    candidate = ts
+    if candidate.tzinfo is None:
+        candidate = candidate.replace(tzinfo=datetime.UTC)
+    return candidate >= threshold
 
 
 POOL_TIMEOUT_SECS: int = 30
@@ -583,6 +617,7 @@ class DatabaseService:
             raw_blocks = 0
             raw_files_scanned = 0
             raw_hallucinations = 0
+            impact_counts: dict[str, int] = {category: 0 for category in IMPACT_CATEGORIES}
             raw_today = 0
             raw_last_hour = 0
             by_source: dict[str, int] = {"cli": 0, "vscode": 0, "mcp": 0, "github_action": 0, "cloud_api": 0}
@@ -598,19 +633,23 @@ class DatabaseService:
                 raw_files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
                 raw_hallucinations += _payload_int(payload_obj.get("hallucinations_found"))
 
+                for rule_id in _payload_rule_ids(payload_obj):
+                    category = get_rule_category(rule_id)
+                    impact_counts[category] = impact_counts.get(category, 0) + 1
+
                 source_key = str(source or "")
                 if source_key in by_source:
                     by_source[source_key] += 1
 
-                if created_at is not None and created_at >= today_start:
+                if _is_on_or_after(created_at, today_start):
                     raw_today += 1
-                if created_at is not None and created_at >= last_hour:
+                if _is_on_or_after(created_at, last_hour):
                     raw_last_hour += 1
 
                 installation = str(installation_id or "").strip()
                 if installation:
                     unique_ids.add(installation)
-                    if created_at is not None and created_at >= today_start:
+                    if _is_on_or_after(created_at, today_start):
                         unique_today_ids.add(installation)
 
             total_findings = max(scanlog_findings, raw_findings)
@@ -682,6 +721,36 @@ class DatabaseService:
             gateway_allowed = max(gateway_allowed, _payload_int(snapshot_values.get("ct:gateway_allowed")))
             gateway_warned = max(gateway_warned, _payload_int(snapshot_values.get("ct:gateway_warned")))
             imports_verified = max(imports_verified, _payload_int(snapshot_values.get("ct:imports_verified")))
+
+            impact_counts["destructive_commands"] = max(
+                impact_counts["destructive_commands"],
+                _payload_int(snapshot_values.get("ct:impact:destructive_commands")),
+            )
+            impact_counts["hallucinations"] = max(
+                impact_counts["hallucinations"],
+                _payload_int(snapshot_values.get("ct:impact:hallucinations")),
+            )
+            impact_counts["secrets_exposure"] = max(
+                impact_counts["secrets_exposure"],
+                _payload_int(snapshot_values.get("ct:impact:secrets_exposure")),
+            )
+            impact_counts["injection_attacks"] = max(
+                impact_counts["injection_attacks"],
+                _payload_int(snapshot_values.get("ct:impact:injection_attacks")),
+            )
+            impact_counts["unsafe_config"] = max(
+                impact_counts["unsafe_config"],
+                _payload_int(snapshot_values.get("ct:impact:unsafe_config")),
+            )
+            impact_counts["supply_chain"] = max(
+                impact_counts["supply_chain"],
+                _payload_int(snapshot_values.get("ct:impact:supply_chain")),
+            )
+            impact_counts["other"] = max(
+                impact_counts["other"],
+                _payload_int(snapshot_values.get("ct:impact:other")),
+            )
+
             pypi_downloads_total = _payload_int(snapshot_values.get("ct:ext:pepy_total_downloads"))
             marketplace_installs = _payload_int(snapshot_values.get("ct:ext:marketplace_installs"))
             marketplace_downloads = _payload_int(snapshot_values.get("ct:ext:marketplace_downloads"))
@@ -707,6 +776,13 @@ class DatabaseService:
                 "gateway_commands_allowed": gateway_allowed,
                 "gateway_commands_warned": gateway_warned,
                 "imports_verified": imports_verified,
+                "impact_destructive_commands": int(impact_counts["destructive_commands"]),
+                "impact_hallucinations": int(impact_counts["hallucinations"]),
+                "impact_secrets_exposure": int(impact_counts["secrets_exposure"]),
+                "impact_injection_attacks": int(impact_counts["injection_attacks"]),
+                "impact_unsafe_config": int(impact_counts["unsafe_config"]),
+                "impact_supply_chain": int(impact_counts["supply_chain"]),
+                "impact_other": int(impact_counts["other"]),
                 "pypi_downloads_total": pypi_downloads_total,
                 "marketplace_installs": marketplace_installs,
                 "marketplace_downloads": marketplace_downloads,
@@ -777,6 +853,8 @@ class DatabaseService:
             total_blocks = 0
             hallucinations_caught = 0
             files_scanned = 0
+            impact_counts: dict[str, int] = {category: 0 for category in IMPACT_CATEGORIES}
+            top_rule_counts: dict[str, int] = {}
             sources = ("cli", "vscode", "mcp", "github_action", "cloud_api")
             by_source: dict[str, int] = {source: 0 for source in sources}
             for payload, source, created_at in scan_rows:
@@ -787,12 +865,17 @@ class DatabaseService:
                 )
                 hallucinations_caught += _payload_int(payload_obj.get("hallucinations_found"))
                 files_scanned += _payload_int(payload_obj.get("files_scanned"), default=1)
-                if created_at is not None and created_at >= today_utc:
+                if _is_on_or_after(created_at, today_utc):
                     scans_today += 1
 
                 source_key = str(source or "")
                 if source_key in by_source:
                     by_source[source_key] += 1
+
+                for rule_id in _payload_rule_ids(payload_obj):
+                    category = get_rule_category(rule_id)
+                    impact_counts[category] = impact_counts.get(category, 0) + 1
+                    top_rule_counts[rule_id] = top_rule_counts.get(rule_id, 0) + 1
 
             gateway_rows = (
                 await session.execute(
@@ -839,6 +922,12 @@ class DatabaseService:
             "ct:gateway_warned": gateway_warned,
             "ct:imports_verified": imports_verified,
         }
+
+        for category, count in impact_counts.items():
+            counters[f"ct:impact:{category}"] = int(count)
+
+        for rule_id, count in top_rule_counts.items():
+            counters[f"ct:top_rules:{rule_id}"] = int(count)
 
         snapshot_values = await self.get_latest_counter_snapshots(tuple(DISTRIBUTION_SNAPSHOT_KEY_MAP.values()))
         counters["ct:ext:pepy_total_downloads"] = _payload_int(snapshot_values.get("ct:ext:pepy_total_downloads"))

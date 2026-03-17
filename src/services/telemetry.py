@@ -63,6 +63,26 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:scans_by_source:cloud_api": 4972,
 }
 
+IMPACT_BASELINES: dict[str, int] = {
+    "ct:impact:destructive_commands": 0,
+    "ct:impact:hallucinations": 0,
+    "ct:impact:secrets_exposure": 0,
+    "ct:impact:injection_attacks": 0,
+    "ct:impact:unsafe_config": 0,
+    "ct:impact:supply_chain": 0,
+    "ct:impact:other": 0,
+}
+
+IMPACT_BASELINE_DB_SNAPSHOT: dict[str, int] = {
+    "ct:impact:destructive_commands": 0,
+    "ct:impact:hallucinations": 0,
+    "ct:impact:secrets_exposure": 0,
+    "ct:impact:injection_attacks": 0,
+    "ct:impact:unsafe_config": 0,
+    "ct:impact:supply_chain": 0,
+    "ct:impact:other": 0,
+}
+
 FORCE_RESET_ON_STARTUP: bool = True
 
 EXT_STATS_TTL_SECONDS: int = 300
@@ -168,8 +188,8 @@ def _safe_str(value: object, *, default: str = "", max_length: int = 128) -> str
 
 def _additive_baseline_value(key: str, current_db: int) -> int:
     """Apply additive baseline: baseline + max(current_db - baseline_snapshot, 0)."""
-    baseline = int(BASELINES.get(key, 0))
-    baseline_snapshot = int(BASELINE_DB_SNAPSHOT.get(key, 0))
+    baseline = int(BASELINES.get(key, IMPACT_BASELINES.get(key, 0)))
+    baseline_snapshot = int(BASELINE_DB_SNAPSHOT.get(key, IMPACT_BASELINE_DB_SNAPSHOT.get(key, 0)))
     new_since_baseline = max(int(current_db) - baseline_snapshot, 0)
     return baseline + new_since_baseline
 
@@ -562,7 +582,8 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
                 await r.delete(*batch)
 
         restored = 0
-        for key, baseline in BASELINES.items():
+        baseline_keys: dict[str, int] = {**BASELINES, **IMPACT_BASELINES}
+        for key, baseline in baseline_keys.items():
             db_value = int(db_counters.get(key, 0))
             final_value = _additive_baseline_value(key, db_value)
             await r.set(key, final_value)
@@ -572,7 +593,7 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
             restored += 1
 
         for key, db_raw in db_counters.items():
-            if key in BASELINES:
+            if key in baseline_keys:
                 continue
             db_value = int(db_raw)
             final_value = max(db_value, 0)
@@ -605,8 +626,9 @@ async def sync_redis_counters_to_snapshots(r: redis.Redis, db: DatabaseService) 
     counters: dict[str, int] = {key: _safe_int(val) for key, val in zip(_COUNTER_KEYS, values, strict=True)}
     try:
         db_counters: dict[str, int] = await db.get_redis_warmup_counters()
-        for key in BASELINES:
-            counters[key] = _additive_baseline_value(key, int(db_counters.get(key, 0)))
+        for key in {**BASELINES, **IMPACT_BASELINES}:
+            baseline_value = _additive_baseline_value(key, int(db_counters.get(key, 0)))
+            counters[key] = max(int(counters.get(key, 0)), baseline_value)
     except Exception as exc:
         logger.warning("counter_snapshot_db_counters_failed", error=str(exc), error_type=type(exc).__name__)
     await db.insert_counter_snapshots(counters)
@@ -686,6 +708,13 @@ _COUNTER_KEYS: tuple[str, ...] = (
     "ct:ci_runs_total",
     "ct:ci_gates_passed",
     "ct:ci_gates_failed",
+    "ct:impact:destructive_commands",
+    "ct:impact:hallucinations",
+    "ct:impact:secrets_exposure",
+    "ct:impact:injection_attacks",
+    "ct:impact:unsafe_config",
+    "ct:impact:supply_chain",
+    "ct:impact:other",
     "ct:ext:pypi_last_day",
     "ct:ext:pypi_last_week",
     "ct:ext:pypi_last_month",

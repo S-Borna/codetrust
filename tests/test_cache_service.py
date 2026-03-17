@@ -11,8 +11,10 @@ from src.services.cache import CacheService
 from src.services.telemetry import (
     BASELINE_DB_SNAPSHOT,
     BASELINES,
+    IMPACT_BASELINES,
     SCANS_TODAY_KEY,
     STATS_CACHE_KEY,
+    sync_redis_counters_to_snapshots,
     warm_up_redis_counters,
 )
 
@@ -185,3 +187,29 @@ class TestWarmUpRedisCounters:
         db = self._make_db({"ct:total_scans": snapshot_total_scans + 3})
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:total_scans")) == BASELINES["ct:total_scans"] + 3
+
+    @pytest.mark.asyncio()
+    async def test_warmup_restores_impact_counters(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
+        """Impact counters are included in Redis warmup coverage."""
+        db = self._make_db({"ct:impact:injection_attacks": 7})
+        await warm_up_redis_counters(r=fake_redis, db=db)
+        assert int(await fake_redis.get("ct:impact:injection_attacks")) == 7
+        assert int(await fake_redis.get("ct:impact:other")) == IMPACT_BASELINES["ct:impact:other"]
+
+
+class TestCounterSnapshots:
+    """Unit tests for snapshot sync coverage."""
+
+    @pytest.mark.asyncio()
+    async def test_snapshot_sync_includes_impact_counters(self) -> None:
+        fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        await fake_redis.set("ct:impact:secrets_exposure", "9")
+        db = AsyncMock()
+        db.get_redis_warmup_counters = AsyncMock(return_value={})
+        db.insert_counter_snapshots = AsyncMock(return_value=None)
+
+        await sync_redis_counters_to_snapshots(r=fake_redis, db=db)
+
+        assert db.insert_counter_snapshots.await_count == 1
+        counters = db.insert_counter_snapshots.await_args.args[0]
+        assert counters["ct:impact:secrets_exposure"] == 9

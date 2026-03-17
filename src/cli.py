@@ -568,7 +568,12 @@ def _compute_pr_risk(
     total += ep_pts
 
     score = min(PR_RISK_MAX_SCORE, total)
-    level = "HIGH" if score >= PR_RISK_HIGH_THRESHOLD else ("MED" if score >= PR_RISK_MED_THRESHOLD else "LOW")
+    if score >= PR_RISK_HIGH_THRESHOLD:
+        level = "HIGH"
+    elif score >= PR_RISK_MED_THRESHOLD:
+        level = "MED"
+    else:
+        level = "LOW"
     signals_sorted = sorted(signals, key=lambda s: int(s.get("points", 0) or 0), reverse=True)
     return {
         "score": score, "level": level, "signals": signals_sorted,
@@ -3202,6 +3207,7 @@ def _scan_telemetry_payload(
     all_findings = result.get("findings", [])
     drift = result.get("drift_score", {})
     unique_rules = list({str(f.get("rule_id", "")) for f in all_findings if f.get("rule_id")})
+    output_format, _output_path = _scan_resolve_output_options(args)
     return {
         "scan_type": "static",
         "files_scanned": int(result.get("files_scanned", 0) or 0),
@@ -3222,9 +3228,29 @@ def _scan_telemetry_payload(
         "scan_duration_ms": int((time.monotonic() - start_time) * 1000),
         "used_baseline": bool(baseline_mode),
         "used_dedupe": bool(getattr(args, "dedupe", False)),
-        "used_sarif_output": bool(getattr(args, "sarif", False) or getattr(args, "sarif_file", "")),
-        "used_json_output": bool(getattr(args, "json", False)),
+        "used_sarif_output": output_format == "sarif",
+        "used_json_output": output_format == "json",
     }
+
+
+def _scan_resolve_output_options(args: argparse.Namespace) -> tuple[str, str]:
+    """Resolve output format/path from new and legacy scan flags."""
+    output_format = str(getattr(args, "format", "text") or "text")
+    output_path = str(getattr(args, "output", "") or "")
+    legacy_sarif_file = str(getattr(args, "sarif_file", "") or "")
+
+    if output_format in {"json", "sarif"}:
+        if output_format == "sarif" and not output_path and legacy_sarif_file:
+            output_path = legacy_sarif_file
+        return output_format, output_path
+
+    if bool(getattr(args, "sarif", False)) or bool(legacy_sarif_file):
+        return "sarif", output_path or legacy_sarif_file
+
+    if bool(getattr(args, "json", False)):
+        return "json", output_path
+
+    return "text", ""
 
 
 def _scan_emit_telemetry(
@@ -3373,17 +3399,19 @@ def _scan_output_machine(
     machine_output: bool,
 ) -> None:
     """Emit JSON and/or SARIF output."""
-    if getattr(args, "json", False):
+    output_format, output_path = _scan_resolve_output_options(args)
+    if output_format == "json":
         _echo(json.dumps(result, indent=2, default=str))
+        return
 
-    if getattr(args, "sarif", False) or getattr(args, "sarif_file", ""):
+    if output_format == "sarif":
         sarif_doc = _findings_to_sarif(all_findings)
         sarif_json = json.dumps(sarif_doc, indent=2, default=str)
-        if getattr(args, "sarif_file", ""):
-            Path(args.sarif_file).write_text(sarif_json, encoding="utf-8")
+        if output_path:
+            Path(output_path).write_text(sarif_json, encoding="utf-8")
             if not machine_output:
-                _echo(f"  SARIF written to {args.sarif_file}")
-        elif not getattr(args, "json", False):
+                _echo(f"  SARIF written to {output_path}")
+        else:
             _echo(sarif_json)
 
 
@@ -3421,10 +3449,13 @@ def _scan_parse_options(
 ) -> tuple[list[str], bool, str, bool]:
     """Extract scan options from parsed arguments."""
     targets: list[str] = args.targets or ["."]
-    machine_output = bool(getattr(args, "json", False)) or (
-        bool(getattr(args, "sarif", False))
-        and not bool(getattr(args, "sarif_file", ""))
-    )
+    output_format, output_path = _scan_resolve_output_options(args)
+    explicit_format = str(getattr(args, "format", "text") or "text")
+    # Preserve legacy --sarif-file behavior (human summary + file write) unless --format is used.
+    if explicit_format == "text" and output_format == "sarif" and bool(output_path):
+        machine_output = False
+    else:
+        machine_output = output_format != "text"
     baseline_ref = str(getattr(args, "baseline", "") or "").strip()
     baseline_mode = bool(baseline_ref)
     return targets, machine_output, baseline_ref, baseline_mode
@@ -4382,6 +4413,18 @@ def _add_scan_subparser(
     """Register the 'scan' subcommand with all its options."""
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
+    scan_parser.add_argument(
+        "--format",
+        choices=["text", "json", "sarif"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    scan_parser.add_argument(
+        "--output",
+        type=str,
+        default="",
+        help="Write machine-readable output to file (supports --format sarif)",
+    )
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
     scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
     scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")

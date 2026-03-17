@@ -41,6 +41,7 @@ from src.cli import (
     _get_git_changed_files,
     _normalize_path_for_git,
     _scan_output_api_error,
+    _scan_resolve_output_options,
     _sort_findings,
     _suppress_lint_covered_findings,
     _trend_read,
@@ -125,6 +126,44 @@ class TestScanApiErrorOutput:
         assert handled is True
         out = capsys.readouterr().out
         assert "requires enterprise" in out.lower()
+
+
+class TestScanOutputOptions:
+    def test_prefers_new_format_and_output(self) -> None:
+        args = type("Args", (), {})()
+        args.format = "sarif"
+        args.output = "results.sarif"
+        args.json = False
+        args.sarif = False
+        args.sarif_file = ""
+
+        output_format, output_path = _scan_resolve_output_options(args)
+        assert output_format == "sarif"
+        assert output_path == "results.sarif"
+
+    def test_legacy_sarif_file_still_supported(self) -> None:
+        args = type("Args", (), {})()
+        args.format = "text"
+        args.output = ""
+        args.json = False
+        args.sarif = False
+        args.sarif_file = "legacy.sarif"
+
+        output_format, output_path = _scan_resolve_output_options(args)
+        assert output_format == "sarif"
+        assert output_path == "legacy.sarif"
+
+    def test_legacy_json_still_supported(self) -> None:
+        args = type("Args", (), {})()
+        args.format = "text"
+        args.output = ""
+        args.json = True
+        args.sarif = False
+        args.sarif_file = ""
+
+        output_format, output_path = _scan_resolve_output_options(args)
+        assert output_format == "json"
+        assert output_path == ""
 
 
 class TestChangedLines:

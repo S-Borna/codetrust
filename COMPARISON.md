@@ -35,7 +35,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | Statisk kodanalys | 348 regler | 5,000+ | 3,000+ | SAST | 800+ |
 | Språkstöd | 14 | 35+ | 30+ | 20+ | 1–2 |
 | AST-analys | ✅ 11 språk | ✅ | ✅ | ✅ | ✅ |
-| Taint analysis | ❌ | ✅ | ✅ | ✅ | ❌ |
+| Taint analysis | **✅ Intra-proc** | ✅ | ✅ | ✅ | ❌ |
 | SARIF-output | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ¹ Snyk gör container scanning för kända CVE:er, men verifierar inte att images/taggar existerar.
@@ -50,7 +50,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | | CodeTrust | SonarQube |
 |---|---|---|
 | **Styrka** | AI Governance Gateway (82 regler), signaturvalidering, paket/Docker-verifiering | Djupaste regelbiblioteket (5,000+), 35+ språk, taint analysis |
-| **Svaghet** | 348 regler (ej taint analysis) | Ingen AI governance, ingen paket/Docker-verifiering, kräver server |
+| **Svaghet** | 348 regler, intra-procedural taint (ej inter-proc) | Ingen AI governance, ingen paket/Docker-verifiering, kräver server |
 | **MCP** | 27 tools (10 scan + 17 gateway) | Tillagt 2025 |
 | **Pris** | $0 | $32/mån (10 dev, 100K LOC) |
 | **Bäst för** | AI-kodverifiering + governance | Traditionell kodkvalitet |
@@ -62,7 +62,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | | CodeTrust | Semgrep |
 |---|---|---|
 | **Styrka** | Gateway, signatur, paket, Docker, MCP, sandbox, drift score | Cross-file taint analysis, custom rules, 3,000+ regler |
-| **Svaghet** | Ingen taint analysis | Ingen AI governance, ingen paket/Docker-verifiering |
+| **Svaghet** | Intra-procedural taint (ej cross-file) | Ingen AI governance, ingen paket/Docker-verifiering |
 | **Pris** | $0 | $40–100/dev/mån |
 | **Bäst för** | Fånga AI-hallucinationer + styra AI-agenter | Avancerad SAST + SCA |
 
@@ -156,4 +156,4 @@ With CodeTrust added:
 
 ---
 
-*CodeTrust v2.8.5 — AI Governance Enforcement Platform. 348 rules, 27 MCP tools, 60 API endpoints, 2,037 tests.*
+*CodeTrust v2.8.5 — AI Governance Enforcement Platform. 348 rules + taint analysis, 27 MCP tools, 60 API endpoints, 2,056 tests.*

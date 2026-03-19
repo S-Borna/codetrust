@@ -2753,6 +2753,7 @@
 
         /* ---------- Touch & interaction quality ---------- */
         @media (hover: none) and (pointer: coarse) {
+
             /* Disable hover effects that feel broken on touch */
             .moat-card:hover,
             .problem-item:hover,
@@ -2820,6 +2821,7 @@
 
         /* ---------- Print ---------- */
         @media print {
+
             .bg-animation,
             .scroll-progress,
             .floating-nav,
@@ -2836,5 +2838,6 @@
 
             .reveal {
                 opacity: 1;
-                transform: none;            }
+                transform: none;
+            }
         }

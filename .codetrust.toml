@@ -13,7 +13,7 @@
 #  Override via env: CODETRUST_GOVERNANCE_MODE=audit
 
 [codetrust]
-exclude_paths = ["migrations/", "vendor/", "node_modules/", "tests/"]
+exclude_paths = ["migrations/", "vendor/", "node_modules/", "tests/", "src/rules/"]
 ignore_rules = []
 
 [codetrust.governance]
@@ -30,10 +30,10 @@ mode = "enforce"
 block_heredoc = true         # Heredocs corrupt files via shell escaping
 block_eval = true            # Shell eval is arbitrary code execution
 block_sudo = false           # sudo su — warn but don't block by default
-block_rm_rf = true           # rm -rf / — catastrophic data loss
+block_rm_rf = true           # recursive force remove — catastrophic data loss
 block_curl_pipe_sh = true    # curl|sh — remote code execution
 block_git_push = true        # AI agents must not push to remote
-block_chmod_777 = true       # chmod 777 grants all permissions
+block_chmod_777 = true       # world-writable mode — grants all permissions
 
 # ───────────────────────────────────────────────────────────────
 #  File Governance

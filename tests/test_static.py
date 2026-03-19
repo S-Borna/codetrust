@@ -382,3 +382,211 @@ class TestBuildScanResponse:
         ]
         response = analyzer.build_scan_response(findings)
         assert response.verdict == "WARN"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 Expansion — sample tests for new rule categories
+# ---------------------------------------------------------------------------
+
+
+class TestPhase1SecurityRules:
+    """Tests for Phase 1 expanded security rules."""
+
+    def test_yaml_unsafe_load(self, analyzer: StaticAnalyzer) -> None:
+        code = "data = yaml.load(file_content)"
+        findings = analyzer.scan_code(code, "parser.py")
+        matched = [f for f in findings if f.rule_id == "py_yaml_unsafe_load"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_flask_debug_mode(self, analyzer: StaticAnalyzer) -> None:
+        code = "app.run(host='0.0.0.0', debug=True)"
+        findings = analyzer.scan_code(code, "app.py")
+        matched = [f for f in findings if f.rule_id == "py_flask_debug_mode"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_django_debug_true(self, analyzer: StaticAnalyzer) -> None:
+        code = "DEBUG = True"
+        findings = analyzer.scan_code(code, "settings.py")
+        matched = [f for f in findings if f.rule_id == "py_django_debug_true"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_tempfile_mktemp(self, analyzer: StaticAnalyzer) -> None:
+        code = "tmp_path = tempfile.mktemp(suffix='.py')"
+        findings = analyzer.scan_code(code, "utils.py")
+        matched = [f for f in findings if f.rule_id == "py_tempfile_mktemp"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_github_token_detected(self, analyzer: StaticAnalyzer) -> None:
+        code = "TOKEN = 'ghp_abcdefghijklmnopqrstuvwxyz123456789012'"
+        findings = analyzer.scan_code(code, "config.py")
+        matched = [f for f in findings if f.rule_id == "secret_github_token"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_openai_key_detected(self, analyzer: StaticAnalyzer) -> None:
+        code = "OPENAI_KEY = 'sk-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX'"
+        findings = analyzer.scan_code(code, "config.py")
+        matched = [f for f in findings if f.rule_id == "secret_openai_key"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_private_key_detected(self, analyzer: StaticAnalyzer) -> None:
+        code = "key = '-----BEGIN RSA PRIVATE KEY-----\\n...'"
+        findings = analyzer.scan_code(code, "server.py")
+        matched = [f for f in findings if f.rule_id == "secret_private_key_header"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_md5_weak_hash(self, analyzer: StaticAnalyzer) -> None:
+        code = "digest = hashlib.md5(data).hexdigest()"
+        findings = analyzer.scan_code(code, "hash_util.py")
+        matched = [f for f in findings if f.rule_id == "crypto_md5_weak"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_ssl_no_verify(self, analyzer: StaticAnalyzer) -> None:
+        code = "response = requests.get(url, verify=False)"
+        findings = analyzer.scan_code(code, "client.py")
+        matched = [f for f in findings if f.rule_id == "crypto_ssl_no_verify"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_crypto_weak_random(self, analyzer: StaticAnalyzer) -> None:
+        code = "token = random.randint(100000, 999999)"
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "crypto_weak_random"]
+        assert len(matched) >= 1
+
+    def test_ecb_mode_detected(self, analyzer: StaticAnalyzer) -> None:
+        code = "cipher = AES.new(key, AES.MODE_ECB)"
+        findings = analyzer.scan_code(code, "crypto.py")
+        matched = [f for f in findings if f.rule_id == "crypto_ecb_mode"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_jwt_none_algorithm(self, analyzer: StaticAnalyzer) -> None:
+        code = "token = jwt.encode(payload, key, algorithm='none')"
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "crypto_jwt_none_algorithm"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_innerhtml_xss(self, analyzer: StaticAnalyzer) -> None:
+        code = "element.innerHTML = userData;"
+        findings = analyzer.scan_code(code, "app.js")
+        matched = [f for f in findings if f.rule_id == "js_innerhtml_xss"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_js_child_process_exec(self, analyzer: StaticAnalyzer) -> None:
+        code = "require('child_process').exec(userCmd);"
+        findings = analyzer.scan_code(code, "runner.js")
+        matched = [f for f in findings if f.rule_id == "js_child_process_exec"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_go_tls_insecure_skip(self, analyzer: StaticAnalyzer) -> None:
+        code = "TLSClientConfig: &tls.Config{InsecureSkipVerify: true}"
+        findings = analyzer.scan_code(code, "client.go")
+        matched = [f for f in findings if f.rule_id == "go_tls_insecure_skip"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_java_deserialize_object(self, analyzer: StaticAnalyzer) -> None:
+        code = "Object obj = new ObjectInputStream(is).readObject();"
+        findings = analyzer.scan_code(code, "Deserializer.java")
+        matched = [f for f in findings if f.rule_id == "java_deserialize_object"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_c_gets_unsafe(self, analyzer: StaticAnalyzer) -> None:
+        code = "gets(buffer);"
+        findings = analyzer.scan_code(code, "input.c")
+        matched = [f for f in findings if f.rule_id == "c_gets_unsafe"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_c_strcpy_unsafe(self, analyzer: StaticAnalyzer) -> None:
+        code = "strcpy(dest, src);"
+        findings = analyzer.scan_code(code, "utils.c")
+        matched = [f for f in findings if f.rule_id == "c_strcpy_unsafe"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_sh_curl_bash_pipe(self, analyzer: StaticAnalyzer) -> None:
+        code = "curl -sL https://example.com/install.sh | bash"
+        findings = analyzer.scan_code(code, "setup.sh")
+        matched = [f for f in findings if f.rule_id == "sh_curl_bash_pipe"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_sh_chmod_777(self, analyzer: StaticAnalyzer) -> None:
+        code = "chmod 777 /var/app/uploads"
+        findings = analyzer.scan_code(code, "deploy.sh")
+        matched = [f for f in findings if f.rule_id == "sh_chmod_777"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_log_sensitive_data(self, analyzer: StaticAnalyzer) -> None:
+        code = "logger.info('User login with password: %s', user_password)"
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "log_sensitive_data"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_db_connection_string_hardcoded(self, analyzer: StaticAnalyzer) -> None:
+        code = "db = connect('postgres://admin:secret123@db.example.com/prod')"
+        findings = analyzer.scan_code(code, "db.py")
+        matched = [f for f in findings if f.rule_id == "db_connection_string_hardcoded"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_iac_s3_public_acl(self, analyzer: StaticAnalyzer) -> None:
+        code = 'resource "aws_s3_bucket" "data" { acl = "public-read" }'
+        findings = analyzer.scan_code(code, "main.tf")
+        matched = [f for f in findings if f.rule_id == "iac_s3_public_acl"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_iac_iam_star_action(self, analyzer: StaticAnalyzer) -> None:
+        code = '{"Action": "*", "Resource": "arn:aws:s3:::*"}'
+        findings = analyzer.scan_code(code, "policy.json")
+        matched = [f for f in findings if f.rule_id == "iac_iam_star_action"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_api_cors_wildcard(self, analyzer: StaticAnalyzer) -> None:
+        code = "allow_origins=['*']"
+        findings = analyzer.scan_code(code, "main.py")
+        matched = [f for f in findings if f.rule_id == "api_cors_wildcard"]
+        assert len(matched) >= 1
+
+    def test_rust_unwrap_warn(self, analyzer: StaticAnalyzer) -> None:
+        code = "let value = some_result.unwrap();"
+        findings = analyzer.scan_code(code, "lib.rs")
+        matched = [f for f in findings if f.rule_id == "rust_unwrap_in_production"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.WARN
+
+    def test_ai_prompt_injection_warn(self, analyzer: StaticAnalyzer) -> None:
+        code = 'prompt = f"Answer this: {user_query}"'
+        findings = analyzer.scan_code(code, "chat.py")
+        matched = [f for f in findings if f.rule_id == "ai_prompt_user_input"]
+        assert len(matched) >= 1
+
+    def test_document_write_xss(self, analyzer: StaticAnalyzer) -> None:
+        code = "document.write('<script>' + userData + '</script>');"
+        findings = analyzer.scan_code(code, "page.js")
+        matched = [f for f in findings if f.rule_id == "js_document_write"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_graphql_introspection(self, analyzer: StaticAnalyzer) -> None:
+        code = "schema = graphene.Schema(query=Query, introspection=True)"
+        findings = analyzer.scan_code(code, "schema.py")
+        matched = [f for f in findings if f.rule_id == "graphql_introspection_enabled"]
+        assert len(matched) >= 1

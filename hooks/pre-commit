@@ -173,6 +173,10 @@ def main() -> int:
         # Any /test/ or /__tests__/ directory segment
         if "/test/" in path or "/__tests__/" in path:
             return True
+        # Rules definition files — these ARE the anti-pattern dictionary and
+        # will always contain the patterns they detect (false positives).
+        if path.startswith("src/rules/"):
+            return True
         return False
 
     source_files = [

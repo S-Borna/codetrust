@@ -122,6 +122,7 @@ from src.models.responses import (
 )
 from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
+from src.services.taint_analyzer import TaintAnalyzer
 from src.services.auth import AuthService
 from src.services.autofix import AutoFixResult
 from src.services.billing import PLAN_LIMITS, BillingService
@@ -515,6 +516,7 @@ def _attach_core_services(
     app.state.analyzer = StaticAnalyzer()
     app.state.github_app = GitHubAppService(http_client, app.state.analyzer)
     app.state.ast_analyzer = AstAnalyzer()
+    app.state.taint_analyzer = TaintAnalyzer()
     app.state.sandbox = SandboxService()
     app.state.db = db
     app.state.billing = BillingService()
@@ -825,6 +827,11 @@ def _get_ast_analyzer(request: Request) -> AstAnalyzer:
     return request.app.state.ast_analyzer
 
 
+def _get_taint_analyzer(request: Request) -> TaintAnalyzer:
+    """Dependency: get TaintAnalyzer from app state."""
+    return request.app.state.taint_analyzer
+
+
 def _get_cache(request: Request) -> CacheService:
     """Dependency: get CacheService from app state."""
     return request.app.state.cache
@@ -1075,6 +1082,8 @@ def _collect_deep_scan_findings(result: DeepScanResponse) -> list[Finding]:
         combined.extend(result.ast_scan.findings)
     if result.signature_validation is not None:
         combined.extend(result.signature_validation.findings)
+    if result.taint_scan is not None:
+        combined.extend(result.taint_scan.findings)
     return combined
 
 
@@ -2269,6 +2278,7 @@ async def _run_deep_scan_core(
     registry: RegistryService,
     docker: DockerVerifyService,
     sandbox_svc: SandboxService,
+    taint_anal: TaintAnalyzer | None = None,
 ) -> DeepScanResponse:
     """Core deep scan logic shared between JSON and SARIF endpoints."""
     start = time.monotonic()
@@ -2276,6 +2286,7 @@ async def _run_deep_scan_core(
         analyzer.scan_code(req.code, req.filename),
     )
     ast_result = _run_ast_layer(req, ast_anal)
+    taint_result = _run_taint_layer(req, taint_anal) if taint_anal else None
     sig_result = _run_signature_layer(req)
     import_result = await _run_import_layer(req, registry)
     docker_result = await _run_docker_layer(req, docker)
@@ -2283,7 +2294,7 @@ async def _run_deep_scan_core(
 
     return _assemble_deep_response(
         static_result, ast_result, sig_result, import_result,
-        docker_result, sandbox_result, start,
+        docker_result, sandbox_result, start, taint_result=taint_result,
     )
 
 
@@ -2295,6 +2306,24 @@ def _run_ast_layer(
         findings = ast_anal.analyze(req.code, req.language, req.filename)
         return _build_ast_response(findings)
     return None
+
+
+_TAINT_SUPPORTED_LANGUAGES = {"python", "javascript", "typescript"}
+
+
+def _run_taint_layer(
+    req: DeepScanRequest, taint_anal: TaintAnalyzer,
+) -> AstScanResponse | None:
+    """Run taint analysis layer if language supports it."""
+    if not req.language:
+        return None
+    lang_str = str(req.language.value) if hasattr(req.language, "value") else str(req.language)
+    if lang_str not in _TAINT_SUPPORTED_LANGUAGES:
+        return None
+    findings = taint_anal.analyze(req.code, req.language, req.filename)
+    if not findings:
+        return None
+    return _build_ast_response(findings)
 
 
 _SIG_SUPPORTED_LANGUAGES = {"python", "javascript", "typescript"}
@@ -2380,6 +2409,7 @@ def _assemble_deep_response(
     docker_result: VerifyDockerResponse | None,
     sandbox_result: SandboxResponse | None,
     start: float,
+    taint_result: AstScanResponse | None = None,
 ) -> DeepScanResponse:
     """Assemble the final DeepScanResponse from layer results."""
     elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -2391,6 +2421,10 @@ def _assemble_deep_response(
         static_result, ast_result, import_result, docker_result,
         sig_result=sig_result,
     )
+    if taint_result is not None:
+        total += taint_result.total_findings
+        if taint_result.blocks > 0 and overall != "BLOCK":
+            overall = "BLOCK"
     return DeepScanResponse(
         static_scan=static_result,
         ast_scan=ast_result,
@@ -2398,6 +2432,7 @@ def _assemble_deep_response(
         import_verification=import_result,
         docker_verification=docker_result,
         sandbox_result=sandbox_result,
+        taint_scan=taint_result,
         overall_verdict=overall,
         total_findings=total,
         latency_ms=elapsed_ms,

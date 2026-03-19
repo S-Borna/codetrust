@@ -154,6 +154,7 @@ class DeepScanResponse(BaseModel):
     sandbox_result: SandboxResponse | None = None
     import_verification: VerifyImportsResponse | None = None
     docker_verification: VerifyDockerResponse | None = None
+    taint_scan: AstScanResponse | None = None
     overall_verdict: str  # "PASS", "WARN", "BLOCK"
     total_findings: int
     latency_ms: int

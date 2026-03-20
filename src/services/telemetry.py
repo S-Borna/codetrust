@@ -111,7 +111,7 @@ OPEN_VSX_EXTENSION_NAME: str = "codetrust"
 PEPY_API_URL_TEMPLATE: str = "https://api.pepy.tech/api/v2/projects/{project}"
 PEPY_PROJECT: str = "codetrust"
 
-PUBLIC_STATS_SCHEMA_VERSION: str = "2.9.0"
+PUBLIC_STATS_SCHEMA_VERSION: str = "3.0.0"
 PUBLIC_STATS_SOURCE_OF_TRUTH: str = "/v1/stats/public"
 COVERAGE_MODEL_NAME: str = "coverage-v1"
 
@@ -587,7 +587,7 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
             db_value = int(db_counters.get(key, 0))
             final_value = _additive_baseline_value(key, db_value)
             await r.set(key, final_value)
-            logger.info(f"Set {key}: db={db_value}, baseline={baseline}, final={final_value}")
+            logger.info("warmup_counter_set", counter=key, db=db_value, base=baseline, final=final_value)
             if key == SCANS_TODAY_KEY:
                 await r.expire(key, _end_of_day_ttl_seconds())
             restored += 1
@@ -598,7 +598,7 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
             db_value = int(db_raw)
             final_value = max(db_value, 0)
             await r.set(key, final_value)
-            logger.info(f"Set {key}: db={db_value}, baseline=0, final={final_value}")
+            logger.info("warmup_counter_set", counter=key, db=db_value, base=0, final=final_value)
             if key == SCANS_TODAY_KEY:
                 await r.expire(key, _end_of_day_ttl_seconds())
             restored += 1

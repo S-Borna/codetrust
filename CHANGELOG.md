@@ -9,9 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### What's Coming
 
-- Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets.
-- Org-level governance alerting for drift and repeat BLOCK events.
-- Exception lifecycle tightening with owner assignment and escalation rules.
+- Inter-procedural taint analysis (cross-function and cross-file tracking)
+- Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets
+- Org-level governance alerting for drift and repeat BLOCK events
+- Additional language support (Ruby, PHP expansion)
+- Expanded CVE intelligence (GitHub Advisory Database direct integration)
+
+## [3.0.0] - 2026-03-20
+
+### Added
+
+- **Taint analysis engine:** intra-procedural source-to-sink data flow tracking
+  - SQL injection, command injection, XSS, path traversal, SSRF, deserialization detection
+  - Python, JavaScript, TypeScript support via tree-sitter AST
+  - Sanitizer-aware confidence scoring (sanitized flows report WARN at 0.3 confidence)
+  - 26 sources, 30+ sinks, 13 sanitizers across 5 languages
+  - Integrated into /v1/scan/deep pipeline
+- **198 new security scan rules** (204 → 402 total scan rules, 484 with gateway)
+  - 15 new rule categories: secrets detection, cryptography, AI-specific, framework-aware
+  - Deep coverage: Go (20), Java (20), C/C++ (10), Rust (16), Swift (8), Kotlin (5)
+  - TypeScript deep rules (10): as any cast, non-null assertion, promise no catch
+  - Framework rules (8): Django, FastAPI, Express, Spring, React useEffect
+- **NVD CVSS enrichment:** fallback severity scoring when OSV returns UNKNOWN
+  - Queries NVD public API for CVSS v3.1/v3.0/v2.0 scores
+  - Rate-limited (5/scan), cached (24h TTL), graceful fallback on error
+- New test coverage: 19 taint analysis tests, 30 Phase 1 rule tests
+
+### Changed
+
+- Rule count: 204 → 402 scan rules (+198), 286 → 484 total rules
+- Test count: 1,974 → 2,058 (+84)
+- Pre-commit hook excludes src/rules/ (rules dict is the anti-pattern dictionary)
+- DeepScanResponse now includes taint_scan layer
+- Vulnerability service enriches UNKNOWN severities via NVD
+
+### Fixed
+
+- Python 3.14 regex compatibility: global flag positioning in swift_userdefaults_sensitive rule
+- Import sorting in api.py after taint analyzer integration
 
 ## [2.9.0] - 2026-03-15
 

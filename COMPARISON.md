@@ -1,6 +1,6 @@
-# CodeTrust vs. Marknaden — Ärlig Jämförelse (v2.8.5)
+# CodeTrust vs. Marknaden — Ärlig Jämförelse (v3.0.0)
 
-> **Uppdaterad: 13 mars 2026 · CodeTrust v2.8.5**
+> **Uppdaterad: 13 mars 2026 · CodeTrust v3.0.0**
 
 ---
 
@@ -156,4 +156,4 @@ With CodeTrust added:
 
 ---
 
-*CodeTrust v2.8.5 — AI Governance Enforcement Platform. 402 rules + taint analysis, 27 MCP tools, 60 API endpoints, 2,056 tests.*
+*CodeTrust v3.0.0 — AI Governance Enforcement Platform. 402 rules + taint analysis, 27 MCP tools, 60 API endpoints, 2,058 tests.*

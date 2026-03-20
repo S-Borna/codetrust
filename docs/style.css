@@ -362,7 +362,7 @@
         }
 
         .hero h1 .line2 {
-            display: block;
+            display: inline;
             color: #3b82f6;
         }
 
@@ -1232,9 +1232,9 @@
         /* INSTALL */
         .install-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 1rem;
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 0 auto;
         }
 

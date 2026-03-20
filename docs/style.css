@@ -2819,6 +2819,23 @@
             }
         }
 
+        /* COMPARISON TABLE */
+        .compare-table td,
+        .compare-table th {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 640px) {
+            .compare-table {
+                font-size: 0.75rem !important;
+            }
+
+            .compare-table td,
+            .compare-table th {
+                padding: 0.55rem 0.5rem !important;
+            }
+        }
+
         /* ---------- Print ---------- */
         @media print {
 

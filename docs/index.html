@@ -321,9 +321,9 @@
             </svg>
         </button>
         <nav class="topbar-nav">
-            <a href="#moats">Four Moats</a>
+            <a href="#moats">Moats</a>
             <a href="https://app.codetrust.ai" target="_blank">Dashboard</a>
-            <a href="#enforcement">Enforcement</a>
+            <a href="#enforcement">Gateway</a>
             <a href="#enterprise">Enterprise</a>
             <a href="#pipeline">Layers</a>
             <a href="#demo">Proof</a>
@@ -337,7 +337,7 @@
         </nav>
     </header>
 
-    <!-- HERO -->
+    <!-- 1. HERO -->
     <section class="hero">
         <div class="hero-content">
             <div class="hero-logo">
@@ -365,35 +365,27 @@
                             </feMerge>
                         </filter>
                     </defs>
-                    <!-- Shield body -->
                     <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#shieldGrad)"
                         stroke="url(#shieldStroke)" stroke-width="4" />
-                    <!-- Inner highlight ring -->
                     <path d="M60 18L22 36v32c0 26 16 44 38 52 22-8 38-26 38-52V36L60 18z" fill="none"
                         stroke="rgba(96,165,250,0.1)" stroke-width="1" />
-                    <!-- </> code symbol -->
                     <text x="60" y="76" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="40"
                         font-weight="700" fill="#22c55e" filter="url(#codeGlow)">&lt;/&gt;</text>
-                    <!-- Checkmark -->
                     <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"
                         stroke-linejoin="round" fill="none" filter="url(#codeGlow)" />
-                    <!-- Inner glow -->
                     <circle cx="60" cy="70" r="35" fill="url(#innerGlow)" opacity="0.6" />
                 </svg>
                 <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
                         class="hero-tagline">AI-Governance Enforcement Platform</span></span>
             </div>
-            <span class="hero-version">v3.0.0 &mdash; 2,058 tests &mdash; 10 layers &mdash; 484 rules &mdash; 62
-                endpoints</span>
-            <h1>Prevent unsafe AI code<span class="line2">Before it executes</span></h1>
-            <p class="hero-sub">Pre-execution governance for AI-assisted development.<br>Block risky actions
-                <strong>before</strong> they run — across IDE, CI, and agents.
-            </p>
+            <span class="hero-version">v3.0.0 &mdash; 484 rules &mdash; 10 layers &mdash; 2,058 tests</span>
+            <h1>The only scanner that catches<span class="line2">code that doesn't exist</span></h1>
+            <p class="hero-sub">AI generates packages that were never published. Functions that were never written.<br>CodeTrust catches them &mdash; <strong>before they ship</strong>.</p>
             <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="install-codetrust"
                 data-webmcp-description="Install CodeTrust AI governance enforcement platform">
                 <a href="https://app.codetrust.ai" class="btn btn-primary" target="_blank">Get Started Free</a>
-                <a href="#pipeline" class="btn btn-ghost" data-webmcp-tool="navigate"
-                    data-webmcp-param-section="pipeline">See how it works</a>
+                <a href="#moats" class="btn btn-ghost" data-webmcp-tool="navigate"
+                    data-webmcp-param-section="pipeline">See what we catch</a>
             </div>
             <div class="hero-pip" data-webmcp-context="install-cli" data-webmcp-action="pip-install"
                 data-webmcp-description="Install CodeTrust via pip">
@@ -403,146 +395,20 @@
                     data-webmcp-param-command="pip install codetrust">$ pip install codetrust</code>
                 <span class="copied">copied</span>
             </div>
-            <div class="scroll-indicator">
-                <span>Scroll</span>
-                <svg width="16" height="24" viewBox="0 0 16 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <rect x="4" y="1" width="8" height="14" rx="4" />
-                    <line x1="8" y1="5" x2="8" y2="8" />
-                    <path d="M4 18l4 4 4-4" />
-                </svg>
-            </div>
-        </div>
-    </section>
-
-    <!-- LIVE DASHBOARD -->
-    <section class="container live-dashboard reveal" id="live-stats">
-        <div class="section-tag section-center">Live Telemetry</div>
-        <h2 class="reveal" style="text-align:center">Global usage — all instrumented surfaces, real-time</h2>
-        <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
-            Every scan, every block, every verification — streamed live from production.<br>
-            <span class="live-dot"></span> <span id="live-updated-at"
-                style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting…</span>
-        </p>
-
-        <div class="dash-grid">
-            <!-- SCANNING -->
-            <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">🔍</span> Scanning
+            <!-- Proof bar -->
+            <div class="stats-bar" style="border:none;padding:1.5rem 0 0;gap:2rem;">
+                <div class="stat-item" style="padding:0;">
+                    <div class="stat-num" style="font-size:1.5rem;">484</div>
+                    <div class="stat-label">rules</div>
                 </div>
-                <div class="dash-hero-num dash-val-amber" data-key="total_findings">0</div>
-                <div class="dash-hero-label">findings detected</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
-                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
+                <div class="stat-item" style="padding:0;">
+                    <div class="stat-num" style="font-size:1.5rem;">8</div>
+                    <div class="stat-label">registries verified</div>
                 </div>
-            </div>
-
-            <!-- PROTECTION -->
-            <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">🛡️</span> Protection
+                <div class="stat-item" style="padding:0;">
+                    <div class="stat-num" style="font-size:1.5rem;">Taint</div>
+                    <div class="stat-label">analysis built-in</div>
                 </div>
-                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
-                <div class="dash-hero-label">issues blocked</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail">commands stopped</span>
-                    <span class="dash-detail">hallucinations caught</span>
-                    <span class="dash-detail">imports verified</span>
-                </div>
-            </div>
-
-            <!-- DISTRIBUTION -->
-            <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">📦</span> Reach
-                </div>
-                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
-                <div class="dash-hero-label">pip installs</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk
-                        PyPI</span>
-                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
-                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- SOURCE BREAKDOWN -->
-        <div class="dash-source-bar reveal">
-            <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong
-                    data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code
-                <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub
-                Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API
-                <strong data-key="src_cloud_api">0</strong></span>
-        </div>
-
-        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, GitHub Actions,
-            and Cloud API.</div>
-        <div class="telemetry-note" style="margin-top:.35rem">Source of truth: <code>/v1/stats/public</code> +
-            <code>/v1/stats/live</code>.
-        </div>
-        <div class="telemetry-note" style="margin-top:.4rem">PyPI installs via <a
-                href="https://pepy.tech/projects/codetrust" style="color:var(--text-3)" target="_blank"
-                rel="noopener">pepy.tech</a>. VS Code &amp; Open VSX via public marketplace APIs.</div>
-    </section>
-
-    <section class="container impact-threats reveal" id="impact-threats">
-        <div class="section-tag section-center">Threat Intelligence</div>
-        <h2 class="reveal" style="text-align:center">Findings Breakdown</h2>
-        <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
-            Live production findings grouped into six high-impact risk categories.
-        </p>
-        <div class="impact-grid" id="impact-grid"></div>
-    </section>
-
-    <section class="container" id="release-highlights">
-        <div class="section-tag section-center">Release Highlights</div>
-        <h2 class="reveal">What&rsquo;s new in v3.0.0 &amp; what comes next</h2>
-        <p class="section-desc reveal">Public roadmap + shipped capabilities in one place, aligned with the release
-            notes.</p>
-
-        <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
-            <div class="moat-card">
-                <h3>Shipped in v3.0.0 &mdash; Competitive Leap</h3>
-                <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
-                    <li><strong>Taint analysis engine</strong> &mdash; intra-procedural source-to-sink data flow
-                        tracking. Detects SQL injection, command injection, XSS, path traversal, SSRF, and
-                        deserialization across Python, JavaScript, and TypeScript. Sanitizer-aware confidence scoring.</li>
-                    <li><strong>198 new security rules</strong> &mdash; scan rules expanded from 204 to 402. 15 new
-                        categories including secrets detection, cryptography, AI-specific, and framework-aware rules.
-                        Deep coverage for Go, Java, C/C++, Rust, Swift, Kotlin, and TypeScript.</li>
-                    <li><strong>NVD CVSS enrichment</strong> &mdash; vulnerability scanner now queries NVD as fallback
-                        when OSV returns unknown severity. CVSS v3.1/v3.0/v2.0 priority chain, cached 24h.</li>
-                    <li><strong>Framework-aware detection</strong> &mdash; new rules for Django, FastAPI, Express,
-                        Spring Boot, React useEffect, and Next.js patterns that generic scanners miss.</li>
-                    <li><strong>Deep language rules</strong> &mdash; TypeScript <code>as any</code> cast, Go error ignored,
-                        Java <code>System.exit()</code>, Rust <code>todo!()</code> macro, Swift force unwrap &mdash;
-                        language-idiomatic patterns that matter in production.</li>
-                </ul>
-            </div>
-            <div class="moat-card">
-                <h3>Coming next</h3>
-                <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
-                    <li><strong>Inter-procedural taint analysis</strong> &mdash; cross-function and cross-file
-                        data flow tracking for deeper injection detection</li>
-                    <li><strong>Policy packs for compliance frameworks</strong> &mdash; out-of-the-box presets for SOC
-                        2, ISO 27001, and PCI-DSS controls</li>
-                    <li><strong>Auto-remediation PR mode</strong> &mdash; optional branch + PR generation from trusted
-                        quick-fixes with approval guardrails</li>
-                    <li><strong>Org-level governance alerting</strong> &mdash; Slack/Teams notifications for drift,
-                        policy hash changes, and repeat BLOCK events</li>
-                    <li><strong>Dependency risk intelligence</strong> &mdash; package health signals (maintainer churn,
-                        abandonment risk, suspicious release patterns)</li>
-                    <li><strong>Exception lifecycle hardening</strong> &mdash; expiration-required exceptions, owner
-                        assignment, and escalation for stale approvals</li>
-                    <li><strong>Public feedback triage loop</strong> &mdash; issue-template-driven intake to
-                        release-note traceability and response SLA tracking</li>
-                </ul>
             </div>
         </div>
     </section>
@@ -589,39 +455,77 @@
         </span>
     </div>
 
-    <!-- STATS BAR -->
-    <div class="stats-bar reveal">
-        <div class="stat-item">
-            <div class="stat-num">484</div>
-            <div class="stat-label">Enforcement Rules</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">10</div>
-            <div class="stat-label">Verification Layers</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">27</div>
-            <div class="stat-label">MCP Tools</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">62</div>
-            <div class="stat-label">API Endpoints</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-num">2,058</div>
-            <div class="stat-label">Tests Passing</div>
-        </div>
-    </div>
+    <!-- 2. COMPETITIVE PROOF -->
+    <section class="container reveal" id="rules">
+        <div class="section-tag section-center" style="color:var(--red);">What your current tools miss</div>
+        <h2 class="reveal" style="text-align:center">Side-by-side: CodeTrust vs. the incumbents</h2>
 
-    <!-- THREE MOATS -->
+        <div style="overflow-x:auto;margin-top:2.5rem;">
+            <table class="compare-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.88rem;font-family:'IBM Plex Mono',monospace;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-3);font-weight:500;font-size:0.78rem;"></th>
+                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:2px solid var(--indigo);color:var(--white);font-weight:700;background:var(--indigo-dim);border-radius:8px 8px 0 0;">CodeTrust</th>
+                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">SonarQube</th>
+                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">Semgrep</th>
+                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">Snyk</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">AI Governance Gateway</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">82 rules</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Hallucination Detection</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">8 registries</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Taint Analysis</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">Built-in</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">SAST Rules</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--white);font-weight:600;">402</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">5,000+</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">3,000+</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">SAST</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Pre-execution blocking</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">Real-time</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
+                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.75rem 1rem;color:var(--text-2);">Price / 10 devs</td>
+                        <td style="padding:0.75rem 1rem;text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;font-size:1rem;">$0</td>
+                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$32/mo</td>
+                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$400/mo</td>
+                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$250/mo</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 3. FOUR MOATS -->
     <section class="container" id="moats">
         <div class="section-tag section-center">Competitive Advantage</div>
         <h2 class="reveal">Four moats no other tool has</h2>
-        <p class="section-desc reveal">SonarQube has 5,000 rules. Snyk knows every CVE. Semgrep does cross-file
-            dataflow.<br><strong>CodeTrust does all of that &mdash; plus four capabilities none of them have.</strong>
-        </p>
+        <p class="section-desc reveal">They scan code after it ships. <strong>CodeTrust blocks it before it runs.</strong></p>
 
-        <div class="moats-grid reveal">
+        <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
             <div class="moat-card">
                 <div class="moat-icon moat-icon-gateway">&#x26D4;</div>
                 <h3>AI Governance Gateway</h3>
@@ -636,76 +540,35 @@
             <div class="moat-card">
                 <div class="moat-icon moat-icon-halluc">&#x1F50D;</div>
                 <h3>Hallucination Detection</h3>
-                <p>Extracts imports from source files and verifies every package against live PyPI, npm, crates.io, Go
-                    proxy, Maven, NuGet, RubyGems, and Packagist registries.
-                    Catches packages that <strong>don't exist</strong> &mdash; with exact file and line number.
-                    Signature validation checks function calls against a curated database of <strong>50 modules, 405
-                        functions</strong> with min/max argument enforcement.</p>
+                <p>Verifies every import against live PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist.
+                    Catches packages that <strong>don't exist</strong>. Signature validation checks <strong>405 functions</strong> across 50 modules.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">405</div>
-                    <span class="t-dim">function signatures validated</span>
+                    <div class="moat-stat-num">8</div>
+                    <span class="t-dim">registries verified in real-time</span>
                 </div>
             </div>
             <div class="moat-card">
-                <div class="moat-icon moat-icon-drift">&#x1F4C8;</div>
-                <h3>Trust Score &amp; Drift</h3>
-                <p>Not a snapshot &mdash; a real metric that tracks code safety over time. Baseline trending,
-                    delta tracking, and grade curves answer: <strong>is your code getting safer or more
-                        dangerous?</strong></p>
+                <div class="moat-icon" style="background:rgba(239,68,68,0.12);color:var(--red);">&#x1F9EA;</div>
+                <h3>Taint Analysis</h3>
+                <p>Source-to-sink data flow tracking. Follows user input through variable assignments to dangerous sinks. Detects SQL injection, command injection, XSS, path traversal, SSRF. Sanitizer-aware confidence scoring.</p>
                 <div class="moat-stat">
-                    <div class="moat-stat-num">A+</div>
-                    <span class="t-dim">grade curve with trending</span>
+                    <div class="moat-stat-num">6</div>
+                    <span class="t-dim">injection classes tracked</span>
                 </div>
             </div>
-        </div>
-        <!-- FOURTH MOAT: featured full-width card -->
-        <div class="moat-card moat-highlight reveal" style="margin-top:1.5rem;">
-            <!-- Heading row: icon + title + badge -->
-            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-                <div class="moat-icon"
-                    style="background:rgba(99,102,241,0.15);color:#818cf8;width:44px;height:44px;font-size:1.4rem;flex-shrink:0;">
-                    &#x1F6E1;</div>
-                <h3 style="font-size:1.15rem;margin:0;">Universal IDE Injection</h3>
-                <span
-                    style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#818cf8;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:4px;padding:0.2rem 0.55rem;white-space:nowrap;">
-                    New in v3.0.0 &mdash; Governance Reliability</span>
-            </div>
-            <!-- Description -->
-            <p style="font-size:0.88rem;color:var(--text-2);line-height:1.7;max-width:640px;margin-bottom:1.4rem;">
-                Install once. CodeTrust injects its governance rules into the global configuration of every AI coding
-                IDE on your machine. Every new AI session starts rule-aware &mdash; no manual setup, no per-project
-                configuration. AI agents that follow their system context use CodeTrust validation proactively. Any
-                that don&rsquo;t are caught by the pre-commit hook, the hard technical backstop.</p>
-            <!-- Stats row: forced single line -->
-            <div class="moat-stats-row">
-                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
-                    <div class="moat-stat-num" style="color:#818cf8;">4</div>
+            <div class="moat-card">
+                <div class="moat-icon" style="background:rgba(99,102,241,0.15);color:#818cf8;">&#x1F6E1;</div>
+                <h3>Universal IDE Injection</h3>
+                <p>Install once. CodeTrust injects governance rules into the global config of every AI IDE on your machine. Zero manual setup. AI agents start rule-aware. Pre-commit hook as hard backstop.</p>
+                <div class="moat-stat">
+                    <div class="moat-stat-num">4</div>
                     <span class="t-dim">IDEs covered automatically</span>
-                </div>
-                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
-                    <div class="moat-stat-num" style="color:#818cf8;">0</div>
-                    <span class="t-dim">configuration steps required</span>
-                </div>
-                <div class="moat-stat" style="border:none;padding:0;margin:0;min-width:0;">
-                    <div class="moat-stat-num" style="color:#818cf8;">100%</div>
-                    <span class="t-dim">of gateway actions audited</span>
-                </div>
-            </div>
-            <!-- IDE checklist: centered below stats -->
-            <div style="display:flex;justify-content:center;margin-top:1.6rem;">
-                <div
-                    style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-2);line-height:1.9;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem 1.4rem;">
-                    <div style="color:#818cf8;margin-bottom:0.4rem;">IDEs covered on install:</div>
-                    <div>&#x2713; Claude Code</div>
-                    <div>&#x2713; Cursor</div>
-                    <div>&#x2713; Windsurf</div>
-                    <div>&#x2713; GitHub Copilot</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- GATEWAY -->
+    <!-- 4. GATEWAY DEMO -->
     <section class="container" id="enforcement">
         <div class="section-tag section-center" style="color: var(--red);">Prevent, don't detect</div>
         <h2 class="reveal">The gateway blocks commands<br>before they execute</h2>
@@ -760,115 +623,81 @@
         </div>
     </section>
 
-    <!-- ARCHITECTURE -->
-    <section class="container">
-        <div class="section-tag section-center">How it integrates</div>
-        <h2 class="reveal">One layer between AI and production</h2>
-        <p class="section-desc reveal">CodeTrust intercepts at every stage. Nothing reaches production unchecked.</p>
-
-        <div class="arch-flow reveal">
-            <div class="arch-node">
-                <span class="arch-icon">&#x1F916;</span>
-                AI Agent
-            </div>
-            <span class="arch-arrow arch-arrow-block">&xrarr;</span>
-            <div class="arch-node arch-node-ct">
-                <span class="arch-icon">&#x1F6E1;</span>
-                CodeTrust
-            </div>
-            <span class="arch-arrow arch-arrow-pass">&xrarr;</span>
-            <div class="arch-node">
-                <span class="arch-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#e8e8ec" style="vertical-align:middle">
-                        <path
-                            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-                    </svg>
-                </span>
-                Git
-            </div>
-            <span class="arch-arrow">&xrarr;</span>
-            <div class="arch-node">
-                <span class="arch-icon">&#x2699;</span>
-                CI / CD
-            </div>
-            <span class="arch-arrow arch-arrow-pass">&xrarr;</span>
-            <div class="arch-node arch-node-safe">
-                <span class="arch-icon">&#x2705;</span>
-                Production
-            </div>
-        </div>
-        <p class="reveal"
-            style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--text-3); margin-top: 1.8rem;">
-            CLI &middot; VS Code &middot; GitHub Action &middot; MCP Server &middot; Cloud API &mdash; same enforcement,
-            every surface
+    <!-- 5. LIVE DASHBOARD -->
+    <section class="container live-dashboard reveal" id="live-stats">
+        <div class="section-tag section-center">Live Telemetry</div>
+        <h2 class="reveal" style="text-align:center">Global usage &mdash; real-time</h2>
+        <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
+            Every scan, every block, every verification &mdash; streamed live from production.<br>
+            <span class="live-dot"></span> <span id="live-updated-at"
+                style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting...</span>
         </p>
-    </section>
 
-    <!-- TRUST SCORE -->
-    <section class="container">
-        <div class="score-grid reveal">
-            <div class="score-visual">
-                <div class="score-circle">
-                    <div class="score-num">94</div>
-                    <div class="score-grade">Grade A</div>
+        <div class="dash-grid">
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">&#x1F50D;</span> Scanning
                 </div>
-                <div class="score-meta">
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">0</div>
-                        <div class="score-meta-label">Hallucinations</div>
-                    </div>
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">3</div>
-                        <div class="score-meta-label">Findings</div>
-                    </div>
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">47</div>
-                        <div class="score-meta-label">Files scanned</div>
-                    </div>
-                </div>
-                <div class="score-trend">&#x2191; improving (+6 from baseline)</div>
-
-                <!-- Trend graph -->
-                <div class="trend-graph">
-                    <div class="trend-label">Trust Score &mdash; last 12 scans</div>
-                    <div class="trend-bars">
-                        <div class="trend-bar trend-bar-ok" style="height: 55%" title="72"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 58%" title="74"></div>
-                        <div class="trend-bar trend-bar-bad" style="height: 42%" title="63"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 52%" title="70"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="82"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 68%" title="81"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 72%" title="84"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 75%" title="86"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 70%" title="83"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 80%" title="88"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 88%" title="92"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 94%" title="94"></div>
-                    </div>
-                    <div class="trend-axis">
-                        <span>12 scans ago</span>
-                        <span>now</span>
-                    </div>
+                <div class="dash-hero-num dash-val-amber" data-key="total_findings">0</div>
+                <div class="dash-hero-label">findings detected</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
+                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
                 </div>
             </div>
-            <div class="score-text">
-                <div class="section-tag">Continuous Governance</div>
-                <h2>Is your AI code<br><span class="gradient-green">getting safer?</span></h2>
-                <p>Every scan produces a Trust Score. Hallucination findings are penalized heavily.
-                    The baseline persists between runs. Delta tracking shows improvement or regression.</p>
-                <ul class="score-features">
-                    <li>Grade curve: A+ / A / B+ / B / C+ / C / D / F</li>
-                    <li>Persistent baseline stored per project</li>
-                    <li>Trend analysis: improving / degrading / stable</li>
-                    <li>Full history retained for drift tracking</li>
-                    <li>AI trust sub-score weighted by hallucination severity</li>
-                </ul>
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">&#x1F6E1;&#xFE0F;</span> Protection
+                </div>
+                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
+                <div class="dash-hero-label">issues blocked</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail">commands stopped</span>
+                    <span class="dash-detail">hallucinations caught</span>
+                    <span class="dash-detail">imports verified</span>
+                </div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <span class="dash-icon">&#x1F4E6;</span> Reach
+                </div>
+                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
+                <div class="dash-hero-label">pip installs</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
+                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
+                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
+                </div>
             </div>
         </div>
+
+        <div class="dash-source-bar reveal">
+            <span class="dash-source-label">Scans by source:</span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong
+                    data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code
+                <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub
+                Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API
+                <strong data-key="src_cloud_api">0</strong></span>
+        </div>
+
+        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, GitHub Actions,
+            and Cloud API.</div>
     </section>
 
-    <!-- THE PROBLEM -->
-    <section class="container" id="problem">
+    <section class="container impact-threats reveal" id="impact-threats">
+        <div class="section-tag section-center">Threat Intelligence</div>
+        <h2 class="reveal" style="text-align:center">Findings Breakdown</h2>
+        <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
+            Live production findings grouped into six high-impact risk categories.
+        </p>
+        <div class="impact-grid" id="impact-grid"></div>
+    </section>
+
+    <!-- 6. THE PROBLEM + TERMINAL DEMO -->
+    <section class="container" id="demo">
         <div class="narrative-grid reveal">
             <div class="narrative-left">
                 <div class="section-tag">The Problem</div>
@@ -886,87 +715,73 @@
                 <div class="problem-item">
                     <span class="problem-label label-block">BLOCK</span>
                     <h3>Destructive commands</h3>
-                    <p>AI agents run rm -rf, dynamic code execution, curl | sh autonomously &mdash; data loss, RCE,
-                        supply chain
-                        compromise</p>
+                    <p>AI agents run rm -rf, curl | sh autonomously &mdash; data loss, RCE, supply chain compromise</p>
                 </div>
                 <div class="problem-item">
                     <span class="problem-label label-block">BLOCK</span>
                     <h3>Hallucinated packages</h3>
-                    <p>AI invents package names that don't exist on PyPI, npm, or crates.io &mdash; typosquatted malware
-                        installs silently</p>
-                </div>
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h3>Ghost Docker images</h3>
-                    <p>Base images with non-existent tags &mdash; build fails at 2AM on deploy night</p>
+                    <p>AI invents package names that don't exist on any registry &mdash; typosquatted malware installs silently</p>
                 </div>
                 <div class="problem-item">
                     <span class="problem-label label-warn">WARN</span>
                     <h3>Invisible code drift</h3>
-                    <p>AI code quality degrades gradually. No one measures it. Technical debt accumulates without signal
-                    </p>
+                    <p>AI code quality degrades gradually. No one measures it. Technical debt accumulates without signal</p>
                 </div>
                 <div class="problem-item">
                     <span class="problem-label label-prevent">CODETRUST</span>
                     <h3>All prevented, not detected</h3>
-                    <p>Gateway blocks before execution. Import verification catches before install. Drift score tracks
-                        continuously</p>
+                    <p>Gateway blocks before execution. Import verification catches before install. Drift score tracks continuously</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal proof -->
+        <div style="margin-top:4rem;">
+            <h3 class="reveal" style="text-align:center;font-size:1.1rem;color:var(--white);margin-bottom:0.5rem;">Real scan, real output</h3>
+            <p class="section-desc reveal scan-highlights" style="margin-bottom:1.5rem;"><span style="color: var(--red);">Hallucinated package
+                    caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span
+                    style="color: var(--green);">Trust score calculated.</span></p>
+            <div class="terminal reveal" style="max-width:820px;margin:0 auto;">
+                <div class="terminal-bar">
+                    <div class="terminal-dot" style="background:#ff5f57"></div>
+                    <div class="terminal-dot" style="background:#febc2e"></div>
+                    <div class="terminal-dot" style="background:#28c840"></div>
+                    <span class="terminal-bar-title">codetrust scan app.py</span>
+                </div>
+                <div class="terminal-body">
+                    <span class="t-prompt">$</span> <span class="t-cmd">codetrust scan app.py</span>
+                    <br><br>
+                    <span class="t-dim">&#x1F50D; Verifying imports against registries... (1 file(s))</span>
+                    <br><span class="t-dim">&nbsp;&nbsp;&nbsp;Found 1 unverified import(s)</span>
+                    <br><br>
+                    <span class="t-pass">&#x1F6E1;&#xFE0F; CodeTrust Scan</span>
+                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Files:</span> <span class="t-val-num">1</span>
+                    &nbsp;|&nbsp;<span class="t-key">Findings:</span> <span class="t-val-num">2</span>
+                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">AI Drift Score:</span> <span class="t-val-num">87/100</span>
+                    <span class="t-dim">(B)</span>
+                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Trend:</span> <span class="t-warn">degrading (-4 from
+                        baseline)</span>
+                    <br><br>
+                    &nbsp;&nbsp;<span class="t-block">&#x1F6AB; BLOCK &mdash; must fix:</span>
+                    <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:4</span> <span
+                        class="t-key">[import_not_found]</span> <span class="t-val-str">Package 'flask_magic_utils' not
+                        found on pypi &mdash; possible AI hallucination</span>
+                    <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:12</span> <span
+                        class="t-key">[hardcoded_secret]</span> <span class="t-val-str">Possible hardcoded secret &mdash;
+                        use env variables</span>
+                    <div class="t-verdict-line">
+                        <span class="t-dim">flask_magic_utils does not exist on PyPI. No other tool catches this.</span>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- TERMINAL DEMO -->
-    <section class="container" id="demo" style="max-width: 900px;">
-        <div class="section-tag section-center">Proof</div>
-        <h2 class="reveal">Real scan, real output</h2>
-        <p class="section-desc reveal scan-highlights"><span style="color: var(--red);">Hallucinated package
-                caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span
-                style="color: var(--green);">Trust score calculated.</span> <span style="color: #a5b4fc;">All in one
-                command.</span></p>
-
-        <div class="terminal reveal">
-            <div class="terminal-bar">
-                <div class="terminal-dot" style="background:#ff5f57"></div>
-                <div class="terminal-dot" style="background:#febc2e"></div>
-                <div class="terminal-dot" style="background:#28c840"></div>
-                <span class="terminal-bar-title">codetrust scan app.py</span>
-            </div>
-            <div class="terminal-body">
-                <span class="t-prompt">$</span> <span class="t-cmd">codetrust scan app.py</span>
-                <br><br>
-                <span class="t-dim">&#x1F50D; Verifying imports against registries... (1 file(s))</span>
-                <br><span class="t-dim">&nbsp;&nbsp;&nbsp;Found 1 unverified import(s)</span>
-                <br><br>
-                <span class="t-pass">&#x1F6E1;&#xFE0F; CodeTrust Scan</span>
-                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Files:</span> <span class="t-val-num">1</span>
-                &nbsp;|&nbsp;<span class="t-key">Findings:</span> <span class="t-val-num">2</span>
-                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">AI Drift Score:</span> <span class="t-val-num">87/100</span>
-                <span class="t-dim">(B)</span>
-                <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Trend:</span> <span class="t-warn">degrading (-4 from
-                    baseline)</span>
-                <br><br>
-                &nbsp;&nbsp;<span class="t-block">&#x1F6AB; BLOCK &mdash; must fix:</span>
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:4</span> <span
-                    class="t-key">[import_not_found]</span> <span class="t-val-str">Package 'flask_magic_utils' not
-                    found on pypi &mdash; possible AI hallucination</span>
-                <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:12</span> <span
-                    class="t-key">[hardcoded_secret]</span> <span class="t-val-str">Possible hardcoded secret &mdash;
-                    use env variables</span>
-                <div class="t-verdict-line">
-                    <span class="t-dim">flask_magic_utils does not exist on PyPI. No other tool catches this.</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- PIPELINE -->
+    <!-- 7. PIPELINE: 10 ENFORCEMENT LAYERS -->
     <section class="container" id="pipeline">
         <div class="section-tag section-center">Architecture</div>
         <h2 class="reveal">10 enforcement layers</h2>
-        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 10, it ships. If not &mdash; you know
-            exactly why.</p>
+        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 10, it ships.</p>
 
         <div class="pipe-track reveal">
             <div class="pipe-step">
@@ -1046,7 +861,7 @@
         </div>
     </section>
 
-    <!-- ENTERPRISE SERVICES -->
+    <!-- 8. ENTERPRISE SERVICES -->
     <section class="container" id="enterprise">
         <div class="section-tag section-center" style="color: var(--green);">Enterprise Services</div>
         <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge<span class="free-line">for free</span></h2>
@@ -1103,141 +918,75 @@
                 </div>
             </div>
         </div>
-    </section>
 
-    <!-- RULES -->
-    <section class="container" id="rules">
-        <div class="section-tag section-center">What we enforce</div>
-        <h2 class="reveal">484 rules across every layer</h2>
-        <p class="section-desc reveal">402 scan rules + 82 gateway rules. BLOCK stops the pipeline &mdash; WARN flags
-            risk &mdash; INFO improves</p>
-
-        <div class="rule-tabs reveal" id="ruleTabs" data-webmcp-context="rules" data-webmcp-action="filter-rules"
-            data-webmcp-description="Filter CodeTrust enforcement rules by category">
-            <button class="rule-tab active" data-cat="all" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="all">All</button>
-            <button class="rule-tab" data-cat="gateway" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="gateway">Gateway</button>
-            <button class="rule-tab" data-cat="security" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="security">Security</button>
-            <button class="rule-tab" data-cat="halluc" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="hallucination">Hallucination</button>
-            <button class="rule-tab" data-cat="infra" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="infra">Infra &amp; SQL</button>
-            <button class="rule-tab" data-cat="container" data-webmcp-tool="filter_rules"
-                data-webmcp-param-category="container">Container</button>
-        </div>
-
-        <div class="rule-grid reveal" id="ruleGrid">
-            <!-- Gateway -->
-            <div class="rule-card visible" data-cat="gateway">
-                <div class="rule-id">gateway_rm_rf_root</div>
-                <div class="rule-msg">Destructive file deletion &mdash; rm -rf / blocked before execution</div>
-                <span class="rule-sev sev-block">BLOCK</span>
+        <!-- Trust Score subsection -->
+        <div class="score-grid reveal" style="margin-top:3rem;">
+            <div class="score-visual">
+                <div class="score-circle">
+                    <div class="score-num">94</div>
+                    <div class="score-grade">Grade A</div>
+                </div>
+                <div class="score-meta">
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">0</div>
+                        <div class="score-meta-label">Hallucinations</div>
+                    </div>
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">3</div>
+                        <div class="score-meta-label">Findings</div>
+                    </div>
+                    <div class="score-meta-item">
+                        <div class="score-meta-val">47</div>
+                        <div class="score-meta-label">Files scanned</div>
+                    </div>
+                </div>
+                <div class="score-trend">&#x2191; improving (+6 from baseline)</div>
+                <div class="trend-graph">
+                    <div class="trend-label">Trust Score &mdash; last 12 scans</div>
+                    <div class="trend-bars">
+                        <div class="trend-bar trend-bar-ok" style="height: 55%" title="72"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 58%" title="74"></div>
+                        <div class="trend-bar trend-bar-bad" style="height: 42%" title="63"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 52%" title="70"></div>
+                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="82"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 68%" title="81"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 72%" title="84"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 75%" title="86"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 70%" title="83"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 80%" title="88"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 88%" title="92"></div>
+                        <div class="trend-bar trend-bar-good" style="height: 94%" title="94"></div>
+                    </div>
+                    <div class="trend-axis">
+                        <span>12 scans ago</span>
+                        <span>now</span>
+                    </div>
+                </div>
             </div>
-            <div class="rule-card visible" data-cat="gateway">
-                <div class="rule-id">gateway_heredoc</div>
-                <div class="rule-msg">Heredoc command injection &mdash; blocked at gateway level</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="gateway">
-                <div class="rule-id">gateway_curl_pipe_sh</div>
-                <div class="rule-msg">Remote code execution via curl | sh &mdash; blocked before execution</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="gateway">
-                <div class="rule-id">gateway_git_push</div>
-                <div class="rule-msg">Git push requires explicit approval &mdash; prevents accidental pushes</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="gateway">
-                <div class="rule-id">gateway_content_secret</div>
-                <div class="rule-msg">Hardcoded secret in file write &mdash; blocked before file is created</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <!-- Hallucination -->
-            <div class="rule-card visible" data-cat="halluc">
-                <div class="rule-id">import_not_found</div>
-                <div class="rule-msg">Package doesn't exist on registry &mdash; AI hallucination caught</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="halluc">
-                <div class="rule-id">hallucinated_import_misspelled</div>
-                <div class="rule-msg">Import name is a known misspelling of a real package</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="halluc">
-                <div class="rule-id">hallucinated_method_chain</div>
-                <div class="rule-msg">Method chain references non-existent API &mdash; possible hallucination</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="halluc">
-                <div class="rule-id">fake_api_key_format</div>
-                <div class="rule-msg">API key matches placeholder pattern &mdash; not a real key</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <div class="rule-card visible" data-cat="halluc">
-                <div class="rule-id">placeholder_url</div>
-                <div class="rule-msg">URL contains example.com or placeholder domain</div>
-                <span class="rule-sev sev-warn">WARN</span>
-            </div>
-            <!-- Security -->
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">hardcoded_secret</div>
-                <div class="rule-msg">Hardcoded API keys, tokens or passwords &mdash; use environment variables</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">eval_exec</div>
-                <div class="rule-msg">eval/exec opens arbitrary code execution &mdash; use safe alternatives</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="security">
-                <div class="rule-id">sql_injection</div>
-                <div class="rule-msg">String-formatted queries &mdash; use parameterized queries</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <!-- Infra & SQL -->
-            <div class="rule-card visible" data-cat="infra">
-                <div class="rule-id">sql_delete_no_where</div>
-                <div class="rule-msg">DELETE without WHERE &mdash; will remove all rows</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="infra">
-                <div class="rule-id">sql_grant_all</div>
-                <div class="rule-msg">GRANT ALL gives excessive privileges on production</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="infra">
-                <div class="rule-id">docker_image_not_found</div>
-                <div class="rule-msg">Base image or tag doesn't exist on Docker Hub</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <!-- Container -->
-            <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">docker_root_user</div>
-                <div class="rule-msg">Container runs as root &mdash; add USER directive</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">k8s_privileged</div>
-                <div class="rule-msg">Pod runs in privileged mode &mdash; container escape risk</div>
-                <span class="rule-sev sev-block">BLOCK</span>
-            </div>
-            <div class="rule-card visible" data-cat="container">
-                <div class="rule-id">k8s_no_resource_limits</div>
-                <div class="rule-msg">No resource limits set &mdash; unbounded resource consumption</div>
-                <span class="rule-sev sev-warn">WARN</span>
+            <div class="score-text">
+                <div class="section-tag">Trust Score</div>
+                <h2>Is your AI code<br><span class="gradient-green">getting safer?</span></h2>
+                <p>Every scan produces a Trust Score. Hallucination findings are penalized heavily.
+                    The baseline persists between runs. Delta tracking shows improvement or regression.</p>
+                <ul class="score-features">
+                    <li>Grade curve: A+ / A / B+ / B / C+ / C / D / F</li>
+                    <li>Persistent baseline stored per project</li>
+                    <li>Trend analysis: improving / degrading / stable</li>
+                    <li>Full history retained for drift tracking</li>
+                    <li>AI trust sub-score weighted by hallucination severity</li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <!-- LANGUAGES -->
-    <section class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
-        <div class="reveal" style="text-align: center;">
-            <div class="section-tag">Coverage</div>
-            <h2>One tool, every stack</h2>
-            <div class="lang-row" style="margin-top: 2rem;">
+    <!-- 9. COVERAGE + INSTALL -->
+    <section class="container" id="install">
+        <div class="section-tag section-center">Get Started</div>
+        <h2 class="reveal">One tool, every stack, six ways in</h2>
+
+        <!-- Language chips -->
+        <div class="reveal" style="text-align:center;margin-bottom:2.5rem;">
+            <div class="lang-row" style="margin-top:1.5rem;">
                 <span class="lang-chip">Python</span>
                 <span class="lang-chip">JavaScript</span>
                 <span class="lang-chip">TypeScript</span>
@@ -1257,13 +1006,8 @@
                 <span class="lang-chip">PowerShell</span>
             </div>
         </div>
-    </section>
 
-    <!-- INSTALL -->
-    <section class="container" id="install">
-        <div class="section-tag section-center">Get Started</div>
-        <h2 class="reveal">Six ways in</h2>
-
+        <!-- Install grid -->
         <div class="install-grid reveal">
             <div class="install-card">
                 <h3>CLI (PyPI)</h3>
@@ -1280,53 +1024,35 @@
             </div>
             <div class="install-card">
                 <h3>Chrome Extension</h3>
-                <p>Browser-side scans and import verification workflows.</p>
-                <code>CodeTrust — AI Governance Enforcement</code>
+                <p>Browser-side scans and import verification.</p>
+                <code>CodeTrust AI Governance</code>
                 <a href="https://chrome.google.com/webstore/detail/codetrust-ai-code-safety" target="_blank"
-                    class="card-link">View on Chrome Web Store &rarr;</a>
+                    class="card-link">Chrome Web Store &rarr;</a>
             </div>
             <div class="install-card">
                 <h3>GitHub Action</h3>
                 <p>CI/CD gate. Fails PR on BLOCK findings.</p>
                 <code>uses: S-Borna/codetrust@v3.0.0</code>
-                <a href="https://codetrust.ai" target="_blank" class="card-link">View docs
-                    &rarr;</a>
+                <a href="https://codetrust.ai" target="_blank" class="card-link">View docs &rarr;</a>
             </div>
             <div class="install-card">
                 <h3>MCP Server</h3>
                 <p>27 tools. Claude, Copilot, Cursor.</p>
                 <code>codetrust-mcp</code>
-                <a href="https://codetrust.ai" target="_blank" class="card-link">Setup guide
-                    &rarr;</a>
+                <a href="https://codetrust.ai" target="_blank" class="card-link">Setup guide &rarr;</a>
             </div>
             <div class="install-card">
                 <h3>Cloud API</h3>
                 <p>60 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
-                <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API
-                    status &rarr;</a>
+                <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API status &rarr;</a>
             </div>
         </div>
-    </section>
 
-    <!-- FEEDBACK -->
-    <section class="container" id="feedback" style="padding-top: 2rem; padding-bottom: 4rem;">
-        <div class="section-tag section-center">Feedback</div>
-        <h2 class="reveal" style="text-align:center">Report bugs and request features</h2>
-        <p class="section-desc reveal" style="text-align:center">Use structured forms so reports include reproducible
-            context and release metadata.</p>
-        <div class="hero-actions" style="justify-content:center; margin-top: 1rem;">
-            <a href="/report.html" class="btn btn-primary">Report a Bug</a>
-            <a href="/report.html" class="btn btn-ghost">Request a Feature</a>
-        </div>
-    </section>
-
-    <!-- COMPLIANCE -->
-    <section class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
-        <div class="reveal" style="text-align: center;">
+        <!-- Compliance chips -->
+        <div class="reveal" style="text-align:center;margin-top:3rem;">
             <div class="section-tag">Enterprise Ready</div>
-            <h2>Compliance surface</h2>
-            <div class="lang-row" style="margin-top: 2rem; flex-wrap: wrap; gap: 0.4rem;">
+            <div class="lang-row" style="margin-top:1rem;flex-wrap:wrap;gap:0.4rem;">
                 <span class="lang-chip">GDPR Art. 15 &amp; 17</span>
                 <span class="lang-chip">SIEM Export</span>
                 <span class="lang-chip">Audit Trail</span>
@@ -1343,11 +1069,15 @@
         </div>
     </section>
 
-    <!-- BOTTOM CTA -->
+    <!-- Hidden anchor for ruleTabs JS binding (rules grid removed from homepage) -->
+    <div id="ruleTabs" style="display:none"></div>
+    <div id="ruleGrid" style="display:none"></div>
+
+    <!-- 10. BOTTOM CTA + FOOTER -->
     <section class="bottom-cta">
         <div class="reveal">
-            <h2>AI writes fast — CodeTrust ensures it's safe</h2>
-            <p>484 rules. 10 enforcement layers. 60 API endpoints.<br>Five enterprise services.</p>
+            <h2>AI writes fast &mdash; CodeTrust ensures it's safe</h2>
+            <p>484 rules. 10 enforcement layers. 60 API endpoints.<br>Five enterprise services. All free.</p>
             <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="get-started"
                 data-webmcp-description="Get started with CodeTrust">
                 <a href="https://app.codetrust.ai" class="btn btn-primary" target="_blank">Get Started Free</a>
@@ -1375,6 +1105,8 @@
                 style="color:var(--text-3);text-decoration:none;">www.saidborna.com</a>
             <span style="color:var(--text-3);">&middot;</span>
             <a href="tos.html" style="color:var(--text-3);text-decoration:none;">Terms of Service</a>
+            <span style="color:var(--text-3);">&middot;</span>
+            <a href="/report.html" style="color:var(--text-3);text-decoration:none;">Feedback</a>
         </div>
         <a href="https://globaldex.ai/domain/codetrust.ai" target="_blank" rel="noopener" style="margin-top:0.6rem;"
             title="GlobalDex AI Agent Readiness Score">

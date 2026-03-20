@@ -85,7 +85,7 @@
             "Hallucination Detection — live registry verification against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist",
             "Signature Validation — 50 modules, 405 functions with min/max argument enforcement",
             "Trust Score — quantified code safety with drift tracking",
-            "286 security rules across 10 enforcement layers",
+            "484 security rules across 10 enforcement layers",
             "CVE/vulnerability scanning",
             "License compliance checking",
             "Cross-file analysis",
@@ -152,7 +152,7 @@
         "featureList": [
             "Scan code blocks on GitHub, GitLab, Stack Overflow",
             "Detect AI-hallucinated package imports",
-            "286 security rules across 10 enforcement layers",
+            "484 security rules across 10 enforcement layers",
             "Live registry verification against 8 package registries",
             "Right-click context menu scanning",
             "Inline results overlay",
@@ -195,7 +195,7 @@
                 "name": "What is CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is an AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 286 security rules across 10 inspection layers, blocks AI agent commands before execution, and detects hallucinated packages via live registry verification."
+                    "text": "CodeTrust is an AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 484 security rules across 10 inspection layers, blocks AI agent commands before execution, and detects hallucinated packages via live registry verification."
                 }
             },
             {
@@ -508,23 +508,28 @@
 
         <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
             <div class="moat-card">
-                <h3>Shipped in v3.0.0 &mdash; Reliability Hardening</h3>
+                <h3>Shipped in v3.0.0 &mdash; Competitive Leap</h3>
                 <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
-                    <li><strong>Claude Desktop MCP stability hardening</strong> &mdash; startup no longer crashes when
-                        workspace policy/audit files are unreadable.</li>
-                    <li><strong>Protocol-safe MCP startup</strong> &mdash; stdio logging routed to stderr to prevent
-                        JSON-RPC corruption.</li>
-                    <li><strong>Portable runtime resolution</strong> &mdash; global MCP targets avoid workspace-bound
-                        <code>.venv</code> defaults and prefer safer fallbacks.</li>
-                    <li><strong>IDE startup noise reduction</strong> &mdash; non-actionable no-workspace MCP warnings
-                        are suppressed and disruption watcher is less prone to transient false positives.</li>
-                    <li><strong>Formal user intake</strong> &mdash; structured bug report and feature request forms
-                        added for faster triage and clearer release feedback loops.</li>
+                    <li><strong>Taint analysis engine</strong> &mdash; intra-procedural source-to-sink data flow
+                        tracking. Detects SQL injection, command injection, XSS, path traversal, SSRF, and
+                        deserialization across Python, JavaScript, and TypeScript. Sanitizer-aware confidence scoring.</li>
+                    <li><strong>198 new security rules</strong> &mdash; scan rules expanded from 204 to 402. 15 new
+                        categories including secrets detection, cryptography, AI-specific, and framework-aware rules.
+                        Deep coverage for Go, Java, C/C++, Rust, Swift, Kotlin, and TypeScript.</li>
+                    <li><strong>NVD CVSS enrichment</strong> &mdash; vulnerability scanner now queries NVD as fallback
+                        when OSV returns unknown severity. CVSS v3.1/v3.0/v2.0 priority chain, cached 24h.</li>
+                    <li><strong>Framework-aware detection</strong> &mdash; new rules for Django, FastAPI, Express,
+                        Spring Boot, React useEffect, and Next.js patterns that generic scanners miss.</li>
+                    <li><strong>Deep language rules</strong> &mdash; TypeScript <code>as any</code> cast, Go error ignored,
+                        Java <code>System.exit()</code>, Rust <code>todo!()</code> macro, Swift force unwrap &mdash;
+                        language-idiomatic patterns that matter in production.</li>
                 </ul>
             </div>
             <div class="moat-card">
                 <h3>Coming next</h3>
                 <ul style="margin-top:.7rem;line-height:1.8;color:var(--text-2)">
+                    <li><strong>Inter-procedural taint analysis</strong> &mdash; cross-function and cross-file
+                        data flow tracking for deeper injection detection</li>
                     <li><strong>Policy packs for compliance frameworks</strong> &mdash; out-of-the-box presets for SOC
                         2, ISO 27001, and PCI-DSS controls</li>
                     <li><strong>Auto-remediation PR mode</strong> &mdash; optional branch + PR generation from trusted
@@ -587,7 +592,7 @@
     <!-- STATS BAR -->
     <div class="stats-bar reveal">
         <div class="stat-item">
-            <div class="stat-num">286</div>
+            <div class="stat-num">484</div>
             <div class="stat-label">Enforcement Rules</div>
         </div>
         <div class="stat-item">
@@ -603,7 +608,7 @@
             <div class="stat-label">API Endpoints</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num">1,974</div>
+            <div class="stat-num">2,058</div>
             <div class="stat-label">Tests Passing</div>
         </div>
     </div>
@@ -1296,7 +1301,7 @@
             </div>
             <div class="install-card">
                 <h3>Cloud API</h3>
-                <p>54 REST endpoints. No install needed.</p>
+                <p>60 REST endpoints. No install needed.</p>
                 <code>POST /v1/scan/deep</code>
                 <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API
                     status &rarr;</a>
@@ -1328,6 +1333,8 @@
                 <span class="lang-chip">Prometheus Metrics</span>
                 <span class="lang-chip">CVE / Vulnerability Scan</span>
                 <span class="lang-chip">License Compliance</span>
+                <span class="lang-chip">Taint Analysis</span>
+                <span class="lang-chip">SARIF 2.1.0 Export</span>
                 <span class="lang-chip">Cross-File Analysis</span>
                 <span class="lang-chip">Auto-Fix PRs</span>
                 <span class="lang-chip">Team RBAC</span>

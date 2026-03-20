@@ -122,7 +122,6 @@ from src.models.responses import (
 )
 from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
-from src.services.taint_analyzer import TaintAnalyzer
 from src.services.auth import AuthService
 from src.services.autofix import AutoFixResult
 from src.services.billing import PLAN_LIMITS, BillingService
@@ -138,6 +137,7 @@ from src.services.registry import RegistryService
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.sso import OIDCConfig, OIDCService
 from src.services.static_analyzer import StaticAnalyzer
+from src.services.taint_analyzer import TaintAnalyzer
 from src.services.telemetry import STATS_CACHE_KEY, TelemetryIngestEvent, process_telemetry_event
 from src.services.unified_session import UnifiedSessionStore
 from src.services.vulnerability import VulnScanResponse

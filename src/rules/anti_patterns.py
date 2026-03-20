@@ -2484,7 +2484,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- Logging Security ---
     {
         "id": "log_sensitive_data",
-        "pattern": r"(log|logger|logging)\.(info|debug|warning|error)\s*\(.*\b(password|secret|token|key|credit_card|ssn|cvv)\b",
+        "pattern": r"(log|logger|logging)\.(info|debug|warning|error)\s*\(.*\b(password|secret|token|api_key|secret_key|private_key|credit_card|ssn|cvv)\b",
         "message": "Sensitive data in log statement — redact secrets before logging",
         "severity": Severity.BLOCK,
     },

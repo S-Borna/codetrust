@@ -349,7 +349,9 @@ export function watchForGovernanceDisruption(
 ): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
     const targets = buildTargets();
-    const RECHECK_DELAY_MS = 300;
+    const RECHECK_DELAY_MS = 2000;
+    const STARTUP_GRACE_MS = 8000;
+    const activatedAt = Date.now();
 
     // ── Layer 1: watch existing injected files for overwrites ──────────────────
     for (const target of targets) {
@@ -394,8 +396,11 @@ export function watchForGovernanceDisruption(
         };
 
         const handleChange = (): void => {
-            // Some editors write files via truncate-then-write and can trigger
-            // transient change events before final content is flushed.
+            // Suppress during startup — VS Code file system emits transient
+            // events during workspace initialization and window reload.
+            if (Date.now() - activatedAt < STARTUP_GRACE_MS) {
+                return;
+            }
             if (pendingRecheck) {
                 clearTimeout(pendingRecheck);
             }
@@ -403,24 +408,35 @@ export function watchForGovernanceDisruption(
         };
 
         const handleDelete = (): void => {
+            // Suppress during startup — workspace reload triggers transient
+            // file deletion events that resolve within seconds.
+            if (Date.now() - activatedAt < STARTUP_GRACE_MS) {
+                return;
+            }
             if (pendingRecheck) {
                 clearTimeout(pendingRecheck);
             }
-            outputChannel.appendLine(
-                `CodeTrust: Config file deleted for ${target.name} — showing recovery prompt.`,
-            );
-            void vscode.window
-                .showWarningMessage(
-                    `CodeTrust: The governance rules file for ${displayName(target)} was deleted. ` +
-                    `Re-inject to restore enforcement?`,
-                    ACTION_REINJECT,
-                    "Dismiss",
-                )
-                .then((action) => {
-                    if (action === ACTION_REINJECT) {
-                        void injectUniversalInstructions(outputChannel);
-                    }
-                });
+            // Delay and recheck — the file may reappear after a transient delete.
+            pendingRecheck = setTimeout(() => {
+                if (fs.existsSync(target.filePath)) {
+                    return; // File came back — false alarm
+                }
+                outputChannel.appendLine(
+                    `CodeTrust: Config file deleted for ${target.name} — showing recovery prompt.`,
+                );
+                void vscode.window
+                    .showWarningMessage(
+                        `CodeTrust: The governance rules file for ${displayName(target)} was deleted. ` +
+                        `Re-inject to restore enforcement?`,
+                        ACTION_REINJECT,
+                        "Dismiss",
+                    )
+                    .then((action) => {
+                        if (action === ACTION_REINJECT) {
+                            void injectUniversalInstructions(outputChannel);
+                        }
+                    });
+            }, RECHECK_DELAY_MS);
         };
 
         const timerDisposable = new vscode.Disposable(() => {
@@ -440,6 +456,10 @@ export function watchForGovernanceDisruption(
     // ── Layer 2: detect newly installed IDEs on window focus ───────────────────
     const focusDisposable = vscode.window.onDidChangeWindowState((state) => {
         if (!state.focused) {
+            return;
+        }
+        // Suppress during startup grace period
+        if (Date.now() - activatedAt < STARTUP_GRACE_MS) {
             return;
         }
 

@@ -207,6 +207,11 @@ a { color: inherit; text-decoration: none; }
     margin-bottom: 1.5rem;
     text-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
 }
+.hero-intro {
+    font-size: 0.95rem; color: var(--text-2);
+    text-align: center; line-height: 1.7;
+    max-width: 640px; margin: 0 auto 2rem;
+}
 .hero-hl-blue { color: #3b82f6; }
 .hero-hl-green { color: #10b981; }
 .hl-green { color: #10b981; font-weight: 600; }

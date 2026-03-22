@@ -310,7 +310,7 @@ body.loaded .hero-below {
 
 /* ====================== SCREEN 2: THREE CARDS ====================== */
 .three-cards {
-    display: grid; grid-template-columns: repeat(3, 1fr);
+    display: grid; grid-template-columns: 1fr 1.4fr 1.2fr;
     gap: 2.5rem; align-items: start;
     max-width: 1400px; margin: 0 auto;
     padding: 0 1rem;
@@ -376,7 +376,7 @@ body.loaded .hero-below {
 /* Gateway anim */
 .gateway-line {
     display: grid;
-    grid-template-columns: 55px 1fr 65px;
+    grid-template-columns: 50px 1fr 72px;
     align-items: center; gap: 0.5rem;
     padding: 0.35rem 0.5rem;
     border-radius: 5px;
@@ -676,7 +676,7 @@ footer a:hover { color: var(--text-2); }
     .impact-grid { grid-template-columns: 1fr; }
     .dash-hero-num { font-size: 2rem; }
     .dash-source-bar { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-    .gateway-line { grid-template-columns: 55px 1fr 65px; font-size: 0.68rem; }
+    .gateway-line { grid-template-columns: 50px 1fr 72px; font-size: 0.68rem; }
     .compare-table { font-size: 0.75rem; }
     .compare-table td, .compare-table th { padding: 0.55rem 0.5rem; }
 }

@@ -119,13 +119,30 @@ class StaticAnalyzer:
                     return True
         return False
 
-    def scan_code(self, code: str, filename: str = "") -> list[Finding]:
-        """Run all anti-pattern rules against a code string."""
+    def scan_code(
+        self,
+        code: str,
+        filename: str = "",
+        custom_rules: list[dict[str, object]] | None = None,
+    ) -> list[Finding]:
+        """Run all anti-pattern rules against a code string.
+
+        Args:
+            code: Source code content to scan.
+            filename: File path for extension-based rule filtering.
+            custom_rules: Optional user-defined rules from .codetrust-rules.yml.
+                          If provided, they are appended to the active rule set
+                          for this scan invocation only.
+        """
         findings: list[Finding] = []
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
-        for rule in self._rules:
+        active_rules = self._rules
+        if custom_rules:
+            active_rules = list(self._rules) + list(custom_rules)
+
+        for rule in active_rules:
             if self._should_skip_rule(rule, ext, filename):
                 continue
 
@@ -136,7 +153,10 @@ class StaticAnalyzer:
                     findings.extend(result)
                     continue
 
-            findings.extend(self._apply_rule(rule, lines, filename))
+            if rule.get("negate"):
+                findings.extend(self._apply_negate_rule(rule, lines, filename))
+            else:
+                findings.extend(self._apply_rule(rule, lines, filename))
 
         logger.info(
             "static_scan_complete",
@@ -205,6 +225,32 @@ class StaticAnalyzer:
                     suggestion="",
                 ))
         return findings
+
+    def _apply_negate_rule(
+        self,
+        rule: dict[str, object],
+        lines: list[str],
+        filename: str,
+    ) -> list[Finding]:
+        """Apply a negated rule: fire if pattern is NOT found in the file.
+
+        Used for rules like 'require_error_boundary' where a component
+        MUST contain a certain pattern. If the pattern is absent, a
+        finding is emitted on line 1.
+        """
+        pattern = re.compile(str(rule["pattern"]))
+        for line in lines:
+            if pattern.search(line):
+                return []
+
+        return [Finding(
+            rule_id=str(rule["id"]),
+            severity=Severity(rule["severity"]),
+            message=str(rule["message"]),
+            file=filename,
+            line=1,
+            suggestion=str(rule.get("suggestion", "")),
+        )]
 
     def _check_function_lengths(
         self,

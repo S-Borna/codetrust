@@ -408,6 +408,16 @@
                             <span class="gw-cmd">curl | sh</span>
                             <span class="gw-verdict red">BLOCKED</span>
                         </div>
+                        <div class="gateway-line allowed" data-delay="1200">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">git commit -m "fix"</span>
+                            <span class="gw-verdict green">ALLOWED</span>
+                        </div>
+                        <div class="gateway-line blocked" data-delay="1600">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">chmod 777 /etc</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
                     </div>
                 </div>
                 <div class="demo-card-sub">

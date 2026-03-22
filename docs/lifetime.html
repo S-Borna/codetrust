@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeTrust — Lifetime Deal | AI Governance Pro Forever</title>
+    <meta name="description" content="Get CodeTrust Pro forever. One payment. No subscription. AI governance, taint analysis, CVE scanning, 484 rules. Limited to 100 deals.">
+    <meta property="og:title" content="CodeTrust — Lifetime Deal">
+    <meta property="og:description" content="AI Governance Pro forever. $79 one-time. Limited to 100 deals.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://codetrust.ai/lifetime">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --black: #050507;
+            --surface: #0c0c10;
+            --surface-2: #111116;
+            --border: rgba(255,255,255,0.06);
+            --text: #e8e8ec;
+            --text-2: #a0a0ab;
+            --text-3: #5c5c66;
+            --white: #f4f4f6;
+            --indigo: #6366f1;
+            --green: #10b981;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --cyan: #06b6d4;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            background: var(--black); color: var(--text);
+            line-height: 1.65; -webkit-font-smoothing: antialiased;
+        }
+
+        /* TOPBAR */
+        .topbar {
+            position: fixed; top: 0; width: 100%; z-index: 100;
+            height: 56px; display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 0 clamp(1rem, 4vw, 3rem);
+            background: rgba(5,5,7,0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar-logo {
+            font-weight: 700; font-size: 1.3rem;
+            text-decoration: none;
+        }
+        .topbar-logo .code { color: var(--white); }
+        .topbar-logo .trust { color: #3b82f6; }
+        .topbar-back {
+            font-size: 0.82rem; color: var(--text-2);
+            text-decoration: none; padding: 0.4rem 0.9rem;
+            border-radius: 6px; transition: all 0.3s;
+        }
+        .topbar-back:hover { color: var(--white); background: rgba(255,255,255,0.06); }
+
+        /* HERO */
+        .hero {
+            padding: 10rem 1.5rem 4rem;
+            text-align: center; max-width: 800px;
+            margin: 0 auto;
+        }
+        .hero-badge {
+            display: inline-block;
+            font-size: 0.78rem; font-weight: 600;
+            color: var(--red); background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            padding: 0.35rem 1rem; border-radius: 20px;
+            margin-bottom: 2rem; letter-spacing: 0.05em;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        @keyframes pulse-badge {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.2); }
+            50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700; letter-spacing: -0.03em;
+            line-height: 1.15; margin-bottom: 1.5rem;
+        }
+        .hero h1 .green { color: var(--green); }
+        .hero-sub {
+            font-size: 1.1rem; color: var(--text-2);
+            max-width: 560px; margin: 0 auto 1rem;
+        }
+        .hero-legal {
+            font-size: 0.78rem; color: var(--text-3);
+            margin-bottom: 3rem;
+        }
+
+        /* PRICING GRID */
+        .pricing { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 6rem; }
+        .pricing-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem; align-items: start;
+        }
+        .price-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; padding: 2.5rem 2rem;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+        }
+        .price-card:hover {
+            border-color: rgba(99,102,241,0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .price-card.featured {
+            border-color: var(--indigo);
+            background: linear-gradient(180deg, rgba(99,102,241,0.08) 0%, var(--surface) 100%);
+        }
+        .price-card.featured::before {
+            content: 'MOST POPULAR';
+            position: absolute; top: -12px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem; font-weight: 700;
+            letter-spacing: 0.1em;
+            color: var(--white); background: var(--indigo);
+            padding: 0.3rem 1rem; border-radius: 12px;
+        }
+        .price-tier {
+            font-size: 0.82rem; font-weight: 600;
+            color: var(--text-2); text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 0.5rem;
+        }
+        .price-amount {
+            font-size: 3.5rem; font-weight: 700;
+            color: var(--white); line-height: 1;
+            margin-bottom: 0.3rem;
+        }
+        .price-amount .currency { font-size: 1.5rem; vertical-align: top; color: var(--text-2); }
+        .price-note {
+            font-size: 0.78rem; color: var(--text-3);
+            margin-bottom: 2rem;
+        }
+        .price-features {
+            list-style: none; margin-bottom: 2rem;
+        }
+        .price-features li {
+            padding: 0.5rem 0; font-size: 0.88rem;
+            color: var(--text-2); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .price-features li:last-child { border: none; }
+        .check { color: var(--green); font-weight: 700; }
+        .price-cta {
+            display: block; width: 100%; text-align: center;
+            padding: 0.9rem 1.5rem; border-radius: 8px;
+            font-size: 0.92rem; font-weight: 600;
+            text-decoration: none; transition: all 0.3s;
+        }
+        .price-cta-primary {
+            background: var(--indigo); color: var(--white);
+        }
+        .price-cta-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99,102,241,0.3);
+        }
+        .price-cta-ghost {
+            background: transparent; color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .price-cta-ghost:hover {
+            border-color: var(--indigo); color: var(--white);
+        }
+
+        /* WHAT'S INCLUDED */
+        .included {
+            max-width: 900px; margin: 0 auto;
+            padding: 4rem 1.5rem 6rem; text-align: center;
+        }
+        .included h2 {
+            font-size: 1.8rem; font-weight: 700;
+            margin-bottom: 0.8rem; color: var(--white);
+        }
+        .included-sub {
+            color: var(--text-2); margin-bottom: 3rem;
+        }
+        .included-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 1rem; text-align: left;
+        }
+        .included-item {
+            padding: 1.2rem; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px;
+            font-size: 0.85rem; color: var(--text-2);
+        }
+        .included-item strong {
+            display: block; color: var(--white);
+            margin-bottom: 0.3rem; font-size: 0.9rem;
+        }
+
+        /* GUARANTEE */
+        .guarantee {
+            max-width: 600px; margin: 0 auto;
+            padding: 0 1.5rem 6rem; text-align: center;
+        }
+        .guarantee-box {
+            background: var(--surface); border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 16px; padding: 2.5rem;
+        }
+        .guarantee-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        .guarantee-box h3 {
+            font-size: 1.2rem; color: var(--white); margin-bottom: 0.8rem;
+        }
+        .guarantee-box p {
+            font-size: 0.88rem; color: var(--text-2); line-height: 1.7;
+        }
+
+        /* FOOTER */
+        footer {
+            text-align: center; padding: 3rem 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.78rem; color: var(--text-3);
+        }
+        footer a { color: var(--text-3); text-decoration: none; }
+        footer a:hover { color: var(--text-2); }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+            .included-grid { grid-template-columns: 1fr; }
+            .price-card.featured { order: -1; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="topbar">
+        <a href="https://codetrust.ai" class="topbar-logo">
+            <span class="code">Code</span><span class="trust">Trust</span>
+        </a>
+        <a href="https://codetrust.ai" class="topbar-back">&larr; Back to home</a>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-badge">Limited — 100 lifetime deals available</div>
+        <h1>Get CodeTrust Pro.<br><span class="green">Forever.</span></h1>
+        <p class="hero-sub">One payment. No subscription. Every Pro feature, every future update, for life.</p>
+        <p class="hero-legal">No recurring charges. No upsells. The price you see is the price you pay.</p>
+    </section>
+
+    <section class="pricing">
+        <div class="pricing-grid">
+            <!-- SOLO -->
+            <div class="price-card">
+                <div class="price-tier">Solo</div>
+                <div class="price-amount"><span class="currency">$</span>79</div>
+                <div class="price-note">One-time payment &middot; 1 user</div>
+                <ul class="price-features">
+                    <li><span class="check">&check;</span> Unlimited scans (no daily limit)</li>
+                    <li><span class="check">&check;</span> Taint analysis (SQL, XSS, SSRF)</li>
+                    <li><span class="check">&check;</span> CVE / vulnerability scanning</li>
+                    <li><span class="check">&check;</span> License compliance</li>
+                    <li><span class="check">&check;</span> Signature validation (405 fn)</li>
+                    <li><span class="check">&check;</span> Deep scan mode</li>
+                    <li><span class="check">&check;</span> Trust score trending</li>
+                    <li><span class="check">&check;</span> All future updates</li>
+                </ul>
+                <a href="https://buy.stripe.com/6oU9ATgrm3xhgWS0y98g001" class="price-cta price-cta-ghost">Get Solo</a>
+            </div>
+
+            <!-- TEAM (featured) -->
+            <div class="price-card featured">
+                <div class="price-tier">Team</div>
+                <div class="price-amount"><span class="currency">$</span>199</div>
+                <div class="price-note">One-time payment &middot; 5 users</div>
+                <ul class="price-features">
+                    <li><span class="check">&check;</span> Everything in Solo</li>
+                    <li><span class="check">&check;</span> 5 team members</li>
+                    <li><span class="check">&check;</span> Organization policies</li>
+                    <li><span class="check">&check;</span> RBAC (role-based access)</li>
+                    <li><span class="check">&check;</span> Shared Trust Score dashboard</li>
+                    <li><span class="check">&check;</span> Auto-fix PRs via GitHub</li>
+                    <li><span class="check">&check;</span> Cross-file analysis</li>
+                    <li><span class="check">&check;</span> Priority support</li>
+                </ul>
+                <a href="https://buy.stripe.com/eVq7sL6QM9VFfSO5St8g002" class="price-cta price-cta-primary">Get Team</a>
+            </div>
+
+            <!-- BUSINESS -->
+            <div class="price-card">
+                <div class="price-tier">Business</div>
+                <div class="price-amount"><span class="currency">$</span>399</div>
+                <div class="price-note">One-time payment &middot; 25 users</div>
+                <ul class="price-features">
+                    <li><span class="check">&check;</span> Everything in Team</li>
+                    <li><span class="check">&check;</span> 25 team members</li>
+                    <li><span class="check">&check;</span> SARIF 2.1.0 export</li>
+                    <li><span class="check">&check;</span> SBOM generation (CycloneDX)</li>
+                    <li><span class="check">&check;</span> Webhook alerts (Slack/Teams)</li>
+                    <li><span class="check">&check;</span> Audit log export (SIEM)</li>
+                    <li><span class="check">&check;</span> SSO / OIDC support</li>
+                    <li><span class="check">&check;</span> Dedicated onboarding</li>
+                </ul>
+                <a href="https://buy.stripe.com/7sY6oH6QM5Fp0XU6Wx8g003" class="price-cta price-cta-ghost">Get Business</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="included">
+        <h2>What Pro gives you that Free doesn't</h2>
+        <p class="included-sub">Free tier: 100 scans/day, basic anti-patterns only. Pro unlocks the full platform.</p>
+        <div class="included-grid">
+            <div class="included-item">
+                <strong>Taint Analysis</strong>
+                Source-to-sink data flow tracking. SQL injection, XSS, command injection, SSRF — caught before merge.
+            </div>
+            <div class="included-item">
+                <strong>CVE Scanning</strong>
+                Every dependency checked against OSV + NVD. Severity scores, fix versions, advisory links.
+            </div>
+            <div class="included-item">
+                <strong>License Compliance</strong>
+                Flag copyleft (GPL/AGPL) vs permissive (MIT/Apache). Policy-driven allow/deny lists.
+            </div>
+            <div class="included-item">
+                <strong>Signature Validation</strong>
+                405 functions across 50 modules. Catches hallucinated method names and wrong argument counts.
+            </div>
+            <div class="included-item">
+                <strong>Deep Scan Mode</strong>
+                All 10 layers in one call. Static + AST + taint + imports + Docker + signatures + sandbox.
+            </div>
+            <div class="included-item">
+                <strong>Trust Score Trending</strong>
+                Track code safety over time. Baseline comparison, drift detection, grade curves.
+            </div>
+        </div>
+    </section>
+
+    <section class="guarantee">
+        <div class="guarantee-box">
+            <div class="guarantee-icon">&#x1F6E1;</div>
+            <h3>30-day money-back guarantee</h3>
+            <p>Try CodeTrust Pro for 30 days. If it doesn't make your AI-assisted workflow safer, email us and we'll refund every cent. No questions asked.</p>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2026 Said Borna. All rights reserved.</p>
+        <p style="margin-top:0.5rem">
+            <a href="https://codetrust.ai">Home</a> &middot;
+            <a href="https://codetrust.ai/tos.html">Terms</a> &middot;
+            <a href="https://github.com/S-Borna/codetrust">GitHub</a> &middot;
+            <a href="https://pypi.org/project/codetrust/">PyPI</a>
+        </p>
+    </footer>
+</body>
+</html>

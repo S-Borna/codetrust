@@ -1,11 +1,17 @@
 # Copyright (c) 2026 Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
-"""Intra-procedural taint analysis using tree-sitter AST.
+"""Intra- and inter-procedural taint analysis using tree-sitter AST.
 
 Tracks data flow from untrusted sources (e.g., request parameters)
-to dangerous sinks (e.g., SQL queries, OS commands) within function
-bodies. Reports findings when tainted data reaches a sink without
-sanitization.
+to dangerous sinks (e.g., SQL queries, OS commands) within and across
+function bodies. Reports findings when tainted data reaches a sink
+without sanitization.
+
+Inter-procedural analysis works in two phases:
+  Phase 1 — Build a summary for each function: which parameters carry
+            taint from sources, and whether the return value is tainted.
+  Phase 2 — Re-analyze functions using summaries so that call-site
+            results inherit callee taint information.
 """
 
 from dataclasses import dataclass, field
@@ -36,6 +42,15 @@ TAINT_CONFIDENCE_HIGH = 0.9
 TAINT_CONFIDENCE_MEDIUM = 0.7
 TAINT_CONFIDENCE_SANITIZED = 0.3
 
+# Synthetic source used during summary building to mark parameters
+# as hypothetically tainted for sink-reachability analysis.
+_PARAM_TAINT_SOURCE = TaintSource(
+    name="__parameter__",
+    pattern="__never_matches__",
+    language=Language.PYTHON,
+    description="Synthetic source for parameter taint tracking",
+)
+
 
 @dataclass
 class TaintRecord:
@@ -48,8 +63,24 @@ class TaintRecord:
     sanitized: bool = False
 
 
+@dataclass
+class FunctionSummary:
+    """Inter-procedural summary for a single function.
+
+    Captures whether the function returns tainted data and which
+    parameters flow into sinks, enabling cross-function taint tracking.
+    """
+
+    name: str
+    param_names: list[str] = field(default_factory=list)
+    returns_taint: bool = False
+    taint_source: TaintSource | None = None
+    taint_source_line: int = 0
+    params_reaching_sinks: dict[str, str] = field(default_factory=dict)
+
+
 class TaintAnalyzer:
-    """Intra-procedural taint analysis using tree-sitter AST."""
+    """Intra- and inter-procedural taint analysis using tree-sitter AST."""
 
     def __init__(self) -> None:
         """Initialize the taint analyzer with a language cache."""
@@ -63,25 +94,18 @@ class TaintAnalyzer:
     ) -> list[Finding]:
         """Run taint analysis on source code.
 
-        Parses the code into a tree-sitter AST, then analyzes each
-        function body for source-to-sink data flows.
+        Parses the code into a tree-sitter AST, then performs two passes:
+        1. Build function summaries (intra-procedural taint per function).
+        2. Re-analyze with inter-procedural call-site taint propagation.
         """
-        ts_lang = self._get_ts_language(language)
-        if ts_lang is None:
+        func_nodes = self._parse_function_nodes(code, language)
+        if func_nodes is None:
             return []
 
-        parser = ts.Parser(ts_lang)
-        tree = parser.parse(bytes(code, "utf-8"))
-
-        nodes = LANGUAGE_NODES.get(language)
-        if nodes is None:
-            return []
-
-        func_nodes = _find_nodes_by_type(tree.root_node, nodes.function_types)
-        findings: list[Finding] = []
-
-        for func_node in func_nodes:
-            findings.extend(self._analyze_function(func_node, language, filename))
+        summaries = self._build_all_summaries(func_nodes, language)
+        findings = self._run_interprocedural_pass(
+            func_nodes, summaries, language, filename,
+        )
 
         logger.info(
             "taint_analysis_complete",
@@ -89,6 +113,40 @@ class TaintAnalyzer:
             language=str(language),
             total_findings=len(findings),
         )
+        return findings
+
+    def _parse_function_nodes(
+        self,
+        code: str,
+        language: Language,
+    ) -> list[ts.Node] | None:
+        """Parse source code and return function AST nodes, or None."""
+        ts_lang = self._get_ts_language(language)
+        if ts_lang is None:
+            return None
+
+        parser = ts.Parser(ts_lang)
+        tree = parser.parse(bytes(code, "utf-8"))
+
+        nodes = LANGUAGE_NODES.get(language)
+        if nodes is None:
+            return None
+
+        return _find_nodes_by_type(tree.root_node, nodes.function_types)
+
+    def _run_interprocedural_pass(
+        self,
+        func_nodes: list[ts.Node],
+        summaries: dict[str, FunctionSummary],
+        language: Language,
+        filename: str,
+    ) -> list[Finding]:
+        """Phase 2: analyze all functions with inter-procedural summaries."""
+        findings: list[Finding] = []
+        for func_node in func_nodes:
+            findings.extend(
+                self._analyze_function(func_node, language, filename, summaries)
+            )
         return findings
 
     def _get_ts_language(self, language: Language) -> ts.Language | None:
@@ -105,14 +163,16 @@ class TaintAnalyzer:
         func_node: ts.Node,
         language: Language,
         filename: str,
+        summaries: dict[str, FunctionSummary] | None = None,
     ) -> list[Finding]:
         """Analyze a single function for source-to-sink data flow."""
         tainted: dict[str, TaintRecord] = {}
         findings: list[Finding] = []
 
         for node in _walk_tree(func_node):
-            self._process_assignment(node, language, tainted)
+            self._process_assignment(node, language, tainted, summaries)
             self._check_sinks(node, language, tainted, findings, filename)
+            self._check_callsite_sinks(node, tainted, summaries, findings, filename)
 
         return findings
 
@@ -121,6 +181,7 @@ class TaintAnalyzer:
         node: ts.Node,
         language: Language,
         tainted: dict[str, TaintRecord],
+        summaries: dict[str, FunctionSummary] | None = None,
     ) -> None:
         """Check if a node is an assignment and update taint state."""
         var_name = self._extract_assigned_var(node, language)
@@ -132,6 +193,7 @@ class TaintAnalyzer:
             return
 
         self._check_source_assignment(var_name, rhs_text, node, language, tainted)
+        self._check_callsite_taint(var_name, rhs_text, node, tainted, summaries)
         self._check_propagation(var_name, rhs_text, node, language, tainted)
 
     def _check_source_assignment(
@@ -257,6 +319,301 @@ class TaintAnalyzer:
             suggestion=_suggestion_for_category(sink.category),
             confidence=confidence,
         )
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Inter-procedural analysis: summaries and call-site propagation
+    # ═══════════════════════════════════════════════════════════════
+
+    def _build_all_summaries(
+        self,
+        func_nodes: list[ts.Node],
+        language: Language,
+    ) -> dict[str, FunctionSummary]:
+        """Build taint summaries for all functions, iterating to a fixpoint.
+
+        First pass uses no inter-procedural context. Subsequent passes
+        feed current summaries into assignment processing so call-site
+        taint propagates transitively (A -> B -> C chains).
+        """
+        summaries: dict[str, FunctionSummary] = {}
+        # Initial pass without summaries
+        for func_node in func_nodes:
+            summary = self._build_function_summary(func_node, language, None)
+            if summary is not None:
+                summaries[summary.name] = summary
+
+        # Iterate until no new taint-returning functions are discovered
+        max_iterations = len(func_nodes) + 1
+        for _ in range(max_iterations):
+            changed = False
+            for func_node in func_nodes:
+                summary = self._build_function_summary(
+                    func_node, language, summaries,
+                )
+                if summary is None:
+                    continue
+                prev = summaries.get(summary.name)
+                if prev is not None and prev.returns_taint == summary.returns_taint:
+                    continue
+                if summary.returns_taint and (prev is None or not prev.returns_taint):
+                    changed = True
+                summaries[summary.name] = summary
+            if not changed:
+                break
+
+        return summaries
+
+    def _build_function_summary(
+        self,
+        func_node: ts.Node,
+        language: Language,
+        summaries: dict[str, FunctionSummary] | None,
+    ) -> FunctionSummary | None:
+        """Build a taint summary for a single function.
+
+        Records whether the return value carries taint from any source,
+        and which parameters flow into sinks within the function body.
+        Uses two taint maps: one for real sources (return-taint) and one
+        with params seeded as hypothetically tainted (sink-reachability).
+        """
+        func_name = self._extract_function_name(func_node)
+        if func_name is None:
+            return None
+
+        param_names = self._extract_param_names(func_node)
+
+        # Real taint map for return-value analysis
+        tainted: dict[str, TaintRecord] = {}
+        for node in _walk_tree(func_node):
+            self._process_assignment(node, language, tainted, summaries)
+
+        # Param-seeded taint map for sink-reachability analysis
+        param_tainted = self._build_param_seeded_taint(
+            func_node, param_names, language, summaries,
+        )
+
+        return self._summarize_taint_state(
+            func_name, param_names, func_node, tainted, param_tainted, language,
+        )
+
+    def _build_param_seeded_taint(
+        self,
+        func_node: ts.Node,
+        param_names: list[str],
+        language: Language,
+        summaries: dict[str, FunctionSummary] | None,
+    ) -> dict[str, TaintRecord]:
+        """Build taint map with parameters seeded as hypothetically tainted."""
+        param_tainted: dict[str, TaintRecord] = {}
+        for param in param_names:
+            param_tainted[param] = TaintRecord(
+                var_name=param,
+                source=_PARAM_TAINT_SOURCE,
+                source_line=0,
+                chain=[param],
+            )
+        for node in _walk_tree(func_node):
+            self._process_assignment(node, language, param_tainted, summaries)
+        return param_tainted
+
+    def _summarize_taint_state(
+        self,
+        func_name: str,
+        param_names: list[str],
+        func_node: ts.Node,
+        tainted: dict[str, TaintRecord],
+        param_tainted: dict[str, TaintRecord],
+        language: Language,
+    ) -> FunctionSummary:
+        """Create a FunctionSummary from the taint state of a function."""
+        summary = FunctionSummary(name=func_name, param_names=param_names)
+
+        # Check if any return statement carries taint (real sources only)
+        self._check_return_taint(func_node, tainted, summary)
+
+        # Check which parameters flow to sinks (param-seeded map)
+        self._check_params_reaching_sinks(func_node, param_tainted, language, summary)
+
+        return summary
+
+    def _check_return_taint(
+        self,
+        func_node: ts.Node,
+        tainted: dict[str, TaintRecord],
+        summary: FunctionSummary,
+    ) -> None:
+        """Check if any return statement in the function returns tainted data."""
+        for node in _walk_tree(func_node):
+            if node.type != "return_statement":
+                continue
+            return_text = node.text.decode("utf-8") if node.text else ""
+            for var_name, record in tainted.items():
+                if var_name in return_text:
+                    summary.returns_taint = True
+                    summary.taint_source = record.source
+                    summary.taint_source_line = record.source_line
+                    return
+
+    def _check_params_reaching_sinks(
+        self,
+        func_node: ts.Node,
+        tainted: dict[str, TaintRecord],
+        language: Language,
+        summary: FunctionSummary,
+    ) -> None:
+        """Check which tainted parameters reach sinks in the function."""
+        for node in _walk_tree(func_node):
+            node_text = node.text.decode("utf-8") if node.text else ""
+            sink = self._find_sink_in_text(node_text, language)
+            if sink is None:
+                continue
+            for var_name, record in tainted.items():
+                if var_name not in node_text:
+                    continue
+                for param in summary.param_names:
+                    if param in record.chain or param == var_name:
+                        summary.params_reaching_sinks[param] = sink.category
+
+    def _check_callsite_taint(
+        self,
+        var_name: str,
+        rhs_text: str,
+        node: ts.Node,
+        tainted: dict[str, TaintRecord],
+        summaries: dict[str, FunctionSummary] | None,
+    ) -> None:
+        """Propagate taint through a function call using callee summaries.
+
+        If the RHS of an assignment is a call to a function whose summary
+        indicates it returns tainted data, mark the LHS variable as tainted.
+        """
+        if summaries is None:
+            return
+        if var_name in tainted:
+            return
+
+        callee_name = self._extract_callee_name(rhs_text)
+        if callee_name is None:
+            return
+
+        summary = summaries.get(callee_name)
+        if summary is None:
+            return
+
+        if not summary.returns_taint:
+            return
+        if summary.taint_source is None:
+            return
+
+        tainted[var_name] = TaintRecord(
+            var_name=var_name,
+            source=summary.taint_source,
+            source_line=summary.taint_source_line,
+            chain=[f"{callee_name}()", var_name],
+        )
+
+    def _check_callsite_sinks(
+        self,
+        node: ts.Node,
+        tainted: dict[str, TaintRecord],
+        summaries: dict[str, FunctionSummary] | None,
+        findings: list[Finding],
+        filename: str,
+    ) -> None:
+        """Detect tainted args passed to functions with sink-reachable params.
+
+        If a call passes a tainted variable as an argument that the callee
+        routes to a sink, generate a finding at the call site.
+        """
+        if summaries is None:
+            return
+        if node.type not in ("call", "expression_statement"):
+            return
+
+        node_text = node.text.decode("utf-8") if node.text else ""
+        callee_name = self._extract_callee_name(node_text)
+        if callee_name is None:
+            return
+
+        summary = summaries.get(callee_name)
+        if summary is None or not summary.params_reaching_sinks:
+            return
+
+        call_args = self._extract_call_args_from_text(node_text)
+        self._match_tainted_args_to_params(
+            call_args, summary, tainted, node, findings, filename,
+        )
+
+    def _match_tainted_args_to_params(
+        self,
+        call_args: list[str],
+        summary: FunctionSummary,
+        tainted: dict[str, TaintRecord],
+        node: ts.Node,
+        findings: list[Finding],
+        filename: str,
+    ) -> None:
+        """Match tainted call arguments to sink-reachable callee parameters."""
+        for idx, arg in enumerate(call_args):
+            record = tainted.get(arg)
+            if record is None:
+                continue
+            if idx >= len(summary.param_names):
+                continue
+            param_name = summary.param_names[idx]
+            sink_category = summary.params_reaching_sinks.get(param_name)
+            if sink_category is None:
+                continue
+            sink_line = node.start_point.row + 1
+            findings.append(Finding(
+                rule_id=f"taint_{sink_category}",
+                severity=Severity.BLOCK,
+                message=(
+                    f"Tainted data from `{record.source.name}` "
+                    f"(line {record.source_line}) flows to sink in "
+                    f"`{summary.name}()` via parameter `{param_name}` "
+                    f"(line {sink_line})"
+                ),
+                file=filename,
+                line=sink_line,
+                suggestion=_suggestion_for_category(sink_category),
+                confidence=TAINT_CONFIDENCE_HIGH,
+            ))
+
+    def _extract_function_name(self, func_node: ts.Node) -> str | None:
+        """Extract the function name from a function definition node."""
+        name_node = func_node.child_by_field_name("name")
+        if name_node is not None and name_node.text:
+            return name_node.text.decode("utf-8")
+        return None
+
+    def _extract_param_names(self, func_node: ts.Node) -> list[str]:
+        """Extract parameter names from a function definition node."""
+        params_node = func_node.child_by_field_name("parameters")
+        if params_node is None:
+            return []
+
+        param_names: list[str] = []
+        for child in _walk_tree(params_node):
+            if child.type == "identifier" and child.text:
+                param_names.append(child.text.decode("utf-8"))
+        return param_names
+
+    def _extract_callee_name(self, rhs_text: str) -> str | None:
+        """Extract the function name from a call expression text.
+
+        Given text like ``get_user_input(request)``, returns
+        ``get_user_input``. Returns None if no call is detected.
+        """
+        paren_pos = rhs_text.find("(")
+        if paren_pos < 0:
+            return None
+        callee = rhs_text[:paren_pos].strip()
+        if not callee:
+            return None
+        # Take the last dotted segment for method calls
+        parts = callee.split(".")
+        return parts[-1] if parts[-1] else None
 
     def _find_source_in_text(
         self,

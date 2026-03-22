@@ -257,3 +257,83 @@ def clean_func():
         findings = analyzer.analyze(code, Language.PYTHON, "app.py")
         taint = [f for f in findings if f.rule_id == "taint_command_injection"]
         assert len(taint) == 0
+
+
+# ---------------------------------------------------------------------------
+# Inter-procedural taint detection
+# ---------------------------------------------------------------------------
+
+
+class TestInterProceduralTaint:
+    """Tests for cross-function taint tracking."""
+
+    def test_cross_function_return_value(self, analyzer: TaintAnalyzer) -> None:
+        """Taint flows across functions via return value."""
+        code = '''
+def get_user_input(request):
+    return request.args.get('id')
+
+def process(request):
+    user_id = get_user_input(request)
+    cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "app.py")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+        assert taint[0].severity == Severity.BLOCK
+        assert "cursor.execute" in taint[0].message
+
+    def test_cross_function_param_to_sink(self, analyzer: TaintAnalyzer) -> None:
+        """Taint flows from caller argument through callee to a sink."""
+        code = '''
+def run_query(query_str):
+    cursor.execute(query_str)
+
+def handle(request):
+    q = request.args.get('q')
+    run_query(q)
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "app.py")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        # The intra-procedural pass on run_query won't fire because
+        # query_str is not a known source. The caller's taint is what
+        # matters — run_query(q) with tainted q should be detected
+        # at the call site in handle() via the callee's sink-reachable
+        # parameter. For now we verify that handle() itself detects the
+        # taint on q flowing through run_query.
+        assert len(taint) >= 1
+
+    def test_clean_function_call_no_false_positive(
+        self, analyzer: TaintAnalyzer,
+    ) -> None:
+        """Calling a clean function should not produce false positives."""
+        code = '''
+def get_default_id():
+    return 42
+
+def process():
+    user_id = get_default_id()
+    cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "app.py")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) == 0
+
+    def test_multi_level_call_chain(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through A -> B -> C call chain."""
+        code = '''
+def read_input(request):
+    return request.args.get('cmd')
+
+def transform(request):
+    raw = read_input(request)
+    return raw
+
+def execute(request):
+    cmd = transform(request)
+    os.system(cmd)
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "app.py")
+        taint = [f for f in findings if f.rule_id == "taint_command_injection"]
+        assert len(taint) >= 1
+        assert taint[0].severity == Severity.BLOCK

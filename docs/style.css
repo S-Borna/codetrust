@@ -311,7 +311,8 @@ body.loaded .hero-below {
 /* ====================== SCREEN 2: THREE CARDS ====================== */
 .three-cards {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem; align-items: start;
+    gap: 2rem; align-items: start;
+    max-width: 1200px; margin: 0 auto;
 }
 .demo-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -335,9 +336,9 @@ body.loaded .hero-below {
     line-height: 1.6;
 }
 .demo-card-body {
-    padding: 1rem 1.2rem 1.5rem;
+    padding: 0.8rem 1rem 1.2rem;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.78rem; line-height: 1.9;
+    font-size: 0.75rem; line-height: 1.8;
 }
 .demo-card-body .mini-terminal {
     background: var(--surface-2);
@@ -374,11 +375,11 @@ body.loaded .hero-below {
 /* Gateway anim */
 .gateway-line {
     display: grid;
-    grid-template-columns: 70px 1fr 80px;
+    grid-template-columns: 60px 1fr 70px;
     align-items: center; gap: 0.5rem;
-    padding: 0.5rem 0.8rem;
+    padding: 0.4rem 0.6rem;
     border-radius: 6px;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.25rem;
     opacity: 0; transform: translateX(-20px);
 }
 .gateway-line.show {
@@ -387,9 +388,9 @@ body.loaded .hero-below {
 }
 .gateway-line.blocked { background: rgba(239, 68, 68, 0.06); }
 .gateway-line.allowed { background: rgba(16, 185, 129, 0.06); }
-.gw-source { color: var(--text-3); font-size: 0.72rem; }
-.gw-cmd { color: var(--white); font-weight: 500; white-space: nowrap; font-size: 0.78rem; }
-.gw-verdict { text-align: right; font-weight: 700; font-size: 0.72rem; white-space: nowrap; }
+.gw-source { color: var(--text-3); font-size: 0.65rem; }
+.gw-cmd { color: var(--white); font-weight: 500; white-space: nowrap; font-size: 0.72rem; }
+.gw-verdict { text-align: right; font-weight: 700; font-size: 0.65rem; white-space: nowrap; }
 .gw-verdict.red { color: var(--red); }
 .gw-verdict.green { color: var(--green); }
 

@@ -508,6 +508,11 @@ body.loaded .hero-below {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem; color: var(--text-3);
 }
+.telemetry-context {
+    text-align: center; font-size: 0.72rem;
+    color: var(--text-3); margin-top: 1.5rem;
+    font-style: italic;
+}
 .telemetry-note {
     text-align: center; font-family: 'IBM Plex Mono', monospace;
     font-size: 0.65rem; color: var(--text-3);

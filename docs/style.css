@@ -588,7 +588,7 @@ body.loaded .hero-below {
 /* ====================== SCREEN 5: GET IN ====================== */
 .install-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem; max-width: 900px; margin: 0 auto 3rem;
+    gap: 2rem; max-width: 1000px; margin: 0 auto 3rem;
 }
 .install-card {
     padding: 1.8rem; background: var(--surface);
@@ -607,10 +607,11 @@ body.loaded .hero-below {
 }
 .install-card code {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem; color: var(--green);
+    font-size: 0.72rem; color: var(--green);
     background: var(--green-dim);
-    padding: 0.5rem 0.8rem; border-radius: 5px;
-    display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 0.6rem 1rem; border-radius: 6px;
+    display: block; text-align: center;
+    word-break: keep-all; overflow-wrap: break-word;
 }
 .lang-row {
     display: flex; gap: 0.5rem; flex-wrap: wrap;
@@ -658,7 +659,7 @@ footer a:hover { color: var(--text-2); }
     .compare-split { grid-template-columns: 1fr; }
     .dash-grid { grid-template-columns: 1fr 1fr; }
     .impact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .install-grid { grid-template-columns: 1fr; max-width: 400px; }
+    .install-grid { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
     .container h2 { font-size: 1.8rem; }
     .container { padding: 5rem clamp(1.2rem, 4vw, 3rem); }
 }

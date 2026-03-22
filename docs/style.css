@@ -317,7 +317,7 @@ body.loaded .hero-below {
 }
 .demo-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; overflow: hidden; min-width: 0;
+    border-radius: 14px; min-width: 0;
     transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .demo-card:hover {
@@ -376,7 +376,7 @@ body.loaded .hero-below {
 /* Gateway anim */
 .gateway-line {
     display: grid;
-    grid-template-columns: 50px 1fr 72px;
+    grid-template-columns: auto 1fr auto;
     align-items: center; gap: 0.5rem;
     padding: 0.35rem 0.5rem;
     border-radius: 5px;
@@ -389,9 +389,9 @@ body.loaded .hero-below {
 }
 .gateway-line.blocked { background: rgba(239, 68, 68, 0.06); }
 .gateway-line.allowed { background: rgba(16, 185, 129, 0.06); }
-.gw-source { color: var(--text-3); font-size: 0.65rem; }
+.gw-source { color: var(--text-3); font-size: 0.62rem; white-space: nowrap; }
 .gw-cmd { color: var(--white); font-weight: 500; white-space: nowrap; font-size: 0.72rem; }
-.gw-verdict { text-align: right; font-weight: 700; font-size: 0.6rem; letter-spacing: 0.03em; white-space: nowrap; }
+.gw-verdict { text-align: right; font-weight: 700; font-size: 0.62rem; letter-spacing: 0.02em; white-space: nowrap; padding-left: 0.3rem; }
 .gw-verdict.red { color: var(--red); }
 .gw-verdict.green { color: var(--green); }
 
@@ -676,7 +676,7 @@ footer a:hover { color: var(--text-2); }
     .impact-grid { grid-template-columns: 1fr; }
     .dash-hero-num { font-size: 2rem; }
     .dash-source-bar { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-    .gateway-line { grid-template-columns: 50px 1fr 72px; font-size: 0.68rem; }
+    .gateway-line { grid-template-columns: auto 1fr auto; font-size: 0.68rem; }
     .compare-table { font-size: 0.75rem; }
     .compare-table td, .compare-table th { padding: 0.55rem 0.5rem; }
 }

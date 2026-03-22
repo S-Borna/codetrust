@@ -311,12 +311,13 @@ body.loaded .hero-below {
 /* ====================== SCREEN 2: THREE CARDS ====================== */
 .three-cards {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 2rem; align-items: start;
-    max-width: 1200px; margin: 0 auto;
+    gap: 2.5rem; align-items: start;
+    max-width: 1400px; margin: 0 auto;
+    padding: 0 1rem;
 }
 .demo-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; overflow: hidden;
+    border-radius: 14px; overflow: hidden; min-width: 0;
     transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .demo-card:hover {
@@ -325,7 +326,7 @@ body.loaded .hero-below {
     box-shadow: 0 0 20px -5px var(--glow), 0 20px 40px rgba(0,0,0,0.2);
 }
 .demo-card-header {
-    padding: 1.5rem 1.5rem 0;
+    padding: 1.8rem 1.8rem 0;
 }
 .demo-card-header h3 {
     font-size: 1.05rem; font-weight: 700;
@@ -336,9 +337,9 @@ body.loaded .hero-below {
     line-height: 1.6;
 }
 .demo-card-body {
-    padding: 0.8rem 1rem 1.2rem;
+    padding: 1rem 1.5rem 1.5rem;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem; line-height: 1.8;
+    font-size: 0.72rem; line-height: 1.7;
 }
 .demo-card-body .mini-terminal {
     background: var(--surface-2);
@@ -347,7 +348,7 @@ body.loaded .hero-below {
     padding: 1rem 1.2rem;
 }
 .demo-card-sub {
-    padding: 0 1.5rem 1.5rem;
+    padding: 0 1.8rem 1.8rem;
     font-size: 0.82rem; color: var(--text-2);
     line-height: 1.65;
 }
@@ -375,11 +376,11 @@ body.loaded .hero-below {
 /* Gateway anim */
 .gateway-line {
     display: grid;
-    grid-template-columns: 60px 1fr 70px;
+    grid-template-columns: 55px 1fr 65px;
     align-items: center; gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
-    border-radius: 6px;
-    margin-bottom: 0.25rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 5px;
+    margin-bottom: 0.2rem;
     opacity: 0; transform: translateX(-20px);
 }
 .gateway-line.show {
@@ -390,7 +391,7 @@ body.loaded .hero-below {
 .gateway-line.allowed { background: rgba(16, 185, 129, 0.06); }
 .gw-source { color: var(--text-3); font-size: 0.65rem; }
 .gw-cmd { color: var(--white); font-weight: 500; white-space: nowrap; font-size: 0.72rem; }
-.gw-verdict { text-align: right; font-weight: 700; font-size: 0.65rem; white-space: nowrap; }
+.gw-verdict { text-align: right; font-weight: 700; font-size: 0.6rem; letter-spacing: 0.03em; white-space: nowrap; }
 .gw-verdict.red { color: var(--red); }
 .gw-verdict.green { color: var(--green); }
 
@@ -675,7 +676,7 @@ footer a:hover { color: var(--text-2); }
     .impact-grid { grid-template-columns: 1fr; }
     .dash-hero-num { font-size: 2rem; }
     .dash-source-bar { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-    .gateway-line { grid-template-columns: 60px 1fr 70px; font-size: 0.68rem; }
+    .gateway-line { grid-template-columns: 55px 1fr 65px; font-size: 0.68rem; }
     .compare-table { font-size: 0.75rem; }
     .compare-table td, .compare-table th { padding: 0.55rem 0.5rem; }
 }

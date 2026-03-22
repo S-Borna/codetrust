@@ -201,10 +201,11 @@ a { color: inherit; text-decoration: none; }
     max-width: 800px; margin-left: auto; margin-right: auto;
 }
 .hero-welcome {
-    font-size: 0.82rem; font-weight: 500;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--text-3); text-align: center;
-    margin-bottom: 1rem;
+    font-size: 1.1rem; font-weight: 600;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: #6366f1; text-align: center;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
 }
 .hero-hl-blue { color: #3b82f6; }
 .hero-hl-green { color: #10b981; }

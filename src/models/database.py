@@ -209,11 +209,10 @@ class CounterSnapshot(Base):
 
     __tablename__ = "counter_snapshots"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    key: Mapped[str] = mapped_column(Text, index=True)
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
     value: Mapped[int] = mapped_column(BigInteger, default=0)
     snapshot_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), index=True,
+        DateTime(timezone=True), server_default=func.now(), primary_key=True, index=True,
     )
 
 

@@ -294,7 +294,7 @@ body.loaded .hero-below {
 /* ====================== SCREEN 2: THREE CARDS ====================== */
 .three-cards {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
+    gap: 1.5rem; align-items: start;
 }
 .demo-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -357,7 +357,7 @@ body.loaded .hero-below {
 /* Gateway anim */
 .gateway-line {
     display: grid;
-    grid-template-columns: 80px 1fr 90px;
+    grid-template-columns: 70px 1fr 80px;
     align-items: center; gap: 0.5rem;
     padding: 0.5rem 0.8rem;
     border-radius: 6px;
@@ -371,7 +371,7 @@ body.loaded .hero-below {
 .gateway-line.blocked { background: rgba(239, 68, 68, 0.06); }
 .gateway-line.allowed { background: rgba(16, 185, 129, 0.06); }
 .gw-source { color: var(--text-3); font-size: 0.72rem; }
-.gw-cmd { color: var(--white); font-weight: 500; }
+.gw-cmd { color: var(--white); font-weight: 500; white-space: nowrap; font-size: 0.78rem; }
 .gw-verdict { text-align: right; font-weight: 700; font-size: 0.82rem; }
 .gw-verdict.red { color: var(--red); }
 .gw-verdict.green { color: var(--green); }
@@ -574,10 +574,10 @@ body.loaded .hero-below {
 }
 .install-card code {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem; color: var(--green);
+    font-size: 0.68rem; color: var(--green);
     background: var(--green-dim);
     padding: 0.5rem 0.8rem; border-radius: 5px;
-    display: block; word-break: break-all;
+    display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lang-row {
     display: flex; gap: 0.5rem; flex-wrap: wrap;

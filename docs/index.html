@@ -311,7 +311,56 @@
         </div>
     </section>
 
-    <!-- ==================== SCREEN 2: THREE CAPABILITIES ==================== -->
+    <!-- ==================== SCREEN 3: THREE CAPABILITIES ==================== -->
+    <section class="container" id="telemetry">
+        <div class="reveal">
+            <h2><span class="live-dot"></span> This is real. Right now.</h2>
+            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production.</p>
+        </div>
+
+        <div class="dash-grid reveal">
+            <div class="dash-card">
+                <div class="dash-card-header">Findings</div>
+                <div class="dash-hero-num dash-amber" data-key="total_findings">0</div>
+                <div class="dash-hero-label">issues detected</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
+                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
+                </div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header">Blocks</div>
+                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
+                <div class="dash-hero-label">critical issues blocked</div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header">Distribution</div>
+                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
+                <div class="dash-hero-label">PyPI downloads</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
+                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
+                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dash-source-bar reveal">
+            <span class="dash-source-label">Scans by source:</span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
+        </div>
+
+        <div class="impact-threats reveal">
+            <div id="impact-grid" class="impact-grid"></div>
+        </div>
+
+        <p class="telemetry-note reveal" id="live-updated-at">live</p>
+    </section>
+
+    <!-- ==================== SCREEN 2: LIVE TELEMETRY ==================== -->
     <section class="container" id="capabilities">
         <div class="reveal">
             <h2>Three layers of control nobody else has</h2>
@@ -405,55 +454,6 @@
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- ==================== SCREEN 3: LIVE TELEMETRY ==================== -->
-    <section class="container" id="telemetry">
-        <div class="reveal">
-            <h2><span class="live-dot"></span> This is real. Right now.</h2>
-            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production.</p>
-        </div>
-
-        <div class="dash-grid reveal">
-            <div class="dash-card">
-                <div class="dash-card-header">Findings</div>
-                <div class="dash-hero-num dash-amber" data-key="total_findings">0</div>
-                <div class="dash-hero-label">issues detected</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
-                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
-                </div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-header">Blocks</div>
-                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
-                <div class="dash-hero-label">critical issues blocked</div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-header">Distribution</div>
-                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
-                <div class="dash-hero-label">PyPI downloads</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
-                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
-                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="dash-source-bar reveal">
-            <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
-        </div>
-
-        <div class="impact-threats reveal">
-            <div id="impact-grid" class="impact-grid"></div>
-        </div>
-
-        <p class="telemetry-note reveal" id="live-updated-at">live</p>
     </section>
 
     <!-- ==================== SCREEN 4: COMPETITIVE ==================== -->

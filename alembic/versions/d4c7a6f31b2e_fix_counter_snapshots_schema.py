@@ -25,7 +25,6 @@ TMP_TABLE_NAME: str = "_counter_snapshots_new"
 def _create_counter_snapshots_table(name: str) -> None:
     op.create_table(
         name,
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True, nullable=False),
         sa.Column("key", sa.Text(), nullable=False),
         sa.Column("value", sa.BigInteger(), nullable=False, server_default=sa.text("0")),
         sa.Column(
@@ -34,6 +33,7 @@ def _create_counter_snapshots_table(name: str) -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
+        sa.PrimaryKeyConstraint("key", "snapshot_at"),
     )
 
 
@@ -50,9 +50,12 @@ def upgrade() -> None:
         return
 
     existing_columns = {column["name"] for column in inspector.get_columns(TABLE_NAME)}
-    if "id" in existing_columns:
+
+    # Table already matches the target schema (key + snapshot_at composite PK, no id).
+    if "id" not in existing_columns:
         return
 
+    # Table has a legacy `id` column — recreate without it.
     _create_counter_snapshots_table(TMP_TABLE_NAME)
     op.execute(
         sa.text(

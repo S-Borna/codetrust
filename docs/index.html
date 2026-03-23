@@ -615,8 +615,25 @@
         });
 
         // Mobile nav toggle
-        document.getElementById('mobile-toggle').addEventListener('click', function() {
-            document.getElementById('topbar-nav').classList.toggle('open');
+        var mobileBtn = document.getElementById('mobile-toggle');
+        var navPanel = document.getElementById('topbar-nav');
+        mobileBtn.addEventListener('click', function() {
+            navPanel.classList.toggle('open');
+            mobileBtn.setAttribute('aria-expanded', navPanel.classList.contains('open'));
+        });
+        // Close nav when a link is clicked
+        navPanel.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                navPanel.classList.remove('open');
+                mobileBtn.setAttribute('aria-expanded', 'false');
+            });
+        });
+        // Close on ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && navPanel.classList.contains('open')) {
+                navPanel.classList.remove('open');
+                mobileBtn.setAttribute('aria-expanded', 'false');
+            }
         });
 
         // Scroll reveal

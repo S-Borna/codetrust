@@ -3146,6 +3146,142 @@ def _scan_validate_signatures(
     return all_findings
 
 
+_TAINT_CLI_SUPPORTED_LANGUAGES: set[str] = {"python", "javascript", "typescript"}
+
+_TAINT_EXT_LANG: dict[str, str] = {
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".jsx": "javascript",
+}
+
+
+def _scan_runtime_verify(
+    targets: list[str],
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    *,
+    machine_output: bool,
+) -> list[dict[str, str | int]]:
+    """Run runtime taint verification on scanned files.
+
+    Performs taint analysis on each source file, then attempts to confirm
+    findings by running proof-of-concept exploits in a sandboxed Docker
+    container. Verified findings are appended with enriched metadata.
+    """
+    if not getattr(args, "runtime_verify", False):
+        return all_findings
+
+    try:
+        import asyncio
+
+        from src.models.enums import Language
+        from src.services.runtime_taint_verifier import RuntimeTaintVerifier
+        from src.services.sandbox import SandboxService
+        from src.services.taint_analyzer import TaintAnalyzer
+
+        source_files = _scan_collect_taint_files(targets)
+        if not source_files:
+            return all_findings
+
+        if not machine_output:
+            _echo(
+                f"  {color('🧪 Running runtime taint verification...', BLUE)}"
+                f" ({len(source_files)} file(s))"
+            )
+
+        taint_anal = TaintAnalyzer()
+        sandbox_svc = SandboxService()
+        verifier = RuntimeTaintVerifier(sandbox=sandbox_svc)
+
+        verified_total = 0
+        exploitable_total = 0
+
+        for fpath, lang_str in source_files:
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    code = f.read()
+                lang = Language(lang_str)
+                findings = taint_anal.analyze(code, lang, fpath)
+                if not findings:
+                    continue
+
+                summary = asyncio.run(
+                    verifier.verify_findings(findings, language=lang),
+                )
+                for vf in summary.results:
+                    status_label = "VERIFIED" if vf.verified else "unverified"
+                    all_findings.append({
+                        "rule_id": vf.finding.rule_id,
+                        "severity": vf.finding.severity.value
+                        if hasattr(vf.finding.severity, "value")
+                        else str(vf.finding.severity),
+                        "message": f"[{status_label}] {vf.finding.message}",
+                        "file": fpath,
+                        "line": vf.finding.line,
+                        "suggestion": vf.finding.suggestion,
+                        "confidence": vf.confidence,
+                        "exploit_payload": vf.exploit_payload,
+                        "verification_method": vf.verification_method,
+                    })
+                    verified_total += 1
+                    if vf.verified:
+                        exploitable_total += 1
+            except OSError:
+                continue
+
+        if not machine_output:
+            if verified_total:
+                _echo(
+                    f"  {color(f'   Taint findings: {verified_total}', YELLOW)}"
+                    f" ({exploitable_total} confirmed exploitable)\n"
+                )
+            else:
+                _echo(f"  {color('   No taint flows detected ✓', GREEN)}\n")
+
+    except Exception as exc:
+        logger.debug(
+            "runtime_taint_verify_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    return all_findings
+
+
+def _scan_collect_taint_files(
+    targets: list[str],
+) -> list[tuple[str, str]]:
+    """Collect source files for taint analysis.
+
+    Returns list of (filepath, language_string) tuples for taint-supported languages.
+    """
+    result: list[tuple[str, str]] = []
+    skip_dirs = {
+        ".git", ".venv", "venv", "node_modules", "__pycache__",
+        "dist", "build", ".next", ".open-next", ".turbo",
+        ".nuxt", ".output", ".svelte-kit", ".vercel", ".wrangler",
+        "coverage", "out", ".cache",
+    }
+    for target in targets:
+        p = Path(target)
+        if p.is_file():
+            ext = p.suffix.lower()
+            lang = _TAINT_EXT_LANG.get(ext, "")
+            if lang:
+                result.append((str(p), lang))
+        elif p.is_dir():
+            for root, dirs, files in os.walk(p):
+                dirs[:] = [d for d in dirs if d not in skip_dirs]
+                for fname in files:
+                    ext = Path(fname).suffix.lower()
+                    lang = _TAINT_EXT_LANG.get(ext, "")
+                    if lang:
+                        fpath = os.path.join(root, fname)
+                        result.append((fpath, lang))
+    return result
+
+
 def _scan_post_process(
     all_findings: list[dict[str, str | int]],
     args: argparse.Namespace,
@@ -3513,6 +3649,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
     )
 
     all_findings = _scan_validate_signatures(
+        targets, all_findings, args, machine_output=machine_output,
+    )
+
+    all_findings = _scan_runtime_verify(
         targets, all_findings, args, machine_output=machine_output,
     )
 
@@ -4494,6 +4634,10 @@ def _add_scan_subparser(
     scan_parser.add_argument(
         "--suppress-lint-noise", dest="suppress_lint_noise", action="store_true",
         help="Suppress findings commonly covered by existing linters (opt-in)",
+    )
+    scan_parser.add_argument(
+        "--runtime-verify", dest="runtime_verify", action="store_true",
+        help="Run runtime taint verification via sandboxed exploit execution (requires Docker)",
     )
 
 

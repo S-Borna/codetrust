@@ -26,8 +26,15 @@ from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
+from src.services.runtime_taint_verifier import (
+    RuntimeTaintVerifier,
+    VerificationMethod,
+    VerificationSummary,
+    VerifiedFinding,
+)
 from src.services.sandbox import SandboxService
 from src.services.static_analyzer import StaticAnalyzer
+from src.services.taint_analyzer import TaintAnalyzer
 
 
 @pytest.fixture()
@@ -46,6 +53,7 @@ def _setup_app_state() -> None:
     app.state.docker = DockerVerifyService(cache, http_client)
     app.state.analyzer = StaticAnalyzer()
     app.state.ast_analyzer = AstAnalyzer()
+    app.state.taint_analyzer = TaintAnalyzer()
     app.state.sandbox = SandboxService()
     app.state.db = None  # Database not needed for existing endpoint tests
     app.state.billing = MagicMock(spec=BillingService)
@@ -911,3 +919,196 @@ class TestAdminBootstrap:
 
         monkeypatch.setenv("CODETRUST_TELEMETRY", "0")
         assert _telemetry_suppressed() is True
+
+
+# --- Taint Verified Scan ---
+
+
+class TestTaintVerifiedScan:
+    """Tests for POST /v1/scan/taint/verified."""
+
+    def test_clean_code_returns_pass(self, client: TestClient) -> None:
+        """Clean code with no taint flows returns PASS verdict."""
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={
+                "code": "x = 1\ny = 2\n",
+                "filename": "clean.py",
+                "language": "python",
+            },
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verdict"] == "PASS"
+        assert data["total"] == 0
+        assert data["verified_count"] == 0
+
+    def test_tainted_code_returns_findings(self, client: TestClient) -> None:
+        """Code with taint flow from request to SQL returns findings."""
+        code = (
+            "def handler(request):\n"
+            "    user_id = request.args.get('id')\n"
+            "    cursor.execute(f'SELECT * FROM users WHERE id = {user_id}')\n"
+        )
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={
+                "code": code,
+                "filename": "app.py",
+                "language": "python",
+            },
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] > 0
+        assert data["verdict"] in ("WARN", "BLOCK")
+        assert len(data["taint_findings"]) > 0
+        assert len(data["verified_findings"]) > 0
+
+    def test_unsupported_language_returns_pass(self, client: TestClient) -> None:
+        """Unsupported taint language returns PASS with no findings."""
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={
+                "code": "fn main() {}",
+                "filename": "main.rs",
+                "language": "rust",
+            },
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verdict"] == "PASS"
+        assert data["total"] == 0
+
+    def test_missing_code_returns_422(self, client: TestClient) -> None:
+        """Missing code field returns validation error."""
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={"filename": "test.py", "language": "python"},
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_missing_language_returns_422(self, client: TestClient) -> None:
+        """Missing language field returns validation error."""
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={"code": "x = 1", "filename": "test.py"},
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    @patch.object(
+        RuntimeTaintVerifier, "verify_findings", new_callable=AsyncMock,
+    )
+    @patch.object(TaintAnalyzer, "analyze")
+    def test_verified_finding_metadata(
+        self,
+        mock_taint: MagicMock,
+        mock_verify: AsyncMock,
+        client: TestClient,
+    ) -> None:
+        """Verified findings include exploit payload and method."""
+        taint_finding = Finding(
+            rule_id="taint_sql_injection",
+            severity=Severity.BLOCK,
+            message="SQL injection via user input",
+            file="app.py",
+            line=7,
+            suggestion="Use parameterized queries",
+            confidence=0.9,
+        )
+        mock_taint.return_value = [taint_finding]
+        mock_verify.return_value = VerificationSummary(
+            total=1,
+            verified=1,
+            unverified=0,
+            sandbox_unavailable=False,
+            results=[
+                VerifiedFinding(
+                    finding=taint_finding,
+                    verified=True,
+                    confidence=0.95,
+                    exploit_payload="' OR 1=1 --",
+                    verification_method=VerificationMethod.SANDBOX_EXPLOIT,
+                ),
+            ],
+        )
+
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={
+                "code": "from flask import request\nx = request.args.get('id')\n",
+                "filename": "app.py",
+                "language": "python",
+            },
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verdict"] == "BLOCK"
+        assert data["verified_count"] == 1
+        vf = data["verified_findings"][0]
+        assert vf["verified"] is True
+        assert vf["confidence"] == 0.95
+        assert vf["exploit_payload"] == "' OR 1=1 --"
+        assert vf["verification_method"] == "sandbox_exploit"
+
+    @patch.object(
+        RuntimeTaintVerifier, "verify_findings", new_callable=AsyncMock,
+    )
+    @patch.object(TaintAnalyzer, "analyze")
+    def test_sandbox_unavailable_returns_unverified(
+        self,
+        mock_taint: MagicMock,
+        mock_verify: AsyncMock,
+        client: TestClient,
+    ) -> None:
+        """When sandbox is unavailable, findings are returned unverified."""
+        taint_finding = Finding(
+            rule_id="taint_xss",
+            severity=Severity.WARN,
+            message="XSS via user input",
+            file="app.py",
+            line=3,
+            confidence=0.7,
+        )
+        mock_taint.return_value = [taint_finding]
+        mock_verify.return_value = VerificationSummary(
+            total=1,
+            verified=0,
+            unverified=1,
+            sandbox_unavailable=True,
+            results=[
+                VerifiedFinding(
+                    finding=taint_finding,
+                    verified=False,
+                    confidence=0.7,
+                    exploit_payload="",
+                    verification_method=VerificationMethod.SANDBOX_UNAVAILABLE,
+                ),
+            ],
+        )
+
+        response = client.post(
+            "/v1/scan/taint/verified",
+            json={
+                "code": "from flask import request\nx = request.args.get('q')\n",
+                "filename": "app.py",
+                "language": "python",
+            },
+            headers={"X-API-Key": "ct_pro_test"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sandbox_unavailable"] is True
+        assert data["verified_count"] == 0
+        assert data["unverified_count"] == 1

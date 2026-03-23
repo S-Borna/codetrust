@@ -106,6 +106,19 @@ class DeepScanRequest(BaseModel):
     requirements_content: str = Field(default="", max_length=100_000)
 
 
+# --- Taint verified scan ---
+
+
+class TaintVerifiedRequest(BaseModel):
+    """Request for taint analysis with runtime exploit verification."""
+
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True, extra="forbid")
+
+    code: str = Field(..., min_length=0, max_length=500_000)
+    filename: str = Field(default="untitled", max_length=500)
+    language: Language = Field(..., strict=False, description="Language is required for taint analysis")
+
+
 # --- Vulnerability scanning ---
 
 

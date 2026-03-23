@@ -71,6 +71,7 @@ from src.models.requests import (
     SbomGenerateRequest,
     SignatureScanRequest,
     StaticScanRequest,
+    TaintVerifiedRequest,
     UpdateMemberRoleRequest,
     UpdateOrgPolicyRequest,
     VerifyDockerRequest,
@@ -112,11 +113,13 @@ from src.models.responses import (
     SignatureScanResponse,
     StaticScanResponse,
     StatusResponse,
+    TaintVerifiedResponse,
     TokenResponse,
     UrlResponse,
     UsageDayResponse,
     UsageStatsResponse,
     UserProfileResponse,
+    VerifiedFindingResponse,
     VerifyDockerResponse,
     VerifyImportsResponse,
 )
@@ -134,6 +137,11 @@ from src.services.license_checker import LicenseScanResponse
 from src.services.license_guard import LicenseStatus, validate_license
 from src.services.rate_limiter import RateLimiter
 from src.services.registry import RegistryService
+from src.services.runtime_taint_verifier import (
+    RuntimeTaintVerifier,
+    VerificationSummary,
+    VerifiedFinding,
+)
 from src.services.sandbox import SUPPORTED_SANDBOX_LANGUAGES, SandboxService
 from src.services.sso import OIDCConfig, OIDCService
 from src.services.static_analyzer import StaticAnalyzer
@@ -2891,6 +2899,128 @@ async def cross_file_scan(
         "hub_files": result.hub_files,
         "latency_ms": result.latency_ms,
     }
+
+
+# --- Taint Verified Scan ---
+
+
+@app.post("/v1/scan/taint/verified", response_model=TaintVerifiedResponse)
+async def taint_verified_scan(
+    request: Request,
+    req: TaintVerifiedRequest,
+    taint_anal: TaintAnalyzer = Depends(_get_taint_analyzer),
+    sandbox_svc: SandboxService = Depends(_get_sandbox),
+    auth: AuthContext = Depends(get_optional_auth_context),
+    rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
+) -> TaintVerifiedResponse:
+    """Run taint analysis with runtime exploit verification.
+
+    Performs static taint analysis, then attempts to confirm each
+    finding by executing proof-of-concept exploits in an isolated
+    Docker sandbox. Verified findings have high confidence (~0.95).
+    """
+    pro_required = _require_pro_or_enterprise(auth.plan)
+    if pro_required is not None:
+        return pro_required
+
+    installation_id = _resolve_installation_id(request)
+    plan = auth.plan if auth else "free"
+    limit_hit = _check_scan_limit(installation_id, plan)
+    if limit_hit is not None:
+        return JSONResponse(status_code=429, content=limit_hit)
+
+    logger.info("api_taint_verified_scan", filename=req.filename, language=str(req.language))
+    start = time.monotonic()
+
+    response = await _run_taint_verified(req, taint_anal, sandbox_svc)
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+    response.latency_ms = elapsed_ms
+
+    await _log_scan(
+        request, auth, "taint-verified", response.verdict,
+        response.total, elapsed_ms, str(req.language), req.filename,
+        findings=response.taint_findings,
+    )
+    return response
+
+
+async def _run_taint_verified(
+    req: TaintVerifiedRequest,
+    taint_anal: TaintAnalyzer,
+    sandbox_svc: SandboxService,
+) -> TaintVerifiedResponse:
+    """Core logic for taint analysis with runtime verification.
+
+    Args:
+        req: The validated request.
+        taint_anal: Taint analyzer instance.
+        sandbox_svc: Sandbox service for exploit execution.
+
+    Returns:
+        TaintVerifiedResponse with original and verified findings.
+    """
+    lang_str = str(req.language.value) if hasattr(req.language, "value") else str(req.language)
+    if lang_str not in _TAINT_SUPPORTED_LANGUAGES:
+        return TaintVerifiedResponse(verdict="PASS")
+
+    findings = taint_anal.analyze(req.code, req.language, req.filename)
+    if not findings:
+        return TaintVerifiedResponse(verdict="PASS")
+
+    verifier = RuntimeTaintVerifier(sandbox=sandbox_svc)
+    summary = await verifier.verify_findings(findings, language=req.language)
+
+    return _build_taint_verified_response(findings, summary)
+
+
+def _build_taint_verified_response(
+    findings: list[Finding],
+    summary: VerificationSummary,
+) -> TaintVerifiedResponse:
+    """Assemble the TaintVerifiedResponse from analysis results.
+
+    Args:
+        findings: Original taint findings.
+        summary: Verification summary from RuntimeTaintVerifier.
+
+    Returns:
+        Populated TaintVerifiedResponse.
+    """
+    verified_items = [
+        _verified_finding_to_response(vf) for vf in summary.results
+    ]
+
+    has_blocks = any(f.severity == Severity.BLOCK for f in findings)
+    has_verified = summary.verified > 0
+    verdict = "BLOCK" if (has_blocks or has_verified) else "WARN" if findings else "PASS"
+
+    return TaintVerifiedResponse(
+        taint_findings=findings,
+        verified_findings=verified_items,
+        total=summary.total,
+        verified_count=summary.verified,
+        unverified_count=summary.unverified,
+        sandbox_unavailable=summary.sandbox_unavailable,
+        verdict=verdict,
+    )
+
+
+def _verified_finding_to_response(vf: VerifiedFinding) -> VerifiedFindingResponse:
+    """Convert a dataclass VerifiedFinding to a Pydantic response model.
+
+    Args:
+        vf: The dataclass instance from RuntimeTaintVerifier.
+
+    Returns:
+        VerifiedFindingResponse suitable for JSON serialization.
+    """
+    return VerifiedFindingResponse(
+        finding=vf.finding,
+        verified=vf.verified,
+        confidence=vf.confidence,
+        exploit_payload=vf.exploit_payload,
+        verification_method=vf.verification_method,
+    )
 
 
 # --- Auto-Fix ---

@@ -969,3 +969,32 @@ class PolicyCheckResponse(BaseModel):
 
     passed: bool
     violations: list[str]
+
+
+class VerifiedFindingResponse(BaseModel):
+    """A taint finding enriched with runtime verification metadata."""
+
+    model_config = ConfigDict(strict=True)
+
+    finding: Finding
+    verified: bool = Field(default=False, description="Whether exploit was confirmed in sandbox")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    exploit_payload: str = Field(default="", description="Payload used for verification")
+    verification_method: str = Field(default="", description="How verification was performed")
+
+
+class TaintVerifiedResponse(BaseModel):
+    """Response for POST /v1/scan/taint/verified."""
+
+    model_config = ConfigDict(strict=True)
+
+    taint_findings: list[Finding] = Field(default_factory=list, description="Original taint findings")
+    verified_findings: list[VerifiedFindingResponse] = Field(
+        default_factory=list, description="Findings with verification metadata",
+    )
+    total: int = Field(default=0, description="Total taint findings")
+    verified_count: int = Field(default=0, description="Findings confirmed exploitable")
+    unverified_count: int = Field(default=0, description="Findings not confirmed")
+    sandbox_unavailable: bool = Field(default=False, description="Whether sandbox was available")
+    verdict: str = Field(default="PASS", description="PASS, WARN, or BLOCK")
+    latency_ms: int = Field(default=0)

@@ -1,0 +1,166 @@
+# Copyright (c) Said Borna. All rights reserved.
+#
+# CodeTrust Azure Pipelines Template
+# Scans code for anti-patterns, security issues, and hallucinated packages.
+#
+# Usage:
+#   Reference this template in your azure-pipelines.yml:
+#
+#   resources:
+#     repositories:
+#       - repository: codetrust
+#         type: github
+#         endpoint: github-service-connection
+#         name: s-borna/codetrust
+#         ref: main
+#
+#   stages:
+#     - stage: Security
+#       jobs:
+#         - template: action/azure-pipelines.yml@codetrust
+#           parameters:
+#             failOn: 'block'
+#
+#   Or copy this file and use inline:
+#
+#   jobs:
+#     - template: action/azure-pipelines.yml
+#       parameters:
+#         failOn: 'block'
+#
+# Variables:
+#   Store CT_KEY in a Variable Group or Pipeline Variable (mark as secret).
+
+parameters:
+  - name: failOn
+    displayName: 'Failure threshold'
+    type: string
+    default: 'block'
+    values:
+      - block
+      - warn
+      - never
+  - name: scanType
+    displayName: 'Scan type'
+    type: string
+    default: 'static'
+    values:
+      - static
+      - deep
+  - name: scanPath
+    displayName: 'Path to scan'
+    type: string
+    default: '.'
+  - name: language
+    displayName: 'Force language (leave empty for auto-detect)'
+    type: string
+    default: ''
+  - name: pythonVersion
+    displayName: 'Python version'
+    type: string
+    default: '3.12'
+
+jobs:
+  - job: CodeTrustScan
+    displayName: 'CodeTrust Security Scan'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - checkout: self
+        fetchDepth: 0
+
+      - task: UsePythonVersion@0
+        displayName: 'Set up Python ${{ parameters.pythonVersion }}'
+        inputs:
+          versionSpec: '${{ parameters.pythonVersion }}'
+          addToPath: true
+
+      - script: |
+          pip install --quiet codetrust
+          codetrust --version || echo "CodeTrust installed"
+        displayName: 'Install CodeTrust'
+
+      - script: |
+          SCAN_TARGET="${{ parameters.scanPath }}"
+
+          # Detect changed files in pull request builds
+          if [ -n "${SYSTEM_PULLREQUEST_TARGETBRANCH:-}" ]; then
+            TARGET_BRANCH="origin/${SYSTEM_PULLREQUEST_TARGETBRANCH}"
+            CHANGED=$(git diff --name-only --diff-filter=ACM "${TARGET_BRANCH}...HEAD" | grep -E '\.(py|js|ts|tsx|jsx|go|rs|java|sh)$' || true)
+            if [ -n "${CHANGED}" ]; then
+              echo "Pull request mode: scanning changed files only"
+              echo "${CHANGED}"
+              SCAN_TARGET="${CHANGED}"
+            fi
+          fi
+
+          # Build scan command
+          SCAN_CMD="codetrust scan --format json --fail-on ${{ parameters.failOn }}"
+          if [ "${{ parameters.scanType }}" = "deep" ]; then
+            SCAN_CMD="${SCAN_CMD} --deep"
+          fi
+          if [ -n "${{ parameters.language }}" ]; then
+            SCAN_CMD="${SCAN_CMD} --language ${{ parameters.language }}"
+          fi
+
+          # Run scan
+          set +e
+          ${SCAN_CMD} ${SCAN_TARGET} > $(Build.ArtifactStagingDirectory)/codetrust-results.json 2>&1
+          SCAN_EXIT=$?
+          set -e
+
+          # Generate SARIF for Azure DevOps Code Scanning
+          codetrust scan --format sarif --output $(Build.ArtifactStagingDirectory)/codetrust-results.sarif ${SCAN_TARGET} || true
+
+          # Parse and display results
+          python3 -c "
+          import json, sys
+          try:
+              data = json.load(open('$(Build.ArtifactStagingDirectory)/codetrust-results.json'))
+              verdict = data.get('verdict', 'UNKNOWN')
+              total = data.get('total_findings', 0)
+              blocks = data.get('blocks', 0)
+              warns = data.get('warnings', 0)
+              print('=' * 50)
+              print(f'CodeTrust Verdict: {verdict}')
+              print(f'Total findings: {total}')
+              print(f'  BLOCK: {blocks}  WARN: {warns}')
+              print('=' * 50)
+              for f in data.get('findings', []):
+                  sev = f.get('severity', 'INFO')
+                  fname = f.get('file', '?')
+                  line = f.get('line', 0)
+                  rule = f.get('rule_id', '?')
+                  msg = f.get('message', '')
+                  tag = 'task.logissue type=error' if sev == 'BLOCK' else 'task.logissue type=warning'
+                  print(f'##vso[{tag}]sourcepath={fname};linenumber={line};code={rule};]{msg}')
+          except Exception as e:
+              print(f'Warning: could not parse results: {e}')
+          "
+
+          # Fail build if threshold exceeded
+          if [ ${SCAN_EXIT} -ne 0 ]; then
+            echo "##vso[task.logissue type=error]CodeTrust: findings exceed '${{ parameters.failOn }}' threshold"
+            exit 1
+          fi
+        displayName: 'Run CodeTrust Scan'
+        env:
+          CT_KEY: $(codetrust-secret)
+          CT_URL: $(CODETRUST_API_URL)
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish CodeTrust Reports'
+        condition: always()
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'CodeTrust'
+          publishLocation: 'Container'
+
+      # Publish SARIF to Advanced Security (if enabled)
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish SARIF for Code Scanning'
+        condition: always()
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)/codetrust-results.sarif'
+          ArtifactName: 'CodeAnalysisLogs'
+          publishLocation: 'Container'

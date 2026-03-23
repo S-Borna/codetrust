@@ -1,0 +1,112 @@
+<idea-plugin>
+    <id>ai.codetrust.plugin</id>
+    <name>CodeTrust</name>
+    <version>1.0.0</version>
+    <vendor email="support@codetrust.ai" url="https://codetrust.ai">Said Borna</vendor>
+
+    <description><![CDATA[
+    <h2>CodeTrust — AI Governance Enforcement Platform</h2>
+    <p>Real-time code scanning with 1,200+ security and anti-pattern rules across 23 languages.</p>
+    <ul>
+        <li><b>Static Analysis:</b> 1,200+ rules covering security, anti-patterns, and enterprise standards</li>
+        <li><b>AI Governance Gateway:</b> 82 real-time interception rules for AI coding assistants</li>
+        <li><b>Cross-File Taint Analysis:</b> Track untrusted data across import boundaries (Python, JS/TS, Go)</li>
+        <li><b>Hallucination Detection:</b> Verify imports against PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems</li>
+        <li><b>Trust Score:</b> Governance drift tracking with quantified risk metrics</li>
+        <li><b>SARIF Export:</b> CI/CD integration with GitHub Actions, Jenkins, GitLab, Azure, Bitbucket</li>
+    </ul>
+    <p>Supports: Python, JavaScript, TypeScript, Go, Rust, Java, C#, C/C++, Ruby, PHP, Swift, Kotlin, SQL, Dockerfile, YAML, Terraform, Kubernetes, and more.</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+    <h3>1.0.0</h3>
+    <ul>
+        <li>Initial release</li>
+        <li>Real-time on-save scanning with inline annotations</li>
+        <li>Tool window with findings tree and severity filters</li>
+        <li>Quick-fix intentions for common anti-patterns</li>
+        <li>CodeTrust cloud API integration</li>
+        <li>Configurable API endpoint and key</li>
+    </ul>
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Annotator for inline findings -->
+        <externalAnnotator
+                language=""
+                implementationClass="ai.codetrust.plugin.CodeTrustExternalAnnotator"/>
+
+        <!-- Tool window for findings -->
+        <toolWindow
+                id="CodeTrust"
+                secondary="true"
+                anchor="bottom"
+                factoryClass="ai.codetrust.plugin.ui.CodeTrustToolWindowFactory"
+                icon="/icons/codetrust-13.svg"/>
+
+        <!-- Settings -->
+        <applicationConfigurable
+                parentId="tools"
+                instance="ai.codetrust.plugin.settings.CodeTrustConfigurable"
+                id="ai.codetrust.plugin.settings"
+                displayName="CodeTrust"/>
+
+        <applicationService
+                serviceImplementation="ai.codetrust.plugin.settings.CodeTrustSettings"/>
+
+        <projectService
+                serviceImplementation="ai.codetrust.plugin.services.CodeTrustScanService"/>
+
+        <projectService
+                serviceImplementation="ai.codetrust.plugin.services.FindingsManager"/>
+
+        <!-- Inspection -->
+        <localInspection
+                language=""
+                displayName="CodeTrust Anti-Pattern Scan"
+                groupName="CodeTrust"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="ai.codetrust.plugin.CodeTrustInspection"/>
+
+        <notificationGroup
+                id="CodeTrust Notifications"
+                displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <group id="CodeTrust.Menu" text="CodeTrust" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="CodeTrust.ScanFile"
+                    class="ai.codetrust.plugin.actions.ScanFileAction"
+                    text="Scan Current File"
+                    description="Run CodeTrust scan on the current file"
+                    icon="/icons/codetrust-13.svg"/>
+            <action id="CodeTrust.ScanProject"
+                    class="ai.codetrust.plugin.actions.ScanProjectAction"
+                    text="Scan Project"
+                    description="Run CodeTrust scan on the entire project"/>
+            <action id="CodeTrust.ClearFindings"
+                    class="ai.codetrust.plugin.actions.ClearFindingsAction"
+                    text="Clear Findings"
+                    description="Clear all CodeTrust findings"/>
+        </group>
+
+        <!-- Editor context menu -->
+        <action id="CodeTrust.ScanFileContext"
+                class="ai.codetrust.plugin.actions.ScanFileAction"
+                text="CodeTrust: Scan File"
+                icon="/icons/codetrust-13.svg">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+
+    <projectListeners>
+        <listener
+                class="ai.codetrust.plugin.listeners.FileSaveListener"
+                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </projectListeners>
+</idea-plugin>

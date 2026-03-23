@@ -23,8 +23,13 @@ from src.services.ast_analyzer import AstAnalyzer
 from src.services.cache import CacheService
 from src.services.docker_verify import DockerVerifyService
 from src.services.registry import RegistryService
+from src.services.runtime_taint_verifier import (
+    RuntimeTaintVerifier,
+    VerificationSummary,
+)
 from src.services.sandbox import SandboxService
 from src.services.static_analyzer import StaticAnalyzer
+from src.services.taint_analyzer import TaintAnalyzer
 from src.telemetry_client import send_telemetry
 from src.utils.parsers import (
     extract_go_imports,
@@ -1216,6 +1221,163 @@ def _compute_deep_verdict(
         return "WARN"
 
     return "PASS"
+
+
+_TAINT_SUPPORTED_LANGS: set[str] = {"python", "javascript", "typescript"}
+
+# Lazy-initialized taint analyzer for MCP tools
+_taint_analyzer: TaintAnalyzer | None = None
+
+
+def _get_taint_analyzer() -> TaintAnalyzer:
+    """Lazily initialize the shared TaintAnalyzer instance."""
+    global _taint_analyzer
+    if _taint_analyzer is None:
+        _taint_analyzer = TaintAnalyzer()
+    return _taint_analyzer
+
+
+@mcp.tool(name="codetrust_taint_verify")
+async def codetrust_taint_verify(
+    code: str,
+    filename: str = "untitled",
+    language: str = "python",
+) -> str:
+    """Run taint analysis with runtime exploit verification.
+
+    Performs static taint analysis to find data-flow vulnerabilities,
+    then attempts to confirm each finding by executing proof-of-concept
+    exploits in an isolated Docker sandbox. Verified findings are
+    confirmed exploitable with high confidence (~0.95).
+
+    Args:
+        code: Source code to analyze.
+        filename: Name of the file being scanned.
+        language: Programming language (python, javascript, typescript).
+
+    Returns:
+        Markdown-formatted report with verified taint findings.
+    """
+    logger.info("mcp_taint_verify", filename=filename, language=language)
+    started = time.monotonic()
+    ok = False
+    taint_count = 0
+    verified_count = 0
+    try:
+        report, taint_count, verified_count = await _perform_taint_verify(
+            code, filename, language,
+        )
+        ok = True
+        return report
+    finally:
+        _emit_taint_verify_telemetry(
+            ok=ok, started=started, language=language,
+            code_len=len(code), taint_count=taint_count,
+            verified_count=verified_count,
+        )
+
+
+async def _perform_taint_verify(
+    code: str, filename: str, language: str,
+) -> tuple[str, int, int]:
+    """Run taint analysis and runtime verification.
+
+    Args:
+        code: Source code to analyze.
+        filename: File name for reporting.
+        language: Programming language string.
+
+    Returns:
+        Tuple of (markdown_report, taint_finding_count, verified_count).
+    """
+    if language not in _TAINT_SUPPORTED_LANGS:
+        return (
+            f"## Taint Verified Scan\n\n"
+            f"Taint analysis not available for: {language}",
+            0, 0,
+        )
+
+    lang = _parse_ast_language(language)
+    if lang is None:
+        return (
+            f"## Taint Verified Scan\n\n"
+            f"Unsupported language: {language}",
+            0, 0,
+        )
+
+    taint_anal = _get_taint_analyzer()
+    findings = taint_anal.analyze(code, lang, filename)
+    if not findings:
+        return "## Taint Verified Scan\n\n**Verdict: PASS** — No taint flows detected.", 0, 0
+
+    verifier = RuntimeTaintVerifier(sandbox=sandbox)
+    summary = await verifier.verify_findings(findings, language=lang)
+    report = _format_taint_verify_report(findings, summary)
+    return report, summary.total, summary.verified
+
+
+def _format_taint_verify_report(
+    findings: list[Finding],
+    summary: VerificationSummary,
+) -> str:
+    """Format taint verification results as Markdown.
+
+    Args:
+        findings: Original taint findings.
+        summary: Runtime verification summary.
+
+    Returns:
+        Markdown-formatted report string.
+    """
+    lines: list[str] = ["## Taint Verified Scan", ""]
+
+    if summary.sandbox_unavailable:
+        lines.append("**Note:** Sandbox unavailable — findings are unverified.")
+        lines.append("")
+
+    lines.append(f"**Total findings:** {summary.total}")
+    lines.append(f"**Verified (exploitable):** {summary.verified}")
+    lines.append(f"**Unverified:** {summary.unverified}")
+    lines.append("")
+
+    for vf in summary.results:
+        status = "VERIFIED" if vf.verified else "unverified"
+        confidence = f"{vf.confidence:.0%}"
+        lines.append(
+            f"- [{status}] **{vf.finding.rule_id}** "
+            f"(L{vf.finding.line}, {vf.finding.severity.value}) "
+            f"— confidence {confidence}"
+        )
+        lines.append(f"  {vf.finding.message}")
+        if vf.exploit_payload:
+            lines.append(f"  Exploit: `{vf.exploit_payload}`")
+        if vf.finding.suggestion:
+            lines.append(f"  Fix: {vf.finding.suggestion}")
+        lines.append("")
+
+    has_blocks = any(f.severity == Severity.BLOCK for f in findings)
+    verdict = "BLOCK" if (has_blocks or summary.verified > 0) else "WARN"
+    lines.append(f"**Verdict: {verdict}**")
+    return "\n".join(lines)
+
+
+def _emit_taint_verify_telemetry(
+    *, ok: bool, started: float, language: str, code_len: int,
+    taint_count: int, verified_count: int,
+) -> None:
+    """Emit telemetry for taint verify tool invocation."""
+    duration_ms = int((time.monotonic() - started) * 1000)
+    _emit_mcp_tool_invoked(
+        tool="codetrust_taint_verify",
+        ok=ok,
+        duration_ms=duration_ms,
+        payload={
+            "language": language,
+            "code_len": code_len,
+            "taint_findings": taint_count,
+            "verified_findings": verified_count,
+        },
+    )
 
 
 if __name__ == "__main__":

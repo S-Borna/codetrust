@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v3.0.0</code> &middot; <code>2058 tests</code> &middot; <code>484 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v3.0.0</code> &middot; <code>2086 tests</code> &middot; <code>884 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 484 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 2,058 tests.
+**AI Governance Enforcement Platform** — 884 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 2,058 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -171,7 +171,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**402 scan rules + 82 gateway rules = 484 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**802 scan rules + 82 gateway rules = 484 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -687,7 +687,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 
 ```bash
 pip install -e ".[dev]"
-pytest                     # 2058 tests
+pytest                     # 2086 tests
 ruff check .               # zero warnings
 ```
 

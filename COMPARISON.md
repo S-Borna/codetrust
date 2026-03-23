@@ -36,6 +36,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | Språkstöd | 14 | 35+ | 30+ | 20+ | 1–2 |
 | AST-analys | ✅ 11 språk | ✅ | ✅ | ✅ | ✅ |
 | Taint analysis | **✅ Cross-file (Py/JS/TS/Go)** | ✅ | ✅ | ✅ | ❌ |
+| **Cross-language taint** | **✅ Py↔JS/TS↔Go** | ❌ | ❌ | ❌ | ❌ |
 | SARIF-output | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ¹ Snyk gör container scanning för kända CVE:er, men verifierar inte att images/taggar existerar.
@@ -156,4 +157,4 @@ With CodeTrust added:
 
 ---
 
-*CodeTrust v3.0.0 — AI Governance Enforcement Platform. 1,284 rules (1,202 scan + 82 gateway) + cross-file taint (Python/JS/TS/Go), 27 MCP tools, 60 API endpoints, 2,136 tests.*
+*CodeTrust v3.0.0 — AI Governance Enforcement Platform. 1,284 rules (1,202 scan + 82 gateway) + cross-file taint + cross-language taint (Python↔JS/TS↔Go), 27 MCP tools, 60 API endpoints, 2,135+ tests.*

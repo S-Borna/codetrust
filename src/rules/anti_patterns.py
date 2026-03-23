@@ -8131,7 +8131,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "docker_no_healthcheck",
         "pattern": r"(?i)HEALTHCHECK\s+NONE",
         "message": "Docker HEALTHCHECK disabled. Add health check.",
-        "severity": Severity.INFO,
+        "severity": Severity.WARN,
         "file_types": [".dockerfile"],
     },
     {
@@ -8612,14 +8612,14 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "k8s_container_no_limits",
         "pattern": r"containers\s*:(?![\s\S]*(?:resources|limits|requests))",
         "message": "Kubernetes container without resource limits. Set CPU/memory limits.",
-        "severity": Severity.WARN,
+        "severity": Severity.INFO,
         "file_types": [".yml", ".yaml"],
     },
     {
         "id": "k8s_no_security_context",
         "pattern": r"containers\s*:(?![\s\S]*securityContext)",
         "message": "Kubernetes container without securityContext. Set runAsNonRoot.",
-        "severity": Severity.WARN,
+        "severity": Severity.INFO,
         "file_types": [".yml", ".yaml"],
     },
     {

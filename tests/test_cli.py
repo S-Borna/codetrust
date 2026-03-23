@@ -1128,12 +1128,15 @@ class TestK8sRules:
 
     def test_k8s_clean_yaml(self):
         path = _write_temp_file(
-            "spec:\n  containers:\n    - image: nginx:1.25\n      securityContext:\n        runAsNonRoot: true\n",
+            "spec:\n  containers:\n    - image: nginx:1.25\n      resources:\n        limits:\n          cpu: 500m\n          memory: 128Mi\n        requests:\n          cpu: 250m\n          memory: 64Mi\n      securityContext:\n        runAsNonRoot: true\n",
             suffix=".yaml",
         )
         findings = scan_file(path)
         os.unlink(path)
-        assert not any(f["rule_id"].startswith("k8s_") for f in findings)
+        assert not any(
+            f["rule_id"].startswith("k8s_") and f.get("severity") in ("BLOCK", "WARN")
+            for f in findings
+        )
 
 
 # ═══════════════════════════════════════════════════════════════

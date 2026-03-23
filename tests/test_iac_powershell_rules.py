@@ -575,12 +575,12 @@ class TestBatch2RuleCounts:
     def test_terraform_provider_rule_count(self) -> None:
         from src.rules.anti_patterns import ANTI_PATTERNS
         tf_rules = [r for r in ANTI_PATTERNS if r["id"].startswith("tf_")]
-        assert len(tf_rules) == 9
+        assert len(tf_rules) == 17
 
     def test_helm_rule_count(self) -> None:
         from src.rules.anti_patterns import ANTI_PATTERNS
         helm_rules = [r for r in ANTI_PATTERNS if r["id"].startswith("helm_")]
-        assert len(helm_rules) == 6
+        assert len(helm_rules) == 7
 
     def test_ansible_rule_count(self) -> None:
         from src.rules.anti_patterns import ANTI_PATTERNS
@@ -603,8 +603,8 @@ class TestBatch2RuleCounts:
         assert len(arm_rules) == 5
 
     def test_total_batch2_rules(self) -> None:
-        """Total Batch 2 rules = 12+9+6+6+6+7+5 = 51."""
+        """Total Batch 2 rules = 12+17+7+6+6+7+5 = 60."""
         from src.rules.anti_patterns import ANTI_PATTERNS
         prefixes = ("ps_", "tf_", "helm_", "ansible_", "nginx_", "cfn_", "cdk_", "arm_", "bicep_")
         batch2_rules = [r for r in ANTI_PATTERNS if r["id"].startswith(prefixes)]
-        assert len(batch2_rules) == 51
+        assert len(batch2_rules) == 60

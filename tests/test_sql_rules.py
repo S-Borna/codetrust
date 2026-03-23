@@ -254,5 +254,5 @@ class TestAlexShopFile:
     def test_no_false_python_rules(self, analyzer: StaticAnalyzer, sql_code: str) -> None:
         """Generic Python rules must NOT fire on the SQL file."""
         findings = analyzer.scan_code(sql_code, "03-alex-shop.sql")
-        generic = [f for f in findings if not f.rule_id.startswith("sql_")]
+        generic = [f for f in findings if not f.rule_id.startswith(("sql_", "db_"))]
         assert generic == [], f"Generic rules fired on SQL: {[f.rule_id for f in generic]}"

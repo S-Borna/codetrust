@@ -10316,6 +10316,1280 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".tf", ".json", ".yaml", ".yml"],
     },
+    # =================================================================
+    #  PERFORMANCE ANTI-PATTERNS (perf_) - 25 rules
+    # =================================================================
+
+    {
+        "id": "perf_n_plus_one_loop_query",
+        "pattern": r"for\s+\w+\s+in\s+\w+\.(?:all|filter|objects).*:\s*\n\s*\w+\.(?:get|filter|select)",
+        "message": "Potential N+1 query pattern. Use select_related/prefetch_related or batch fetching.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_missing_db_index_hint",
+        "pattern": r"(?i)\.filter\(\s*\w+__(?:contains|icontains|startswith|endswith)\s*=",
+        "message": "Text search filter without index hint. Add db_index=True or use full-text search.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_unbounded_list_append",
+        "pattern": r"while\s+True\s*:.*\.append\(",
+        "message": "Unbounded list growth in infinite loop. Add a size limit or use a bounded collection.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_string_concat_loop",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s*\w+\s*\+=\s*['\"]",
+        "message": "String concatenation in loop. Use str.join() or io.StringIO for better performance.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_redundant_rerender",
+        "pattern": r"useEffect\s*\(\s*\(\)\s*=>\s*\{[^}]*setState\s*\(",
+        "message": "setState inside useEffect without dependency array may cause infinite re-renders.",
+        "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx"],
+    },
+    {
+        "id": "perf_global_regex_recompile",
+        "pattern": r"def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+re\.compile\(",
+        "message": "Regex compiled inside function. Compile at module level to avoid repeated compilation.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_queryset_len",
+        "pattern": r"len\(\s*\w+\.objects\.(?:all|filter)\(",
+        "message": "Using len() on QuerySet fetches all rows. Use .count() instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_list_comprehension_side_effect",
+        "pattern": r"\[\s*\w+\.\w+\(.*\)\s+for\s+\w+\s+in\s+.*\](?:\s*$|\s*#)",
+        "message": "List comprehension used for side effects. Use a for loop instead to clarify intent.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_copy_deepcopy_in_loop",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s*(?:copy\.deepcopy|deepcopy)\(",
+        "message": "deepcopy inside loop is expensive. Consider restructuring to minimize copies.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_unnecessary_sort",
+        "pattern": r"sorted\(.*\)\s*\[\s*(?:0|-1)\s*\]",
+        "message": "Sorting entire collection to get min/max. Use min() or max() instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_repeated_dict_lookup",
+        "pattern": r"if\s+\w+\s+in\s+(\w+)\s*:.*\n\s*\w+\s*=\s*\1\[\w+\]",
+        "message": "Repeated dictionary lookup. Use dict.get() or try/except KeyError pattern.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_select_star_orm",
+        "pattern": r"\.(?:raw|execute)\s*\(\s*['\"]SELECT\s+\*",
+        "message": "SELECT * in raw query fetches unnecessary columns. Specify columns explicitly.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_missing_pagination",
+        "pattern": r"\.objects\.all\(\)\s*$",
+        "message": "Fetching all objects without pagination. Add limit/offset or use paginator.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_synchronous_file_read_loop",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s*(?:open|Path)\(.*\)\.read",
+        "message": "Synchronous file reads in loop. Use async I/O or batch reading.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_json_dumps_in_loop",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s*json\.dumps\(",
+        "message": "json.dumps in loop. Consider batching serialization or using orjson.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_nested_loop_db_call",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s+for\s+\w+\s+in\s+.*:\s*\n\s+.*\.(?:get|filter|save|create)\(",
+        "message": "Database call inside nested loop creates O(n^2) queries. Use bulk operations.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "perf_large_response_no_stream",
+        "pattern": r"requests\.(?:get|post)\([^)]+\)\.(?:content|text|json)\(\)",
+        "message": "Large response loaded fully into memory. Use stream=True for large payloads.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_repeated_isinstance",
+        "pattern": r"isinstance\(\s*\w+\s*,\s*\w+\s*\).*\n.*isinstance\(\s*\w+\s*,\s*\w+\s*\).*\n.*isinstance\(",
+        "message": "Multiple isinstance checks. Use a tuple of types: isinstance(x, (A, B, C)).",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_orm_save_in_loop",
+        "pattern": r"for\s+\w+\s+in\s+.*:\s*\n\s+\w+\.save\(\)",
+        "message": "ORM .save() in loop issues N queries. Use bulk_update() or bulk_create().",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_expensive_default_arg",
+        "pattern": r"def\s+\w+\(.*=\s*(?:list\(\)|dict\(\)|\[\]|\{\})",
+        "message": "Mutable default argument. Use None and initialize inside the function.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_unindexed_foreign_key",
+        "pattern": r"ForeignKey\([^)]+\)(?!.*db_index)",
+        "message": "ForeignKey without explicit db_index. Django adds indexes by default but verify for custom setups.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_queryset_evaluate_twice",
+        "pattern": r"(\w+\.objects\.\w+\([^)]*\))[^;]*\n.*\1",
+        "message": "Same QuerySet evaluated twice. Cache the result in a variable.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "perf_no_cache_expensive_call",
+        "pattern": r"@(?:app|router)\.(?:get|post)\([^)]*\)\s*\n(?:(?!@cache|@lru_cache).)*def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+await\s+\w+\.(?:fetch|get|query)\(",
+        "message": "Expensive external call in endpoint without caching decorator. Consider adding cache.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_inline_lambda_sort",
+        "pattern": r"\.sort\(\s*key\s*=\s*lambda\s+\w+\s*:\s*\w+\.\w+\).*\n.*\.sort\(",
+        "message": "Multiple sort calls on same collection. Combine into single sort with tuple key.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "perf_dataframe_iterrows",
+        "pattern": r"\.iterrows\(\)\s*:",
+        "message": "DataFrame.iterrows() is slow. Use vectorized operations or .itertuples().",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  ASYNC/CONCURRENCY ANTI-PATTERNS (async_) - 25 rules
+    # =================================================================
+
+    {
+        "id": "async_deadlock_nested_lock",
+        "pattern": r"async\s+with\s+\w+_lock\s*:.*\n(?:\s+.*\n)*?\s+async\s+with\s+\w+_lock\s*:",
+        "message": "Nested async lock acquisition may cause deadlock. Use a single lock or ordered locking.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "async_race_condition_check_then_act",
+        "pattern": r"if\s+(?:not\s+)?(?:await\s+)?\w+\.exists\(.*\).*:\s*\n\s*(?:await\s+)?\w+\.create\(",
+        "message": "Check-then-act race condition. Use get_or_create or atomic upsert.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_missing_lock_shared_state",
+        "pattern": r"(?:global|cls)\.\w+\s*(?:\+|-)=(?!.*(?:lock|mutex|semaphore))",
+        "message": "Shared state modification without lock. Protect with asyncio.Lock or threading.Lock.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_fire_and_forget",
+        "pattern": r"asyncio\.(?:ensure_future|create_task)\([^)]+\)(?!\s*\n\s*(?:await|try|result))",
+        "message": "Fire-and-forget task without error handling. Store task reference and add done callback.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_blocking_call_in_async",
+        "pattern": r"async\s+def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+(?:time\.sleep|requests\.(?:get|post|put|delete))\(",
+        "message": "Blocking call in async function. Use asyncio.sleep or httpx async client.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "async_bare_gather_no_return",
+        "pattern": r"await\s+asyncio\.gather\([^)]+,\s*return_exceptions\s*=\s*True\s*\)(?!\s*\n\s*(?:for|if|result))",
+        "message": "asyncio.gather with return_exceptions but results not checked for exceptions.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_thread_pool_no_limit",
+        "pattern": r"ThreadPoolExecutor\(\s*\)(?!.*max_workers)",
+        "message": "ThreadPoolExecutor without max_workers limit. Set explicit worker count.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_sync_io_in_event_loop",
+        "pattern": r"async\s+def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+open\(\s*['\"]",
+        "message": "Synchronous file I/O in async function. Use aiofiles or run_in_executor.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_missing_timeout",
+        "pattern": r"await\s+\w+\.(?:get|post|put|delete|fetch)\([^)]*\)(?!.*timeout)",
+        "message": "Async HTTP call without timeout. Add explicit timeout to prevent hanging.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_unbounded_semaphore",
+        "pattern": r"asyncio\.Semaphore\(\s*(?:1000|9999|\d{4,})\s*\)",
+        "message": "Semaphore with very high limit provides no real concurrency control.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_missing_cancel_handler",
+        "pattern": r"async\s+def\s+\w+.*:\s*\n\s+try\s*:\s*\n(?:(?!except\s+(?:asyncio\.)?CancelledError).)*(?:except\s+Exception)",
+        "message": "Async function catches Exception but not CancelledError. Handle cancellation explicitly.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_shared_httpx_no_pool",
+        "pattern": r"httpx\.AsyncClient\(\s*\)(?!.*limits)",
+        "message": "AsyncClient without connection pool limits. Set httpx.Limits for production use.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_event_loop_get_running",
+        "pattern": r"asyncio\.get_event_loop\(\)",
+        "message": "Deprecated asyncio.get_event_loop(). Use asyncio.get_running_loop() in async context.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_run_nested",
+        "pattern": r"asyncio\.run\((?!.*__main__)",
+        "message": "asyncio.run() called outside __main__. Avoid nested event loops; use await instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_lock_not_in_context_manager",
+        "pattern": r"\w+_lock\.acquire\(\)(?!.*finally.*release)",
+        "message": "Lock acquired without context manager. Use 'async with lock:' to ensure release.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_global_client_no_close",
+        "pattern": r"^\w+_client\s*=\s*httpx\.AsyncClient\(",
+        "message": "Global async client without lifecycle management. Use lifespan handler for cleanup.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_task_exception_lost",
+        "pattern": r"(?:loop|asyncio)\.create_task\([^)]+\)\s*$",
+        "message": "Task created without storing reference. Exceptions will be silently lost.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_mixing_sync_async_orm",
+        "pattern": r"async\s+def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+\w+\.objects\.(?:get|filter|create|all)\(",
+        "message": "Synchronous ORM call in async function. Use sync_to_async or async ORM.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "async_queue_no_maxsize",
+        "pattern": r"asyncio\.Queue\(\s*\)",
+        "message": "Unbounded asyncio.Queue. Set maxsize to prevent memory exhaustion.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_wait_first_completed_no_cancel",
+        "pattern": r"asyncio\.wait\([^)]*return_when\s*=\s*FIRST_COMPLETED(?!.*cancel)",
+        "message": "FIRST_COMPLETED without cancelling pending tasks causes resource leaks.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_generator_no_cleanup",
+        "pattern": r"async\s+def\s+\w+.*:\s*\n(?:\s+.*\n)*?\s+yield\s+(?!.*finally)",
+        "message": "Async generator without try/finally cleanup. Resources may leak on early exit.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_sleep_zero_spin",
+        "pattern": r"while\s+.*:\s*\n\s+await\s+asyncio\.sleep\(\s*0\s*\)",
+        "message": "Spinning with sleep(0) wastes CPU. Use asyncio.Event or Condition instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_subprocess_no_timeout",
+        "pattern": r"await\s+asyncio\.create_subprocess_(?:exec|shell)\([^)]*\)(?!.*timeout)",
+        "message": "Async subprocess without timeout. Add timeout to prevent zombie processes.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "async_shield_misuse",
+        "pattern": r"asyncio\.shield\(\s*\w+\s*\)(?!.*(?:try|except|cancel))",
+        "message": "asyncio.shield without handling outer cancellation. Inner task continues unobserved.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "async_daemon_thread_no_join",
+        "pattern": r"Thread\([^)]*daemon\s*=\s*True[^)]*\)\.start\(\)(?!.*join)",
+        "message": "Daemon thread started without join. May be killed mid-operation at process exit.",
+        "severity": Severity.INFO,
+    },
+
+    # =================================================================
+    #  AUTHENTICATION ANTI-PATTERNS (auth_) - 20 rules
+    # =================================================================
+
+    {
+        "id": "auth_jwt_no_expiry",
+        "pattern": r"jwt\.encode\([^)]*(?!.*exp['\"])",
+        "message": "JWT created without expiry claim. Always set 'exp' to limit token lifetime.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_md5_password",
+        "pattern": r"(?i)(?:hashlib\.md5|MD5)\s*\([^)]*(?:password|passwd|pwd)",
+        "message": "MD5 for password hashing is cryptographically broken. Use bcrypt or argon2.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_sha1_password",
+        "pattern": r"(?i)(?:hashlib\.sha1|SHA1)\s*\([^)]*(?:password|passwd|pwd)",
+        "message": "SHA1 for password hashing is weak. Use bcrypt or argon2.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_missing_mfa_check",
+        "pattern": r"def\s+(?:login|authenticate)\s*\([^)]*\).*:\s*\n(?:(?!mfa|totp|two_factor|2fa).)*return\s+(?:True|token|session)",
+        "message": "Login function without MFA verification step. Add multi-factor authentication.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_session_token_in_url",
+        "pattern": r"(?i)(?:url|href|redirect|location)\s*=.*[?&](?:token|session_id|auth|api_key)=",
+        "message": "Session token in URL query parameter. Tokens in URLs leak via referer headers and logs.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_oauth_no_state",
+        "pattern": r"(?i)(?:oauth|authorize_url|authorization_endpoint).*(?:redirect|callback)(?!.*state=)",
+        "message": "OAuth redirect without state parameter. Vulnerable to CSRF attacks.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_plaintext_password_storage",
+        "pattern": r"(?i)(?:password|passwd|pwd)\s*=\s*(?:request|data|form|body)\.\w+(?!\s*.*(?:hash|bcrypt|argon|pbkdf|scrypt))",
+        "message": "Password stored without hashing. Always hash passwords before storage.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_weak_jwt_algorithm",
+        "pattern": r"jwt\.(?:encode|decode)\([^)]*algorithm\s*=\s*['\"](?:none|HS256)['\"]",
+        "message": "Weak JWT algorithm. Use RS256 or ES256 for production systems.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_hardcoded_admin_password",
+        "pattern": r"(?i)(?:admin|root|superuser).*(?:password|passwd|pwd)\s*[:=]\s*['\"][^'\"]+['\"]",
+        "message": "Hardcoded admin credentials. Use environment variables or secret manager.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_no_rate_limit_login",
+        "pattern": r"@(?:app|router)\.post\s*\(\s*['\"](?:/login|/auth|/signin)['\"](?!.*(?:rate_limit|throttle|RateLimit))",
+        "message": "Login endpoint without rate limiting. Add rate limiting to prevent brute force.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_password_in_log",
+        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\([^)]*(?:password|passwd|pwd|secret|token)",
+        "message": "Credential or secret logged. Never log passwords, tokens, or secrets.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_jwt_decode_no_verify",
+        "pattern": r"jwt\.decode\([^)]*(?:verify\s*=\s*False|options\s*=\s*\{[^}]*verify_signature[^}]*False)",
+        "message": "JWT decoded without signature verification. Always verify JWT signatures.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_cookie_no_samesite",
+        "pattern": r"set_cookie\([^)]+\)(?!.*samesite)",
+        "message": "Cookie set without SameSite attribute. Add SameSite=Lax or Strict for CSRF protection.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_remember_me_no_expiry",
+        "pattern": r"(?i)remember_?me\s*[:=]\s*True(?!.*(?:expir|ttl|max_age))",
+        "message": "Remember-me token without expiry. Set maximum lifetime for persistent sessions.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_password_min_length_low",
+        "pattern": r"(?i)(?:min_?length|password.*len)\s*(?:>=?|==|<)\s*[1-7]\b",
+        "message": "Password minimum length below 8 characters. NIST recommends minimum 8 characters.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_basic_auth_no_tls",
+        "pattern": r"(?i)BasicAuth|Authorization.*Basic\s+(?!.*https)",
+        "message": "Basic authentication should only be used over TLS/HTTPS.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_timing_attack_comparison",
+        "pattern": r"(?:token|password|secret|hash)\s*==\s*(?:request|data|input|user)",
+        "message": "Direct string comparison for secrets is timing-attack vulnerable. Use hmac.compare_digest.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_user_enumeration",
+        "pattern": r"(?i)(?:user\s+not\s+found|email\s+not\s+registered|unknown\s+user|no\s+account)",
+        "message": "Error message enables user enumeration. Use generic messages for auth failures.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "auth_cors_credentials_wildcard",
+        "pattern": r"(?i)(?:Access-Control-Allow-Origin.*\*.*credentials|allow_credentials\s*=\s*True.*allow_origins\s*=\s*\[?\s*['\"]?\*)",
+        "message": "CORS with credentials and wildcard origin is a security risk. Specify allowed origins.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "auth_api_key_in_query",
+        "pattern": r"(?i)(?:api_?key|access_?token)\s*=\s*(?:request\.(?:args|query|params)|params\[)",
+        "message": "API key from query parameter. Use Authorization header to avoid key leakage in logs.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  SESSION MANAGEMENT ANTI-PATTERNS (session_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "session_fixation",
+        "pattern": r"(?i)(?:session|sess)(?:_?id)?\s*=\s*(?:request|cookie|header)\.\w+(?!.*(?:regenerate|rotate|new_session))",
+        "message": "Session ID from request used directly. Regenerate session ID after authentication.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_missing_secure_flag",
+        "pattern": r"set_cookie\([^)]*session[^)]*\)(?!.*(?:secure\s*=\s*True|secure=True))",
+        "message": "Session cookie without Secure flag. Set Secure=True to prevent transmission over HTTP.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_missing_httponly",
+        "pattern": r"set_cookie\([^)]*session[^)]*\)(?!.*(?:httponly\s*=\s*True|httponly=True))",
+        "message": "Session cookie without HttpOnly flag. Set HttpOnly=True to prevent XSS theft.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_excessive_lifetime",
+        "pattern": r"(?i)(?:session|cookie).*(?:max_age|expir(?:es|y))\s*[:=]\s*(?:86400{2,}|\d{7,})",
+        "message": "Session lifetime exceeds 24 hours. Use shorter lifetimes with refresh tokens.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_localstorage_token",
+        "pattern": r"localStorage\.setItem\(\s*['\"](?:token|session|jwt|auth|access_token)",
+        "message": "Session/auth token in localStorage is XSS-vulnerable. Use HttpOnly cookies instead.",
+        "severity": Severity.WARN,
+        "file_types": [".js", ".jsx", ".ts", ".tsx"],
+    },
+    {
+        "id": "session_no_invalidation_logout",
+        "pattern": r"def\s+logout\s*\([^)]*\).*:\s*\n(?:(?!(?:session|token).*(?:delete|invalidate|destroy|clear|revoke)).)*return",
+        "message": "Logout without session invalidation. Destroy server-side session on logout.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "session_predictable_id",
+        "pattern": r"(?i)session_?id\s*=\s*(?:str\(\s*\w+\s*\)|uuid\.uuid1|int\(time|hash\()",
+        "message": "Predictable session ID generation. Use secrets.token_urlsafe or cryptographic RNG.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "session_data_in_cookie",
+        "pattern": r"(?i)set_cookie\([^)]*(?:user_?id|role|admin|permissions|email)[^)]*\)",
+        "message": "Sensitive data stored in cookie. Store only session ID in cookie; data on server.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_no_ip_binding",
+        "pattern": r"(?i)session\[.+\]\s*=.*(?:user|auth)(?!.*(?:ip|remote_addr|client_ip))",
+        "message": "Session without IP binding. Consider binding sessions to client IP for extra security.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "session_concurrent_no_limit",
+        "pattern": r"def\s+(?:login|create_session)\s*\([^)]*\).*:\s*\n(?:(?!(?:concurrent|active).*(?:session|limit|max|count)).)*(?:session|token)\s*=",
+        "message": "Login without concurrent session limit. Restrict maximum active sessions per user.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "session_token_no_rotation",
+        "pattern": r"(?i)def\s+(?:refresh|renew)\s*\([^)]*\).*:\s*\n(?:(?!(?:new|rotate|regenerate).*(?:token|session)).)*return\s+(?:token|session)",
+        "message": "Token refresh without rotation. Issue new token and invalidate old one on refresh.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "session_sessionstorage_sensitive",
+        "pattern": r"sessionStorage\.setItem\(\s*['\"](?:token|jwt|password|secret|creditcard)",
+        "message": "Sensitive data in sessionStorage is XSS-vulnerable. Use HttpOnly cookies.",
+        "severity": Severity.WARN,
+        "file_types": [".js", ".jsx", ".ts", ".tsx"],
+    },
+    {
+        "id": "session_absolute_timeout_missing",
+        "pattern": r"(?i)(?:session_config|SESSION)\s*=\s*\{(?:(?!absolute.*timeout|max_lifetime).)*\}",
+        "message": "Session config without absolute timeout. Set maximum session lifetime regardless of activity.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "session_cross_origin_leak",
+        "pattern": r"(?i)(?:Access-Control-Allow-Origin|CORS).*\*.*(?:session|cookie|Set-Cookie)",
+        "message": "Session cookies exposed to all origins via CORS wildcard. Restrict allowed origins.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "session_no_csrf_token",
+        "pattern": r"@(?:app|router)\.post\([^)]*\)\s*\ndef\s+\w+.*:\s*\n(?:(?!csrf|csrftoken|_token|xsrf).)*$",
+        "message": "POST endpoint without CSRF protection. Add CSRF token validation for state-changing operations.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  ADVANCED CRYPTO ANTI-PATTERNS (crypto2_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "crypto2_rsa_small_key",
+        "pattern": r"(?i)RSA.*(?:generate|key_?size|bits)\s*[:=(]\s*(?:512|768|1024)\b",
+        "message": "RSA key size below 2048 bits is insecure. Use minimum 2048 bits, prefer 4096.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_aes_cbc_no_hmac",
+        "pattern": r"(?i)AES\.new\([^)]*CBC[^)]*\)(?!.*(?:HMAC|hmac|tag|digest|GCM))",
+        "message": "AES-CBC without HMAC authentication. Use AES-GCM or add HMAC for integrity.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_reused_nonce",
+        "pattern": r"(?i)(?:nonce|iv)\s*=\s*(?:b['\"][^'\"]+['\"]|bytes\(\s*\d+\s*\)|b'\\x00)",
+        "message": "Static or hardcoded nonce/IV. Generate unique nonce per encryption operation.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_predictable_iv",
+        "pattern": r"(?i)(?:iv|initialization_?vector)\s*=\s*(?:b['\"]|hashlib|str\.|int\.to_bytes)",
+        "message": "Predictable IV detected. Use os.urandom() or secrets module for IV generation.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_no_key_rotation",
+        "pattern": r"(?i)(?:ENCRYPTION_KEY|SECRET_KEY|MASTER_KEY)\s*=\s*['\"][^'\"]+['\"](?!.*(?:rotat|version|_v\d))",
+        "message": "Static encryption key without rotation scheme. Implement key versioning and rotation.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "crypto2_ecb_mode",
+        "pattern": r"(?i)(?:AES|DES|Blowfish).*(?:ECB|MODE_ECB)",
+        "message": "ECB mode leaks data patterns. Use CBC with random IV or GCM mode.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_des_usage",
+        "pattern": r"(?i)(?:DES|3DES|TripleDES|DESede)\.(?:new|encrypt|decrypt)",
+        "message": "DES/3DES is deprecated. Migrate to AES-256-GCM.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_weak_kdf_iterations",
+        "pattern": r"(?i)(?:pbkdf2|PBKDF2).*iterations\s*[:=]\s*(?:[1-9]\d{0,4}|[1-9]\d{4})\b",
+        "message": "PBKDF2 with less than 100000 iterations. OWASP recommends minimum 600000 for SHA-256.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "crypto2_random_not_secure",
+        "pattern": r"(?:random\.random|random\.randint|random\.choice)\(.*(?:key|token|secret|password|nonce|salt|iv)",
+        "message": "Insecure random for cryptographic purpose. Use secrets module or os.urandom().",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_hardcoded_salt",
+        "pattern": r"(?i)salt\s*=\s*(?:b['\"][^'\"]+['\"]|['\"][^'\"]+['\"]\.encode)",
+        "message": "Hardcoded salt. Generate unique salt per password with os.urandom(16).",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_rc4_usage",
+        "pattern": r"(?i)(?:ARC4|RC4|Arcfour)\.(?:new|encrypt)",
+        "message": "RC4 is broken. Use AES-256-GCM for symmetric encryption.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_padding_oracle_risk",
+        "pattern": r"(?i)except\s+(?:ValueError|PaddingError|InvalidPadding).*:\s*\n\s*(?:return|raise).*(?:invalid|bad|wrong).*(?:padding|decrypt)",
+        "message": "Detailed padding error message enables padding oracle attacks. Return generic error.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "crypto2_key_in_source",
+        "pattern": r"(?:AES|RSA|Fernet)\s*\(\s*b?['\"][A-Za-z0-9+/=]{16,}['\"]",
+        "message": "Encryption key hardcoded in source. Load from environment or key management service.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "crypto2_md5_integrity",
+        "pattern": r"(?:hashlib\.md5|MD5)\s*\([^)]*\)\.(?:hexdigest|digest)\(\).*(?:verify|check|compare|==)",
+        "message": "MD5 for integrity verification is collision-prone. Use SHA-256 or SHA-3.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "crypto2_missing_cert_validation",
+        "pattern": r"(?i)(?:ssl|tls).*(?:verify\s*=\s*False|CERT_NONE|check_hostname\s*=\s*False)",
+        "message": "Certificate validation disabled. Always verify TLS certificates in production.",
+        "severity": Severity.BLOCK,
+    },
+
+    # =================================================================
+    #  LOGGING SECURITY ANTI-PATTERNS (logging2_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "logging2_pii_in_log",
+        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\([^)]*(?:email|phone|ssn|social_security|date_of_birth|credit_card)",
+        "message": "PII in log output. Mask or exclude personal data from logs for GDPR/CCPA compliance.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "logging2_stack_trace_to_user",
+        "pattern": r"(?:return|Response|JsonResponse)\s*\([^)]*(?:traceback|stacktrace|str\(e\)|repr\(e\))",
+        "message": "Stack trace returned to user. Log internally and return sanitized error message.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "logging2_log_injection",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\(\s*f?['\"].*\{(?:request|user_input|data|params)\.",
+        "message": "Unsanitized user input in log message. Sanitize to prevent log injection attacks.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_missing_auth_audit",
+        "pattern": r"def\s+(?:login|logout|register|change_password|reset_password)\s*\([^)]*\).*:\s*\n(?:(?!(?:log|audit|event|track|record)).)*return",
+        "message": "Auth event without audit logging. Log all authentication events for security monitoring.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_debug_in_production",
+        "pattern": r"(?i)(?:DEBUG\s*=\s*True|log_level\s*[:=]\s*['\"]?DEBUG|setLevel\(\s*(?:logging\.)?DEBUG\s*\))",
+        "message": "Debug logging in production config. Use INFO or WARNING level in production.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_no_request_id",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:error|exception|critical)[^)]*\)(?!.*(?:request_id|correlation_id|trace_id))",
+        "message": "Error log without request/correlation ID. Add request ID for distributed tracing.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "logging2_log_sensitive_header",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:request\.headers|headers\[|Authorization|Cookie)",
+        "message": "Sensitive headers logged. Filter out Authorization and Cookie headers from logs.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_no_rotation_config",
+        "pattern": r"FileHandler\([^)]+\)(?!.*(?:RotatingFileHandler|TimedRotating|maxBytes))",
+        "message": "File logging without rotation. Use RotatingFileHandler to prevent disk exhaustion.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_exception_swallowed",
+        "pattern": r"except\s+\w+.*:\s*\n\s+(?:pass|\.\.\.)\s*$",
+        "message": "Exception caught and swallowed. At minimum log the exception for debugging.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_sql_in_log",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)\s+",
+        "message": "Raw SQL logged. May expose sensitive data. Log query templates without values.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_ip_address_logged",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:remote_addr|client_ip|ip_address|REMOTE_ADDR)",
+        "message": "IP address in logs may be PII under GDPR. Hash or anonymize IP addresses.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "logging2_no_timestamp",
+        "pattern": r"logging\.basicConfig\([^)]*\)(?!.*(?:format|datefmt|asctime))",
+        "message": "Logging without timestamp format. Include timestamps for incident investigation.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "logging2_print_to_stderr",
+        "pattern": r"print\([^)]*,\s*file\s*=\s*sys\.stderr",
+        "message": "Print to stderr instead of proper logging. Use structured logging framework.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "logging2_credential_in_url_log",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:https?://\w+:\w+@|password=|secret=|key=)",
+        "message": "Credentials in logged URL. Strip credentials from URLs before logging.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "logging2_no_structured_context",
+        "pattern": r"logger\.(?:error|critical)\(\s*['\"].*%[sd]",
+        "message": "Printf-style log formatting. Use structured logging with key-value pairs.",
+        "severity": Severity.INFO,
+    },
+
+    # =================================================================
+    #  NETWORK SECURITY ANTI-PATTERNS (net_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "net_tls_1_0",
+        "pattern": r"(?i)(?:ssl\.PROTOCOL_TLSv1(?:_[01])?|TLSv1\.0|TLSv1\.1|SSLv[23]|TLS_1_0|TLS_1_1)",
+        "message": "TLS 1.0/1.1 is deprecated and insecure. Use TLS 1.2 or higher.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "net_self_signed_cert",
+        "pattern": r"(?i)(?:verify\s*=\s*False|CERT_NONE|verify_ssl\s*=\s*False|check_hostname\s*=\s*False)",
+        "message": "Certificate verification disabled, accepting self-signed certs. Enable in production.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "net_dns_rebinding",
+        "pattern": r"(?i)(?:0\.0\.0\.0|127\.0\.0\.1|localhost).*(?:host\s*=|bind\s*=|listen\s*\()(?!.*(?:debug|test|dev))",
+        "message": "Binding to localhost/0.0.0.0 in production may enable DNS rebinding. Use specific interface.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_header_injection",
+        "pattern": r"(?:response|headers)\[.*\]\s*=\s*(?:request|user_input|data|params)\.",
+        "message": "User input in HTTP response header. Sanitize to prevent header injection (CRLF).",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "net_missing_hsts",
+        "pattern": r"(?i)(?:app|server)\.\w+.*(?:https|tls|ssl)(?!.*(?:hsts|Strict-Transport-Security))",
+        "message": "HTTPS configured without HSTS header. Add Strict-Transport-Security with includeSubDomains.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_open_redirect",
+        "pattern": r"(?:redirect|RedirectResponse|HttpResponseRedirect)\(\s*(?:request|params|args)\.\w+",
+        "message": "Open redirect vulnerability. Validate redirect URL against allowlist.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "net_ssrf_user_url",
+        "pattern": r"(?:httpx|requests|urllib|aiohttp)\.(?:get|post|put|delete|fetch)\(\s*(?:request|user|data|params)\.\w+",
+        "message": "Server-side request with user-supplied URL (SSRF risk). Validate against allowlist.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "net_websocket_no_auth",
+        "pattern": r"@(?:app|router)\.websocket\([^)]*\)\s*\nasync\s+def\s+\w+.*:\s*\n(?:(?!auth|token|verify|authenticate).)*await\s+websocket\.accept",
+        "message": "WebSocket endpoint without authentication. Verify identity before accepting connection.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_missing_csp",
+        "pattern": r"(?i)(?:app|server)\.(?:add_middleware|use)\([^)]*(?:Security|Helmet)(?!.*content.security.policy)",
+        "message": "Security middleware without Content-Security-Policy. Add CSP to prevent XSS.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_http_no_tls",
+        "pattern": r"(?i)(?:base_url|api_url|endpoint)\s*[:=]\s*['\"]http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)",
+        "message": "Non-localhost HTTP URL for API endpoint. Use HTTPS for all external connections.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_cors_allow_all",
+        "pattern": r"(?i)(?:allow_origins\s*=\s*\[\s*['\"]?\*['\"]?\s*\]|Access-Control-Allow-Origin.*\*)",
+        "message": "CORS allows all origins. Restrict to specific trusted domains.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_no_request_size_limit",
+        "pattern": r"(?:app|server)\s*=\s*(?:FastAPI|Flask|Starlette)\([^)]*\)(?!.*(?:max.*size|limit|max_content))",
+        "message": "Server without request size limit. Set max content length to prevent DoS.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "net_proxy_trust_all",
+        "pattern": r"(?i)(?:FORWARDED_ALLOW_IPS|proxy_headers|trust_proxy)\s*[:=]\s*['\"]?\*",
+        "message": "Trusting all proxy headers. Restrict to known proxy IPs to prevent IP spoofing.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_graphql_introspection_prod",
+        "pattern": r"(?i)(?:introspection|enable_introspection)\s*[:=]\s*True(?!.*(?:debug|dev|test))",
+        "message": "GraphQL introspection enabled in production. Disable to prevent schema discovery.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "net_missing_x_frame_options",
+        "pattern": r"(?:app|server)\.(?:add_middleware|use)\([^)]*(?:Security|Helmet)(?!.*(?:x.frame|frame.options|clickjack))",
+        "message": "Missing X-Frame-Options or frame-ancestors CSP. Add to prevent clickjacking.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  ADVANCED API ANTI-PATTERNS (api2_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "api2_missing_content_type_check",
+        "pattern": r"@(?:app|router)\.(?:post|put|patch)\([^)]*\)\s*\n(?:async\s+)?def\s+\w+.*:\s*\n(?:(?!content.type|Content-Type|media_type).)*(?:request\.json|request\.body)",
+        "message": "Reading request body without Content-Type validation. Verify Content-Type header.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_cors_reflect_origin",
+        "pattern": r"(?i)(?:Access-Control-Allow-Origin|allow_origin)\s*[:=]\s*(?:request|origin|req)\.",
+        "message": "CORS reflecting request origin is equivalent to wildcard. Use explicit allowlist.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "api2_no_versioning",
+        "pattern": r"@(?:app|router)\.(?:get|post|put|delete)\(\s*['\"](?!/v\d|/api/v\d)(?:/\w+)+['\"]",
+        "message": "API endpoint without version prefix. Add /v1/ prefix for backward compatibility.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "api2_excessive_data_exposure",
+        "pattern": r"\.(?:dict|model_dump|__dict__)\(\)(?!.*(?:include|exclude|by_alias))",
+        "message": "Full model serialization without field filtering. Use include/exclude to limit exposure.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_broken_function_auth",
+        "pattern": r"@(?:app|router)\.(?:get|post|put|delete)\(\s*['\"].*(?:admin|manage|config|internal)[^)]*\)\s*\n(?:(?!(?:Depends|auth|permission|role|admin)).)*def\s+\w+",
+        "message": "Admin/management endpoint without authorization check. Add role-based access control.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "api2_mass_assignment",
+        "pattern": r"(?:\*\*request\.(?:json|dict|body)|\.update\(\s*request\.(?:json|dict)\s*\))",
+        "message": "Mass assignment from request data. Explicitly list allowed fields to prevent overwrite.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "api2_no_pagination_list",
+        "pattern": r"@(?:app|router)\.get\([^)]*\)\s*\n(?:async\s+)?def\s+\w+.*:\s*\n(?:(?!(?:limit|offset|page|cursor|paginate)).)*return\s+\w+\.(?:all|find|select)\(",
+        "message": "List endpoint without pagination. Add limit/offset to prevent large response payloads.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_no_response_model",
+        "pattern": r"@(?:app|router)\.(?:get|post|put|delete)\([^)]*\)(?!.*response_model)\s*\n(?:async\s+)?def\s+",
+        "message": "Endpoint without response_model. Define response schema to prevent data leaks.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "api2_sql_filter_from_param",
+        "pattern": r"(?:order_by|sort|filter)\(\s*(?:request|params|query)\.\w+\s*\)",
+        "message": "SQL ordering/filtering from user parameter. Validate against allowlist of columns.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "api2_no_idempotency_key",
+        "pattern": r"@(?:app|router)\.post\(\s*['\"].*(?:payment|charge|transfer|order)[^)]*\)(?!.*idempotency)",
+        "message": "Financial endpoint without idempotency key. Add idempotency to prevent duplicate charges.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_missing_rate_limit",
+        "pattern": r"@(?:app|router)\.(?:get|post)\(\s*['\"].*(?:search|export|download|report)[^)]*\)(?!.*(?:rate_limit|throttle))",
+        "message": "Resource-intensive endpoint without rate limiting. Add throttling to prevent abuse.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "api2_enum_not_validated",
+        "pattern": r"(?:status|type|role|category)\s*[:=]\s*(?:request|params|query)\.\w+(?!.*(?:Enum|Literal|choices|validate))",
+        "message": "Enum-like field from request without validation. Use Enum or Literal type for validation.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_delete_no_soft",
+        "pattern": r"\.delete\(\).*(?:cascade|permanent|hard)(?!.*(?:soft|archive|deactivate))",
+        "message": "Hard delete without soft delete option. Consider soft delete for data recovery.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "api2_error_detail_leak",
+        "pattern": r"(?:HTTPException|Response)\([^)]*detail\s*=\s*(?:str\(e\)|repr\(e\)|traceback)",
+        "message": "Exception details in API error response. Return generic message; log details internally.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "api2_file_upload_no_validation",
+        "pattern": r"(?:UploadFile|file\.read|request\.files)(?!.*(?:content_type|size|extension|validate|MAX))",
+        "message": "File upload without type/size validation. Validate content type and enforce size limits.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  CLOUD SECURITY ANTI-PATTERNS (cloud2_) - 15 rules
+    # =================================================================
+
+    {
+        "id": "cloud2_s3_bucket_public",
+        "pattern": r"(?i)(?:s3.*(?:policy|acl)|BucketPolicy|put_bucket_policy)\s*[^)]*(?:Principal.*\*|public-read|public-read-write)",
+        "message": "S3 bucket policy allows public access. Restrict Principal to specific accounts.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "cloud2_lambda_env_secret",
+        "pattern": r"(?i)(?:lambda|serverless|function).*(?:environment|env).*(?:API_KEY|SECRET|PASSWORD|TOKEN|PRIVATE_KEY)\s*[:=]\s*['\"][^'\"]+['\"]",
+        "message": "Secret in Lambda environment config. Use AWS Secrets Manager or Parameter Store.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "cloud2_gcp_metadata_exposure",
+        "pattern": r"(?i)(?:169\.254\.169\.254|metadata\.google\.internal).*(?:token|key|secret)",
+        "message": "GCP metadata endpoint access for secrets. Use workload identity or secret manager.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "cloud2_azure_managed_identity_all",
+        "pattern": r"(?i)(?:ManagedIdentity|DefaultAzureCredential)\(\)(?!.*(?:client_id|managed_identity_client_id))",
+        "message": "Azure managed identity without specifying client ID. Use user-assigned identity explicitly.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "cloud2_iam_admin_policy",
+        "pattern": r"(?i)(?:Action|Effect).*(?:Allow).*(?:Resource).*\*.*(?:Action).*\*",
+        "message": "IAM policy with admin-level access (Action:* Resource:*). Use least-privilege principle.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "cloud2_storage_no_encryption",
+        "pattern": r"(?i)(?:create_bucket|put_object|upload_file)\([^)]*\)(?!.*(?:encrypt|SSE|KMS|ServerSideEncryption))",
+        "message": "Cloud storage operation without encryption. Enable server-side encryption.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "cloud2_public_rds",
+        "pattern": r"(?i)(?:PubliclyAccessible|publicly_accessible)\s*[:=]\s*True",
+        "message": "Database instance publicly accessible. Keep databases in private subnets.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "cloud2_security_group_all",
+        "pattern": r"(?i)(?:SecurityGroup|security_group|ingress).*(?:0\.0\.0\.0/0|::/0).*(?:22|3389|5432|3306|27017)",
+        "message": "Security group allows public access to sensitive ports. Restrict to specific IPs.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "cloud2_hardcoded_aws_region",
+        "pattern": r"(?i)region\s*[:=]\s*['\"]us-east-1['\"](?!.*(?:config|env|settings|os\.environ))",
+        "message": "Hardcoded AWS region. Use configuration or environment variable for region.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "cloud2_sns_no_encryption",
+        "pattern": r"(?i)(?:create_topic|SNS)\([^)]*\)(?!.*(?:KmsMasterKeyId|encrypt))",
+        "message": "SNS topic without encryption. Enable KMS encryption for sensitive message data.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "cloud2_sqs_no_dlq",
+        "pattern": r"(?i)(?:create_queue|SQS)\([^)]*\)(?!.*(?:dead_letter|DeadLetterQueue|RedrivePolicy))",
+        "message": "SQS queue without dead letter queue. Add DLQ to capture failed message processing.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "cloud2_cloudwatch_no_alarm",
+        "pattern": r"(?i)(?:Lambda|lambda_function|serverless)(?!.*(?:alarm|alert|monitor|CloudWatch))",
+        "message": "Lambda function without CloudWatch alarm. Add error and duration alarms.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "cloud2_s3_no_versioning",
+        "pattern": r"(?i)create_bucket\([^)]*\)(?!.*(?:versioning|Versioning))",
+        "message": "S3 bucket without versioning. Enable versioning for data protection and recovery.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "cloud2_ecr_no_scan",
+        "pattern": r"(?i)(?:create_repository|ECR)\([^)]*\)(?!.*(?:scan|imageScanningConfiguration|ScanOnPush))",
+        "message": "ECR repository without image scanning. Enable scan-on-push for vulnerability detection.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "cloud2_kms_key_rotation_disabled",
+        "pattern": r"(?i)(?:create_key|KMS).*(?:EnableKeyRotation|enable_key_rotation)\s*[:=]\s*False",
+        "message": "KMS key rotation disabled. Enable automatic key rotation for compliance.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  CONTAINER ADVANCED ANTI-PATTERNS (container2_) - 10 rules
+    # =================================================================
+
+    {
+        "id": "container2_writable_rootfs",
+        "pattern": r"(?i)(?:readOnlyRootFilesystem|read_only)\s*[:=]\s*(?:False|false)",
+        "message": "Writable root filesystem in container. Set readOnlyRootFilesystem: true.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "container2_missing_seccomp",
+        "pattern": r"(?i)(?:securityContext|security_context)\s*:(?:(?!seccompProfile|seccomp).)*$",
+        "message": "Container without seccomp profile. Add RuntimeDefault or custom seccomp profile.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "container2_net_raw_capability",
+        "pattern": r"(?i)(?:capabilities|cap_add).*(?:NET_RAW|net_raw)",
+        "message": "NET_RAW capability enables packet spoofing. Drop unless specifically needed.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "container2_host_pid_namespace",
+        "pattern": r"(?i)(?:hostPID|pid_mode|pid\s*:\s*host)\s*[:=]\s*(?:True|true|['\"]host['\"])",
+        "message": "Host PID namespace shared with container. Allows process inspection and signal sending.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "container2_privileged_mode",
+        "pattern": r"(?i)(?:privileged|--privileged)\s*[:=]\s*(?:True|true)",
+        "message": "Container in privileged mode has full host access. Remove privileged flag.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "container2_host_network",
+        "pattern": r"(?i)(?:hostNetwork|network_mode)\s*[:=]\s*(?:True|true|['\"]host['\"])",
+        "message": "Container using host network namespace. Use bridge or overlay network instead.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "container2_sys_admin_cap",
+        "pattern": r"(?i)(?:capabilities|cap_add).*SYS_ADMIN",
+        "message": "SYS_ADMIN capability is nearly equivalent to root. Remove and use specific caps.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "container2_no_resource_limits",
+        "pattern": r"(?i)(?:containers|spec)\s*:(?:(?!(?:resources|limits|requests|memory|cpu)).)*image\s*:",
+        "message": "Container without resource limits. Set CPU and memory limits to prevent resource abuse.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "container2_latest_tag",
+        "pattern": r"(?i)image\s*[:=]\s*['\"]?[a-z]+(?:/[a-z]+)?(?::latest|['\"]?\s*$)",
+        "message": "Container image without specific tag or using :latest. Pin to specific version.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "container2_root_user",
+        "pattern": r"(?i)(?:runAsUser|user)\s*[:=]\s*(?:0|['\"]root['\"])",
+        "message": "Container running as root. Set runAsNonRoot: true and specify non-root user.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  TESTING ANTI-PATTERNS (test2_) - 10 rules
+    # =================================================================
+
+    {
+        "id": "test2_assert_in_production",
+        "pattern": r"(?<!test_)(?<!_test)\.py.*\bassert\s+(?!isinstance)(?:\w+\s*[!=><]|\w+\s*(?:in|not|is)\s)",
+        "message": "Assert statement in non-test code. Assertions are stripped with -O flag. Use explicit checks.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "test2_credentials_in_test",
+        "pattern": r"(?i)(?:password|api_key|secret|token)\s*=\s*['\"](?:admin123|password|test123|secret|12345|changeme)['\"]",
+        "message": "Default/test credentials in code. Use fixture factories with random values.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "test2_mock_overuse",
+        "pattern": r"(?:@patch|@mock\.patch)\([^)]+\)\s*\n(?:@patch|@mock\.patch)\([^)]+\)\s*\n(?:@patch|@mock\.patch)\(",
+        "message": "Three or more patches on single test. Excessive mocking may hide real integration bugs.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "test2_sleep_in_test",
+        "pattern": r"(?:time\.sleep|asyncio\.sleep)\(\s*\d+\s*\).*#.*(?:wait|flaky|timing|retry)",
+        "message": "Sleep in test with timing comment indicates flaky test. Use polling or events.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "test2_no_assertion",
+        "pattern": r"def\s+test_\w+\s*\([^)]*\)\s*:\s*\n(?:(?!assert|expect|should|verify|mock.*called|raise).)*$",
+        "message": "Test function without assertions. Every test must verify expected behavior.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "test2_real_api_in_test",
+        "pattern": r"(?:def\s+test_|class\s+Test).*\n(?:\s+.*\n)*?\s+(?:httpx|requests|urllib)\.(?:get|post|put|delete)\(\s*['\"]https?://(?!localhost|127\.0\.0\.1)",
+        "message": "Test making real HTTP call to external service. Mock external dependencies.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "test2_hardcoded_port",
+        "pattern": r"(?:def\s+test_|class\s+Test).*\n(?:\s+.*\n)*?\s*['\"](?:http|https)://localhost:\d{4,5}",
+        "message": "Hardcoded port in test. Use dynamic port allocation to avoid test conflicts.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "test2_broad_exception_test",
+        "pattern": r"with\s+pytest\.raises\(\s*Exception\s*\)",
+        "message": "Catching generic Exception in test. Assert specific exception type.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "test2_database_no_rollback",
+        "pattern": r"(?:def\s+test_).*:\s*\n(?:\s+.*\n)*?\s+\w+\.(?:create|insert|save)\((?!.*(?:transaction|rollback|fixture|factory))",
+        "message": "Test creates database records without rollback guarantee. Use transaction fixtures.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "test2_random_without_seed",
+        "pattern": r"(?:def\s+test_).*:\s*\n(?:\s+.*\n)*?\s+random\.(?:random|randint|choice)\((?!.*seed)",
+        "message": "Random values in test without seed. Set seed for reproducibility.",
+        "severity": Severity.INFO,
+    },
+
+    # =================================================================
+    #  DEPENDENCY ANTI-PATTERNS (dep_) - 10 rules
+    # =================================================================
+
+    {
+        "id": "dep_pinned_vulnerable",
+        "pattern": r"(?i)(?:django|flask|fastapi|requests|urllib3|pillow|numpy|cryptography)==\d+\.\d+\.\d+(?!.*#.*(?:secure|reviewed|audited))",
+        "message": "Exactly-pinned dependency without security review note. Verify version is not vulnerable.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "dep_unused_import",
+        "pattern": r"^import\s+\w+\s*;\s*#\s*(?:noqa|unused|TODO)",
+        "message": "Potentially unused import flagged with noqa/unused. Remove if not needed.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "dep_circular_import_hint",
+        "pattern": r"(?:from|import)\s+\w+\.\w+\s+import\s+\w+.*#.*(?:circular|cycle|lazy)",
+        "message": "Circular import workaround detected. Refactor to eliminate circular dependency.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "dep_version_range_too_wide",
+        "pattern": r"(?:install_requires|dependencies).*>=\s*\d+\.\d+(?!.*<)",
+        "message": "Dependency with unbounded upper version. Add upper bound to prevent breaking changes.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "dep_dev_in_production",
+        "pattern": r"(?i)(?:install_requires|dependencies).*(?:pytest|mock|faker|factory.boy|coverage|debug.toolbar)",
+        "message": "Development dependency in production requirements. Move to dev/test dependencies.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "dep_multiple_http_clients",
+        "pattern": r"import\s+(?:requests|httpx|urllib3|aiohttp).*\n(?:.*\n)*?import\s+(?:requests|httpx|urllib3|aiohttp)",
+        "message": "Multiple HTTP client libraries imported. Standardize on one to reduce dependency surface.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "dep_vendored_code",
+        "pattern": r"# (?:vendored|copied|pasted) from (?:https?://|github\.com)",
+        "message": "Vendored/copied code detected. Use proper package dependency for updates and security patches.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "dep_sys_path_manipulation",
+        "pattern": r"sys\.path\.(?:insert|append)\(",
+        "message": "sys.path manipulation is fragile. Use proper package installation or relative imports.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "dep_requirements_no_hash",
+        "pattern": r"==\d+\.\d+\.\d+(?:\s*)$(?!.*--hash)",
+        "message": "Pinned dependency without hash verification. Add --hash for supply chain security.",
+        "severity": Severity.INFO,
+        "file_types": [".txt"],
+    },
+    {
+        "id": "dep_git_dependency",
+        "pattern": r"(?i)(?:git\+https?://|git\+ssh://|egg=).*(?:@master|@main|@HEAD)",
+        "message": "Git dependency on mutable branch. Pin to specific commit hash for reproducibility.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  ENCODING ANTI-PATTERNS (encoding_) - 5 rules
+    # =================================================================
+
+    {
+        "id": "encoding_double_encode",
+        "pattern": r"(?:urllib\.parse\.quote|encodeURIComponent|escape)\(.*(?:urllib\.parse\.quote|encodeURIComponent|escape)\(",
+        "message": "Double URL encoding detected. This corrupts data and may bypass security filters.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "encoding_mixed_decode",
+        "pattern": r"\.decode\(\s*['\"](?:utf-8|ascii)['\"].*\.decode\(\s*['\"](?:latin|iso-8859|cp1252)",
+        "message": "Mixed encoding in decode chain. Standardize on UTF-8 to prevent mojibake.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "encoding_homoglyph_check",
+        "pattern": r"['\"].*[\u0400-\u04ff\u0370-\u03ff].*[a-zA-Z].*['\"]",
+        "message": "Possible homoglyph attack - mixed scripts in string literal. Verify character origins.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "encoding_bom_in_string",
+        "pattern": r"(?:\\xef\\xbb\\xbf|\\ufeff)",
+        "message": "BOM (Byte Order Mark) in string. May cause invisible parsing issues.",
+        "severity": Severity.INFO,
+    },
+    {
+        "id": "encoding_base64_secret",
+        "pattern": r"(?:b64decode|base64\.decode)\(\s*['\"][A-Za-z0-9+/=]{20,}['\"]",
+        "message": "Base64-encoded string decoded inline. If this is a secret, use proper secret management.",
+        "severity": Severity.WARN,
+    },
+
+    # =================================================================
+    #  CONFIG ANTI-PATTERNS (config2_) - 5 rules
+    # =================================================================
+
+    {
+        "id": "config2_hardcoded_feature_flag",
+        "pattern": r"(?i)(?:feature_flag|feature_enabled|is_feature)\s*[:=]\s*(?:True|False)(?!.*(?:env|config|settings|os\.environ))",
+        "message": "Hardcoded feature flag. Use configuration service for runtime feature toggling.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "config2_missing_circuit_breaker",
+        "pattern": r"(?:while\s+True|for\s+\w+\s+in\s+range\(\d+\)).*(?:retry|attempt)(?!.*(?:circuit.breaker|CircuitBreaker|backoff|exponential))",
+        "message": "Retry loop without circuit breaker. Add circuit breaker to prevent cascade failures.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "config2_default_admin_creds",
+        "pattern": r"(?i)(?:ADMIN|ROOT|SUPERUSER).*(?:USERNAME|USER)\s*[:=]\s*['\"]admin['\"]",
+        "message": "Default admin username. Require custom admin credentials during setup.",
+        "severity": Severity.BLOCK,
+    },
+    {
+        "id": "config2_debug_mode_production",
+        "pattern": r"(?i)(?:DEBUG|TESTING|DEVELOPMENT)\s*[:=]\s*True(?!.*(?:if|when|test|dev|local))",
+        "message": "Debug/testing mode enabled unconditionally. Guard with environment check.",
+        "severity": Severity.WARN,
+    },
+    {
+        "id": "config2_magic_number",
+        "pattern": r"(?:sleep|timeout|retry|max_age|ttl|limit)\s*[:=]\s*(?:3600|86400|604800|2592000)(?!\s*#)",
+        "message": "Uncommented magic number for time/limit constant. Extract to named constant with comment.",
+        "severity": Severity.INFO,
+    },
+
 ]
 
 # File-type sets for routing

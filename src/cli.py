@@ -4749,6 +4749,120 @@ def _add_audit_subparser(
     )
 
 
+def _add_shield_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'shield' subcommand for OS-level AI governance."""
+    shield_parser = subparsers.add_parser(
+        "shield",
+        help="OS-level AI governance enforcement",
+    )
+    shield_parser.add_argument(
+        "action",
+        choices=["start", "stop", "status", "log", "install", "uninstall"],
+        help="Shield action to perform",
+    )
+    shield_parser.add_argument(
+        "--workspace", "-w", default=".",
+        help="Workspace directory to protect (default: .)",
+    )
+    shield_parser.add_argument(
+        "--tail", "-n", type=int, default=20,
+        help="Number of log entries to show (default: 20)",
+    )
+
+
+def cmd_shield(args: argparse.Namespace) -> int:
+    """Handle the 'shield' CLI command."""
+    from pathlib import Path
+
+    from src.shield.daemon import ShieldDaemon
+
+    daemon = ShieldDaemon(workspace=Path(args.workspace))
+    action: str = args.action
+
+    if action == "start":
+        result = daemon.start()
+        if result.get("status") == "already_running":
+            sys.stdout.write(
+                f"Shield already running (PID {result.get('pid', '')})\n",
+            )
+        else:
+            sys.stdout.write(
+                f"Shield active - workspace: {result.get('workspace', '')}\n"
+                f"  Shell wrapper: {result.get('shell_wrapper', '')}\n"
+                f"  File watcher: {result.get('file_watcher', '')}\n"
+                f"  Audit log: {result.get('audit_log', '')}\n"
+                "\n  Run 'codetrust shield install' to auto-configure IDEs\n"
+            )
+        return 0
+
+    if action == "stop":
+        daemon.stop()
+        sys.stdout.write("Shield stopped\n")
+        return 0
+
+    if action == "status":
+        result = daemon.status()
+        running = result.get("running", False)
+        icon = "\033[32m*\033[0m" if running else "\033[31m*\033[0m"
+        label = "active" if running else "inactive"
+        sys.stdout.write(
+            f"{icon} Shield {label}\n"
+            f"  Workspace: {result.get('workspace', '')}\n"
+            f"  Shell wrapper: "
+            f"{'installed' if result.get('shell_wrapper_installed') else 'not installed'}\n"
+            f"  Audit entries: {result.get('audit_entries', 0)}"
+            f" ({result.get('blocks', 0)} blocked)\n"
+        )
+        return 0
+
+    if action == "log":
+        from src.shield.config import AUDIT_FILE
+
+        if not AUDIT_FILE.exists():
+            sys.stdout.write("No audit entries yet.\n")
+            return 0
+
+        lines = AUDIT_FILE.read_text().strip().split("\n")
+        tail_count: int = args.tail
+        for line in lines[-tail_count:]:
+            try:
+                entry = json.loads(line)
+                verdict = entry.get("verdict", "?")
+                color_map = {"BLOCK": "\033[91m", "WARN": "\033[93m"}
+                color = color_map.get(verdict, "\033[92m")
+                source = entry.get("source", "")
+                if source == "shield":
+                    detail = entry.get("command", "")[:80]
+                else:
+                    detail = (
+                        f"{entry.get('file', '')} - "
+                        f"{entry.get('rule_id', '')}"
+                    )
+                sys.stdout.write(f"  {color}[{verdict}]\033[0m {detail}\n")
+            except json.JSONDecodeError:
+                pass
+        return 0
+
+    if action == "install":
+        result = daemon.install_ide_hooks()
+        for ide, ide_status in result.items():
+            icon = "+" if ide_status == "configured" else "-"
+            sys.stdout.write(f"  {icon} {ide}: {ide_status}\n")
+        sys.stdout.write("\n  Restart your IDE for changes to take effect.\n")
+        return 0
+
+    if action == "uninstall":
+        result = daemon.uninstall_ide_hooks()
+        for ide, ide_status in result.items():
+            icon = "+" if ide_status == "restored" else "-"
+            sys.stdout.write(f"  {icon} {ide}: {ide_status}\n")
+        return 0
+
+    return 1
+
+
 def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     """Route parsed CLI args to the appropriate command handler."""
     if args.command == "init":
@@ -4786,6 +4900,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_policy(args)
     if args.command == "audit":
         return cmd_audit(args)
+    if args.command == "shield":
+        return cmd_shield(args)
 
     parser.print_help()
     return 0
@@ -4813,6 +4929,7 @@ def main() -> int:
     _add_utility_subparsers(subparsers)
     _add_trend_subparser(subparsers)
     _add_governance_policy_audit_subparsers(subparsers)
+    _add_shield_subparser(subparsers)
 
     args = parser.parse_args()
     return _route_command(args, parser)

@@ -83,6 +83,7 @@ codetrust = "src.cli:main"
 codetrust-mcp = "src.server:mcp.run"
 codetrust-gateway-mcp = "src.gateway.server:main"
 codetrust-api = "src.api:run"
+codetrust-shell = "src.shield.shell_wrapper:main"
 
 [tool.ruff]
 target-version = "py312"

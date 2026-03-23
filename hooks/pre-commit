@@ -177,6 +177,8 @@ def main() -> int:
         # will always contain the patterns they detect (false positives).
         if path.startswith("src/rules/"):
             return True
+        if path.startswith("src/services/taint"):
+            return True
         return False
 
     source_files = [

@@ -337,3 +337,122 @@ def execute(request):
         taint = [f for f in findings if f.rule_id == "taint_command_injection"]
         assert len(taint) >= 1
         assert taint[0].severity == Severity.BLOCK
+
+
+# ---------------------------------------------------------------------------
+# Cross-file taint detection
+# ---------------------------------------------------------------------------
+
+
+class TestCrossFileTaint:
+    """Tests for cross-file taint tracking across import boundaries."""
+
+    def test_cross_file_return_value_taint(self, analyzer: TaintAnalyzer) -> None:
+        """Taint flows across files via imported function return value.
+
+        utils.py defines get_user_data() which returns tainted data.
+        handler.py imports and calls it, then passes the result to a sink.
+        """
+        files = {
+            "utils.py": '''
+def get_user_data(request):
+    return request.args.get('name')
+''',
+            "handler.py": '''
+from utils import get_user_data
+
+def handle(request):
+    name = get_user_data(request)
+    cursor.execute(f"SELECT * FROM users WHERE name = {name}")
+''',
+        }
+        findings = analyzer.analyze_project(files, Language.PYTHON)
+        handler_taint = [
+            f for f in findings
+            if f.rule_id == "taint_sql_injection" and f.file == "handler.py"
+        ]
+        assert len(handler_taint) >= 1
+        assert handler_taint[0].severity == Severity.BLOCK
+
+    def test_cross_file_param_to_sink(self, analyzer: TaintAnalyzer) -> None:
+        """Taint flows across files via imported function with sink-reachable param.
+
+        db_utils.py defines run_query() which passes its param to cursor.execute().
+        app.py imports run_query and calls it with tainted data.
+        """
+        files = {
+            "db_utils.py": '''
+def run_query(query_str):
+    cursor.execute(query_str)
+''',
+            "app.py": '''
+from db_utils import run_query
+
+def handle(request):
+    q = request.args.get('q')
+    run_query(q)
+''',
+        }
+        findings = analyzer.analyze_project(files, Language.PYTHON)
+        app_taint = [
+            f for f in findings
+            if f.rule_id == "taint_sql_injection" and f.file == "app.py"
+        ]
+        assert len(app_taint) >= 1
+
+    def test_clean_import_no_false_positive(self, analyzer: TaintAnalyzer) -> None:
+        """Importing a clean function should not produce false positives."""
+        files = {
+            "helpers.py": '''
+def get_default_name():
+    return "anonymous"
+''',
+            "app.py": '''
+from helpers import get_default_name
+
+def handle():
+    name = get_default_name()
+    cursor.execute(f"SELECT * FROM users WHERE name = {name}")
+''',
+        }
+        findings = analyzer.analyze_project(files, Language.PYTHON)
+        taint = [
+            f for f in findings
+            if f.rule_id == "taint_sql_injection" and f.file == "app.py"
+        ]
+        assert len(taint) == 0
+
+    def test_multi_file_chain(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through A -> B -> C file chain.
+
+        sources.py reads user input, transform.py re-exports it via
+        a wrapper, and handler.py imports from transform.py and passes
+        the result to a sink.
+        """
+        files = {
+            "sources.py": '''
+def read_input(request):
+    return request.args.get('cmd')
+''',
+            "transform.py": '''
+from sources import read_input
+
+def get_command(request):
+    raw = read_input(request)
+    return raw
+''',
+            "handler.py": '''
+from transform import get_command
+
+def execute(request):
+    cmd = get_command(request)
+    os.system(cmd)
+''',
+        }
+        findings = analyzer.analyze_project(files, Language.PYTHON)
+        handler_taint = [
+            f for f in findings
+            if f.rule_id == "taint_command_injection" and f.file == "handler.py"
+        ]
+        assert len(handler_taint) >= 1
+        assert handler_taint[0].severity == Severity.BLOCK

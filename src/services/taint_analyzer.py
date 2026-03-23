@@ -1,19 +1,27 @@
 # Copyright (c) 2026 Said Borna. All rights reserved.
 # Proprietary — see LICENSE for terms.
-"""Intra- and inter-procedural taint analysis using tree-sitter AST.
+"""Intra-, inter-procedural, and cross-file taint analysis using tree-sitter AST.
 
 Tracks data flow from untrusted sources (e.g., request parameters)
 to dangerous sinks (e.g., SQL queries, OS commands) within and across
-function bodies. Reports findings when tainted data reaches a sink
-without sanitization.
+function bodies and file boundaries. Reports findings when tainted data
+reaches a sink without sanitization.
 
-Inter-procedural analysis works in two phases:
+Single-file analysis works in two phases:
   Phase 1 — Build a summary for each function: which parameters carry
             taint from sources, and whether the return value is tainted.
   Phase 2 — Re-analyze functions using summaries so that call-site
             results inherit callee taint information.
+
+Cross-file analysis extends this with additional phases:
+  Phase 1 — Build per-file function summaries.
+  Phase 2 — Build cross-file import map (which file imports what).
+  Phase 3 — Merge imported function summaries into each file's context.
+  Phase 4 — Re-analyze each file with merged summaries to detect
+            cross-file taint flows.
 """
 
+import re
 from dataclasses import dataclass, field
 
 import structlog
@@ -79,8 +87,32 @@ class FunctionSummary:
     params_reaching_sinks: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class CrossFileImport:
+    """A resolved cross-file import mapping a local name to a source file.
+
+    Captures e.g. ``from utils import get_user_data`` as:
+        local_name='get_user_data', source_file='utils.py',
+        original_name='get_user_data'
+    """
+
+    local_name: str
+    source_file: str
+    original_name: str
+
+
+# Maximum fixpoint iterations for cross-file summary merging.
+_MAX_CROSS_FILE_ITERATIONS = 10
+
+# Regex for Python ``from <module> import <names>`` statements.
+_PYTHON_FROM_IMPORT_RE = re.compile(
+    r"^\s*from\s+([\w.]+)\s+import\s+(.+)$",
+    re.MULTILINE,
+)
+
+
 class TaintAnalyzer:
-    """Intra- and inter-procedural taint analysis using tree-sitter AST."""
+    """Intra-, inter-procedural, and cross-file taint analysis."""
 
     def __init__(self) -> None:
         """Initialize the taint analyzer with a language cache."""
@@ -114,6 +146,256 @@ class TaintAnalyzer:
             total_findings=len(findings),
         )
         return findings
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Cross-file (project-level) taint analysis
+    # ═══════════════════════════════════════════════════════════════
+
+    def analyze_project(
+        self,
+        files: dict[str, str],
+        language: Language,
+    ) -> list[Finding]:
+        """Run cross-file taint analysis on a set of project files.
+
+        Tracks tainted data across import boundaries: if file A exports
+        a function that returns tainted data and file B imports and calls
+        that function, the taint propagates across the file boundary.
+
+        Args:
+            files: Dict mapping filepath to source code content.
+            language: The programming language for all files.
+
+        Returns:
+            List of findings including cross-file taint flows.
+        """
+        per_file_summaries = self._build_per_file_summaries(files, language)
+        import_map = self._build_cross_file_import_map(files, language)
+        merged = self._merge_cross_file_summaries(
+            per_file_summaries, import_map,
+        )
+        return self._run_cross_file_analysis(
+            files, language, merged,
+        )
+
+    def _build_per_file_summaries(
+        self,
+        files: dict[str, str],
+        language: Language,
+    ) -> dict[str, dict[str, FunctionSummary]]:
+        """Phase 1: build function summaries per file.
+
+        Returns a dict mapping filepath -> {func_name: FunctionSummary}.
+        """
+        result: dict[str, dict[str, FunctionSummary]] = {}
+        for filepath, code in files.items():
+            func_nodes = self._parse_function_nodes(code, language)
+            if func_nodes is None:
+                result[filepath] = {}
+                continue
+            summaries = self._build_all_summaries(func_nodes, language)
+            result[filepath] = summaries
+        return result
+
+    def _build_cross_file_import_map(
+        self,
+        files: dict[str, str],
+        language: Language,
+    ) -> dict[str, list[CrossFileImport]]:
+        """Phase 2: build import map — which file imports what from where.
+
+        Returns a dict mapping filepath -> list of CrossFileImport.
+        Currently supports Python ``from <module> import <name>`` syntax.
+        """
+        if language != Language.PYTHON:
+            return {}
+
+        return self._extract_python_cross_file_imports(files)
+
+    def _extract_python_cross_file_imports(
+        self,
+        files: dict[str, str],
+    ) -> dict[str, list[CrossFileImport]]:
+        """Extract Python cross-file imports for all project files.
+
+        Resolves ``from <module> import <name>`` to a source file within
+        the project, using simple name matching against known filenames.
+        """
+        import_map: dict[str, list[CrossFileImport]] = {}
+
+        for filepath, code in files.items():
+            imports = self._parse_python_from_imports(code, files)
+            if imports:
+                import_map[filepath] = imports
+
+        return import_map
+
+    def _parse_python_from_imports(
+        self,
+        code: str,
+        all_files: dict[str, str],
+    ) -> list[CrossFileImport]:
+        """Parse ``from X import Y`` statements and resolve to project files."""
+        imports: list[CrossFileImport] = []
+
+        for match in _PYTHON_FROM_IMPORT_RE.finditer(code):
+            module_name = match.group(1)
+            names_str = match.group(2).strip()
+
+            source_file = self._resolve_module_to_file(
+                module_name, all_files,
+            )
+            if source_file is None:
+                continue
+
+            imported_names = self._parse_import_names(names_str)
+            for name in imported_names:
+                imports.append(CrossFileImport(
+                    local_name=name,
+                    source_file=source_file,
+                    original_name=name,
+                ))
+
+        return imports
+
+    def _resolve_module_to_file(
+        self,
+        module_name: str,
+        all_files: dict[str, str],
+    ) -> str | None:
+        """Resolve a Python module name to a filepath in the project.
+
+        Tries common patterns: ``module.py``, ``module/__init__.py``,
+        and dotted paths like ``pkg.module`` -> ``pkg/module.py``.
+        """
+        module_path = module_name.replace(".", "/")
+        candidates = [
+            f"{module_path}.py",
+            f"{module_path}/__init__.py",
+        ]
+
+        # Also try just the last segment for flat layouts.
+        last_segment = module_name.rsplit(".", maxsplit=1)[-1]
+        candidates.append(f"{last_segment}.py")
+
+        for candidate in candidates:
+            if candidate in all_files:
+                return candidate
+
+        return None
+
+    def _parse_import_names(self, names_str: str) -> list[str]:
+        """Parse the imported names from the RHS of a from-import statement.
+
+        Handles ``from x import a, b, c`` and ``from x import (a, b, c)``.
+        Strips ``as`` aliases, using the alias as the local name.
+        """
+        # Remove parentheses if present.
+        cleaned = names_str.strip("() \t\n")
+        if not cleaned:
+            return []
+
+        names: list[str] = []
+        for part in cleaned.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            # Handle ``name as alias`` — use the alias as local name.
+            if " as " in part:
+                alias = part.split(" as ")[-1].strip()
+                names.append(alias)
+            else:
+                names.append(part)
+
+        return names
+
+    def _merge_cross_file_summaries(
+        self,
+        per_file_summaries: dict[str, dict[str, FunctionSummary]],
+        import_map: dict[str, list[CrossFileImport]],
+    ) -> dict[str, dict[str, FunctionSummary]]:
+        """Phase 3: merge imported function summaries into each file's context.
+
+        For each file, if it imports a function from another file, the
+        callee's FunctionSummary is added to the importing file's summary
+        map so that call-site taint propagation works cross-file.
+
+        Iterates to a fixpoint to handle transitive chains (A->B->C).
+        """
+        merged: dict[str, dict[str, FunctionSummary]] = {
+            fp: dict(sums) for fp, sums in per_file_summaries.items()
+        }
+
+        for _ in range(_MAX_CROSS_FILE_ITERATIONS):
+            changed = False
+            for filepath, imports in import_map.items():
+                file_summaries = merged.get(filepath, {})
+                for imp in imports:
+                    source_summaries = merged.get(imp.source_file, {})
+                    source_summary = source_summaries.get(imp.original_name)
+                    if source_summary is None:
+                        continue
+
+                    existing = file_summaries.get(imp.local_name)
+                    if (
+                        existing is not None
+                        and existing.returns_taint == source_summary.returns_taint
+                        and existing.params_reaching_sinks == source_summary.params_reaching_sinks
+                    ):
+                        continue
+
+                    # Create a copy with the local name for the importing file.
+                    imported_summary = FunctionSummary(
+                        name=imp.local_name,
+                        param_names=list(source_summary.param_names),
+                        returns_taint=source_summary.returns_taint,
+                        taint_source=source_summary.taint_source,
+                        taint_source_line=source_summary.taint_source_line,
+                        params_reaching_sinks=dict(source_summary.params_reaching_sinks),
+                    )
+                    file_summaries[imp.local_name] = imported_summary
+                    merged[filepath] = file_summaries
+                    changed = True
+
+            if not changed:
+                break
+
+        return merged
+
+    def _run_cross_file_analysis(
+        self,
+        files: dict[str, str],
+        language: Language,
+        merged_summaries: dict[str, dict[str, FunctionSummary]],
+    ) -> list[Finding]:
+        """Phase 4: re-analyze each file with cross-file summaries.
+
+        Uses the merged summary map (including imported function summaries)
+        so that calls to imported functions propagate taint correctly.
+        """
+        all_findings: list[Finding] = []
+
+        for filepath, code in files.items():
+            func_nodes = self._parse_function_nodes(code, language)
+            if func_nodes is None:
+                continue
+
+            file_summaries = merged_summaries.get(filepath, {})
+            findings = self._run_interprocedural_pass(
+                func_nodes, file_summaries, language, filepath,
+            )
+            all_findings.extend(findings)
+
+        logger.info(
+            "cross_file_taint_analysis_complete",
+            total_files=len(files),
+            total_findings=len(all_findings),
+        )
+        return all_findings
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Single-file parsing and analysis helpers
+    # ═══════════════════════════════════════════════════════════════
 
     def _parse_function_nodes(
         self,
@@ -429,7 +711,7 @@ class TaintAnalyzer:
         summary = FunctionSummary(name=func_name, param_names=param_names)
 
         # Check if any return statement carries taint (real sources only)
-        self._check_return_taint(func_node, tainted, summary)
+        self._check_return_taint(func_node, tainted, summary, language)
 
         # Check which parameters flow to sinks (param-seeded map)
         self._check_params_reaching_sinks(func_node, param_tainted, language, summary)
@@ -441,17 +723,27 @@ class TaintAnalyzer:
         func_node: ts.Node,
         tainted: dict[str, TaintRecord],
         summary: FunctionSummary,
+        language: Language | None = None,
     ) -> None:
         """Check if any return statement in the function returns tainted data."""
         for node in _walk_tree(func_node):
             if node.type != "return_statement":
                 continue
             return_text = node.text.decode("utf-8") if node.text else ""
+            # Check if return value is a tainted variable
             for var_name, record in tainted.items():
                 if var_name in return_text:
                     summary.returns_taint = True
                     summary.taint_source = record.source
                     summary.taint_source_line = record.source_line
+                    return
+            # Check if return value is a direct source call
+            if language is not None:
+                source = self._find_source_in_text(return_text, language)
+                if source is not None:
+                    summary.returns_taint = True
+                    summary.taint_source = source
+                    summary.taint_source_line = node.start_point.row + 1
                     return
 
     def _check_params_reaching_sinks(

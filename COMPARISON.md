@@ -32,10 +32,10 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | **Licens-compliance** | **✅** | ❌ | ❌ | **✅** | ❌ |
 | **Cross-file analys** | **✅** | ✅ | ✅ | ❌ | ❌ |
 | **Auto-fix PRs** | **✅ 17 recipes** | ✅ | ✅ | ✅ | ✅ |
-| Statisk kodanalys | 1,002 regler | 5,000+ | 3,000+ | SAST | 800+ |
+| Statisk kodanalys | 1,202 regler | 5,000+ | 3,000+ | SAST | 800+ |
 | Språkstöd | 14 | 35+ | 30+ | 20+ | 1–2 |
 | AST-analys | ✅ 11 språk | ✅ | ✅ | ✅ | ✅ |
-| Taint analysis | **✅ Intra-proc** | ✅ | ✅ | ✅ | ❌ |
+| Taint analysis | **✅ Cross-file (Py/JS/TS/Go)** | ✅ | ✅ | ✅ | ❌ |
 | SARIF-output | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ¹ Snyk gör container scanning för kända CVE:er, men verifierar inte att images/taggar existerar.
@@ -50,7 +50,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | | CodeTrust | SonarQube |
 |---|---|---|
 | **Styrka** | AI Governance Gateway (82 regler), signaturvalidering, paket/Docker-verifiering | Djupaste regelbiblioteket (5,000+), 35+ språk, taint analysis |
-| **Svaghet** | 1,002 regler, intra-procedural taint (ej inter-proc) | Ingen AI governance, ingen paket/Docker-verifiering, kräver server |
+| **Svaghet** | 1,202 regler (SonarQube har 5,000+) | Ingen AI governance, ingen paket/Docker-verifiering, kräver server |
 | **MCP** | 27 tools (10 scan + 17 gateway) | Tillagt 2025 |
 | **Pris** | $0 | $32/mån (10 dev, 100K LOC) |
 | **Bäst för** | AI-kodverifiering + governance | Traditionell kodkvalitet |
@@ -62,7 +62,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | | CodeTrust | Semgrep |
 |---|---|---|
 | **Styrka** | Gateway, signatur, paket, Docker, MCP, sandbox, drift score | Cross-file taint analysis, custom rules, 3,000+ regler |
-| **Svaghet** | Intra-procedural taint (ej cross-file) | Ingen AI governance, ingen paket/Docker-verifiering |
+| **Svaghet** | Färre regler (1,202 vs 3,000+) | Ingen AI governance, ingen paket/Docker-verifiering |
 | **Pris** | $0 | $40–100/dev/mån |
 | **Bäst för** | Fånga AI-hallucinationer + styra AI-agenter | Avancerad SAST + SCA |
 
@@ -150,10 +150,10 @@ With CodeTrust added:
 |---|---|
 | Behöver jag CodeTrust om jag har SonarQube? | **Ja.** SonarQube verifierar inte paket/Docker, har ingen AI governance gateway. |
 | Behöver jag CodeTrust om jag har Snyk? | **Ja.** Snyk hittar CVE:er i kända paket. CodeTrust fångar paket som inte existerar och styr AI-agenter. |
-| Behöver jag SonarQube om jag har CodeTrust? | **Ja, om du behöver djup SAST.** CodeTrust har 1,002 scan-regler, SonarQube 5,000+. |
+| Behöver jag SonarQube om jag har CodeTrust? | **Ja, om du behöver djup SAST.** CodeTrust har 1,202 scan-regler + cross-file taint, SonarQube 5,000+. |
 | Behöver jag Snyk om jag har CodeTrust? | **Kanske.** CodeTrust har OSV-baserad CVE-scanning. Snyk har djupare CVE-databas. |
 | Kan jag använda alla tillsammans? | **Absolut.** De fyller olika delar av säkerhetspipeline. SARIF-format fungerar med samma GitHub Security tab. |
 
 ---
 
-*CodeTrust v3.0.0 — AI Governance Enforcement Platform. 1,002 rules + taint analysis, 27 MCP tools, 60 API endpoints, 2,058 tests.*
+*CodeTrust v3.0.0 — AI Governance Enforcement Platform. 1,284 rules (1,202 scan + 82 gateway) + cross-file taint (Python/JS/TS/Go), 27 MCP tools, 60 API endpoints, 2,136 tests.*

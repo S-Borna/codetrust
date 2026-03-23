@@ -447,3 +447,376 @@ http.HandleFunc("/api/go", GoHandler)
         result = analyzer.analyze(files)
         assert result.routes_discovered >= 3
         assert result.languages_analyzed == 3
+
+
+# ═══════════════════════════════════════════════════════════════
+#  New framework route extraction tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestNewFrameworkRouteExtraction:
+    """Test route extraction for newly added frameworks."""
+
+    def test_starlette_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Starlette @app.route() decorator."""
+        code = '''
+@app.route("/api/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "ok"})
+'''
+        routes = analyzer._extract_python_routes("app.py", code)
+        assert len(routes) >= 1
+        found = [r for r in routes if r.path == "/api/health"]
+        assert len(found) >= 1
+        assert found[0].method in ("GET", "ANY")
+
+    def test_aiohttp_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect aiohttp @routes.get() decorator."""
+        code = '''
+@routes.get("/api/users")
+async def get_users(request):
+    return web.json_response(users)
+
+@routes.post("/api/users")
+async def create_user(request):
+    data = await request.json()
+    return web.json_response(data)
+'''
+        routes = analyzer._extract_python_routes("handlers.py", code)
+        assert len(routes) >= 2
+        methods = {r.method for r in routes if "/api/users" in r.path}
+        assert "GET" in methods
+        assert "POST" in methods
+
+    def test_tornado_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Tornado URL mapping with RequestHandler."""
+        code = '''
+class UserHandler(RequestHandler):
+    def get(self):
+        self.write({"users": []})
+
+app = Application([
+    (r"/api/users", UserHandler),
+    (r"/api/items", ItemHandler),
+])
+'''
+        routes = analyzer._extract_python_routes("app.py", code)
+        tornado_routes = [r for r in routes if r.path == "/api/users"]
+        assert len(tornado_routes) >= 1
+        assert tornado_routes[0].handler_name == "UserHandler"
+
+    def test_nestjs_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect NestJS @Controller + @Get/@Post decorators."""
+        code = '''
+@Controller("/api/users")
+export class UsersController {
+    @Get("/list")
+    async findAll() {
+        return this.usersService.findAll();
+    }
+
+    @Post("/create")
+    async create(@Body() dto: CreateUserDto) {
+        return this.usersService.create(dto);
+    }
+}
+'''
+        routes = analyzer._extract_js_routes(
+            "users.controller.ts", code, Language.TYPESCRIPT,
+        )
+        assert len(routes) >= 2
+        paths = {r.path for r in routes}
+        assert "/api/users/list" in paths
+        assert "/api/users/create" in paths
+        methods = {r.method for r in routes}
+        assert "GET" in methods
+        assert "POST" in methods
+
+    def test_fastify_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Fastify fastify.get()/post() routes."""
+        code = '''
+fastify.get("/api/users", async (request, reply) => {
+    return { users: [] };
+});
+
+fastify.post("/api/users", async (request, reply) => {
+    const user = request.body;
+    return { id: 1, ...user };
+});
+'''
+        routes = analyzer._extract_js_routes(
+            "routes.ts", code, Language.TYPESCRIPT,
+        )
+        assert len(routes) >= 2
+        methods = {r.method for r in routes if r.path == "/api/users"}
+        assert "GET" in methods
+        assert "POST" in methods
+
+    def test_hapi_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Hapi server.route() definitions."""
+        code = '''
+server.route({ method: 'GET', path: '/api/users', handler: getUsers });
+server.route({ method: 'POST', path: '/api/users', handler: createUser });
+'''
+        routes = analyzer._extract_js_routes(
+            "server.js", code, Language.JAVASCRIPT,
+        )
+        assert len(routes) >= 2
+        methods = {r.method for r in routes if r.path == "/api/users"}
+        assert "GET" in methods
+        assert "POST" in methods
+
+    def test_fiber_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Go Fiber app.Get()/Post() routes."""
+        code = '''
+app.Get("/api/users", getUsers)
+app.Post("/api/users", createUser)
+app.Delete("/api/users/:id", deleteUser)
+'''
+        routes = analyzer._extract_go_routes("main.go", code)
+        assert len(routes) >= 3
+        methods = {r.method for r in routes if "/api/users" in r.path}
+        assert "GET" in methods
+        assert "POST" in methods
+        assert "DELETE" in methods
+
+    def test_echo_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Go Echo e.GET()/POST() routes."""
+        code = '''
+e.GET("/api/users", getUsers)
+e.POST("/api/users", createUser)
+'''
+        routes = analyzer._extract_go_routes("main.go", code)
+        assert len(routes) >= 2
+        methods = {r.method for r in routes if r.path == "/api/users"}
+        assert "GET" in methods
+        assert "POST" in methods
+
+    def test_chi_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Go Chi r.Get()/Post() routes."""
+        code = '''
+r.Get("/api/users", getUsers)
+r.Post("/api/users", createUser)
+r.Put("/api/users/{id}", updateUser)
+'''
+        routes = analyzer._extract_go_routes("main.go", code)
+        assert len(routes) >= 3
+        methods = {r.method for r in routes if "/api/users" in r.path}
+        assert "GET" in methods
+        assert "POST" in methods
+        assert "PUT" in methods
+
+    def test_gorilla_mux_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect gorilla/mux r.HandleFunc().Methods() routes."""
+        code = '''
+r.HandleFunc("/api/users", getUsers).Methods("GET")
+r.HandleFunc("/api/users", createUser).Methods("POST")
+'''
+        routes = analyzer._extract_go_routes("main.go", code)
+        gorilla_routes = [r for r in routes if r.path == "/api/users"]
+        assert len(gorilla_routes) >= 2
+        methods = {r.method for r in gorilla_routes}
+        assert "GET" in methods
+        assert "POST" in methods
+
+
+# ═══════════════════════════════════════════════════════════════
+#  gRPC extraction and cross-language flow tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestGrpcExtraction:
+    """Test gRPC service/client extraction from proto files and code."""
+
+    def test_proto_service_extraction(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Extract rpc methods from .proto service definitions."""
+        proto = '''
+syntax = "proto3";
+
+service UserService {
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+}
+
+service OrderService {
+    rpc PlaceOrder (PlaceOrderRequest) returns (PlaceOrderResponse);
+}
+'''
+        services = analyzer._extract_grpc_proto_services("user.proto", proto)
+        assert len(services) == 3
+        method_names = {s.method_name for s in services}
+        assert "GetUser" in method_names
+        assert "CreateUser" in method_names
+        assert "PlaceOrder" in method_names
+        svc_names = {s.service_name for s in services}
+        assert "UserService" in svc_names
+        assert "OrderService" in svc_names
+
+    def test_python_grpc_client_extraction(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Extract Python gRPC stub calls."""
+        code = '''
+channel = grpc.insecure_channel("localhost:50051")
+user_stub = UserServiceStub(channel)
+response = user_stub.GetUser(request)
+response2 = user_stub.CreateUser(create_request)
+'''
+        calls = analyzer._extract_grpc_python_clients("client.py", code)
+        assert len(calls) >= 2
+        method_names = {c.method_name for c in calls}
+        assert "GetUser" in method_names
+        assert "CreateUser" in method_names
+
+    def test_go_grpc_server_extraction(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Extract Go gRPC server method implementations."""
+        code = '''
+func (s *UserServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+    user := s.db.FindUser(req.Id)
+    return &pb.GetUserResponse{User: user}, nil
+}
+
+func (s *UserServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
+    user := s.db.CreateUser(req.Name)
+    return &pb.CreateUserResponse{User: user}, nil
+}
+'''
+        services = analyzer._extract_grpc_go_servers("server.go", code)
+        assert len(services) == 2
+        method_names = {s.method_name for s in services}
+        assert "GetUser" in method_names
+        assert "CreateUser" in method_names
+        assert all(s.service_name == "User" for s in services)
+
+    def test_js_grpc_client_extraction(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Extract JS/TS gRPC client calls."""
+        code = '''
+const userClient = new UserServiceClient("localhost:50051");
+const response = await userClient.getUser(request);
+const response2 = await userClient.createUser(createRequest);
+'''
+        calls = analyzer._extract_grpc_js_clients(
+            "client.ts", code, Language.TYPESCRIPT,
+        )
+        assert len(calls) >= 2
+        method_names = {c.method_name for c in calls}
+        assert "GetUser" in method_names
+        assert "CreateUser" in method_names
+
+    def test_python_grpc_server_extraction(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Extract Python gRPC Servicer class methods."""
+        code = '''
+class UserServiceServicer(user_pb2_grpc.UserServiceServicer):
+    def GetUser(self, request, context):
+        user = self.db.find(request.id)
+        return user_pb2.GetUserResponse(user=user)
+
+    def CreateUser(self, request, context):
+        user = self.db.create(request.name)
+        return user_pb2.CreateUserResponse(user=user)
+'''
+        services = analyzer._extract_grpc_python_servers("server.py", code)
+        assert len(services) == 2
+        method_names = {s.method_name for s in services}
+        assert "GetUser" in method_names
+        assert "CreateUser" in method_names
+
+
+class TestGrpcCrossLanguageFlows:
+    """Test gRPC cross-language taint flow detection."""
+
+    def test_python_client_to_go_server(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Detect gRPC flow: Python client calling Go server."""
+        files = {
+            "client.py": '''
+channel = grpc.insecure_channel("localhost:50051")
+userStub = UserServiceStub(channel)
+response = userStub.GetUser(request)
+''',
+            "server.go": '''
+func (s *UserServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+    user := s.db.FindUser(req.Id)
+    return &pb.GetUserResponse{User: user}, nil
+}
+''',
+        }
+
+        result = analyzer.analyze(files)
+        assert result.grpc_calls_discovered >= 1
+        assert result.grpc_services_discovered >= 1
+        assert result.grpc_flows >= 1
+        assert result.languages_analyzed >= 2
+
+    def test_js_client_to_python_server(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Detect gRPC flow: JS client calling Python server."""
+        files = {
+            "client.ts": '''
+const userClient = new UserServiceClient("localhost:50051");
+const response = await userClient.getUser(request);
+''',
+            "server.py": '''
+class UserServiceServicer(user_pb2_grpc.UserServiceServicer):
+    def GetUser(self, request, context):
+        user = self.db.find(request.id)
+        return user_pb2.GetUserResponse(user=user)
+''',
+        }
+
+        result = analyzer.analyze(files)
+        assert result.grpc_calls_discovered >= 1
+        assert result.grpc_services_discovered >= 1
+        assert result.grpc_flows >= 1
+        assert result.languages_analyzed >= 2
+
+    def test_same_language_grpc_excluded(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Same-language gRPC calls should not produce cross-language flows."""
+        files = {
+            "client.py": '''
+channel = grpc.insecure_channel("localhost:50051")
+userStub = UserServiceStub(channel)
+response = userStub.GetUser(request)
+''',
+            "server.py": '''
+class UserServiceServicer(user_pb2_grpc.UserServiceServicer):
+    def GetUser(self, request, context):
+        return user_pb2.GetUserResponse()
+''',
+        }
+
+        result = analyzer.analyze(files)
+        assert result.grpc_flows == 0
+
+    def test_grpc_metrics_in_result(
+        self,
+        analyzer: CrossLanguageTaintAnalyzer,
+    ) -> None:
+        """Result includes gRPC metrics."""
+        result = analyzer.analyze({})
+        assert hasattr(result, "grpc_services_discovered")
+        assert hasattr(result, "grpc_calls_discovered")
+        assert hasattr(result, "grpc_flows")
+        assert result.grpc_services_discovered == 0
+        assert result.grpc_calls_discovered == 0
+        assert result.grpc_flows == 0

@@ -461,6 +461,176 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 
 
 # ---------------------------------------------------------------------------
+# Deep inter-procedural taint (5-10+ hops) — exceeds Semgrep
+# ---------------------------------------------------------------------------
+
+
+class TestDeepInterProceduralTaint:
+    """Verify taint propagates through 5-10+ function call hops.
+
+    Semgrep typically tracks ~5 hops. CodeTrust tracks 10+.
+    """
+
+    def test_5_hop_python(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through 5 function calls in Python."""
+        code = '''
+def hop1(request):
+    return request.args.get("x")
+
+def hop2(r):
+    a = hop1(r)
+    return a
+
+def hop3(r):
+    b = hop2(r)
+    return b
+
+def hop4(r):
+    c = hop3(r)
+    return c
+
+def handler(r):
+    v = hop4(r)
+    cursor.execute(f"SELECT * WHERE id={v}")
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "deep.py")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+    def test_10_hop_python(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through 10 function calls — double Semgrep's depth."""
+        code = '''
+def hop1(request):
+    return request.args.get("x")
+
+def hop2(r):
+    a = hop1(r)
+    return a
+
+def hop3(r):
+    b = hop2(r)
+    return b
+
+def hop4(r):
+    c = hop3(r)
+    return c
+
+def hop5(r):
+    d = hop4(r)
+    return d
+
+def hop6(r):
+    e = hop5(r)
+    return e
+
+def hop7(r):
+    f = hop6(r)
+    return f
+
+def hop8(r):
+    g = hop7(r)
+    return g
+
+def hop9(r):
+    h = hop8(r)
+    return h
+
+def hop10(r):
+    i = hop9(r)
+    return i
+
+def handler(r):
+    v = hop10(r)
+    cursor.execute(f"SELECT * WHERE id={v}")
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "deep.py")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+    def test_6_hop_javascript(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through 6 JS function calls."""
+        code = '''
+function readInput(req) {
+    const val = req.query.id;
+    return val;
+}
+function step2(req) {
+    const a = readInput(req);
+    return a;
+}
+function step3(req) {
+    const b = step2(req);
+    return b;
+}
+function step4(req) {
+    const c = step3(req);
+    return c;
+}
+function step5(req) {
+    const d = step4(req);
+    return d;
+}
+function handler(req) {
+    const q = step5(req);
+    db.query("SELECT * FROM users WHERE id = " + q);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVASCRIPT, "deep.js")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+    def test_5_hop_go(self, analyzer: TaintAnalyzer) -> None:
+        """Taint propagates through 5 Go function calls."""
+        code = '''
+func ReadParam(r *http.Request) {
+    val := r.FormValue("id")
+    return val
+}
+func Step2(r *http.Request) {
+    x := ReadParam(r)
+    return x
+}
+func Step3(r *http.Request) {
+    x := Step2(r)
+    return x
+}
+func Step4(r *http.Request) {
+    x := Step3(r)
+    return x
+}
+func Handler(w http.ResponseWriter, r *http.Request) {
+    q := Step4(r)
+    db.Query("SELECT * FROM users WHERE id = " + q)
+}
+'''
+        findings = analyzer.analyze(code, Language.GO, "deep.go")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+    def test_deep_chain_command_injection(self, analyzer: TaintAnalyzer) -> None:
+        """Deep chain ending in command injection, not just SQL."""
+        code = '''
+def read_cmd(request):
+    return request.form.get("cmd")
+
+def validate_cmd(r):
+    c = read_cmd(r)
+    return c
+
+def prepare_cmd(r):
+    c = validate_cmd(r)
+    return c
+
+def execute(r):
+    cmd = prepare_cmd(r)
+    os.system(cmd)
+'''
+        findings = analyzer.analyze(code, Language.PYTHON, "deep.py")
+        taint = [f for f in findings if f.rule_id == "taint_command_injection"]
+        assert len(taint) >= 1
+
+
+# ---------------------------------------------------------------------------
 # Cross-file taint detection
 # ---------------------------------------------------------------------------
 

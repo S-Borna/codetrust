@@ -1,0 +1,108 @@
+# Copyright (c) Said Borna. All rights reserved.
+#
+# CodeTrust Bitbucket Pipelines Template
+# Scans code for anti-patterns, security issues, and hallucinated packages.
+#
+# Usage:
+#   Copy this into your bitbucket-pipelines.yml or merge the relevant sections.
+#
+# Variables:
+#   Store CODETRUST_API_KEY in Repository Settings > Pipelines > Repository variables (secured).
+#   Optionally set CODETRUST_API_URL (default: https://api.codetrust.ai).
+#   Optionally set CODETRUST_FAIL_ON: block (default), warn, or never.
+#   Optionally set CODETRUST_SCAN_TYPE: static (default) or deep.
+#   Optionally set CODETRUST_LANGUAGE: python, javascript, typescript, go, rust (auto if empty).
+
+definitions:
+  steps:
+    - step: &codetrust-scan
+        name: 'CodeTrust Security Scan'
+        image: python:3.12-slim
+        caches:
+          - pip
+        script:
+          # Install CodeTrust
+          - pip install --quiet codetrust
+          - codetrust --version || echo "CodeTrust installed"
+
+          # Set defaults
+          - export CODETRUST_FAIL_ON="${CODETRUST_FAIL_ON:-block}"
+          - export CODETRUST_SCAN_TYPE="${CODETRUST_SCAN_TYPE:-static}"
+          - export CODETRUST_API_URL="${CODETRUST_API_URL:-https://api.codetrust.ai}"
+          - export CODETRUST_SCAN_PATH="${CODETRUST_SCAN_PATH:-.}"
+
+          # Detect changed files in pull request builds
+          - |
+            SCAN_TARGET="${CODETRUST_SCAN_PATH}"
+            if [ -n "${BITBUCKET_PR_DESTINATION_BRANCH:-}" ]; then
+              git fetch origin "${BITBUCKET_PR_DESTINATION_BRANCH}" --depth=50 || true
+              CHANGED=$(git diff --name-only --diff-filter=ACM "origin/${BITBUCKET_PR_DESTINATION_BRANCH}...HEAD" | grep -E '\.(py|js|ts|tsx|jsx|go|rs|java|sh)$' || true)
+              if [ -n "${CHANGED}" ]; then
+                echo "Pull request mode: scanning changed files only"
+                echo "${CHANGED}"
+                SCAN_TARGET="${CHANGED}"
+              fi
+            fi
+
+          # Build scan command
+          - |
+            SCAN_CMD="codetrust scan --format json --fail-on ${CODETRUST_FAIL_ON}"
+            if [ "${CODETRUST_SCAN_TYPE}" = "deep" ]; then
+              SCAN_CMD="${SCAN_CMD} --deep"
+            fi
+            if [ -n "${CODETRUST_LANGUAGE:-}" ]; then
+              SCAN_CMD="${SCAN_CMD} --language ${CODETRUST_LANGUAGE}"
+            fi
+
+          # Run scan
+          - |
+            set +e
+            ${SCAN_CMD} ${SCAN_TARGET} > codetrust-results.json 2>&1
+            SCAN_EXIT=$?
+            set -e
+
+          # Generate SARIF report
+          - codetrust scan --format sarif --output codetrust-results.sarif ${SCAN_TARGET} || true
+
+          # Parse and display results
+          - |
+            python3 -c "
+            import json, sys
+            try:
+                data = json.load(open('codetrust-results.json'))
+                verdict = data.get('verdict', 'UNKNOWN')
+                total = data.get('total_findings', 0)
+                blocks = data.get('blocks', 0)
+                warns = data.get('warnings', 0)
+                print('=' * 50)
+                print(f'CodeTrust Verdict: {verdict}')
+                print(f'Total findings: {total}')
+                print(f'  BLOCK: {blocks}  WARN: {warns}')
+                print('=' * 50)
+                for f in data.get('findings', []):
+                    sev = f.get('severity', 'INFO')
+                    print(f'[{sev}] {f.get(\"file\", \"?\")}:{f.get(\"line\", 0)} -- {f.get(\"rule_id\", \"?\")} {f.get(\"message\", \"\")}')
+            except Exception as e:
+                print(f'Warning: could not parse results: {e}')
+            "
+
+          # Fail build if threshold exceeded
+          - |
+            if [ ${SCAN_EXIT} -ne 0 ]; then
+              echo "CodeTrust: findings exceed '${CODETRUST_FAIL_ON}' threshold"
+              exit 1
+            fi
+        artifacts:
+          - codetrust-results.json
+          - codetrust-results.sarif
+
+pipelines:
+  pull-requests:
+    '**':
+      - step: *codetrust-scan
+
+  branches:
+    main:
+      - step: *codetrust-scan
+    master:
+      - step: *codetrust-scan

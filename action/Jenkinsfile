@@ -1,0 +1,181 @@
+// Copyright (c) Said Borna. All rights reserved.
+//
+// CodeTrust Jenkins Pipeline
+// Scans code for anti-patterns, security issues, and hallucinated packages.
+//
+// Usage:
+//   1. Add this Jenkinsfile to your repo or reference it from a shared library.
+//   2. Store CODETRUST_API_KEY in Jenkins Credentials (type: Secret text).
+//   3. Configure the FAIL_ON parameter to 'block' (default), 'warn', or 'never'.
+//
+// Requirements:
+//   - Python 3.12+ available on the agent
+//   - pip install codetrust (or pip install httpx for lightweight mode)
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'FAIL_ON',
+            choices: ['block', 'warn', 'never'],
+            description: 'Severity threshold that fails the build'
+        )
+        choice(
+            name: 'SCAN_TYPE',
+            choices: ['static', 'deep'],
+            description: 'Scan type: static (fast) or deep (full analysis)'
+        )
+        string(
+            name: 'SCAN_PATH',
+            defaultValue: '.',
+            description: 'Path to scan (file or directory)'
+        )
+        string(
+            name: 'LANGUAGE',
+            defaultValue: '',
+            description: 'Force language (python, javascript, typescript, go, rust). Auto-detected if empty.'
+        )
+    }
+
+    environment {
+        CODETRUST_API_KEY = credentials('codetrust-api-key')
+        CODETRUST_API_URL = 'https://api.codetrust.ai'
+    }
+
+    options {
+        timestamps()
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+        stage('Setup') {
+            steps {
+                script {
+                    echo "CodeTrust Scan — Jenkins Pipeline"
+                    echo "Fail on: ${params.FAIL_ON}"
+                    echo "Scan type: ${params.SCAN_TYPE}"
+                }
+                sh 'python3 --version'
+                sh 'pip install --quiet codetrust'
+            }
+        }
+
+        stage('Detect Changed Files') {
+            steps {
+                script {
+                    def changedFiles = ''
+                    try {
+                        changedFiles = sh(
+                            script: "git diff --name-only --diff-filter=ACM HEAD~1 HEAD | grep -E '\\.(py|js|ts|tsx|jsx|go|rs|java|sh)\$' || true",
+                            returnStdout: true
+                        ).trim()
+                    } catch (Exception e) {
+                        echo "Could not detect changed files: ${e.message}"
+                    }
+
+                    if (changedFiles) {
+                        env.CHANGED_FILES = changedFiles
+                        echo "Changed files:\n${changedFiles}"
+                    } else {
+                        echo "No changed files detected — scanning full path: ${params.SCAN_PATH}"
+                        env.CHANGED_FILES = ''
+                    }
+                }
+            }
+        }
+
+        stage('CodeTrust Scan') {
+            steps {
+                script {
+                    def scanCmd = "codetrust scan --format json --fail-on ${params.FAIL_ON}"
+
+                    if (params.SCAN_TYPE == 'deep') {
+                        scanCmd += ' --deep'
+                    }
+
+                    if (params.LANGUAGE) {
+                        scanCmd += " --language ${params.LANGUAGE}"
+                    }
+
+                    if (env.CHANGED_FILES) {
+                        // Scan only changed files
+                        def files = env.CHANGED_FILES.split('\n')
+                        for (f in files) {
+                            scanCmd += " ${f}"
+                        }
+                    } else {
+                        scanCmd += " ${params.SCAN_PATH}"
+                    }
+
+                    // Run scan and capture JSON output
+                    def scanResult = sh(
+                        script: "${scanCmd} > codetrust-results.json 2>&1 || true",
+                        returnStatus: true
+                    )
+
+                    // Also generate SARIF output
+                    sh "codetrust scan --format sarif --output codetrust-results.sarif ${params.SCAN_PATH} || true"
+
+                    // Parse results
+                    def resultJson = readFile('codetrust-results.json').trim()
+                    def exitCode = 0
+
+                    try {
+                        def results = readJSON text: resultJson
+                        def verdict = results.verdict ?: 'UNKNOWN'
+                        def totalFindings = results.total_findings ?: 0
+                        def blockCount = results.blocks ?: 0
+                        def warnCount = results.warnings ?: 0
+
+                        // Set build description
+                        currentBuild.description = "CodeTrust: ${verdict} | ${blockCount} blocks, ${warnCount} warns"
+
+                        echo "===================================================="
+                        echo "CodeTrust Scan Results"
+                        echo "Verdict: ${verdict}"
+                        echo "Total findings: ${totalFindings}"
+                        echo "  BLOCK: ${blockCount}  WARN: ${warnCount}"
+                        echo "===================================================="
+
+                        // Print findings detail
+                        def findings = results.findings ?: []
+                        for (finding in findings) {
+                            def level = finding.severity == 'BLOCK' ? 'ERROR' : 'WARNING'
+                            echo "[${level}] ${finding.file}:${finding.line} — ${finding.rule_id}: ${finding.message}"
+                        }
+
+                        // Determine failure
+                        if (params.FAIL_ON == 'block' && verdict == 'BLOCK') {
+                            exitCode = 1
+                        } else if (params.FAIL_ON == 'warn' && (verdict == 'BLOCK' || verdict == 'WARN')) {
+                            exitCode = 1
+                        }
+                    } catch (Exception e) {
+                        echo "Warning: Could not parse JSON output: ${e.message}"
+                        echo "Raw output:\n${resultJson}"
+                        currentBuild.description = "CodeTrust: parse error"
+                    }
+
+                    if (exitCode != 0) {
+                        error("CodeTrust scan failed — findings exceed ${params.FAIL_ON} threshold")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'codetrust-results.json, codetrust-results.sarif', allowEmptyArchive: true
+            echo 'CodeTrust scan complete.'
+        }
+        failure {
+            echo 'CodeTrust: Build failed due to scan findings. Fix issues and re-run.'
+        }
+        success {
+            echo 'CodeTrust: All checks passed.'
+        }
+    }
+}

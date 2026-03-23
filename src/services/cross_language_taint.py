@@ -16,9 +16,10 @@ This module detects that chain by:
   Phase 5 — Generate findings with full cross-language chain.
 
 Supported frameworks:
-  Python:  Flask (@app.route), FastAPI (@app.get/post/put/delete), Django (path)
-  JS/TS:   Express (router.get/post), Koa, Hapi, fetch(), axios, got
-  Go:      net/http (HandleFunc, Handle), gin, echo, http.Get/Post
+  Python:  Flask, FastAPI, Django, Starlette, aiohttp, Tornado
+  JS/TS:   Express, NestJS, Fastify, Hapi, fetch(), axios, got
+  Go:      net/http, Gin, Fiber, Echo, Chi, gorilla/mux
+  gRPC:    Proto service defs, Python/Go/JS client stubs, Go/Python server impls
 
 No other taint analysis tool does this. Not Semgrep. Not SonarQube. Not Snyk.
 """
@@ -104,6 +105,43 @@ class CrossLanguageFlow:
     sink_line: int
 
 
+@dataclass(frozen=True)
+class GrpcService:
+    """A gRPC service definition extracted from a .proto file or server impl."""
+
+    service_name: str
+    method_name: str
+    file: str
+    line: int
+    language: Language
+    request_type: str = ""
+    response_type: str = ""
+
+
+@dataclass(frozen=True)
+class GrpcCall:
+    """A gRPC client call that invokes a remote service method."""
+
+    service_name: str
+    method_name: str
+    file: str
+    line: int
+    language: Language
+    sends_tainted_data: bool = False
+    tainted_variable: str = ""
+
+
+@dataclass(frozen=True)
+class GrpcFlow:
+    """A taint flow that crosses a language boundary via gRPC."""
+
+    caller: GrpcCall
+    server: GrpcService
+    sink_rule_id: str
+    sink_message: str
+    sink_line: int
+
+
 @dataclass
 class CrossLanguageTaintResult:
     """Result of cross-language taint analysis."""
@@ -114,6 +152,9 @@ class CrossLanguageTaintResult:
     routes_discovered: int = 0
     http_calls_discovered: int = 0
     cross_language_flows: int = 0
+    grpc_services_discovered: int = 0
+    grpc_calls_discovered: int = 0
+    grpc_flows: int = 0
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -179,6 +220,137 @@ _GO_GIN_ROUTE = re.compile(
 _GO_HTTP_CLIENT = re.compile(
     r"""http\.(Get|Post|Head)\s*\(\s*"""
     r"""(?:['"]([^'"]+)['"]|(\w+))""",
+    re.MULTILINE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  Additional Python frameworks: Starlette, aiohttp, Tornado
+# ───────────────────────────────────────────────────────────────
+
+# Starlette: @app.route("/path") or @route("/path")
+_PYTHON_STARLETTE_ROUTE = re.compile(
+    r"""@(?:app\.)?route\s*\(\s*['"]([^'"]+)['"]\s*"""
+    r"""(?:,\s*methods\s*=\s*\[['"](\w+)['"]\])?\s*\)""",
+    re.MULTILINE,
+)
+
+# aiohttp: @routes.get("/path"), @routes.post("/path")
+_PYTHON_AIOHTTP_ROUTE = re.compile(
+    r"""@routes\.(get|post|put|delete|patch)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# Tornado: class FooHandler(RequestHandler) with get/post methods
+_PYTHON_TORNADO_HANDLER = re.compile(
+    r"""class\s+(\w+)\s*\(\s*(?:\w+\.)*RequestHandler\s*\)""",
+    re.MULTILINE,
+)
+
+# Tornado URL mapping: (r"/path", HandlerClass)
+_PYTHON_TORNADO_URL = re.compile(
+    r"""\(\s*r?['"]([^'"]+)['"]\s*,\s*(\w+)""",
+    re.MULTILINE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  Additional JS/TS frameworks: NestJS, Fastify, Hapi
+# ───────────────────────────────────────────────────────────────
+
+# NestJS: @Controller("/prefix") with @Get("/path"), @Post("/path")
+_JS_NESTJS_CONTROLLER = re.compile(
+    r"""@Controller\s*\(\s*['"]([^'"]*)['"]\s*\)""",
+    re.MULTILINE,
+)
+
+_JS_NESTJS_ROUTE = re.compile(
+    r"""@(Get|Post|Put|Delete|Patch)\s*\(\s*['"]([^'"]*)['"]\s*\)""",
+    re.MULTILINE,
+)
+
+# Fastify: fastify.get("/path", handler)
+_JS_FASTIFY_ROUTE = re.compile(
+    r"""(?:fastify|server|app)\."""
+    r"""(get|post|put|delete|patch)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# Hapi: server.route({ method: 'GET', path: '/api/...' })
+_JS_HAPI_ROUTE = re.compile(
+    r"""server\.route\s*\(\s*\{\s*"""
+    r"""method\s*:\s*['"](\w+)['"]\s*,\s*"""
+    r"""path\s*:\s*['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  Additional Go frameworks: Fiber, Echo, Chi, gorilla/mux
+# ───────────────────────────────────────────────────────────────
+
+# Fiber: app.Get("/path", handler)
+_GO_FIBER_ROUTE = re.compile(
+    r"""(?:app|fiber)\."""
+    r"""(Get|Post|Put|Delete|Patch)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# Echo: e.GET("/path", handler)
+_GO_ECHO_ROUTE = re.compile(
+    r"""(?:e|echo)\."""
+    r"""(GET|POST|PUT|DELETE|PATCH)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# Chi: r.Get("/path", handler)
+_GO_CHI_ROUTE = re.compile(
+    r"""(?:r|router|mux)\."""
+    r"""(Get|Post|Put|Delete|Patch)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# gorilla/mux: r.HandleFunc("/path").Methods("GET")
+_GO_GORILLA_ROUTE = re.compile(
+    r"""(?:r|router|mux)\.HandleFunc\s*\(\s*"""
+    r"""['"]([^'"]+)['"]\s*,\s*\w+\s*\)"""
+    r"""\.Methods\s*\(\s*['"](\w+)['"]""",
+    re.MULTILINE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  gRPC patterns: proto definitions, client stubs, server impls
+# ───────────────────────────────────────────────────────────────
+
+# Proto: service Foo { rpc Bar(Request) returns (Response) }
+_GRPC_PROTO_SERVICE = re.compile(
+    r"""service\s+(\w+)\s*\{""",
+    re.MULTILINE,
+)
+
+_GRPC_PROTO_RPC = re.compile(
+    r"""rpc\s+(\w+)\s*\(\s*(\w+)\s*\)\s*returns\s*\(\s*(\w+)\s*\)""",
+    re.MULTILINE,
+)
+
+# Python gRPC client: stub.Bar(request) or stub.Bar(...)
+_GRPC_PYTHON_CLIENT = re.compile(
+    r"""(\w+)[Ss]tub\s*(?:\([^)]*\)\s*)?\.(\w+)\s*\(""",
+    re.MULTILINE,
+)
+
+# Go gRPC server: func (s *FooServer) Bar(ctx context.Context, req *Request)
+_GRPC_GO_SERVER = re.compile(
+    r"""func\s+\(\s*\w+\s+\*(\w+)\s*\)\s+(\w+)\s*\("""
+    r"""\s*(?:ctx\s+)?context\.Context""",
+    re.MULTILINE,
+)
+
+# JS/TS gRPC client: client.bar(request) or client.Bar(request)
+_GRPC_JS_CLIENT = re.compile(
+    r"""(\w+)[Cc]lient\.(\w+)\s*\(""",
     re.MULTILINE,
 )
 
@@ -265,8 +437,22 @@ class CrossLanguageTaintAnalyzer:
             enriched_calls, enriched_routes, languages,
         )
 
-        # Phase 7: Generate findings
+        # Phase 7: gRPC service and client extraction
+        grpc_services = self._extract_all_grpc_services(
+            file_contents, languages,
+        )
+        grpc_calls = self._extract_all_grpc_clients(
+            file_contents, languages,
+        )
+
+        # Phase 8: Match gRPC calls to services across language boundaries
+        grpc_flows = self._match_grpc_flows(
+            grpc_calls, grpc_services, languages,
+        )
+
+        # Phase 9: Generate findings from HTTP and gRPC flows
         findings = self._generate_findings(flows)
+        findings.extend(self._generate_grpc_findings(grpc_flows))
 
         result = CrossLanguageTaintResult(
             findings=findings,
@@ -275,6 +461,9 @@ class CrossLanguageTaintAnalyzer:
             routes_discovered=len(routes),
             http_calls_discovered=len(calls),
             cross_language_flows=len(flows),
+            grpc_services_discovered=len(grpc_services),
+            grpc_calls_discovered=len(grpc_calls),
+            grpc_flows=len(grpc_flows),
         )
 
         logger.info(
@@ -284,6 +473,9 @@ class CrossLanguageTaintAnalyzer:
             routes=result.routes_discovered,
             calls=result.http_calls_discovered,
             flows=result.cross_language_flows,
+            grpc_services=result.grpc_services_discovered,
+            grpc_calls=result.grpc_calls_discovered,
+            grpc_flows=result.grpc_flows,
             findings=len(findings),
         )
         return result
@@ -379,6 +571,62 @@ class CrossLanguageTaintAnalyzer:
                 language=Language.PYTHON,
             ))
 
+        # Starlette @app.route or @route
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _PYTHON_STARLETTE_ROUTE.finditer(code):
+            path = match.group(1)
+            method = (match.group(2) or "ANY").upper()
+            if (path, method) in seen_paths:
+                continue
+            handler = self._find_python_handler_after(
+                code, match.end(),
+            )
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name=handler or "<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.PYTHON,
+            ))
+
+        # aiohttp @routes.get("/path")
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _PYTHON_AIOHTTP_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            handler = self._find_python_handler_after(
+                code, match.end(),
+            )
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name=handler or "<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.PYTHON,
+            ))
+
+        # Tornado URL mapping: (r"/path", HandlerClass)
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _PYTHON_TORNADO_URL.finditer(code):
+            path = match.group(1)
+            handler = match.group(2)
+            if (path, "ANY") in seen_paths:
+                continue
+            # Verify handler is a RequestHandler subclass
+            if _PYTHON_TORNADO_HANDLER.search(code) is not None:
+                routes.append(HttpRoute(
+                    path=path,
+                    method="ANY",
+                    handler_name=handler,
+                    file=filepath,
+                    line=code[:match.start()].count("\n") + 1,
+                    language=Language.PYTHON,
+                ))
+
         return routes
 
     def _extract_js_routes(
@@ -387,9 +635,10 @@ class CrossLanguageTaintAnalyzer:
         code: str,
         language: Language,
     ) -> list[HttpRoute]:
-        """Extract Express/Koa routes from JS/TS code."""
+        """Extract Express/NestJS/Fastify/Hapi routes from JS/TS code."""
         routes: list[HttpRoute] = []
 
+        # Express: router.get("/path", handler)
         for match in _JS_EXPRESS_ROUTE.finditer(code):
             method = match.group(1).upper()
             path = match.group(2)
@@ -405,6 +654,64 @@ class CrossLanguageTaintAnalyzer:
                 language=language,
             ))
 
+        # NestJS: @Controller("/prefix") + @Get("/path")
+        controller_prefix = ""
+        ctrl_match = _JS_NESTJS_CONTROLLER.search(code)
+        if ctrl_match is not None:
+            controller_prefix = ctrl_match.group(1).rstrip("/")
+
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _JS_NESTJS_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            sub_path = match.group(2)
+            full_path = controller_prefix + "/" + sub_path.lstrip("/")
+            full_path = "/" + full_path.lstrip("/")
+            if (full_path, method) in seen_paths:
+                continue
+            handler = self._find_nestjs_handler_after(
+                code, match.end(),
+            )
+            routes.append(HttpRoute(
+                path=full_path,
+                method=method,
+                handler_name=handler or "<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=language,
+            ))
+
+        # Fastify: fastify.get("/path", handler)
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _JS_FASTIFY_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=language,
+            ))
+
+        # Hapi: server.route({ method: 'GET', path: '/api/...' })
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _JS_HAPI_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=language,
+            ))
+
         return routes
 
     def _extract_go_routes(
@@ -412,7 +719,7 @@ class CrossLanguageTaintAnalyzer:
         filepath: str,
         code: str,
     ) -> list[HttpRoute]:
-        """Extract net/http and gin routes from Go code."""
+        """Extract net/http, gin, fiber, echo, chi, gorilla routes from Go."""
         routes: list[HttpRoute] = []
 
         # http.HandleFunc("/path", handlerFunc)
@@ -432,6 +739,70 @@ class CrossLanguageTaintAnalyzer:
         for match in _GO_GIN_ROUTE.finditer(code):
             method = match.group(1).upper()
             path = match.group(2)
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+
+        # Fiber: app.Get("/path", handler)
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _GO_FIBER_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+
+        # Echo: e.GET("/path", handler)
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _GO_ECHO_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+
+        # Chi: r.Get("/path", handler)
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _GO_CHI_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if (path, method) in seen_paths:
+                continue
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<anonymous>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+
+        # gorilla/mux: r.HandleFunc("/path").Methods("GET")
+        seen_paths = {(r.path, r.method) for r in routes}
+        for match in _GO_GORILLA_ROUTE.finditer(code):
+            path = match.group(1)
+            method = match.group(2).upper()
+            if (path, method) in seen_paths:
+                continue
             routes.append(HttpRoute(
                 path=path,
                 method=method,
@@ -737,6 +1108,310 @@ class CrossLanguageTaintAnalyzer:
         return findings
 
     # ═══════════════════════════════════════════════════════════════
+    #  gRPC extraction, matching, and findings
+    # ═══════════════════════════════════════════════════════════════
+
+    def _extract_all_grpc_services(
+        self,
+        file_contents: dict[str, str],
+        languages: dict[str, Language],
+    ) -> list[GrpcService]:
+        """Extract gRPC service definitions from proto files and server impls."""
+        services: list[GrpcService] = []
+        for filepath, code in file_contents.items():
+            if filepath.endswith(".proto"):
+                services.extend(
+                    self._extract_grpc_proto_services(filepath, code),
+                )
+                continue
+            lang = languages.get(filepath)
+            if lang == Language.GO:
+                services.extend(
+                    self._extract_grpc_go_servers(filepath, code),
+                )
+            elif lang == Language.PYTHON:
+                services.extend(
+                    self._extract_grpc_python_servers(filepath, code),
+                )
+        return services
+
+    def _extract_grpc_proto_services(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[GrpcService]:
+        """Extract rpc methods from .proto service definitions."""
+        services: list[GrpcService] = []
+        current_service: str | None = None
+        for line_idx, line in enumerate(code.splitlines()):
+            svc_match = _GRPC_PROTO_SERVICE.search(line)
+            if svc_match is not None:
+                current_service = svc_match.group(1)
+            rpc_match = _GRPC_PROTO_RPC.search(line)
+            if rpc_match is not None and current_service is not None:
+                services.append(GrpcService(
+                    service_name=current_service,
+                    method_name=rpc_match.group(1),
+                    file=filepath,
+                    line=line_idx + 1,
+                    language=Language.GO,  # proto is language-neutral; use GO as placeholder
+                    request_type=rpc_match.group(2),
+                    response_type=rpc_match.group(3),
+                ))
+        return services
+
+    def _extract_grpc_go_servers(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[GrpcService]:
+        """Extract Go gRPC server method implementations."""
+        services: list[GrpcService] = []
+        for match in _GRPC_GO_SERVER.finditer(code):
+            server_type = match.group(1)
+            method_name = match.group(2)
+            # Strip common suffixes like "Server" to get service name
+            service_name = re.sub(r"Server$", "", server_type)
+            services.append(GrpcService(
+                service_name=service_name,
+                method_name=method_name,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+        return services
+
+    def _extract_grpc_python_servers(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[GrpcService]:
+        """Extract Python gRPC server method implementations (Servicer classes)."""
+        services: list[GrpcService] = []
+        servicer_pattern = re.compile(
+            r"""class\s+(\w+)Servicer\b[^:]*:""",
+            re.MULTILINE,
+        )
+        method_pattern = re.compile(
+            r"""def\s+(\w+)\s*\(\s*self\s*,\s*request""",
+            re.MULTILINE,
+        )
+        for svc_match in servicer_pattern.finditer(code):
+            service_name = svc_match.group(1)
+            # Search for methods within the class body
+            class_body_start = svc_match.end()
+            next_class = re.search(
+                r"""\nclass\s+""", code[class_body_start:],
+            )
+            class_body_end = (
+                class_body_start + next_class.start()
+                if next_class is not None
+                else len(code)
+            )
+            class_body = code[class_body_start:class_body_end]
+            for meth_match in method_pattern.finditer(class_body):
+                services.append(GrpcService(
+                    service_name=service_name,
+                    method_name=meth_match.group(1),
+                    file=filepath,
+                    line=code[:class_body_start + meth_match.start()].count("\n") + 1,
+                    language=Language.PYTHON,
+                ))
+        return services
+
+    def _extract_all_grpc_clients(
+        self,
+        file_contents: dict[str, str],
+        languages: dict[str, Language],
+    ) -> list[GrpcCall]:
+        """Extract gRPC client calls from all files."""
+        calls: list[GrpcCall] = []
+        for filepath, code in file_contents.items():
+            lang = languages.get(filepath)
+            if lang == Language.PYTHON:
+                calls.extend(
+                    self._extract_grpc_python_clients(filepath, code),
+                )
+            elif lang in (Language.JAVASCRIPT, Language.TYPESCRIPT):
+                calls.extend(
+                    self._extract_grpc_js_clients(filepath, code, lang),
+                )
+            elif lang == Language.GO:
+                calls.extend(
+                    self._extract_grpc_go_clients(filepath, code),
+                )
+        return calls
+
+    def _extract_grpc_python_clients(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[GrpcCall]:
+        """Extract Python gRPC client stub calls (stub.Method(request))."""
+        calls: list[GrpcCall] = []
+        for match in _GRPC_PYTHON_CLIENT.finditer(code):
+            stub_var = match.group(1)
+            method_name = match.group(2)
+            # Derive service name from stub variable (e.g. user_stub -> User)
+            service_name = re.sub(
+                r"_?[Ss]tub$", "", stub_var,
+            ).capitalize()
+            calls.append(GrpcCall(
+                service_name=service_name,
+                method_name=method_name,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.PYTHON,
+            ))
+        return calls
+
+    def _extract_grpc_js_clients(
+        self,
+        filepath: str,
+        code: str,
+        language: Language,
+    ) -> list[GrpcCall]:
+        """Extract JS/TS gRPC client calls (client.method(request))."""
+        calls: list[GrpcCall] = []
+        for match in _GRPC_JS_CLIENT.finditer(code):
+            client_var = match.group(1)
+            method_name = match.group(2)
+            service_name = re.sub(
+                r"_?[Cc]lient$", "", client_var,
+            ).capitalize()
+            # Capitalize method name to match proto convention
+            method_name_normalized = (
+                method_name[0].upper() + method_name[1:]
+                if method_name
+                else method_name
+            )
+            calls.append(GrpcCall(
+                service_name=service_name,
+                method_name=method_name_normalized,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=language,
+            ))
+        return calls
+
+    def _extract_grpc_go_clients(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[GrpcCall]:
+        """Extract Go gRPC client calls (client.Method(ctx, request))."""
+        go_grpc_client = re.compile(
+            r"""(\w+)[Cc]lient\.(\w+)\s*\(\s*ctx""",
+            re.MULTILINE,
+        )
+        calls: list[GrpcCall] = []
+        for match in go_grpc_client.finditer(code):
+            client_var = match.group(1)
+            method_name = match.group(2)
+            service_name = re.sub(
+                r"_?[Cc]lient$", "", client_var,
+            )
+            if not service_name:
+                service_name = client_var
+            calls.append(GrpcCall(
+                service_name=service_name,
+                method_name=method_name,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.GO,
+            ))
+        return calls
+
+    def _match_grpc_flows(
+        self,
+        calls: list[GrpcCall],
+        services: list[GrpcService],
+        languages: dict[str, Language],
+    ) -> list[GrpcFlow]:
+        """Match gRPC client calls to server implementations across languages."""
+        flows: list[GrpcFlow] = []
+
+        for call in calls:
+            for svc in services:
+                # Must be different languages
+                if call.language == svc.language:
+                    continue
+
+                # Match by method name (case-insensitive)
+                if call.method_name.lower() != svc.method_name.lower():
+                    continue
+
+                # Match by service name (case-insensitive, partial)
+                if not self._grpc_service_names_match(
+                    call.service_name, svc.service_name,
+                ):
+                    continue
+
+                flows.append(GrpcFlow(
+                    caller=call,
+                    server=svc,
+                    sink_rule_id="grpc_cross_lang",
+                    sink_message=(
+                        f"gRPC {svc.service_name}.{svc.method_name} "
+                        f"in `{svc.file}` (line {svc.line})"
+                    ),
+                    sink_line=svc.line,
+                ))
+
+        return flows
+
+    def _grpc_service_names_match(
+        self,
+        caller_name: str,
+        server_name: str,
+    ) -> bool:
+        """Check if gRPC service names match (case-insensitive, partial)."""
+        c_lower = caller_name.lower()
+        s_lower = server_name.lower()
+        if c_lower == s_lower:
+            return True
+        # Partial match: "User" matches "UserService" or "user"
+        return c_lower.startswith(s_lower) or s_lower.startswith(c_lower)
+
+    def _generate_grpc_findings(
+        self,
+        flows: list[GrpcFlow],
+    ) -> list[Finding]:
+        """Generate findings from gRPC cross-language flows."""
+        findings: list[Finding] = []
+
+        for flow in flows:
+            caller_lang = str(flow.caller.language).split(".")[-1]
+            server_lang = str(flow.server.language).split(".")[-1]
+
+            message = (
+                f"Cross-language gRPC taint: {caller_lang} client "
+                f"in `{flow.caller.file}` (line {flow.caller.line}) "
+                f"calls {flow.server.service_name}.{flow.server.method_name} "
+                f"implemented by {server_lang} server in "
+                f"`{flow.server.file}` (line {flow.server.line}). "
+                f"Data crosses language boundary via gRPC without "
+                f"validation at the receiving end."
+            )
+
+            findings.append(Finding(
+                rule_id=f"cross_lang_grpc_{flow.sink_rule_id}",
+                severity=Severity.BLOCK,
+                message=message,
+                file=flow.caller.file,
+                line=flow.caller.line,
+                suggestion=(
+                    f"Validate/sanitize all fields in the gRPC request "
+                    f"message within the {server_lang} server handler "
+                    f"`{flow.server.method_name}()` before passing data "
+                    f"to any sink (database, command, file system)."
+                ),
+                confidence=CROSS_LANG_CONFIDENCE,
+            ))
+
+        return findings
+
+    # ═══════════════════════════════════════════════════════════════
     #  Helper methods
     # ═══════════════════════════════════════════════════════════════
 
@@ -788,6 +1463,23 @@ class CrossLanguageTaintAnalyzer:
             if name not in ("req", "res", "next", "async", "function"):
                 return name
         return None
+
+    def _find_nestjs_handler_after(
+        self,
+        code: str,
+        offset: int,
+    ) -> str | None:
+        """Find the method name defined after a NestJS route decorator."""
+        remaining = code[offset:]
+        match = re.search(
+            r"""(?:async\s+)?(\w+)\s*\(""",
+            remaining,
+        )
+        if match is None:
+            return None
+        if match.start() > 200:
+            return None
+        return match.group(1)
 
     def _handler_reads_body(
         self,

@@ -963,10 +963,19 @@ class TaintAnalyzer:
         node: ts.Node,
         identifier_type: str,
     ) -> str | None:
-        """Get the first identifier child text from an assignment node."""
+        """Get the first identifier child text from an assignment node.
+
+        Handles both direct identifier children (Python, JS) and
+        identifiers nested inside expression_list (Go short_var_declaration).
+        """
         for child in node.children:
             if child.type == identifier_type:
                 return child.text.decode("utf-8") if child.text else None
+            # Go wraps LHS identifiers in expression_list
+            if child.type == "expression_list":
+                for sub in child.children:
+                    if sub.type == identifier_type:
+                        return sub.text.decode("utf-8") if sub.text else None
         return None
 
     def _extract_rhs_text(
@@ -983,6 +992,8 @@ class TaintAnalyzer:
             return self._extract_python_rhs(node_text)
         if language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
             return self._extract_js_rhs(node_text)
+        if language == Language.GO:
+            return self._extract_go_rhs(node_text)
         return node_text
 
     def _extract_python_rhs(self, text: str) -> str | None:
@@ -994,6 +1005,19 @@ class TaintAnalyzer:
 
     def _extract_js_rhs(self, text: str) -> str | None:
         """Extract RHS from a JS/TS variable declarator text."""
+        eq_pos = text.find("=")
+        if eq_pos < 0:
+            return None
+        return text[eq_pos + 1:].strip()
+
+    def _extract_go_rhs(self, text: str) -> str | None:
+        """Extract RHS from a Go short variable declaration (`:=`).
+
+        Handles both `x := expr` and `x, err := expr` forms.
+        """
+        assign_pos = text.find(":=")
+        if assign_pos >= 0:
+            return text[assign_pos + 2:].strip()
         eq_pos = text.find("=")
         if eq_pos < 0:
             return None

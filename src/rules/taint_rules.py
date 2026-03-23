@@ -140,22 +140,37 @@ JAVASCRIPT_SINKS: tuple[TaintSink, ...] = (
     TaintSink(".rawQuery", ".rawQuery(", CATEGORY_SQL_INJECTION, Language.JAVASCRIPT),
     # Command injection
     TaintSink("child_process.exec", "child_process.exec(", CATEGORY_COMMAND_INJECTION, Language.JAVASCRIPT),
+    TaintSink("exec", "exec(", CATEGORY_COMMAND_INJECTION, Language.JAVASCRIPT),
     # XSS
     TaintSink("innerHTML", ".innerHTML", CATEGORY_XSS, Language.JAVASCRIPT),
     TaintSink("document.write", "document.write(", CATEGORY_XSS, Language.JAVASCRIPT),
     TaintSink("response.write", "response.write(", CATEGORY_XSS, Language.JAVASCRIPT),
+    TaintSink("res.send", "res.send(", CATEGORY_XSS, Language.JAVASCRIPT),
     # Path traversal
     TaintSink("fs.readFile", "fs.readFile(", CATEGORY_PATH_TRAVERSAL, Language.JAVASCRIPT),
     TaintSink("fs.writeFile", "fs.writeFile(", CATEGORY_PATH_TRAVERSAL, Language.JAVASCRIPT),
     # SSRF
     TaintSink("fetch", "fetch(", CATEGORY_SSRF, Language.JAVASCRIPT),
+    # Deserialization
+    TaintSink("eval", "eval(", CATEGORY_DESERIALIZATION, Language.JAVASCRIPT),
 )
 
 GO_SINKS: tuple[TaintSink, ...] = (
+    # SQL injection
     TaintSink("db.Query", "db.Query(", CATEGORY_SQL_INJECTION, Language.GO),
     TaintSink("db.Exec", "db.Exec(", CATEGORY_SQL_INJECTION, Language.GO),
+    TaintSink("db.QueryRow", "db.QueryRow(", CATEGORY_SQL_INJECTION, Language.GO),
+    # Command injection
     TaintSink("exec.Command", "exec.Command(", CATEGORY_COMMAND_INJECTION, Language.GO),
+    # XSS
+    TaintSink("template.HTML", "template.HTML(", CATEGORY_XSS, Language.GO),
+    # Path traversal
+    TaintSink("os.Create", "os.Create(", CATEGORY_PATH_TRAVERSAL, Language.GO),
+    TaintSink("os.Open", "os.Open(", CATEGORY_PATH_TRAVERSAL, Language.GO),
+    TaintSink("ioutil.ReadFile", "ioutil.ReadFile(", CATEGORY_PATH_TRAVERSAL, Language.GO),
+    # SSRF
     TaintSink("http.Get", "http.Get(", CATEGORY_SSRF, Language.GO),
+    TaintSink("http.Post", "http.Post(", CATEGORY_SSRF, Language.GO),
 )
 
 JAVA_SINKS: tuple[TaintSink, ...] = (
@@ -194,8 +209,18 @@ JAVASCRIPT_SANITIZERS: tuple[TaintSanitizer, ...] = (
     TaintSanitizer("DOMPurify.sanitize", "DOMPurify.sanitize(", Language.JAVASCRIPT, "DOM sanitizer"),
 )
 
+GO_SANITIZERS: tuple[TaintSanitizer, ...] = (
+    TaintSanitizer("strconv.Atoi", "strconv.Atoi(", Language.GO, "String to int conversion"),
+    TaintSanitizer("strconv.ParseInt", "strconv.ParseInt(", Language.GO, "String to int64 conversion"),
+    TaintSanitizer("strconv.ParseFloat", "strconv.ParseFloat(", Language.GO, "String to float conversion"),
+    TaintSanitizer("html.EscapeString", "html.EscapeString(", Language.GO, "HTML escape"),
+    TaintSanitizer("url.QueryEscape", "url.QueryEscape(", Language.GO, "URL query escape"),
+    TaintSanitizer("filepath.Clean", "filepath.Clean(", Language.GO, "File path sanitization"),
+)
+
 TAINT_SANITIZERS: dict[Language, tuple[TaintSanitizer, ...]] = {
     Language.PYTHON: PYTHON_SANITIZERS,
     Language.JAVASCRIPT: JAVASCRIPT_SANITIZERS,
     Language.TYPESCRIPT: JAVASCRIPT_SANITIZERS,
+    Language.GO: GO_SANITIZERS,
 }

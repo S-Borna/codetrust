@@ -201,17 +201,16 @@ a { color: inherit; text-decoration: none; }
     max-width: 800px; margin-left: auto; margin-right: auto;
 }
 .hero-welcome {
-    font-size: clamp(1.8rem, 4vw, 3.2rem); font-weight: 700;
+    font-size: clamp(1.4rem, 4vw, 3.2rem); font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--white); text-align: center;
     margin-bottom: 1rem;
-    white-space: nowrap;
 }
 .hero-intro {
     font-size: 0.85rem; color: var(--text-3);
-    text-align: center; line-height: 1.5;
+    text-align: center; line-height: 1.7;
     margin: 0 auto 2.5rem;
-    white-space: nowrap;
+    max-width: 600px;
     letter-spacing: 0.02em;
 }
 .hw-trust { color: #3b82f6; }
@@ -681,6 +680,8 @@ footer a:hover { color: var(--text-2); }
         display: flex; min-width: 44px; min-height: 44px;
         align-items: center; justify-content: center;
     }
+    .hero-welcome { font-size: 1.3rem; }
+    .hero-intro { font-size: 0.78rem; }
     .hero { padding: 5.5rem 1.2rem 3rem; min-height: auto; }
     .hero-terminal-body { font-size: 0.72rem; padding: 1rem; }
     .hero-below { margin-top: 2rem; }

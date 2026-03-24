@@ -412,13 +412,18 @@ def _build_rule_catalog() -> str:
     lines: list[str] = [
         "## CodeTrust Rule Catalog",
         "",
-        "### Anti-Pattern Rules",
+        f"**Total rules: {_count_all_rules()}**",
+        "",
+        "### Anti-Pattern Rules (regex-based, all languages)",
+        "",
+        f"**Count: {len(ANTI_PATTERNS)}**",
         "",
         "| ID | Severity | Description |",
         "|---|---|---|",
     ]
     for rule in ANTI_PATTERNS:
         lines.append(f"| {rule['id']} | {rule['severity']} | {rule['message']} |")
+
     lines.extend([
         "",
         "### Structure Rules",
@@ -430,7 +435,113 @@ def _build_rule_catalog() -> str:
         "| missing_recommended_dir | WARN | Recommended directories should exist |",
         "| forbidden_file | WARN | Sensitive files should not be committed |",
     ])
+
+    # Gateway interception rules
+    lines.extend(_build_gateway_rule_section())
+
+    # Taint analysis rules
+    lines.extend(_build_taint_rule_section())
+
+    # AST analysis rules
+    lines.extend([
+        "",
+        "### AST Analysis Rules (tree-sitter, 10 languages)",
+        "",
+        "| ID | Severity | Description |",
+        "|---|---|---|",
+        "| cyclomatic_complexity | WARN | Function exceeds complexity threshold |",
+        "| unused_variable | INFO | Variable assigned but never referenced |",
+        "| unreachable_code | WARN | Code after return/raise/break is unreachable |",
+        "| deep_nesting | WARN | Nesting depth exceeds threshold |",
+    ])
+
     return "\n".join(lines)
+
+
+def _count_all_rules() -> int:
+    """Count total rules across all sources."""
+    gateway_count = _get_gateway_rule_count()
+    taint_count = _get_taint_rule_count()
+    ast_count = 4  # complexity, unused vars, unreachable, deep nesting
+    structure_count = 4  # missing required/recommended, forbidden
+    return len(ANTI_PATTERNS) + gateway_count + taint_count + ast_count + structure_count
+
+
+def _get_gateway_rule_count() -> int:
+    """Get the number of gateway interception rules."""
+    try:
+        import inspect
+        import re
+
+        from src.gateway.interceptor import CommandInterceptor
+        src = inspect.getsource(CommandInterceptor)
+        return len(set(re.findall(r'"id":\s*"(gateway_[^"]+)"', src)))
+    except ImportError:
+        return 0
+
+
+def _get_taint_rule_count() -> int:
+    """Get the number of taint analysis definitions."""
+    try:
+        from src.rules.taint_rules import (
+            TAINT_SANITIZERS,
+            TAINT_SINKS,
+            TAINT_SOURCES,
+        )
+        return len(TAINT_SOURCES) + len(TAINT_SINKS) + len(TAINT_SANITIZERS)
+    except ImportError:
+        return 0
+
+
+def _build_gateway_rule_section() -> list[str]:
+    """Build the gateway rules section for the catalog."""
+    lines: list[str] = ["", "### Gateway Interception Rules (pre-execution enforcement)", ""]
+    try:
+        import inspect
+        import re
+
+        from src.gateway.interceptor import CommandInterceptor
+        src = inspect.getsource(CommandInterceptor)
+        ids = sorted(set(re.findall(r'"id":\s*"(gateway_[^"]+)"', src)))
+        lines.append(f"**Count: {len(ids)}**")
+        lines.extend(["", "| ID | Category |", "|---|---|"])
+        for rule_id in ids:
+            category = rule_id.replace("gateway_", "").replace("_", " ")
+            lines.append(f"| {rule_id} | {category} |")
+    except ImportError:
+        lines.append("Gateway rules unavailable (gateway module not installed).")
+    return lines
+
+
+def _build_taint_rule_section() -> list[str]:
+    """Build the taint rules section for the catalog."""
+    lines: list[str] = ["", "### Taint Analysis Rules (data-flow tracking)", ""]
+    try:
+        from src.rules.taint_rules import (
+            TAINT_SANITIZERS,
+            TAINT_SINKS,
+            TAINT_SOURCES,
+        )
+        lines.append(
+            f"**Sources: {len(TAINT_SOURCES)} | "
+            f"Sinks: {len(TAINT_SINKS)} | "
+            f"Sanitizers: {len(TAINT_SANITIZERS)}**",
+        )
+        lines.extend(["", "**Sources** (user input entry points):"])
+        for src_item in TAINT_SOURCES:
+            name = getattr(src_item, "name", str(src_item))
+            lines.append(f"- {name}")
+        lines.extend(["", "**Sinks** (dangerous operations):"])
+        for sink in TAINT_SINKS:
+            name = getattr(sink, "name", str(sink))
+            lines.append(f"- {name}")
+        lines.extend(["", "**Sanitizers** (taint breakers):"])
+        for san in TAINT_SANITIZERS:
+            name = getattr(san, "name", str(san))
+            lines.append(f"- {name}")
+    except ImportError:
+        lines.append("Taint rules unavailable.")
+    return lines
 
 
 def _validate_plan(

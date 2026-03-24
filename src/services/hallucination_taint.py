@@ -150,6 +150,24 @@ KNOWN_SANITIZER_PACKAGES: frozenset[str] = frozenset({
     "isomorphic-dompurify",
 })
 
+# Known real modules that provide legitimate sanitizers.
+# If a sanitizer is imported from one of these, it is trusted.
+_KNOWN_REAL_MODULES: frozenset[str] = frozenset({
+    # Python stdlib
+    "html", "cgi", "shlex", "urllib", "os", "re", "json", "base64",
+    "hashlib", "hmac", "secrets", "xml", "sqlite3", "pathlib",
+    "markupsafe", "bleach", "nh3", "defusedxml", "html_sanitizer",
+    # JS/TS packages
+    "dompurify", "DOMPurify", "isomorphic-dompurify", "xss",
+    "sanitize-html", "validator", "escape-html", "he",
+    # Go packages
+    "url", "filepath", "path", "strconv", "strings",
+    "regexp", "template", "net",
+    # Common web frameworks with built-in sanitization
+    "django", "flask", "jinja2", "werkzeug", "fastapi", "starlette",
+    "express", "helmet", "cors",
+})
+
 HALLUCINATION_CONFIDENCE = 0.90
 
 # Regex for extracting function names from call expressions.
@@ -492,20 +510,37 @@ class HallucinationTaintAnalyzer:
         function_name: str,
         imported_modules: dict[str, str],
     ) -> bool:
-        """Check if the function comes from a verified import.
+        """Check if the function comes from a verified, known-real package.
 
-        Any function whose name (or top-level module) appears in an
-        explicit import statement is considered verified — the developer
-        intentionally imported it from a known source.
+        Having an import statement is NOT enough - AI can hallucinate imports.
+        The source module must be either a known sanitizer package, a Python
+        stdlib module, or a well-known third-party package.
         """
         parts = function_name.split(".")
         top_module = parts[0]
+        base_name = function_name.split(".")[-1]
 
-        if top_module in imported_modules:
+        # Find the source module for this function
+        source_module = imported_modules.get(
+            top_module,
+            imported_modules.get(base_name, ""),
+        )
+        if not source_module:
+            return False
+
+        # Check if the source module is a known sanitizer package
+        source_top = source_module.split(".")[0]
+        if source_top in KNOWN_SANITIZER_PACKAGES:
             return True
 
-        base_name = function_name.split(".")[-1]
-        return base_name in imported_modules
+        # Check against known-real standard library modules
+        if source_top in _KNOWN_REAL_MODULES:
+            return True
+
+        # Project-internal imports (dot-separated paths like myapp.utils)
+        # are developer-written, not hallucinated by AI.
+        # Single-word unknown modules (e.g. "ai_utils") are likely hallucinated.
+        return "." in source_module
 
     # ═══════════════════════════════════════════════════════════════
     #  Code introspection helpers

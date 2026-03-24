@@ -390,6 +390,7 @@ class CrossLanguageTaintAnalyzer:
         """Initialize the cross-language taint analyzer."""
         self._taint_analyzer = TaintAnalyzer()
         self._cross_file_analyzer = CrossFileTaintAnalyzer()
+        self._file_contents: dict[str, str] = {}
 
     def analyze(
         self,
@@ -410,6 +411,7 @@ class CrossLanguageTaintAnalyzer:
                 list(file_contents.items())[:MAX_CROSS_LANG_FILES],
             )
 
+        self._file_contents = file_contents
         languages = self._detect_languages(file_contents, file_languages)
         unique_langs = set(languages.values())
 
@@ -1035,13 +1037,15 @@ class CrossLanguageTaintAnalyzer:
         routes: list[HttpRoute],
         languages: dict[str, Language],
     ) -> list[CrossLanguageFlow]:
-        """Match HTTP calls to routes ACROSS language boundaries."""
+        """Match HTTP calls to routes ACROSS language boundaries.
+
+        Detects two flow directions:
+        1. Caller sends tainted data -> route handler has sinks (injection)
+        2. Route returns tainted data -> caller renders unsafely (XSS)
+        """
         flows: list[CrossLanguageFlow] = []
 
         for call in calls:
-            if not call.sends_tainted_data:
-                continue
-
             for route in routes:
                 # Must be different languages (that's the point)
                 if call.language == route.language:
@@ -1053,20 +1057,71 @@ class CrossLanguageTaintAnalyzer:
                 if not self._methods_compatible(call.method, route.method):
                     continue
 
-                # We have a cross-language boundary with tainted data
-                # Now check if the route handler has sinks
-                if route.summary is not None:
-                    sink_info = self._find_sinks_in_handler(route)
-                    if sink_info is not None:
+                # Direction 1: caller sends tainted data -> route has sinks
+                if call.sends_tainted_data and route.summary is not None:
+                        sink_info = self._find_sinks_in_handler(route)
+                        if sink_info is not None:
+                            flows.append(CrossLanguageFlow(
+                                caller=call,
+                                route=route,
+                                sink_rule_id=sink_info[0],
+                                sink_message=sink_info[1],
+                                sink_line=sink_info[2],
+                            ))
+
+                # Direction 2: route returns tainted data -> caller
+                # renders it unsafely (e.g. innerHTML, eval, document.write)
+                if route.returns_taint:
+                    consumer_sink = self._find_unsafe_response_consumption(
+                        call, languages,
+                    )
+                    if consumer_sink is not None:
                         flows.append(CrossLanguageFlow(
                             caller=call,
                             route=route,
-                            sink_rule_id=sink_info[0],
-                            sink_message=sink_info[1],
-                            sink_line=sink_info[2],
+                            sink_rule_id=consumer_sink[0],
+                            sink_message=consumer_sink[1],
+                            sink_line=consumer_sink[2],
                         ))
 
         return flows
+
+    def _find_unsafe_response_consumption(
+        self,
+        call: HttpCall,
+        languages: dict[str, Language],
+    ) -> tuple[str, str, int] | None:
+        """Check if the caller unsafely renders the HTTP response.
+
+        Looks for dangerous patterns after the fetch/request call:
+        innerHTML, document.write, eval, v-html, dangerouslySetInnerHTML.
+        """
+        code = self._file_contents.get(call.file, "")
+        if not code:
+            return None
+
+        lines = code.splitlines()
+        # Check lines after the call for unsafe consumption patterns
+        start = call.line - 1
+        end = min(len(lines), call.line + 15)
+        context_after = "\n".join(lines[start:end])
+
+        unsafe_patterns = [
+            (r"\.innerHTML\s*=", "xss", "Response rendered via innerHTML without sanitization"),
+            (r"document\.write\s*\(", "xss", "Response rendered via document.write without sanitization"),
+            (r"\beval\s*\(", "code_injection", "Response passed to eval without validation"),
+            (r"v-html\s*=", "xss", "Response bound to v-html without sanitization"),
+            (r"dangerouslySetInnerHTML", "xss", "Response set via dangerouslySetInnerHTML"),
+            (r"\$\(\s*['\"]#?\w+['\"\)]+\.html\s*\(", "xss", "Response rendered via jQuery .html()"),
+        ]
+
+        for pattern, category, message in unsafe_patterns:
+            match = re.search(pattern, context_after)
+            if match is not None:
+                match_line = start + context_after[:match.start()].count("\n") + 1
+                return (category, message, match_line)
+
+        return None
 
     def _generate_findings(
         self,
@@ -1597,6 +1652,22 @@ class CrossLanguageTaintAnalyzer:
                     if var_name in call_line:
                         return (var_name, source.name)
 
+        # Heuristic: detect URL string concatenation with variables
+        # e.g. fetch("/api/x?q=" + userInput) or `/api/x?q=${input}`
+        url_concat = re.search(
+            r"""['"`][^'"`]*['"`]\s*\+\s*(\w+)""",
+            call_line,
+        )
+        if url_concat is not None:
+            return (url_concat.group(1), "url_concatenation")
+
+        template_var = re.search(
+            r"""\$\{(\w+)\}""",
+            call_line,
+        )
+        if template_var is not None:
+            return (template_var.group(1), "url_template_injection")
+
         return ("", "")
 
     def _paths_match(self, call_url: str, route_path: str) -> bool:
@@ -1605,8 +1676,12 @@ class CrossLanguageTaintAnalyzer:
         Handles path parameters: /api/users/:id matches /api/users/123.
         Handles query strings: /api/users?id=x matches /api/users.
         """
-        # Normalize: strip query strings from call URL
+        # Normalize: strip query strings and host from call URL
         call_clean = call_url.split("?")[0].rstrip("/")
+        # Strip protocol + host (e.g. http://service-name/path -> /path)
+        if "://" in call_clean:
+            path_start = call_clean.find("/", call_clean.find("://") + 3)
+            call_clean = call_clean[path_start:] if path_start != -1 else "/"
         route_clean = route_path.rstrip("/")
 
         # Exact match

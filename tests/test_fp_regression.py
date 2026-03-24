@@ -1,0 +1,260 @@
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
+"""False positive regression tests.
+
+These tests scan known-clean code patterns that should NOT produce
+BLOCK findings. If a rule change introduces FPs on clean code,
+these tests catch it.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from src.models.enums import Severity
+from src.services.static_analyzer import StaticAnalyzer
+
+
+@pytest.fixture()
+def analyzer() -> StaticAnalyzer:
+    """Create a StaticAnalyzer instance."""
+    return StaticAnalyzer()
+
+
+# ── Clean code samples that must NOT produce BLOCK findings ─────────────────
+
+CLEAN_FLASK_APP = '''
+from flask import Flask, request, jsonify
+import logging
+
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+
+@app.route("/users/<int:user_id>", methods=["GET"])
+def get_user(user_id: int):
+    """Retrieve a user by ID."""
+    try:
+        user = db.session.get(User, user_id)
+        if user is None:
+            return jsonify({"error": "User not found"}), 404
+        return jsonify(user.to_dict())
+    except sqlalchemy.exc.OperationalError as exc:
+        logger.error("database_error", error=str(exc))
+        return jsonify({"error": "Service unavailable"}), 503
+
+@app.route("/health")
+def health():
+    """Health check endpoint."""
+    return jsonify({"status": "ok"})
+'''
+
+CLEAN_FASTAPI_APP = '''
+from fastapi import FastAPI, HTTPException
+import structlog
+
+logger = structlog.get_logger()
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int) -> dict:
+    """Get item by ID."""
+    item = await db.get(item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"item": item}
+
+@app.post("/items")
+async def create_item(name: str, price: float) -> dict:
+    """Create a new item."""
+    item = await db.create(name=name, price=price)
+    logger.info("item_created", item_id=item.id)
+    return {"id": item.id}
+'''
+
+CLEAN_EXPRESS_APP = '''
+const express = require("express");
+const app = express();
+
+app.get("/users/:id", async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+    }
+    const user = await db.findUser(userId);
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+});
+
+app.listen(3000, () => {
+    console.log("Server running on port 3000");
+});
+'''
+
+CLEAN_PYTHON_UTILITY = '''
+import hashlib
+import os
+from typing import Optional
+
+SALT_LENGTH = 32
+HASH_ITERATIONS = 100_000
+
+def hash_password(password: str) -> str:
+    """Hash a password with a random salt using PBKDF2."""
+    salt = os.urandom(SALT_LENGTH)
+    key = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt, HASH_ITERATIONS,
+    )
+    return salt.hex() + key.hex()
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify a password against a stored hash."""
+    salt = bytes.fromhex(stored_hash[:SALT_LENGTH * 2])
+    stored_key = stored_hash[SALT_LENGTH * 2:]
+    key = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt, HASH_ITERATIONS,
+    )
+    return key.hex() == stored_key
+
+def generate_api_key() -> str:
+    """Generate a secure random API key."""
+    return os.urandom(32).hex()
+'''
+
+CLEAN_GO_HANDLER = '''
+package main
+
+import (
+    "database/sql"
+    "encoding/json"
+    "log"
+    "net/http"
+    "strconv"
+)
+
+func getUser(w http.ResponseWriter, r *http.Request) {
+    idStr := r.URL.Query().Get("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        http.Error(w, "Invalid ID", http.StatusBadRequest)
+        return
+    }
+
+    var user User
+    err = db.QueryRow("SELECT id, name FROM users WHERE id = $1", id).Scan(&user.ID, &user.Name)
+    if err == sql.ErrNoRows {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    if err != nil {
+        log.Printf("database error: %v", err)
+        http.Error(w, "Internal error", http.StatusInternalServerError)
+        return
+    }
+
+    json.NewEncoder(w).Encode(user)
+}
+'''
+
+
+# ── Tests ───────────────────────────────────────────────────────────────────
+
+
+class TestNoBlockOnCleanCode:
+    """Verify that clean, well-written code produces no BLOCK findings."""
+
+    def test_clean_flask_no_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """Clean Flask app should have zero BLOCK findings."""
+        findings = analyzer.scan_code(CLEAN_FLASK_APP, "app.py")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert blocks == [], f"Unexpected BLOCK findings: {[(f.rule_id, f.message) for f in blocks]}"
+
+    def test_clean_fastapi_no_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """Clean FastAPI app should have zero BLOCK findings."""
+        findings = analyzer.scan_code(CLEAN_FASTAPI_APP, "main.py")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert blocks == [], f"Unexpected BLOCK findings: {[(f.rule_id, f.message) for f in blocks]}"
+
+    def test_clean_express_no_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """Clean Express app should have zero BLOCK findings."""
+        findings = analyzer.scan_code(CLEAN_EXPRESS_APP, "server.js")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert blocks == [], f"Unexpected BLOCK findings: {[(f.rule_id, f.message) for f in blocks]}"
+
+    def test_clean_python_utility_no_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """Clean Python utility module should have zero BLOCK findings."""
+        findings = analyzer.scan_code(CLEAN_PYTHON_UTILITY, "utils.py")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert blocks == [], f"Unexpected BLOCK findings: {[(f.rule_id, f.message) for f in blocks]}"
+
+    def test_clean_go_handler_no_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """Clean Go HTTP handler should have zero BLOCK findings."""
+        findings = analyzer.scan_code(CLEAN_GO_HANDLER, "handler.go")
+        blocks = [f for f in findings if f.severity == Severity.BLOCK]
+        assert blocks == [], f"Unexpected BLOCK findings: {[(f.rule_id, f.message) for f in blocks]}"
+
+
+class TestFPRulesFixed:
+    """Verify that specific FP-prone patterns no longer produce false positives."""
+
+    def test_logger_debug_not_redis(self, analyzer: StaticAnalyzer) -> None:
+        """logger.debug() should NOT trigger redis_debug_command."""
+        code = 'logger.debug("processing request", request_id=rid)\n'
+        findings = analyzer.scan_code(code, "app.py")
+        redis_fps = [f for f in findings if f.rule_id == "redis_debug_command"]
+        assert redis_fps == []
+
+    def test_except_exception_with_logging(self, analyzer: StaticAnalyzer) -> None:
+        """except Exception with proper logging is valid Python."""
+        code = '''
+try:
+    result = external_api.call()
+except Exception as exc:
+    logger.error("api_failed", error=str(exc))
+    return None
+'''
+        findings = analyzer.scan_code(code, "service.py")
+        broad_exc = [f for f in findings if f.rule_id == "quality_broad_exception_type"]
+        assert broad_exc == []
+
+    def test_deprecated_enum_value(self, analyzer: StaticAnalyzer) -> None:
+        """DEPRECATED as an enum value should NOT trigger api_breaking_change."""
+        code = 'DEPRECATED = "deprecated"\n'
+        findings = analyzer.scan_code(code, "enums.py")
+        breaking = [f for f in findings if f.rule_id == "api_breaking_change_no_version"]
+        assert breaking == []
+
+    def test_version_display_not_api_call(self, analyzer: StaticAnalyzer) -> None:
+        """Displaying version as 'latest' should NOT trigger r2a_133."""
+        code = 'display_version = version or "latest"\n'
+        findings = analyzer.scan_code(code, "display.py")
+        version_fps = [f for f in findings if f.rule_id == "r2a_133"]
+        assert version_fps == []
+
+    def test_internal_auth_function(self, analyzer: StaticAnalyzer) -> None:
+        """Internal authenticate() function should NOT trigger brute force warning."""
+        code = '''
+def authenticate_token(token: str) -> bool:
+    return jwt.decode(token, SECRET_KEY)
+'''
+        findings = analyzer.scan_code(code, "auth.py")
+        brute = [f for f in findings if f.rule_id == "authz_no_brute_force_protection"]
+        assert brute == []
+
+    def test_guard_clause_nesting(self, analyzer: StaticAnalyzer) -> None:
+        """Guard clauses with 4 levels should NOT trigger deep nesting."""
+        code = '''
+def process(request):
+    if request:
+        if request.user:
+            if request.user.is_active:
+                if request.data:
+                    return handle(request.data)
+    return None
+'''
+        findings = analyzer.scan_code(code, "handler.py")
+        nesting = [f for f in findings if f.rule_id in ("coupling_deep_nesting", "quality_deeply_nested_if")]
+        block_nesting = [f for f in nesting if f.severity == Severity.BLOCK]
+        assert block_nesting == []

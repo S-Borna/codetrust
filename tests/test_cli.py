@@ -416,7 +416,7 @@ class TestTrend:
             subprocess.run(["git", "add", "a.py"], cwd=tmp_dir, check=True)
             subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_dir, check=True, capture_output=True)
 
-            snap = _trend_snapshot(tmp_dir, ["."])
+            snap = _trend_snapshot(tmp_dir, [str(tmp_dir)])
             assert "ts" in snap
             _trend_write(tmp_dir, snap)
 

@@ -456,7 +456,19 @@ class TaintAnalyzer:
             self._check_sinks(node, language, tainted, findings, filename)
             self._check_callsite_sinks(node, tainted, summaries, findings, filename)
 
-        return findings
+        return self._deduplicate_findings(findings)
+
+    @staticmethod
+    def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:
+        """Remove duplicate findings by (rule_id, line, source reference)."""
+        seen: set[tuple[str, int, str]] = set()
+        unique: list[Finding] = []
+        for f in findings:
+            key = (f.rule_id, f.line, f.message)
+            if key not in seen:
+                seen.add(key)
+                unique.append(f)
+        return unique
 
     def _process_assignment(
         self,
@@ -513,12 +525,15 @@ class TaintAnalyzer:
         for existing_var, record in tainted.items():
             if existing_var in rhs_text:
                 new_chain = [*record.chain, var_name]
+                # Sanitized if: (a) this RHS applies a sanitizer, or
+                # (b) the source record was already sanitized.
+                is_sanitized = sanitizer is not None or record.sanitized
                 tainted[var_name] = TaintRecord(
                     var_name=var_name,
                     source=record.source,
                     source_line=record.source_line,
                     chain=new_chain,
-                    sanitized=sanitizer is not None,
+                    sanitized=is_sanitized,
                 )
                 break
 
@@ -551,6 +566,11 @@ class TaintAnalyzer:
     ) -> None:
         """Generate findings for tainted arguments flowing to sinks."""
         sink_line = node.start_point.row + 1
+
+        # Parameterized SQL breaks taint — %s or ? placeholders mean safe usage
+        if sink.category == "sql_injection" and _is_parameterized_query(node_text):
+            return
+
         if not args:
             self._check_inline_taint("", node_text, sink, sink_line, tainted, findings, filename)
             return
@@ -558,6 +578,8 @@ class TaintAnalyzer:
             record = tainted.get(arg)
             if record is None:
                 self._check_inline_taint(arg, node_text, sink, sink_line, tainted, findings, filename)
+                continue
+            if record.sanitized:
                 continue
             findings.append(self._build_finding(record, sink, sink_line, filename))
 
@@ -571,9 +593,17 @@ class TaintAnalyzer:
         findings: list[Finding],
         filename: str,
     ) -> None:
-        """Check if tainted vars appear inline in f-strings or concatenation."""
+        """Check if tainted vars appear inline in f-strings or concatenation.
+
+        Uses word-boundary matching to avoid false positives from variable
+        names appearing inside string literals (e.g., 'amount' in SQL text).
+        """
+        # Strip quoted strings to avoid matching var names inside literals
+        stripped = _strip_string_literals(node_text)
         for var_name, record in tainted.items():
-            if var_name in node_text:
+            if record.sanitized:
+                continue
+            if re.search(rf"\b{re.escape(var_name)}\b", stripped):
                 findings.append(self._build_finding(record, sink, sink_line, filename))
                 break
 
@@ -1049,16 +1079,64 @@ class TaintAnalyzer:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  Parameterized query detection
+# ═══════════════════════════════════════════════════════════════
+
+_PARAMETERIZED_PATTERNS = re.compile(
+    r"%s|%\(|"          # Python DB-API: %s, %(name)s
+    r"\?\s*[,)]|"       # SQLite/JDBC: ? placeholders
+    r"\$\d+|"           # PostgreSQL: $1, $2
+    r":\w+"             # SQLAlchemy named: :param
+)
+
+
+def _is_parameterized_query(text: str) -> bool:
+    """Detect parameterized SQL patterns that neutralize injection risk."""
+    return bool(_PARAMETERIZED_PATTERNS.search(text))
+
+
+# ═══════════════════════════════════════════════════════════════
+#  String literal stripping for accurate taint matching
+# ═══════════════════════════════════════════════════════════════
+
+_STRING_LITERAL_RE = re.compile(
+    r'"""[\s\S]*?"""|'   # Triple-double-quoted
+    r"'''[\s\S]*?'''|"   # Triple-single-quoted
+    r'"[^"\\]*(?:\\.[^"\\]*)*"|'  # Double-quoted
+    r"'[^'\\]*(?:\\.[^'\\]*)*'"   # Single-quoted
+)
+
+_FSTRING_EXPR_RE = re.compile(r"\{(\w+)(?:\}|[.!\[])")
+
+
+def _strip_string_literals(text: str) -> str:
+    """Replace string literal content with placeholders.
+
+    Preserves f-string interpolation variable names so taint tracking
+    can detect flows like ``f"SELECT ... {user_id}"``.
+    """
+    # First extract f-string variable references before stripping
+    fstring_vars = set(_FSTRING_EXPR_RE.findall(text))
+    stripped = _STRING_LITERAL_RE.sub('""', text)
+    # Re-inject f-string variable names so they're visible to taint matching
+    if fstring_vars:
+        stripped += " " + " ".join(fstring_vars)
+    return stripped
+
+
+# ═══════════════════════════════════════════════════════════════
 #  Category-specific remediation suggestions
 # ═══════════════════════════════════════════════════════════════
 
 _CATEGORY_SUGGESTIONS: dict[str, str] = {
     "sql_injection": "Use parameterized queries (e.g., cursor.execute('SELECT ... WHERE id = ?', (user_id,)))",
     "command_injection": "Use subprocess.run with shell=False and pass arguments as a list",
+    "code_injection": "Never pass untrusted data to eval(); use ast.literal_eval() for safe evaluation",
     "xss": "Sanitize output with markupsafe.escape() or a DOM sanitizer before rendering",
     "path_traversal": "Validate and sanitize file paths; use os.path.realpath() and check against an allow-list",
     "ssrf": "Validate URLs against an allow-list of domains before making requests",
     "deserialization": "Avoid deserializing untrusted data; use JSON with schema validation instead",
+    "ldap_injection": "Use parameterized LDAP filters or escape special chars with ldap.filter.escape_filter_chars()",
 }
 
 

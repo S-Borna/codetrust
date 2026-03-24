@@ -100,10 +100,12 @@ TAINT_SOURCES: dict[Language, tuple[TaintSource, ...]] = {
 
 CATEGORY_SQL_INJECTION = "sql_injection"
 CATEGORY_COMMAND_INJECTION = "command_injection"
+CATEGORY_CODE_INJECTION = "code_injection"
 CATEGORY_XSS = "xss"
 CATEGORY_PATH_TRAVERSAL = "path_traversal"
 CATEGORY_SSRF = "ssrf"
 CATEGORY_DESERIALIZATION = "deserialization"
+CATEGORY_LDAP_INJECTION = "ldap_injection"
 
 PYTHON_SINKS: tuple[TaintSink, ...] = (
     # SQL injection
@@ -131,6 +133,12 @@ PYTHON_SINKS: tuple[TaintSink, ...] = (
     TaintSink("yaml.load", "yaml.load(", CATEGORY_DESERIALIZATION, Language.PYTHON),
     # XSS
     TaintSink("render_template_string", "render_template_string(", CATEGORY_XSS, Language.PYTHON),
+    TaintSink("Template", "Template(", CATEGORY_XSS, Language.PYTHON, "Jinja2/string Template with concat"),
+    # Code injection
+    TaintSink("eval", "eval(", CATEGORY_CODE_INJECTION, Language.PYTHON, "Dynamic code execution"),
+    # LDAP injection
+    TaintSink("ldap.search_s", "search_s(", CATEGORY_LDAP_INJECTION, Language.PYTHON, "LDAP search"),
+    TaintSink("ldap.search", "search(", CATEGORY_LDAP_INJECTION, Language.PYTHON, "LDAP async search"),
 )
 
 JAVASCRIPT_SINKS: tuple[TaintSink, ...] = (

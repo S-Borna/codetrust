@@ -85,15 +85,81 @@ WARN_RULES: list[dict[str, str]] = [
 ]
 
 
+def _load_full_rules() -> list[dict] | None:
+    """Try to import the full anti-pattern rule set from CodeTrust package.
+
+    Returns None if the package is not installed.
+    """
+    try:
+        from src.rules.anti_patterns import ANTI_PATTERNS
+        return ANTI_PATTERNS
+    except ImportError:
+        pass
+    try:
+        from codetrust.rules.anti_patterns import ANTI_PATTERNS
+        return ANTI_PATTERNS
+    except ImportError:
+        pass
+    return None
+
+
+# Cache the loaded rules at module level.
+_FULL_RULES: list[dict] | None = _load_full_rules()
+_USING_FULL_RULES: bool = _FULL_RULES is not None
+
+if _USING_FULL_RULES:
+    _rule_count = len(_FULL_RULES)  # type: ignore[arg-type]
+    print(f"CodeTrust: loaded {_rule_count} rules from package")
+else:
+    print(
+        f"CodeTrust: using {len(BLOCK_RULES) + len(WARN_RULES)} "
+        f"embedded rules (install codetrust for full {2920} rules)",
+    )
+
+
 def scan_file_local(filepath: str) -> list[dict]:
-    """Scan a file using embedded rules."""
-    findings = []
+    """Scan a file using full rules (if available) or embedded fallback."""
+    findings: list[dict] = []
     try:
         with open(filepath, encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
     except OSError:
         return findings
 
+    if _USING_FULL_RULES and _FULL_RULES is not None:
+        return _scan_with_full_rules(filepath, lines)
+
+    return _scan_with_embedded_rules(filepath, lines)
+
+
+def _scan_with_full_rules(filepath: str, lines: list[str]) -> list[dict]:
+    """Scan using the full anti-pattern rule set."""
+    findings: list[dict] = []
+    for line_num, line in enumerate(lines, 1):
+        if "noqa" in line:
+            continue
+        for rule in _FULL_RULES:  # type: ignore[union-attr]
+            file_types = rule.get("file_types")
+            if file_types and not any(filepath.endswith(ft) for ft in file_types):
+                continue
+            pattern = rule.get("pattern", "")
+            try:
+                if re.search(pattern, line):
+                    findings.append({
+                        "rule_id": rule["id"],
+                        "severity": str(rule.get("severity", "WARN")),
+                        "message": rule.get("message", ""),
+                        "file": filepath,
+                        "line": line_num,
+                    })
+            except re.error:
+                continue
+    return findings
+
+
+def _scan_with_embedded_rules(filepath: str, lines: list[str]) -> list[dict]:
+    """Scan using the 10 embedded fallback rules."""
+    findings: list[dict] = []
     for line_num, line in enumerate(lines, 1):
         if "noqa" in line:
             continue

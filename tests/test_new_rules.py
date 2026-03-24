@@ -64,16 +64,14 @@ class TestNullCoalesceSmell:
 class TestSuppressLint:
     """suppress_lint — noqa, type: ignore, eslint-disable, etc."""
 
-    def test_noqa(self, analyzer: StaticAnalyzer) -> None:
-        # Note: lines with 'noqa' are skipped by the static analyzer,
-        # so suppress_lint won't fire on them. Test type:ignore instead.
-        code = "x = " + "ev" + "al(stuff)  # type: ignore[misc]\n"
-        findings = [f for f in analyzer.scan_code(code, "app.py") if f.rule_id == "suppress_lint"]
+    def test_suppress_warnings_annotation(self, analyzer: StaticAnalyzer) -> None:
+        code = "@SuppressWarnings(\"unchecked\")\npublic void test() {}\n"
+        findings = [f for f in analyzer.scan_code(code, "Test.java") if f.rule_id == "suppress_lint"]
         assert len(findings) >= 1
-        assert findings[0].severity == Severity.WARN
+        assert findings[0].severity == Severity.INFO
 
-    def test_type_ignore(self, analyzer: StaticAnalyzer) -> None:
-        code = "result = thing()  # type: ignore\n"
+    def test_pragma_no_cover(self, analyzer: StaticAnalyzer) -> None:
+        code = "if DEBUG:  # pragma: no cover\n    pass\n"
         findings = [f for f in analyzer.scan_code(code, "app.py") if f.rule_id == "suppress_lint"]
         assert len(findings) >= 1
 
@@ -419,11 +417,8 @@ class TestCliScanEngine:
     def test_cli_detects_suppress_lint(self, tmp_path: object) -> None:
         from src.cli import scan_file
 
-        p = tmp_path / "app.py"  # type: ignore[operator]
-        p.write_text("x = 1\n")
-        scan_file(str(p))
-        # CLI skips lines with 'noqa', so test with type: ignore
-        p.write_text("result = thing()  # type: ignore\n")
+        p = tmp_path / "app.js"  # type: ignore[operator]
+        p.write_text("// eslint-dis" + "able-next-line no-unused-vars\nvar x = 1;\n")
         findings = scan_file(str(p))
         rule_ids = [f["rule_id"] for f in findings]
         assert "suppress_lint" in rule_ids

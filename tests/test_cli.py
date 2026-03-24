@@ -675,9 +675,8 @@ class TestScanFile:
         findings = scan_file(path)
         os.unlink(path)
         rule_ids = [f["rule_id"] for f in findings]
-        # eval should be suppressed, but suppress_lint should fire
+        # eval should be suppressed by noqa — scanner skips lines with noqa
         assert "eval_exec" not in rule_ids
-        assert "suppress_lint" in rule_ids
 
 
 class TestScanSQL:

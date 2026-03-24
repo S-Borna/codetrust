@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v3.0.0</code> &middot; <code>2,136 tests</code> &middot; <code>1,284 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v3.1.0</code> &middot; <code>2,311+ tests</code> &middot; <code>2,942 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 1,284 rules across 10 enforcement layers, 27 MCP tools, 60 API endpoints. 5 enterprise services: CVE/vulnerability scanning, license compliance, cross-file analysis, auto-fix PRs, and team management with RBAC. 2,136 tests.
+**AI Governance Enforcement Platform** — 2,942 rules across 10 enforcement layers, 18 MCP tools (Guardian + Gateway), 66 API endpoints. Enterprise services: CVE/vulnerability scanning, license compliance, cross-language taint analysis, hallucination detection, and team management with RBAC. 2,311+ tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -43,6 +43,20 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 - **Reality verification**: confirms imports and Docker tags actually exist.
 - **Pipeline leverage**: enforces in MCP, pre-commit, and CI without replacing existing tools.
 - **Economic wedge**: delivers governance + verification workflows that paid incumbents typically do not provide out of the box.
+
+### Enforcement Matrix — Honest Capabilities
+
+| IDE / Environment | Enforcement Level | Mechanism | Bypass Possible? |
+|---|---|---|---|
+| **Claude Code** | **Hard block** | PreToolUse hook runs outside agent control | No — hook intercepts before agent acts |
+| **VS Code** | Advisory + scan | Extension on-save scanning, MCP tools | Yes — agent can ignore scan results |
+| **Cursor** | Advisory | CLAUDE.md/`.cursorrules` instructions + MCP tools | Yes — agent compliance is voluntary |
+| **Windsurf** | Advisory | `.windsurfrules` instructions + MCP tools | Yes — agent compliance is voluntary |
+| **GitHub Copilot** | Scan only | MCP tools available, no pre-execution hook | Yes — no interception mechanism |
+| **CI/CD** | Blocking | GitHub Action / pre-commit hook blocks merge | No — pipeline enforces verdicts |
+| **REST API** | Blocking | Server-side enforcement, API key required | No — server controls response |
+
+**What this means:** Full governance enforcement (hard block) is currently available in Claude Code and CI/CD pipelines. For other IDEs, CodeTrust provides advisory scanning and MCP tools — the AI agent is instructed to call them, but there is no technical mechanism to force compliance. This is an inherent limitation of current IDE architectures, not a CodeTrust gap.
 
 ### Release Snapshot
 

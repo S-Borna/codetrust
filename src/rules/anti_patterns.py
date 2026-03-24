@@ -19000,7 +19000,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_162",
-        "pattern": r"(?:FROM|from)\s+\w+(?::\s*latest|\s+(?!.*@sha256:))",
+        "pattern": r"^FROM\s+\w+/?\w+(?::\s*latest|\s+(?!.*@sha256:))",
         "message": "Docker image without SHA256 digest is mutable and vulnerable to tag poisoning; pin with @sha256 digest",
         "severity": Severity.WARN,
     },

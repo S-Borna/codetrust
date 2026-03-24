@@ -1380,5 +1380,172 @@ def _emit_taint_verify_telemetry(
     )
 
 
+# ── Vulnerability Scanning (CVE/GHSA via OSV) ──────────────────────────────
+
+@mcp.tool(name="codetrust_vulnerability_scan")
+async def codetrust_vulnerability_scan(
+    packages: str,
+    language: str = "python",
+    versions: str = "",
+) -> str:
+    """Scan packages for known CVEs and security advisories via OSV.
+
+    Checks packages against Google's Open Source Vulnerability database.
+    Supports all ecosystems: PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist.
+
+    Args:
+        packages: Comma-separated package names (e.g. "flask,requests,django").
+        language: Programming language (python, javascript, typescript, go, rust, java, csharp, ruby, php).
+        versions: Optional comma-separated versions matching packages (e.g. "2.0.1,2.31.0,4.2").
+
+    Returns:
+        Markdown-formatted vulnerability report.
+    """
+    logger.info("mcp_vulnerability_scan", language=language, package_count=len(packages.split(",")))
+    started = time.monotonic()
+    ok = False
+    try:
+        lang = Language(language.lower())
+        pkg_list = [p.strip() for p in packages.split(",") if p.strip()]
+        if not pkg_list:
+            return "No packages provided."
+
+        version_map: dict[str, str] | None = None
+        if versions.strip():
+            ver_list = [v.strip() for v in versions.split(",")]
+            if len(ver_list) == len(pkg_list):
+                version_map = dict(zip(pkg_list, ver_list))
+
+        from src.services.vulnerability import VulnerabilityService
+
+        cache = CacheService()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            vuln_service = VulnerabilityService(cache=cache, http_client=client)
+            result = await vuln_service.check_packages(
+                language=lang,
+                packages=pkg_list,
+                versions=version_map,
+            )
+
+        lines: list[str] = [
+            "## Vulnerability Scan Results\n",
+            f"**Packages scanned:** {result.total_packages}",
+            f"**Vulnerable:** {result.vulnerable_count}",
+            f"**Clean:** {result.clean_count}",
+            f"**Total vulnerabilities:** {result.total_vulnerabilities}",
+            f"**Critical:** {result.critical_count} | **High:** {result.high_count} "
+            f"| **Medium:** {result.medium_count} | **Low:** {result.low_count}",
+            f"**Scan time:** {result.latency_ms}ms\n",
+        ]
+
+        if result.vulnerable_count == 0:
+            lines.append("All packages are clean. No known vulnerabilities found.")
+        else:
+            for pkg_result in result.results:
+                if pkg_result.is_vulnerable:
+                    lines.append(f"### {pkg_result.package} ({pkg_result.version or 'latest'})")
+                    for vuln in pkg_result.vulnerabilities:
+                        fixed = f" (fixed in {vuln.fixed_version})" if vuln.fixed_version else ""
+                        lines.append(f"- **{vuln.id}** [{vuln.severity}]: {vuln.summary}{fixed}")
+                        if vuln.reference_url:
+                            lines.append(f"  Ref: {vuln.reference_url}")
+                    lines.append("")
+
+        verdict = "BLOCK" if result.critical_count > 0 or result.high_count > 0 else "WARN" if result.vulnerable_count > 0 else "PASS"
+        lines.append(f"\n**Verdict: {verdict}**")
+        ok = True
+        return "\n".join(lines)
+    except ValueError as exc:
+        return f"Error: Unsupported language '{language}'. {exc}"
+    except httpx.HTTPError as exc:
+        return f"Error: OSV API request failed — {exc}"
+    finally:
+        _emit_mcp_tool_invoked(
+            tool="codetrust_vulnerability_scan",
+            ok=ok,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            payload={"language": language, "package_count": len(packages.split(","))},
+        )
+
+
+# ── License Compliance ──────────────────────────────────────────────────────
+
+@mcp.tool(name="codetrust_license_check")
+async def codetrust_license_check(
+    packages: str,
+    language: str = "python",
+) -> str:
+    """Check dependency licenses for compliance risks.
+
+    Classifies licenses as permissive, weak copyleft, strong copyleft,
+    network copyleft, or unknown. Flags packages that may be incompatible
+    with commercial use.
+
+    Args:
+        packages: Comma-separated package names (e.g. "flask,requests,django").
+        language: Programming language (python, javascript, go, rust, java, ruby, php).
+
+    Returns:
+        Markdown-formatted license compliance report.
+    """
+    logger.info("mcp_license_check", language=language, package_count=len(packages.split(",")))
+    started = time.monotonic()
+    ok = False
+    try:
+        lang = Language(language.lower())
+        pkg_list = [p.strip() for p in packages.split(",") if p.strip()]
+        if not pkg_list:
+            return "No packages provided."
+
+        from src.services.license_checker import LicenseRisk, LicenseService
+
+        cache = CacheService()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            license_service = LicenseService(cache=cache, http_client=client)
+            result = await license_service.check_packages(
+                language=lang,
+                packages=pkg_list,
+            )
+
+        lines: list[str] = [
+            "## License Compliance Report\n",
+            f"**Packages checked:** {result.total_packages}",
+            f"**Permissive:** {result.permissive_count}",
+            f"**Weak copyleft (LGPL/MPL):** {result.weak_copyleft_count}",
+            f"**Strong copyleft (GPL):** {result.strong_copyleft_count}",
+            f"**Network copyleft (AGPL):** {result.network_copyleft_count}",
+            f"**Unknown:** {result.unknown_count}",
+            f"**Compliant:** {'Yes' if result.compliant else 'No'}",
+            f"**Scan time:** {result.latency_ms}ms\n",
+        ]
+
+        if result.compliant and result.unknown_count == 0:
+            lines.append("All packages use permissive licenses. No compliance risks.")
+        else:
+            risk_packages = [li for li in result.all_licenses if li.risk != LicenseRisk.PERMISSIVE]
+            if risk_packages:
+                lines.append("### Packages requiring review\n")
+                for li in risk_packages:
+                    spdx = f" ({li.spdx_id})" if li.spdx_id else ""
+                    lines.append(f"- **{li.package}**: {li.license_name}{spdx} — {li.risk.value}")
+                lines.append("")
+
+        verdict = "BLOCK" if result.network_copyleft_count > 0 else "WARN" if not result.compliant else "PASS"
+        lines.append(f"\n**Verdict: {verdict}**")
+        ok = True
+        return "\n".join(lines)
+    except ValueError as exc:
+        return f"Error: Unsupported language '{language}'. {exc}"
+    except httpx.HTTPError as exc:
+        return f"Error: Registry API request failed — {exc}"
+    finally:
+        _emit_mcp_tool_invoked(
+            tool="codetrust_license_check",
+            ok=ok,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            payload={"language": language, "package_count": len(packages.split(","))},
+        )
+
+
 if __name__ == "__main__":
     mcp.run()

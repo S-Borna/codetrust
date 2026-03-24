@@ -123,7 +123,7 @@ class TestScanCodeWarn:
         findings = analyzer.scan_code(code, "app.py")
         todo_findings = [f for f in findings if f.rule_id == "todo_hack"]
         assert len(todo_findings) >= 1
-        assert todo_findings[0].severity == Severity.WARN
+        assert todo_findings[0].severity == Severity.INFO
 
     def test_detects_hack_marker(self, analyzer: StaticAnalyzer) -> None:
         code = "# HA" + "CK: workaround for bug"

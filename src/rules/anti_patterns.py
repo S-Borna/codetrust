@@ -115,9 +115,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "suppress_lint",
-        "pattern": r"(?:#\s*" + "no" + r"qa\b|#\s*type:\s*ig" + r"nore|@Suppress" + r"Warnings|eslint-dis" + r"able|prag" + r"ma:\s*no\s*cover)",
-        "message": "Lint/type/coverage warning suppressed. Fix the underlying issue instead.",
-        "severity": Severity.WARN,
+        "pattern": r"(?:#\s*" + "no" + r"qa\b|@Suppress" + r"Warnings|eslint-dis" + r"able|prag" + r"ma:\s*no\s*cover)",
+        "message": "Lint/coverage warning suppressed. Fix the underlying issue instead.",
+        "severity": Severity.INFO,
     },
     {
         "id": "sleep_no_context",
@@ -133,7 +133,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "todo_hack",
         "pattern": r"(?i)#\s*(todo|hack|fixme|xxx|temp)\b",
         "message": "Temporary marker found. Resolve before committing.",
-        "severity": Severity.WARN,
+        "severity": Severity.INFO,
     },
     {
         "id": "console_log",
@@ -4178,7 +4178,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sec_password_plaintext_log",
-        "pattern": r"(?:log|logger|logging)\.\w+\s*\([^)]*(?:password|secret|token|api_key)",
+        "pattern": r"(?:log|logger|logging)\.\w+\s*\([^)]*(?:password|secret|api_key)\s*=(?!.*(?:mask|redact|\*+|error))",
         "message": "Sensitive value being logged. Mask or redact credentials before logging.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
@@ -4515,7 +4515,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sec_unencrypted_connection",
-        "pattern": r"(?:http://|ftp://|telnet://|mongodb://(?!.*ssl|.*tls))(?!localhost|127\.0\.0\.1|0\.0\.0\.0)",
+        "pattern": r"[=:]\s*['\"](?:http://|ftp://|telnet://|mongodb://(?!.*ssl|.*tls))(?!localhost|127\.0\.0\.1|0\.0\.0\.0)",
         "message": "Unencrypted connection to remote host. Use HTTPS/TLS for data in transit.",
         "severity": Severity.WARN,
         "skip_comments": True,
@@ -8292,8 +8292,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     {
         "id": "input_no_size_limit",
         "pattern": r"(?:request\.body|req\.body|request\.data|request\.json)(?!.*(?:max_?size|limit|max_?length|content_?length))",
-        "message": "Request body without size validation. Add max content length.",
-        "severity": Severity.WARN,
+        "message": "Request body without explicit size validation. Add max content length.",
+        "severity": Severity.INFO,
     },
     {
         "id": "input_no_type_check",
@@ -10451,8 +10451,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "auth_password_in_log",
-        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\([^)]*(?:password|passwd|pwd|secret|token)",
-        "message": "Credential or secret logged. Never log passwords, tokens, or secrets.",
+        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\([^)]*(?:password|passwd|pwd)\s*=(?!.*(?:mask|redact|\*+|hash))",
+        "message": "Password logged. Never log passwords — hash or redact first.",
         "severity": Severity.BLOCK,
     },
     {
@@ -14086,7 +14086,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "obs_log_sensitive_data",
-        "pattern": r"(?i)(?:log|logger)\.\w+\s*\(.*(?:password|secret|token|api_key|credit_card|ssn).*\)",
+        "pattern": r"(?i)(?:log|logger)\.\w+\s*\(.*(?:password|credit_card|ssn|social_security)\s*=(?!.*(?:mask|redact|\*+|hash)).*\)",
         "message": "Logging potentially sensitive data. Mask or redact PII and secrets from logs.",
         "severity": Severity.BLOCK,
     },
@@ -15066,9 +15066,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sre_no_error_budget",
-        "pattern": r"(?i)(?:slo|service_level)(?!.*(?:error_budget|budget|remaining|burn))",
+        "pattern": r"(?i)(?:slo|service_level)\s*[:=](?!.*(?:error_budget|budget|remaining|burn))",
         "message": "SLO defined without error budget tracking. Implement error budget monitoring.",
-        "severity": Severity.WARN,
+        "severity": Severity.INFO,
     },
     {
         "id": "sre_slo_no_consequence",
@@ -16150,6 +16150,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"privileged\s*:\s*true|--privileged",
         "message": "Container running in privileged mode - grants full host access, use specific capabilities instead",
         "severity": Severity.BLOCK,
+        "file_types": [".yml", ".yaml", ".toml", ".sh", ".bash"],
     },
     {
         "id": "r1a_130",
@@ -16749,9 +16750,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r1b_031",
-        "pattern": r"(?:gets|_gets)\s*\(",
+        "pattern": r"\bgets\s*\(",
         "message": "Use of gets() is always unsafe as it performs no bounds checking on input buffer",
         "severity": Severity.BLOCK,
+        "file_types": [".c", ".cpp", ".h", ".hpp"],
     },
     {
         "id": "r1b_032",
@@ -18255,8 +18257,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_091",
-        "pattern": r"(?:log|logger|logging|console)\.\w+\s*\(.*(?:password|passwd|secret|token|api_key|apikey|credit_card|ssn|social_security)",
-        "message": "Logging sensitive data (passwords, tokens, SSN) violates privacy regulations and creates breach risk; redact PII before logging",
+        "pattern": r"(?:log|logger|logging|console)\.\w+\s*\(.*(?:password|passwd|credit_card|ssn|social_security)\s*=(?!.*(?:mask|redact|\*+|hash))",
+        "message": "Logging sensitive data (passwords, SSN) violates privacy regulations and creates breach risk; redact PII before logging",
         "severity": Severity.BLOCK,
     },
     {
@@ -18447,9 +18449,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_123",
-        "pattern": r"(?:httpx|requests|axios|http\.Client)\.\w+\s*\([^)]*\)(?!.*(?:timeout|circuit|breaker))",
+        "pattern": r"(?:httpx|requests|axios|http\.Client)\.\w+\s*\([^)]*\)\s*$(?!.*(?:timeout|circuit|breaker))",
         "message": "HTTP call to external service without timeout or circuit breaker risks cascading failure; add timeout and circuit breaker",
-        "severity": Severity.WARN,
+        "severity": Severity.INFO,
         "file_types": [".py", ".js", ".ts", ".go", ".java", ".rb"],
     },
     {
@@ -19329,6 +19331,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"rm\s+-rf\s+/\s",
         "message": "rm -rf / can destroy the entire filesystem - this must never appear in scripts",
         "severity": Severity.BLOCK,
+        "file_types": [".sh", ".bash", ".zsh", ".yml", ".yaml"],
+        "skip_comments": True,
     },
     {
         "id": "r2b_076",

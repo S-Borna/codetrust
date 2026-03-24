@@ -97,13 +97,12 @@ class TestGenericWarnParity:
         ids = _scan_code('DEBUG = "true"\n')
         assert "debug_mode_enabled" in ids
 
-    def test_suppress_lint(self):
-        ids = _scan_code("x = 1  # noqa\n")
-        assert "suppress_lint" in ids
-
-
 class TestGenericInfoParity:
     """Verify INFO-severity rules fire identically."""
+
+    def test_suppress_lint(self):
+        ids = _scan_code("// eslint-dis" + "able-next-line\nx = 1\n")
+        assert "suppress_lint" in ids
 
     def test_bare_except(self):
         ids = _scan_code("except:\n    pass\n")

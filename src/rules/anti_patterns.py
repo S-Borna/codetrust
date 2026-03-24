@@ -7848,8 +7848,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "memleak_unclosed_connection",
-        "pattern": r"(?:create_?connection|connect|open)\s*\([^)]*\)(?!.*(?:close|disconnect|dispose|finally|with\s))",
-        "message": "Connection opened without close. Use context manager or finally.",
+        "pattern": r"^\s*\w+\s*=\s*(?:create_?connection|\.connect)\s*\(",
+        "message": "Connection opened without context manager. Use 'with' or ensure close() in finally.",
         "severity": Severity.WARN,
     },
     {
@@ -7866,9 +7866,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "memleak_unclosed_file",
-        "pattern": r"(?:open|fopen)\s*\([^)]*\)(?!.*(?:close|with\s|finally|using|defer))",
-        "message": "File opened without close. Use context manager (with statement).",
+        "pattern": r"^\s*\w+\s*=\s*open\s*\(",
+        "message": "File opened without context manager. Use 'with open(...) as f:' instead.",
         "severity": Severity.WARN,
+        "file_types": [".py"],
     },
     {
         "id": "memleak_circular_reference",
@@ -8308,8 +8309,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "input_file_upload_no_type",
-        "pattern": r"(?:upload|file|multipart).*(?:save|write|store)(?!.*(?:content_?type|mime|extension|validate|allowed))",
-        "message": "File upload without type validation. Verify file type and size.",
+        "pattern": r"(?:uploaded_?file|upload_?file|form_?file)\.save\s*\((?!.*(?:content_?type|mime|extension|validate|allowed))",
+        "message": "File upload saved without type validation. Verify file type and size.",
         "severity": Severity.WARN,
     },
     {
@@ -10283,7 +10284,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "async_missing_timeout",
-        "pattern": r"await\s+\w+\.(?:get|post|put|delete|fetch)\([^)]*\)(?!.*timeout)",
+        "pattern": r"await\s+(?:requests|urllib|aiohttp\.ClientSession)\s*\(\s*\)\.(?:get|post|put|delete)\([^)]*\)(?!.*timeout)",
         "message": "Async HTTP call without timeout. Add explicit timeout to prevent hanging.",
         "severity": Severity.WARN,
     },

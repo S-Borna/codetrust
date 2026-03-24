@@ -3638,7 +3638,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- database/sql ---
     {
         "id": "go_sql_rows_no_close",
-        "pattern": r"\.Query(?:Row)?\s*\([^)]+\)(?!.*defer\s+\w+\.Close)",
+        "pattern": r"\.Query\s*\([^)]+\)(?!.*defer\s+\w+\.Close)",
         "message": "SQL Rows not closed. Add 'defer rows.Close()' to prevent connection pool exhaustion.",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
@@ -4303,9 +4303,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "quality_deeply_nested_if",
-        "pattern": r"^\s{16,}(?:if|else|elif|else if)\b",
-        "message": "Deeply nested conditional (4+ levels). Extract to helper functions or use early return.",
-        "severity": Severity.WARN,
+        "pattern": r"^\s{24,}(?:if|elif)\b(?!.*(?:is None|is not None|== None|!= None))",
+        "message": "Deeply nested conditional (6+ levels). Extract to helper functions or use early return.",
+        "severity": Severity.INFO,
         "skip_comments": True,
     },
     {
@@ -4481,8 +4481,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "quality_broad_exception_type",
-        "pattern": r"except\s+(?:Exception|BaseException)\s*(?::|as\s+\w+\s*:)",
-        "message": "Catching broad Exception hides specific errors. Catch the specific exception types expected.",
+        "pattern": r"except\s+BaseException\s*(?::|as\s+\w+\s*:)",
+        "message": "Catching BaseException intercepts KeyboardInterrupt and SystemExit. Use Exception instead.",
         "severity": Severity.WARN,
         "file_types": [".py"],
         "skip_comments": True,
@@ -6673,7 +6673,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "redis_debug_command",
-        "pattern": r"\.(?:debug|config_set)\s*\(",
+        "pattern": r"(?:redis|cache|r_conn|rdb)\s*\.\s*(?:debug|config_set)\s*\(",
         "message": "Redis debug/config command in application code. Remove before production.",
         "severity": Severity.WARN,
     },
@@ -7211,9 +7211,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "redos_nested_quantifier",
-        "pattern": r"re\.compile\s*\([^)]*\([^)]*[\+\*]\)[^)]*[\+\*]",
-        "message": "Nested quantifiers in regex. Potential ReDoS vulnerability.",
-        "severity": Severity.WARN,
+        "pattern": r"re\.compile\s*\([^)]*\([^)]*[\+\*]\)\s*[\+\*]",
+        "message": "Nested quantifiers in regex (e.g. (a+)+). Potential ReDoS vulnerability.",
+        "severity": Severity.BLOCK,
     },
     {
         "id": "redos_overlapping_alternation",
@@ -7717,8 +7717,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "api_breaking_change_no_version",
-        "pattern": r"(?i)(?:BREAKING|breaking_?change|deprecated)(?!.*v\d)",
-        "message": "Breaking change without API version bump. Increment version.",
+        "pattern": r"(?i)#.*(?:BREAKING|breaking.?change)(?!.*v\d)",
+        "message": "Breaking change comment without API version bump. Increment version.",
         "severity": Severity.WARN,
     },
     {
@@ -8624,7 +8624,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "authz_no_brute_force_protection",
-        "pattern": r"(?:login|authenticate|sign_?in)(?!.*(?:rate_?limit|throttle|lockout|max_?attempts|brute))",
+        "pattern": r"@(?:app|router|api)\.\s*(?:post|put)\s*\(\s*['\"].*(?:login|sign.?in|authenticate)(?!.*(?:rate_?limit|throttle|lockout|max_?attempts|brute))",
         "message": "Login endpoint without brute force protection. Add rate limiting.",
         "severity": Severity.WARN,
     },
@@ -8758,8 +8758,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "coupling_deep_nesting",
-        "pattern": r"^\s{16,}(?:if|for|while|try|with)\s",
-        "message": "Deep nesting (4+ levels). Extract to helper functions.",
+        "pattern": r"^\s{24,}(?:for|while)\s",
+        "message": "Deep nesting (6+ levels) with loop. Extract to helper functions.",
         "severity": Severity.WARN,
     },
     {
@@ -18507,7 +18507,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_133",
-        "pattern": r'''(?:version|api.?version|v)\s*[=:]\s*['\"]?(?:latest|current|default)['\"]?''',
+        "pattern": r'''(?:api.?version)\s*[=:]\s*['\"](?:latest|current|default)['\"]''',
         "message": "Using 'latest' API version in service calls breaks when provider updates; pin to a specific version",
         "severity": Severity.WARN,
     },

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v3.1.0</code> &middot; <code>2,311+ tests</code> &middot; <code>2,942 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v3.0.0</code> &middot; <code>2,311+ tests</code> &middot; <code>2,942 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">

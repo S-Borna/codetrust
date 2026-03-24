@@ -445,6 +445,16 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ─── Container Hardening ──────────────────────────────────────
 
     # --- Dockerfile: missing HEALTHCHECK ---
+    # --- Dockerfile: running as root ---
+    {
+        "id": "docker_root_user",
+        "pattern": r"^CMD\s",
+        "message": "Dockerfile runs as root. Add USER instruction to drop privileges.",
+        "severity": Severity.WARN,
+        "special_handler": "check_docker_root_user",
+        "file_types": [".dockerfile"],
+    },
+    # --- Dockerfile: missing HEALTHCHECK (special handler, multi-line) ---
     {
         "id": "dockerfile_no_healthcheck",
         "pattern": r"^CMD\s",
@@ -453,13 +463,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "special_handler": "check_dockerfile_healthcheck",
         "file_types": [".dockerfile"],
     },
-    # --- Dockerfile: running as root ---
+    # --- Dockerfile: missing WORKDIR ---
     {
-        "id": "docker_root_user",
+        "id": "docker_no_workdir",
         "pattern": r"^CMD\s",
-        "message": "Dockerfile runs as root. Add USER instruction to drop privileges.",
-        "severity": Severity.WARN,
-        "special_handler": "check_docker_root_user",
+        "message": "Dockerfile without WORKDIR. Set working directory explicitly.",
+        "severity": Severity.INFO,
+        "special_handler": "check_docker_no_workdir",
         "file_types": [".dockerfile"],
     },
     # --- Dockerfile: unpinned base image ---
@@ -471,14 +481,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".dockerfile"],
     },
     # --- Dockerfile: no WORKDIR ---
-    {
-        "id": "docker_no_workdir",
-        "pattern": r"^CMD\s",
-        "message": "Dockerfile has no WORKDIR. Set explicit working directory.",
-        "severity": Severity.INFO,
-        "special_handler": "check_docker_no_workdir",
-        "file_types": [".dockerfile"],
-    },
     # --- Dockerfile: secrets in ENV/ARG ---
     {
         "id": "docker_env_secret",
@@ -626,13 +628,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "k8s_host_network",
         "pattern": r"(?i)hostNetwork:\s*true",
         "message": "hostNetwork: true exposes the host network to the pod. Remove unless required.",
-        "severity": Severity.WARN,
-        "file_types": [".yml", ".yaml"],
-    },
-    {
-        "id": "k8s_host_pid",
-        "pattern": r"(?i)hostPID:\s*true",
-        "message": "hostPID: true shares the host PID namespace. Remove unless required for debugging.",
         "severity": Severity.WARN,
         "file_types": [".yml", ".yaml"],
     },
@@ -1703,10 +1698,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "py_django_debug_true",
-        "pattern": r"DEBUG\s*=\s*True",
+        "pattern": r"^DEBUG\s*=\s*True",
         "message": "Django DEBUG=True exposes stack traces and settings — must be False in production",
         "severity": Severity.BLOCK,
         "file_types": [".py", ".cfg", ".ini"],
+        "exclude_path_contains": ["test", "example", "sample"],
     },
     {
         "id": "py_django_secret_key_hardcoded",
@@ -2332,13 +2328,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
 
     # --- Rust Security ---
     {
-        "id": "rust_unsafe_block",
-        "pattern": r"\bunsafe\s*\{",
-        "message": "unsafe block — document invariants that make this safe; minimize scope",
-        "severity": Severity.INFO,
-        "file_types": [".rs"],
-    },
-    {
         "id": "rust_unwrap_in_production",
         "pattern": r"\.unwrap\s*\(\s*\)",
         "message": ".unwrap() panics on None/Err — use ? operator, expect() with message, or match for error handling",
@@ -2453,12 +2442,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ForeignKey without db_index — add db_index=True or create explicit index for JOIN performance",
         "severity": Severity.INFO,
         "file_types": [".py"],
-    },
-    {
-        "id": "db_select_star",
-        "pattern": r"SELECT\s+\*\s+FROM",
-        "message": "SELECT * loads all columns — specify required columns for performance and security",
-        "severity": Severity.INFO,
     },
     {
         "id": "db_connection_string_hardcoded",
@@ -3015,14 +2998,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "swift_print_production",
-        "pattern": r"^\s*print\s*\(",
-        "message": "print() in Swift production code. Use os_log or a structured logging framework.",
-        "severity": Severity.WARN,
-        "file_types": [".swift"],
-        "skip_comments": True,
-    },
-    {
         "id": "swift_hardcoded_url",
         "pattern": r'URL\s*\(\s*string:\s*"https?://[^"]+"\s*\)',
         "message": "Hardcoded URL string. Use a configuration file or environment variable for URLs.",
@@ -3202,14 +3177,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "flask_debug_production",
-        "pattern": r"app\.run\s*\([^)]*debug\s*=\s*True",
-        "message": "Flask debug mode exposes debugger in production. Use environment variable for debug flag.",
-        "severity": Severity.BLOCK,
-        "file_types": [".py"],
-        "skip_comments": True,
-    },
-    {
         "id": "flask_unsafe_markup",
         "pattern": r"Markup\s*\(\s*(?:f[\"']|[^)]*\.format\s*\(|[^)]*%\s)",
         "message": "Markup() with string interpolation bypasses Jinja2 escaping. Use Markup.escape() for user input.",
@@ -3364,23 +3331,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".py"],
         "skip_comments": True,
     },
-    {
-        "id": "python_marshal_load",
-        "pattern": r"marshal\.loads?\s*\(",
-        "message": "marshal.load() can execute arbitrary code. Use JSON or msgpack for untrusted data.",
-        "severity": Severity.BLOCK,
-        "file_types": [".py"],
-        "skip_comments": True,
-    },
-    {
-        "id": "python_shelve_open",
-        "pattern": r"shelve\.open\s*\(",
-        "message": "shelve uses pickle internally. Unsafe with untrusted data. Use a proper database.",
-        "severity": Severity.WARN,
-        "file_types": [".py"],
-        "skip_comments": True,
-    },
-
     # ═══════════════════════════════════════════════════════════════
     #  JAVASCRIPT / TYPESCRIPT ADVANCED
     # ═══════════════════════════════════════════════════════════════
@@ -3567,14 +3517,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "browser_document_write",
-        "pattern": r"document\.write\s*\(",
-        "message": "document.write() blocks parsing and is XSS-prone. Use DOM manipulation methods.",
-        "severity": Severity.BLOCK,
-        "file_types": [".js", ".ts", ".jsx", ".tsx", ".html"],
-        "skip_comments": True,
-    },
-    {
         "id": "browser_innerhtml_assign",
         "pattern": r"\.innerHTML\s*=\s*(?!.*(?:DOMPurify|sanitize))",
         "message": "innerHTML assignment without sanitization enables XSS. Use textContent or sanitize with DOMPurify.",
@@ -3606,23 +3548,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
         "skip_comments": True,
     },
-    {
-        "id": "ts_non_null_assertion_chain",
-        "pattern": r"\w+!\.\w+",
-        "message": "Non-null assertion operator (!) bypasses type safety. Use proper null checking.",
-        "severity": Severity.WARN,
-        "file_types": [".ts", ".tsx"],
-        "skip_comments": True,
-    },
-    {
-        "id": "ts_as_any_cast",
-        "pattern": r"\bas\s+any\b",
-        "message": "Casting to 'any' disables type checking. Use a specific type or type guard.",
-        "severity": Severity.WARN,
-        "file_types": [".ts", ".tsx"],
-        "skip_comments": True,
-    },
-
     # ═══════════════════════════════════════════════════════════════
     #  GO ADVANCED
     # ═══════════════════════════════════════════════════════════════
@@ -3710,14 +3635,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".go"],
         "skip_comments": True,
     },
-    {
-        "id": "go_http_no_tls",
-        "pattern": r"http\.ListenAndServe\s*\(",
-        "message": "ListenAndServe without TLS. Use ListenAndServeTLS() or a reverse proxy with TLS.",
-        "severity": Severity.WARN,
-        "file_types": [".go"],
-        "skip_comments": True,
-    },
     # --- database/sql ---
     {
         "id": "go_sql_rows_no_close",
@@ -3769,14 +3686,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "go_crypto_tls_insecure",
-        "pattern": r"InsecureSkipVerify\s*:\s*true",
-        "message": "TLS verification disabled. This allows MITM attacks. Enable certificate verification.",
-        "severity": Severity.BLOCK,
-        "file_types": [".go"],
-        "skip_comments": True,
-    },
-    {
         "id": "go_error_underscore_discard",
         "pattern": r"\b\w+\s*,\s*_\s*:?=\s*\w+\.\w+\s*\(",
         "message": "Error return value ignored. Handle the error or explicitly document why it is safe to ignore.",
@@ -3784,15 +3693,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".go"],
         "skip_comments": True,
     },
-    {
-        "id": "go_defer_loop_accumulate",
-        "pattern": r"for\s+.*\{[^}]*defer\s+",
-        "message": "defer inside loop accumulates deferred calls. Move to a helper function or handle manually.",
-        "severity": Severity.WARN,
-        "file_types": [".go"],
-        "skip_comments": True,
-    },
-
     # ═══════════════════════════════════════════════════════════════
     #  JAVA / KOTLIN ADVANCED
     # ═══════════════════════════════════════════════════════════════
@@ -3805,13 +3705,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".java", ".kt"],
         "skip_comments": True,
-    },
-    {
-        "id": "spring_actuator_exposed",
-        "pattern": r"management\.endpoints\.web\.exposure\.include\s*=\s*\*",
-        "message": "All actuator endpoints exposed. Restrict to health and info in production.",
-        "severity": Severity.BLOCK,
-        "file_types": [".properties", ".yml", ".yaml"],
     },
     {
         "id": "spring_bean_scope_prototype",
@@ -3939,14 +3832,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"ObjectInputStream\s*\(\s*(?:new\s+)?(?:Socket|URL|File|InputStream)",
         "message": "Java deserialization from untrusted source enables RCE. Use JSON/protobuf instead.",
         "severity": Severity.BLOCK,
-        "file_types": [".java"],
-        "skip_comments": True,
-    },
-    {
-        "id": "java_system_exit_jvm",
-        "pattern": r"System\.exit\s*\(",
-        "message": "System.exit() terminates the entire JVM. Use exceptions or return codes for error handling.",
-        "severity": Severity.WARN,
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -4240,7 +4125,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sec_weak_cipher",
-        "pattern": r"(?i)(?:DES|RC4|Blowfish|ARC4|RC2)\b",
+        "pattern": r"(?i)\b(?:DES|RC4|Blowfish|ARC4|RC2)(?:\s*\(|\.new|\.encrypt|\.decrypt|_cbc|_ecb|_cfb|_ofb)",
         "message": "Weak cipher algorithm. Use AES-256-GCM or ChaCha20-Poly1305.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
@@ -4270,10 +4155,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sec_oauth_no_pkce",
-        "pattern": r"(?:authorization_code|code)\s*.*(?!.*code_challenge|PKCE|pkce)",
+        "pattern": r"(?:grant_type\s*[=:]\s*[\"']?authorization_code|response_type\s*[=:]\s*[\"']?code\b)(?!.*code_challenge)",
         "message": "OAuth authorization code flow without PKCE. Add code_challenge for public clients.",
         "severity": Severity.INFO,
         "skip_comments": True,
+        "file_types": [".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".rb"],
     },
     {
         "id": "sec_session_no_expiry",
@@ -4681,15 +4567,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
     #  ADDITIONAL RULES — Misc Language & Framework
     # ═══════════════════════════════════════════════════════════════
-
-    {
-        "id": "rust_unwrap_panic_risk",
-        "pattern": r"\.unwrap\s*\(\s*\)",
-        "message": "unwrap() will panic on None/Err. Use match, if let, or ? operator for proper error handling.",
-        "severity": Severity.WARN,
-        "file_types": [".rs"],
-        "skip_comments": True,
-    },
     {
         "id": "rust_unsafe_undocumented",
         "pattern": r"\bunsafe\s*\{",
@@ -5451,14 +5328,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "scala_system_exit",
-        "pattern": r"System\.exit\s*\(",
-        "message": "System.exit terminates the JVM. Use proper shutdown hooks or actor system termination.",
-        "severity": Severity.WARN,
-        "file_types": [".scala"],
-        "skip_comments": True,
-    },
-    {
         "id": "scala_catch_throwable",
         "pattern": r"catch\s*\{\s*case\s+_\s*:\s*Throwable",
         "message": "Catching Throwable includes fatal errors. Use NonFatal or specific exception types.",
@@ -5538,14 +5407,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "dart_force_unwrap",
         "pattern": r"\w+\s*!\s*\.",
         "message": "Force unwrap (!) on nullable value. Handle null case explicitly or use null-aware operators.",
-        "severity": Severity.WARN,
-        "file_types": [".dart"],
-        "skip_comments": True,
-    },
-    {
-        "id": "dart_print_production",
-        "pattern": r"^\s*print\s*\(",
-        "message": "print() in production Dart code. Use a logger package for structured logging.",
         "severity": Severity.WARN,
         "file_types": [".dart"],
         "skip_comments": True,
@@ -5812,14 +5673,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "skip_comments": True,
     },
     {
-        "id": "grpc_no_tls",
-        "pattern": r"grpc\.insecure_channel\s*\(",
-        "message": "gRPC insecure channel without TLS. Use grpc.secure_channel with credentials.",
-        "severity": Severity.WARN,
-        "file_types": [".py"],
-        "skip_comments": True,
-    },
-    {
         "id": "grpc_reflection_enabled",
         "pattern": r"(?:enable_server_reflection|reflection\.enable)",
         "message": "gRPC reflection enabled. Disable in production to prevent service enumeration.",
@@ -6056,22 +5909,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"applicationWillResignActive(?!.*isSecure|.*window\.isHidden)",
         "message": "App may cache screenshots when backgrounded. Obscure sensitive content in applicationWillResignActive.",
         "severity": Severity.INFO,
-        "file_types": [".swift"],
-        "skip_comments": True,
-    },
-    {
-        "id": "ios_ats_disabled",
-        "pattern": r"NSAllowsArbitraryLoads.*true",
-        "message": "App Transport Security disabled. Enable ATS and only add exceptions for specific domains.",
-        "severity": Severity.WARN,
-        "file_types": [".plist"],
-        "skip_comments": True,
-    },
-    {
-        "id": "ios_pasteboard_sensitive",
-        "pattern": r"UIPasteboard\.general\.string\s*=.*(?:password|token|secret)",
-        "message": "Copying sensitive data to pasteboard. Other apps can read the pasteboard.",
-        "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
     },
@@ -6848,7 +6685,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "redis_no_ttl",
-        "pattern": r"\.set\s*\([^)]*\)(?!.*(?:ex=|px=|ttl|expire|EX|PX))",
+        "pattern": r"(?:redis|cache|r)\s*\.set\s*\([^)]*\)(?!.*(?:ex=|px=|ttl|expire|EX|PX))",
         "message": "Redis SET without TTL. Set expiration to prevent memory leaks.",
         "severity": Severity.INFO,
     },
@@ -7105,27 +6942,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".xml"],
     },
     {
-        "id": "android_cleartext_http",
-        "pattern": r"android:usesCleartextTraffic\s*=\s*[\"']true[\"']",
-        "message": "Android cleartext traffic enabled. Use HTTPS only.",
-        "severity": Severity.BLOCK,
-        "file_types": [".xml"],
-    },
-    {
-        "id": "android_exported_unguarded",
-        "pattern": r"android:exported\s*=\s*[\"']true[\"'](?!.*android:permission)",
-        "message": "Exported component without permission. Add android:permission.",
-        "severity": Severity.WARN,
-        "file_types": [".xml"],
-    },
-    {
-        "id": "android_webview_js",
-        "pattern": r"setJavaScriptEnabled\s*\(\s*true\s*\)",
-        "message": "WebView JavaScript enabled. Only enable if necessary, add input validation.",
-        "severity": Severity.WARN,
-        "file_types": [".java", ".kt"],
-    },
-    {
         "id": "android_webview_file_access",
         "pattern": r"setAllowFileAccess\s*\(\s*true\s*\)",
         "message": "WebView file access enabled. Restrict file access in WebViews.",
@@ -7179,7 +6995,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "log_password",
-        "pattern": r"(?:log(?:ger)?|console|print|puts|fmt\.Print).*(?:password|passwd|pwd)\s*[:=,\)]",
+        "pattern": r"(?:log(?:ger)?|console|print|puts|fmt\.Print)\s*[\(\.].*(?:password|passwd|pwd)\s*[:=,\)]",
         "message": "Password logged. Never log credentials.",
         "severity": Severity.BLOCK,
     },
@@ -7197,7 +7013,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "log_bearer_token",
-        "pattern": r"(?:log(?:ger)?|console|print|puts|fmt\.Print).*(?:bearer|access_?token|refresh_?token)",
+        "pattern": r"(?:log(?:ger)?|console|print|puts|fmt\.Print)\s*[\(\.].*(?:bearer|access_?token|refresh_?token)(?!_url)",
         "message": "Auth token in logs. Redact tokens before logging.",
         "severity": Severity.BLOCK,
     },
@@ -8102,18 +7918,21 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:privileged\s*[:=]\s*true|--privileged)",
         "message": "Privileged container. Remove privileged flag.",
         "severity": Severity.BLOCK,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker_cap_sys_admin",
         "pattern": r"(?i)(?:SYS_ADMIN|CAP_SYS_ADMIN|cap_add.*SYS_ADMIN)",
         "message": "SYS_ADMIN capability. Drop unnecessary capabilities.",
         "severity": Severity.BLOCK,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker_host_network",
         "pattern": r"(?i)(?:network_?mode\s*[:=]\s*[\"']?host|--net\s*=?\s*host|--network\s*=?\s*host)",
         "message": "Container using host network. Use bridge or custom network.",
         "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker_host_pid",
@@ -8979,7 +8798,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "privacy_export_no_encryption",
-        "pattern": r"(?i)(?:export|download|dump|backup).*(?:user|customer|personal|pii)(?!.*(?:encrypt|cipher|secure|protected))",
+        "pattern": r"(?i)(?:export_data|download_data|dump_data|backup_data|csv_export|data_export).*(?:user|customer|personal|pii)(?!.*(?:encrypt|cipher|secure|protected))",
         "message": "Exporting personal data without encryption. Encrypt data exports.",
         "severity": Severity.WARN,
     },
@@ -9018,13 +8837,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Request body without @Valid annotation. Add @Valid for input validation.",
         "severity": Severity.WARN,
         "file_types": [".java"],
-    },
-    {
-        "id": "spring_actuator_all_exposed",
-        "pattern": r'management\.endpoints\.web\.exposure\.include\s*=\s*\*',
-        "message": "All actuator endpoints exposed. Restrict to health and info only.",
-        "severity": Severity.BLOCK,
-        "file_types": [".properties", ".yml", ".yaml"],
     },
     {
         "id": "spring_csrf_disabled",
@@ -9178,13 +8990,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".cs"],
     },
     {
-        "id": "csharp_viewbag_xss",
-        "pattern": r"@Html\.Raw\s*\(",
-        "message": "Html.Raw disables encoding, risking XSS. Use Html.Encode instead.",
-        "severity": Severity.WARN,
-        "file_types": [".cshtml", ".cs"],
-    },
-    {
         "id": "csharp_insecure_cookie",
         "pattern": r"(?:Secure|HttpOnly)\s*=\s*false",
         "message": "Cookie with Secure or HttpOnly disabled. Enable both for security.",
@@ -9195,13 +9000,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "csharp_exception_details_response",
         "pattern": r"(?:app|services)\.UseDeveloperExceptionPage\s*\(",
         "message": "Developer exception page exposes stack traces. Disable in production.",
-        "severity": Severity.WARN,
-        "file_types": [".cs"],
-    },
-    {
-        "id": "csharp_antiforgery_disabled",
-        "pattern": r"\[IgnoreAntiforgeryToken\]",
-        "message": "Anti-forgery validation disabled. Keep CSRF protection enabled.",
         "severity": Severity.WARN,
         "file_types": [".cs"],
     },
@@ -9269,20 +9067,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "rails_sql_interpolation",
         "pattern": r'\.where\s*\(\s*["\'].*#\{',
         "message": "SQL injection via string interpolation. Use parameterized queries.",
-        "severity": Severity.BLOCK,
-        "file_types": [".rb"],
-    },
-    {
-        "id": "rails_open_redirect",
-        "pattern": r"redirect_to\s+params\[",
-        "message": "Open redirect via user params. Validate redirect URLs against allowlist.",
-        "severity": Severity.BLOCK,
-        "file_types": [".rb"],
-    },
-    {
-        "id": "ruby_unsafe_yaml_load",
-        "pattern": r"YAML\.load\s*\(",
-        "message": "YAML.load is unsafe. Use YAML.safe_load instead.",
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
     },
@@ -9364,13 +9148,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".rb"],
     },
     {
-        "id": "rails_no_force_ssl",
-        "pattern": r"config\.force_ssl\s*=\s*false",
-        "message": "SSL not forced. Set config.force_ssl = true for production.",
-        "severity": Severity.WARN,
-        "file_types": [".rb"],
-    },
-    {
         "id": "rails_cookie_no_httponly",
         "pattern": r"cookies\[.*\]\s*=\s*\{(?!.*httponly)",
         "message": "Cookie without httponly flag. Set httponly to prevent XSS theft.",
@@ -9420,13 +9197,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "php_extract_superglobal",
         "pattern": r"extract\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE|SERVER)",
         "message": "extract() with superglobals enables variable injection. Avoid extract.",
-        "severity": Severity.BLOCK,
-        "file_types": [".php"],
-    },
-    {
-        "id": "php_unserialize_user_input",
-        "pattern": r"unserialize\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)",
-        "message": "Deserialization of user input. Use json_decode instead.",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
     },
@@ -9938,13 +9708,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "file_types": [".ex", ".exs"],
     },
     {
-        "id": "elixir_string_to_atom",
-        "pattern": r"String\.to_atom\s*\(",
-        "message": "String.to_atom can exhaust atom table. Use String.to_existing_atom.",
-        "severity": Severity.WARN,
-        "file_types": [".ex", ".exs"],
-    },
-    {
         "id": "phoenix_json_no_auth_plug",
         "pattern": r"pipeline\s*:api(?!.*plug.*(?:auth|authenticate|ensure_auth))",
         "message": "API pipeline without auth plug. Add authentication plug.",
@@ -10392,12 +10155,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.(?:raw|execute)\s*\(\s*['\"]SELECT\s+\*",
         "message": "SELECT * in raw query fetches unnecessary columns. Specify columns explicitly.",
         "severity": Severity.WARN,
-    },
-    {
-        "id": "perf_missing_pagination",
-        "pattern": r"\.objects\.all\(\)\s*$",
-        "message": "Fetching all objects without pagination. Add limit/offset or use paginator.",
-        "severity": Severity.INFO,
     },
     {
         "id": "perf_synchronous_file_read_loop",
@@ -10950,7 +10707,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
 
     {
         "id": "logging2_pii_in_log",
-        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\([^)]*(?:email|phone|ssn|social_security|date_of_birth|credit_card)",
+        "pattern": r"(?:log(?:ger)?|structlog|logging)\.\w+\(.*[\s,](?:email|phone|ssn|social_security|date_of_birth|credit_card)\s*=",
         "message": "PII in log output. Mask or exclude personal data from logs for GDPR/CCPA compliance.",
         "severity": Severity.BLOCK,
     },
@@ -13468,27 +13225,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # Embedded / Firmware / IoT (embedded_, firmware_, iot_) - 20 rules
     # =====================================================================
     {
-        "id": "embedded_buffer_overflow_strcpy",
-        "pattern": r"\bstrcpy\s*\(",
-        "message": "strcpy is unsafe - no bounds checking. Use strncpy or strlcpy to prevent buffer overflow.",
-        "severity": Severity.BLOCK,
-        "file_types": [".c", ".h", ".cpp"],
-    },
-    {
-        "id": "embedded_buffer_overflow_gets",
-        "pattern": r"\bgets\s*\(",
-        "message": "gets() is inherently unsafe. Use fgets() with explicit buffer size.",
-        "severity": Severity.BLOCK,
-        "file_types": [".c", ".h", ".cpp"],
-    },
-    {
-        "id": "embedded_buffer_overflow_sprintf",
-        "pattern": r"\bsprintf\s*\(",
-        "message": "sprintf has no bounds checking. Use snprintf with explicit buffer size.",
-        "severity": Severity.BLOCK,
-        "file_types": [".c", ".h", ".cpp"],
-    },
-    {
         "id": "embedded_stack_alloc_large",
         "pattern": r"\b(?:char|int|uint8_t|uint16_t|uint32_t)\s+\w+\s*\[\s*(?:[1-9]\d{4,}|[5-9]\d{3})\s*\]",
         "message": "Large stack allocation in embedded context. Use heap allocation or static buffers for arrays >4KB.",
@@ -13568,9 +13304,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "iot_plaintext_protocol",
-        "pattern": r"(?i)(?:http://|coap://|ws://)(?:(?!localhost|127\.0\.0\.1|192\.168)[^\s\"']+)",
+        "pattern": r"(?i)(?:coap://|mqtt://|amqp://)(?:(?!localhost|127\.0\.0\.1|192\.168)[^\s\"']+)",
         "message": "Plaintext protocol for IoT communication. Use encrypted transport (TLS/DTLS).",
         "severity": Severity.BLOCK,
+        "file_types": [".py", ".js", ".ts", ".go", ".java", ".c", ".cpp"],
     },
     {
         "id": "iot_no_device_attestation",
@@ -13612,20 +13349,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "smart_contract_unchecked_call",
         "pattern": r"(?i)\.call\s*\{[^}]*\}\s*\([^)]*\)\s*;(?:(?!require|if|success|revert)[^;])*",
         "message": "Unchecked low-level call return value. Always check success boolean from .call().",
-        "severity": Severity.BLOCK,
-        "file_types": [".sol"],
-    },
-    {
-        "id": "smart_contract_tx_origin",
-        "pattern": r"\btx\.origin\b",
-        "message": "Using tx.origin for authorization. Use msg.sender - tx.origin is vulnerable to phishing.",
-        "severity": Severity.BLOCK,
-        "file_types": [".sol"],
-    },
-    {
-        "id": "smart_contract_selfdestruct",
-        "pattern": r"\bselfdestruct\s*\(",
-        "message": "selfdestruct can permanently destroy contract and send funds to arbitrary address. Remove or protect.",
         "severity": Severity.BLOCK,
         "file_types": [".sol"],
     },
@@ -13915,9 +13638,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "airflow_hardcoded_connection",
-        "pattern": r'(?i)(?:host|conn_id|connection)\s*[:=]\s*["\'](?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|jdbc:|postgresql://)',
+        "pattern": r'(?i)(?:conn_id|airflow\.models\.connection|dag_id)\s*[:=]\s*["\'](?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|jdbc:|postgresql://)',
         "message": "Hardcoded connection in Airflow DAG. Use Airflow Connections and Variables for configuration.",
         "severity": Severity.BLOCK,
+        "file_types": [".py"],
+        "exclude_path_contains": ["test"],
     },
     {
         "id": "airflow_no_retry",
@@ -14602,9 +14327,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "envoy_no_rate_limit",
-        "pattern": r"(?i)(?:route|virtual_host)(?!.*(?:rate_limit|ratelimit|local_rate_limit))",
+        "pattern": r"(?i)(?:virtual_host|route_config|http_filters)(?!.*(?:rate_limit|ratelimit|local_rate_limit))",
         "message": "Envoy route without rate limiting. Add rate limit filter.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml", ".json"],
     },
     {
         "id": "envoy_plaintext_upstream",
@@ -14766,7 +14492,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "github_token_hardcoded",
-        "pattern": r"(?i)(?:GITHUB_TOKEN|github_pat|gh[pousr]_[A-Za-z0-9]{30,})",
+        "pattern": r"(?:GITHUB_TOKEN|github_pat|gh[pousr]_[A-Za-z0-9]{30,})\s*=\s*[\"'][^\"']{5,}[\"']",
         "message": "GitHub token in source code. Use secrets management or OIDC.",
         "severity": Severity.BLOCK,
     },
@@ -15161,12 +14887,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "csp2_wildcard_source",
-        "pattern": r"(?i)Content-Security-Policy.*(?:script-src|default-src)\s+\*",
-        "message": "CSP with wildcard source directive. Specify exact allowed domains.",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "csp2_missing_frame_ancestors",
         "pattern": r"(?i)Content-Security-Policy(?!.*frame-ancestors)",
         "message": "CSP missing frame-ancestors. Add to prevent clickjacking.",
@@ -15338,9 +15058,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "chaos_no_abort_condition",
-        "pattern": r"(?i)(?:chaos|experiment|fault)(?!.*(?:abort|stop|emergency|rollback|circuit_breaker))",
+        "pattern": r"(?i)(?:chaos[-_]?(?:monkey|mesh|experiment|test)|litmus[-_]?chaos|fault[-_]?injection)(?!.*(?:abort|stop|emergency|rollback|circuit_breaker))",
         "message": "Chaos experiment without abort conditions. Define emergency stop criteria.",
         "severity": Severity.WARN,
+        "file_types": [".py", ".yaml", ".yml", ".go", ".java"],
     },
     {
         "id": "sre_no_error_budget",
@@ -15423,122 +15144,136 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:initContainer|init_container).*(?:privileged|securityContext.*privileged)\s*[:=]\s*true",
         "message": "Init container running privileged. Use minimal privileges for init containers.",
         "severity": Severity.BLOCK,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_no_healthcheck",
-        "pattern": r"(?i)(?:FROM|image:)(?!.*(?:HEALTHCHECK|healthcheck|livenessProbe|readinessProbe))",
+        "pattern": r"(?i)(?:HEALTHCHECK\s+|healthcheck:|livenessProbe:|readinessProbe:)",
         "message": "Container without health check. Add HEALTHCHECK or probe configuration.",
         "severity": Severity.INFO,
+        "negate": True,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_latest_tag",
         "pattern": r"(?i)(?:FROM|image:)\s*[a-z0-9._/-]+:latest(?:\s|$)",
         "message": "Container using :latest tag. Pin to specific version for reproducibility.",
         "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_add_instead_of_copy",
         "pattern": r"(?i)^ADD\s+(?!https?://)\S+\s+\S+",
         "message": "Using ADD instead of COPY. Use COPY unless extracting archives or fetching URLs.",
         "severity": Severity.INFO,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_run_as_root",
         "pattern": r"(?i)(?:USER\s+root|user:\s*[\"']?(?:0|root)[\"']?)",
         "message": "Container running as root. Use non-root user for security.",
         "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "k8s2_pod_no_disruption_budget",
         "pattern": r"(?i)kind:\s*Deployment(?!.*PodDisruptionBudget)",
         "message": "Deployment without PodDisruptionBudget. Add PDB for availability during updates.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_sidecar_no_resource_limit",
         "pattern": r"(?i)(?:sidecar|istio-proxy|envoy)(?!.*(?:resources|limits|requests))",
         "message": "Sidecar container without resource limits. Set CPU and memory limits.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_init_no_timeout",
         "pattern": r"(?i)initContainers:(?!.*(?:timeout|activeDeadlineSeconds|terminationGracePeriod))",
         "message": "Init container without timeout. Set deadline to prevent indefinite blocking.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_emptydir_no_sizelimit",
         "pattern": r"(?i)emptyDir:\s*\{\s*\}|emptyDir:(?!.*sizeLimit)",
         "message": "emptyDir volume without size limit. Set sizeLimit to prevent node disk exhaustion.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_hostpath_volume",
         "pattern": r"(?i)hostPath:\s*\n\s*path:",
         "message": "Using hostPath volume. Avoid hostPath - use PersistentVolume or emptyDir.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "docker3_expose_all_ports",
         "pattern": r"(?i)(?:EXPOSE|ports:).*(?:0\.0\.0\.0|hostPort)",
         "message": "Exposing container ports on all interfaces. Bind to specific interfaces.",
         "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_env_secrets",
         "pattern": r"(?i)ENV\s+(?:PASSWORD|SECRET|API_KEY|TOKEN|PRIVATE_KEY)\s*=",
         "message": "Secrets in Dockerfile ENV. Use runtime secrets or build args with --secret.",
         "severity": Severity.BLOCK,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "k8s2_default_service_account",
         "pattern": r"(?i)serviceAccountName:\s*[\"']?default[\"']?",
         "message": "Using default service account. Create dedicated service account with RBAC.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_liveness_probe",
         "pattern": r"(?i)containers:(?!.*livenessProbe)",
         "message": "Container without liveness probe. Add livenessProbe for restart on failure.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_readiness_probe",
         "pattern": r"(?i)containers:(?!.*readinessProbe)",
         "message": "Container without readiness probe. Add readinessProbe for traffic routing.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "docker3_shell_form_cmd",
         "pattern": r"(?i)^CMD\s+(?!\[)[\"']?\w+",
         "message": "Dockerfile CMD in shell form. Use exec form CMD [\"executable\", \"arg\"] instead.",
         "severity": Severity.INFO,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "docker3_no_user_directive",
-        "pattern": r"(?i)FROM\s+\S+(?!.*USER\s+\w)",
+        "pattern": r"(?i)^USER\s+\w",
         "message": "Dockerfile without USER directive. Add USER to run as non-root.",
         "severity": Severity.INFO,
+        "negate": True,
+        "file_types": [".dockerfile"],
     },
     {
         "id": "k8s2_privileged_escalation",
         "pattern": r"(?i)allowPrivilegeEscalation:\s*true",
         "message": "Privilege escalation allowed. Set allowPrivilegeEscalation to false.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "docker3_tmp_world_writable",
         "pattern": r"(?i)chmod\s+(?:777|o\+w)\s+/tmp",
         "message": "Making /tmp world-writable in container. Use proper volume mounts.",
         "severity": Severity.WARN,
+        "file_types": [".dockerfile"],
     },
-    {
-        "id": "k8s2_host_network",
-        "pattern": r"(?i)hostNetwork:\s*true",
-        "message": "Pod using host network. Avoid host networking for isolation.",
-        "severity": Severity.WARN,
-    },
-
     # ═══════════════════════════════════════════════════════════════
     #  ADVANCED KUBERNETES (rules 1588-1602)
     # ═══════════════════════════════════════════════════════════════
@@ -15547,90 +15282,105 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)kind:\s*(?:Deployment|StatefulSet|DaemonSet)(?!.*NetworkPolicy)",
         "message": "Workload without NetworkPolicy. Define ingress and egress network policies.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_rbac_cluster_admin",
         "pattern": r"(?i)ClusterRoleBinding.*roleRef.*cluster-admin",
         "message": "Binding to cluster-admin ClusterRole. Use least-privilege custom role.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_rbac_wildcard_resource",
         "pattern": r"(?i)(?:ClusterRole|Role).*resources:\s*\[\s*[\"']\*[\"']\s*\]",
         "message": "RBAC role with wildcard resources. Specify exact resources needed.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_rbac_wildcard_verb",
         "pattern": r"(?i)(?:ClusterRole|Role).*verbs:\s*\[\s*[\"']\*[\"']\s*\]",
         "message": "RBAC role with wildcard verbs. Specify exact verbs (get, list, watch).",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_secret_in_env",
         "pattern": r"(?i)env:.*(?:valueFrom|value).*(?:secretKeyRef|SECRET)(?!.*(?:volume|mount|projected))",
         "message": "Secret exposed as env variable. Use volume mount for secrets instead.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_resource_quota",
         "pattern": r"(?i)kind:\s*Namespace(?!.*ResourceQuota)",
         "message": "Namespace without ResourceQuota. Set quotas to prevent resource exhaustion.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_limit_range",
         "pattern": r"(?i)kind:\s*Namespace(?!.*LimitRange)",
         "message": "Namespace without LimitRange. Set default limits for containers.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_automount_token",
         "pattern": r"(?i)automountServiceAccountToken:\s*true",
         "message": "Service account token auto-mounted. Disable unless pod needs API access.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_host_pid",
         "pattern": r"(?i)hostPID:\s*true",
         "message": "Pod using host PID namespace. Avoid host PID for process isolation.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_host_ipc",
         "pattern": r"(?i)hostIPC:\s*true",
         "message": "Pod using host IPC namespace. Avoid host IPC for isolation.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_security_context",
         "pattern": r"(?i)containers:(?!.*securityContext)",
         "message": "Container without securityContext. Define security context for hardening.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_writable_root_filesystem",
         "pattern": r"(?i)readOnlyRootFilesystem:\s*false",
         "message": "Writable root filesystem. Set readOnlyRootFilesystem to true.",
         "severity": Severity.WARN,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_capabilities_all",
         "pattern": r"(?i)capabilities:.*add:.*(?:ALL|SYS_ADMIN|NET_ADMIN)",
         "message": "Adding dangerous Linux capabilities. Drop all and add only required caps.",
         "severity": Severity.BLOCK,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_no_pod_anti_affinity",
         "pattern": r"(?i)replicas:\s*[2-9]\d*(?!.*podAntiAffinity)",
         "message": "Multiple replicas without pod anti-affinity. Spread across nodes for HA.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "k8s2_latest_image_policy",
         "pattern": r"(?i)imagePullPolicy:\s*(?:Always|Never)(?!.*(?:sha256|@))",
         "message": "Image pull policy without digest pinning. Use digest-pinned images.",
         "severity": Severity.INFO,
+        "file_types": [".yaml", ".yml"],
     },
     {
         "id": "r1a_001",
@@ -16383,12 +16133,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "r1a_126",
-        "pattern": r"ADD\s+https?://",
-        "message": "Using ADD with URL downloads - use RUN curl/wget with checksum verification instead",
-        "severity": Severity.WARN,
-    },
-    {
         "id": "r1a_127",
         "pattern": r"ENV\s+(?:PASSWORD|SECRET|API_KEY|TOKEN|PRIVATE_KEY)\s*=",
         "message": "Secret value set in Dockerfile ENV - secrets should be passed at runtime, not baked into images",
@@ -16533,12 +16277,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "r1a_151",
-        "pattern": r"dangerouslySetInnerHTML\s*=\s*\{\s*\{\s*__html\s*:",
-        "message": "React dangerouslySetInnerHTML renders raw HTML - sanitize input with DOMPurify before rendering",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r1a_152",
         "pattern": r'v-html\s*=\s*\"',
         "message": "Vue v-html directive renders raw HTML - vulnerable to XSS, sanitize with DOMPurify first",
@@ -16567,12 +16305,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"new\s+Function\s*\(\s*(?:this\.)?\$?\w+",
         "message": "new Function() with dynamic input - equivalent to eval(), enables code injection",
         "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r1a_157",
-        "pattern": r"document\.write\s*\(",
-        "message": "document.write() is a security and performance anti-pattern - use DOM manipulation methods",
-        "severity": Severity.WARN,
     },
     {
         "id": "r1a_158",
@@ -16666,9 +16398,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r1a_173",
-        "pattern": r"(?:process\.env|import\.meta\.env)\.(?!NEXT_PUBLIC_|VITE_|REACT_APP_)\w+",
+        "pattern": r"(?:import\.meta\.env)\.(?!VITE_|REACT_APP_)\w+",
         "message": "Accessing non-public environment variable in client-side code - may leak server secrets to browser",
         "severity": Severity.WARN,
+        "file_types": [".jsx", ".tsx", ".vue", ".svelte"],
     },
     {
         "id": "r1a_174",
@@ -16726,9 +16459,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r1a_183",
-        "pattern": r"append\s*\(\s*\w+\s*,\s*\w+\s*\)(?!\s*\n.*=)",
+        "pattern": r"^\s+append\s*\(\s*\w+\s*,\s*\w+\s*\)",
         "message": "append() result not assigned - append may return a new slice, always assign the result",
         "severity": Severity.BLOCK,
+        "file_types": [".go"],
     },
     {
         "id": "r1a_184",
@@ -17373,18 +17107,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.INFO,
     },
     {
-        "id": "r1b_091",
-        "pattern": r"unserialize\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)",
-        "message": "PHP object injection via unserialize of user input enables arbitrary code execution",
-        "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r1b_092",
-        "pattern": r"(?:include|require)(?:_once)?\s*\(\s*\$_(?:GET|POST|REQUEST)",
-        "message": "File inclusion with user-controlled path enables local/remote file inclusion attacks",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r1b_093",
         "pattern": r'''(?:include|require)(?:_once)?\s*\(\s*['"](?:https?://|ftp://)''',
         "message": "Remote file inclusion from URL enables execution of attacker-controlled code",
@@ -17631,12 +17353,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "r1b_134",
-        "pattern": r"config\.force_ssl\s*=\s*false",
-        "message": "Rails force_ssl disabled allows unencrypted HTTP traffic exposing sensitive data",
-        "severity": Severity.WARN,
-    },
-    {
         "id": "r1b_135",
         "pattern": r"protect_from_forgery\s*(?::with\s*=>\s*:null_session|.*except)",
         "message": "CSRF protection weakened or exempted on controller actions",
@@ -17709,12 +17425,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "r1b_147",
-        "pattern": r"\.permit!\s*$",
-        "message": "Strong parameters permit! allows all attributes enabling mass assignment vulnerabilities",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r1b_148",
         "pattern": r"Tempfile\s*\.\s*new\s*\(.*params\[",
         "message": "Tempfile name from user input may enable path traversal or symlink attacks",
@@ -17736,12 +17446,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "r1b_151",
         "pattern": r"kSecAttrAccessible(?:Always|AlwaysThisDeviceOnly)(?!\s*//\s*deprecated)",
         "message": "Keychain item accessible when device is locked exposes credentials if device is stolen",
-        "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r1b_152",
-        "pattern": r"NSAllowsArbitraryLoads\s*</key>\s*\n?\s*<true",
-        "message": "App Transport Security disabled allows insecure HTTP connections to any domain",
         "severity": Severity.BLOCK,
     },
     {
@@ -17887,12 +17591,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'(?i)assume_role_policy.*"Principal".*"AWS".*"\*"',
         "message": "IAM role trust policy allows any AWS account to assume the role",
         "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r1b_177",
-        "pattern": r"(?i)enable_key_rotation\s*=\s*false",
-        "message": "KMS key rotation disabled; keys should be rotated annually per security best practices",
-        "severity": Severity.WARN,
     },
     {
         "id": "r1b_178",
@@ -18123,12 +17821,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
     },
     {
-        "id": "r2a_016",
-        "pattern": r"pickle\.loads?\s*\(",
-        "message": "Deserializing untrusted pickle data enables arbitrary code execution; use JSON or msgpack for untrusted input",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r2a_017",
         "pattern": r"__getattr__\s*.*(?:raise\s+AttributeError|return\s+None)",
         "message": "Swallowing attribute errors in __getattr__ silently breaks hasattr checks and IDE introspection",
@@ -18297,12 +17989,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
     },
     {
-        "id": "r2a_045",
-        "pattern": r"document\.write\s*\(",
-        "message": "document.write blocks HTML parsing and overwrites the entire document if called after load; use DOM manipulation methods",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r2a_046",
         "pattern": r'''innerHTML\s*=\s*(?:`|['\"].*\$\{|.*\+\s*\w+)''',
         "message": "Setting innerHTML with dynamic content enables XSS; use textContent or a sanitization library",
@@ -18337,12 +18023,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"as\s+any\b",
         "message": "Casting to any disables type checking and hides bugs that surface at runtime; use a specific type or unknown",
         "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r2a_052",
-        "pattern": r"@ts-ignore",
-        "message": "ts-ignore suppresses all errors on the next line including legitimate bugs; use ts-expect-error with explanation",
-        "severity": Severity.WARN,
     },
     {
         "id": "r2a_053",
@@ -18766,9 +18446,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_123",
-        "pattern": r"(?:httpx?|requests|fetch|axios|http\.Client)\.\w+\s*\([^)]*\)(?!.*(?:timeout|circuit|breaker))",
+        "pattern": r"(?:httpx|requests|axios|http\.Client)\.\w+\s*\([^)]*\)(?!.*(?:timeout|circuit|breaker))",
         "message": "HTTP call to external service without timeout or circuit breaker risks cascading failure; add timeout and circuit breaker",
         "severity": Severity.WARN,
+        "file_types": [".py", ".js", ".ts", ".go", ".java", ".rb"],
     },
     {
         "id": "r2a_124",
@@ -19185,12 +18866,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
     },
     {
-        "id": "r2a_193",
-        "pattern": r'''new\s+WebSocket\s*\(\s*['\"]ws://(?!localhost|127\.0\.0\.1)''',
-        "message": "Unencrypted WebSocket (ws://) exposes data in transit; use wss:// for production connections",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r2a_194",
         "pattern": r"(?:maxConnections|max.?clients|max.?sockets)\s*[=:]\s*(?:\d{6,}|Infinity|unlimited|0)",
         "message": "Unlimited WebSocket connections enables connection exhaustion DoS; set a per-server and per-IP connection limit",
@@ -19263,12 +18938,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
     },
     {
-        "id": "r2b_006",
-        "pattern": r"Thread\.sleep\s*\(",
-        "message": "Thread.sleep in async or actor context blocks the thread pool and degrades throughput",
-        "severity": Severity.WARN,
-    },
-    {
         "id": "r2b_007",
         "pattern": r"ObjectInputStream\s*\(",
         "message": "Java ObjectInputStream deserialization is a well-known remote code execution vector",
@@ -19327,12 +18996,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"null\s*\)",
         "message": "Passing null explicitly defeats Scala type safety - use Option instead",
         "severity": Severity.WARN,
-    },
-    {
-        "id": "r2b_017",
-        "pattern": r"Runtime\.getRuntime\s*\(\s*\)\.exec\s*\(",
-        "message": "Runtime.exec without input sanitization enables OS command injection",
-        "severity": Severity.BLOCK,
+        "file_types": [".scala", ".sc"],
     },
     {
         "id": "r2b_018",
@@ -19425,12 +19089,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
     },
     {
-        "id": "r2b_033",
-        "pattern": r"BinaryFormatter\s*\(\s*\)",
-        "message": "BinaryFormatter is insecure and deprecated - use System.Text.Json or protobuf",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r2b_034",
         "pattern": r"NetDataContractSerializer",
         "message": "NetDataContractSerializer allows type injection during deserialization",
@@ -19491,12 +19149,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
     },
     {
-        "id": "r2b_044",
-        "pattern": r'\.FromSqlRaw\s*\(\s*\$\"',
-        "message": "EF Core FromSqlRaw with interpolated string is SQL injection - use FromSqlInterpolated",
-        "severity": Severity.BLOCK,
-    },
-    {
         "id": "r2b_045",
         "pattern": r'\.ExecuteSqlRaw\s*\(\s*\$\"',
         "message": "EF Core ExecuteSqlRaw with interpolation is SQL injection - use ExecuteSqlInterpolated",
@@ -19536,12 +19188,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "r2b_051",
         "pattern": r"SHA1\.Create\s*\(\s*\)",
         "message": "SHA-1 is deprecated for security use - use SHA-256 or SHA-512",
-        "severity": Severity.WARN,
-    },
-    {
-        "id": "r2b_052",
-        "pattern": r"new\s+Random\s*\(\s*\)",
-        "message": "System.Random is not cryptographically secure - use RandomNumberGenerator for security contexts",
         "severity": Severity.WARN,
     },
     {
@@ -19597,6 +19243,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'''\$\w+[^\"']''',
         "message": "Unquoted variable expansion is subject to word splitting and glob expansion attacks",
         "severity": Severity.WARN,
+        "file_types": [".sh", ".bash", ".zsh", ".ksh"],
     },
     {
         "id": "r2b_062",
@@ -19878,12 +19525,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "id": "r2b_108",
         "pattern": r"innerHTML\s*=",
         "message": "Direct innerHTML assignment with unsanitized input creates XSS vulnerability",
-        "severity": Severity.BLOCK,
-    },
-    {
-        "id": "r2b_109",
-        "pattern": r"document\.write\s*\(",
-        "message": "document.write enables DOM injection and blocks parsing - use DOM APIs",
         "severity": Severity.BLOCK,
     },
     {
@@ -20185,12 +19826,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\bif\s+\w+\s+in\s+\[",
         "message": "Membership test against list literal is O(n) - use a set literal for O(1) lookup",
         "severity": Severity.INFO,
-    },
-    {
-        "id": "r2b_160",
-        "pattern": r"JSON\.parse\s*\(\s*JSON\.stringify\s*\(",
-        "message": "Deep clone via JSON serialize/parse is slow and loses Date, undefined, and function values",
-        "severity": Severity.WARN,
     },
     {
         "id": "r2b_161",

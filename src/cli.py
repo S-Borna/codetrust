@@ -74,7 +74,7 @@ def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
     return {
         "generic_block": [], "generic_warn": [], "generic_info": [],
         "sql_block": [], "sql_warn": [], "sql_info": [],
-        "docker_block": [], "docker_warn": [],
+        "docker_block": [], "docker_warn": [], "docker_info": [],
         "ci_block": [], "ci_warn": [], "ci_info": [],
         "devops_block": [], "devops_warn": [], "devops_info": [],
         "react_block": [], "react_warn": [],

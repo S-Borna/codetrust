@@ -1,5 +1,7 @@
 """Tests for IP-based rate limiting middleware."""
 
+import time
+import unittest.mock
 from http import HTTPStatus
 from unittest.mock import MagicMock
 
@@ -166,35 +168,42 @@ class TestIPRateLimitIntegration:
         self, rate_limit_client: TestClient,
     ) -> None:
         """Scan endpoints should return too-many-requests when flooded from same IP."""
+        # Freeze time.monotonic so burst window doesn't reset during slow requests
+        frozen_time = time.monotonic()
         blocked = False
-        for _ in range(IP_BURST_LIMIT + 5):
-            resp = rate_limit_client.post(
-                "/v1/scan/static",
-                json={"code": "x = 1", "filename": "test.py"},
-                headers={"X-API-Key": "ct_pro_test"},
-            )
-            if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
-                blocked = True
-                data = resp.json()
-                assert data["error"] == "too_many_requests"
-                assert "retry_after" in data
-                break
+        with unittest.mock.patch("src.middleware.ip_rate_limit.time") as mock_time:
+            mock_time.monotonic.return_value = frozen_time
+            for _ in range(IP_BURST_LIMIT + 5):
+                resp = rate_limit_client.post(
+                    "/v1/scan/static",
+                    json={"code": "x = 1", "filename": "test.py"},
+                    headers={"X-API-Key": "ct_pro_test"},
+                )
+                if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                    blocked = True
+                    data = resp.json()
+                    assert data["error"] == "too_many_requests"
+                    assert "retry_after" in data
+                    break
         assert blocked, "Expected too-many-requests after burst limit exceeded"
 
     def test_429_includes_retry_after_header(
         self, rate_limit_client: TestClient,
     ) -> None:
         """Too-many-requests response should include Retry-After header."""
-        for _ in range(IP_BURST_LIMIT + 5):
-            resp = rate_limit_client.post(
-                "/v1/scan/static",
-                json={"code": "x = 1", "filename": "test.py"},
-                headers={"X-API-Key": "ct_pro_test"},
-            )
-            if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
-                assert "retry-after" in resp.headers
-                assert int(resp.headers["retry-after"]) > 0
-                return
+        frozen_time = time.monotonic()
+        with unittest.mock.patch("src.middleware.ip_rate_limit.time") as mock_time:
+            mock_time.monotonic.return_value = frozen_time
+            for _ in range(IP_BURST_LIMIT + 5):
+                resp = rate_limit_client.post(
+                    "/v1/scan/static",
+                    json={"code": "x = 1", "filename": "test.py"},
+                    headers={"X-API-Key": "ct_pro_test"},
+                )
+                if resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                    assert "retry-after" in resp.headers
+                    assert int(resp.headers["retry-after"]) > 0
+                    return
         pytest.fail("Expected too-many-requests response")
 
     def test_oversized_payload_returns_413(

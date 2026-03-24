@@ -86,6 +86,7 @@ class StaticAnalyzer:
             "check_docker_root_user": self._check_docker_root_user,
             "check_docker_no_workdir": self._check_docker_no_workdir,
             "check_ci_no_timeout": self._check_ci_no_timeout,
+            "check_render_set_state": self._check_render_set_state,
         }
         fn = handlers.get(handler)
         if fn is not None:
@@ -587,6 +588,49 @@ class StaticAnalyzer:
                             file=filename,
                             line=line_num,
                             suggestion="Add 'timeout-minutes: 15' to the job definition.",
+                        )
+                    )
+        return findings
+
+    def _check_render_set_state(self, lines: list[str], filename: str) -> list[Finding]:
+        """Flag setState calls only when they're in the render body, not callbacks.
+
+        setState in useCallback, event handlers, useEffect, or async
+        functions is valid React. Only top-level component body setState
+        (outside any callback/handler scope) indicates a render-loop bug.
+        """
+        findings: list[Finding] = []
+        # Track nesting: inside useCallback, useEffect, event handler, or async
+        callback_patterns = re.compile(
+            r"(?:useCallback|useEffect|useMemo|useLayoutEffect|"
+            r"addEventListener|setTimeout|setInterval|"
+            r"\.then\(|\.catch\(|async\s)"
+        )
+        set_state_re = re.compile(r"(?:set[A-Z]\w+|setState)\s*\(")
+
+        callback_depth = 0
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            # Track callback/handler scope depth
+            if callback_patterns.search(stripped):
+                callback_depth += 1
+            # Track brace depth for callback scopes
+            callback_depth += stripped.count("{") - stripped.count("}")
+            if callback_depth < 0:
+                callback_depth = 0
+
+            # Only flag setState when NOT inside any callback scope
+            if callback_depth == 0 and set_state_re.search(stripped):
+                # Also skip if preceded by arrow function on same line
+                if "=>" not in stripped:
+                    findings.append(
+                        Finding(
+                            rule_id="react_set_state_in_render",
+                            severity=Severity.WARN,
+                            message="Possible state update during render. Move setState calls into event handlers or useEffect.",
+                            file=filename,
+                            line=line_num,
+                            suggestion="Wrap in useEffect, useCallback, or an event handler.",
                         )
                     )
         return findings

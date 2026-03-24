@@ -1008,8 +1008,29 @@ async def codetrust_deep_scan(
     sandbox_run: bool = False,
     dockerfile_content: str = "",
     requirements_content: str = "",
+    additional_files_json: str = "",
 ) -> str:
-    """Run all validation layers and return a Markdown report with verdict."""
+    """Run all validation layers and return a Markdown report with verdict.
+
+    Includes static analysis, AST analysis, import verification, Docker
+    verification, sandbox execution, hallucination-aware taint analysis,
+    and optionally cross-file and cross-language taint analysis when
+    additional_files_json is provided.
+
+    Args:
+        code: Source code to scan.
+        filename: Name of the file being scanned.
+        language: Programming language.
+        verify_imports: Whether to verify package imports against registries.
+        verify_docker: Whether to verify Docker images.
+        sandbox_run: Whether to execute code in sandbox.
+        dockerfile_content: Dockerfile content for Docker verification.
+        requirements_content: requirements.txt content for import verification.
+        additional_files_json: Optional JSON object of {filepath: code} for
+            cross-file and cross-language taint analysis. When provided,
+            enables multi-file taint tracking across import boundaries
+            and HTTP/gRPC boundaries between languages.
+    """
     logger.info("mcp_deep_scan", filename=filename, language=language)
     started = time.monotonic()
     ok = False
@@ -1024,7 +1045,8 @@ async def codetrust_deep_scan(
             findings, ast_findings, code, language,
             requirements_content, verify_imports,
             dockerfile_content, verify_docker,
-            sandbox_run, started,
+            sandbox_run, started, filename,
+            additional_files_json,
         )
         ok = True
         return "\n".join(sections)
@@ -1070,6 +1092,8 @@ async def _build_deep_scan_sections(
     verify_docker: bool,
     sandbox_run: bool,
     start: float,
+    filename: str = "untitled",
+    additional_files_json: str = "",
 ) -> list[str]:
     """Build all report sections for the deep scan."""
     sections: list[str] = ["# CodeTrust Deep Scan Report", ""]
@@ -1094,9 +1118,27 @@ async def _build_deep_scan_sections(
     if sandbox_report:
         sections.extend([sandbox_report, ""])
 
+    # Hallucination taint — always runs (single-file)
+    hall_findings = _deep_scan_hallucination(code, language, filename)
+    if hall_findings:
+        sections.extend([hall_findings, ""])
+
+    # Cross-file + cross-language taint — only when additional files provided
+    cf_findings = ""
+    cl_findings = ""
+    if additional_files_json.strip():
+        cf_findings, cl_findings = _deep_scan_multi_file_taint(
+            code, filename, additional_files_json,
+        )
+        if cf_findings:
+            sections.extend([cf_findings, ""])
+        if cl_findings:
+            sections.extend([cl_findings, ""])
+
     sections.append(_deep_scan_verdict_line(
         findings, ast_findings, import_report,
         docker_report, sandbox_report, start,
+        hall_findings, cf_findings, cl_findings,
     ))
     return sections
 
@@ -1108,12 +1150,16 @@ def _deep_scan_verdict_line(
     docker_report: str,
     sandbox_report: str,
     start: float,
+    hall_report: str = "",
+    cf_report: str = "",
+    cl_report: str = "",
 ) -> str:
     """Compute final verdict and format the summary line."""
     elapsed_ms = int((time.monotonic() - start) * 1000)
     all_findings = findings + (ast_findings or [])
     verdict = _compute_deep_verdict(
         all_findings, import_report, docker_report, sandbox_report,
+        hall_report, cf_report, cl_report,
     )
     return f"## Overall Verdict: **{verdict}** ({elapsed_ms}ms)"
 
@@ -1143,6 +1189,125 @@ def _deep_scan_ast_findings(
         return None
 
     return ast_analyzer.analyze(code, lang, filename)
+
+
+def _deep_scan_hallucination(
+    code: str,
+    language: str,
+    filename: str,
+) -> str:
+    """Run hallucination-aware taint analysis as part of deep scan."""
+    try:
+        lang = Language(language.lower())
+    except ValueError:
+        return ""
+
+    from src.services.hallucination_taint import HallucinationTaintAnalyzer
+
+    hall = HallucinationTaintAnalyzer()
+    result = hall.analyze(code, lang, filename)
+
+    if not result.findings and not result.hallucinated_sanitizers:
+        return ""
+
+    lines: list[str] = ["## Hallucination-Aware Taint Analysis"]
+    if result.hallucinated_sanitizers:
+        lines.append(
+            f"\n**{len(result.hallucinated_sanitizers)} hallucinated "
+            f"sanitizer(s) detected:**",
+        )
+        for s in result.hallucinated_sanitizers:
+            lines.append(f"- `{s}` — fake, taint chain NOT broken")
+
+    for finding in result.findings:
+        lines.append(
+            f"- **[{finding.severity.value}]** {finding.rule_id}: "
+            f"{finding.message} (line {finding.line})",
+        )
+
+    verdict = "BLOCK" if result.hallucinated_sanitizers else "WARN"
+    lines.append(f"\n**Verdict: {verdict}**")
+    return "\n".join(lines)
+
+
+def _deep_scan_multi_file_taint(
+    primary_code: str,
+    primary_filename: str,
+    additional_files_json: str,
+) -> tuple[str, str]:
+    """Run cross-file and cross-language taint as part of deep scan.
+
+    Returns:
+        Tuple of (cross_file_report, cross_language_report).
+    """
+    try:
+        additional: dict[str, str] = json.loads(additional_files_json)
+    except json.JSONDecodeError:
+        return "", ""
+
+    if not additional:
+        return "", ""
+
+    # Merge primary file into the set
+    file_contents = {primary_filename: primary_code, **additional}
+
+    # Cross-file taint
+    cf_report = ""
+    try:
+        from src.services.cross_file_taint import CrossFileTaintAnalyzer
+
+        cf = CrossFileTaintAnalyzer()
+        cf_result = cf.analyze(file_contents)
+        if cf_result.findings or cf_result.cross_file_flows > 0:
+            lines = [
+                "## Cross-File Taint Analysis",
+                f"\n**Files:** {cf_result.total_files} | "
+                f"**Flows:** {cf_result.cross_file_flows} | "
+                f"**Findings:** {len(cf_result.findings)}",
+            ]
+            for f in cf_result.findings:
+                lines.append(
+                    f"- **[{f.severity.value}]** {f.rule_id}: "
+                    f"{f.message} (line {f.line})",
+                )
+            verdict = "BLOCK" if any(
+                f.severity == Severity.BLOCK for f in cf_result.findings
+            ) else "WARN" if cf_result.findings else "PASS"
+            lines.append(f"\n**Verdict: {verdict}**")
+            cf_report = "\n".join(lines)
+    except Exception:
+        logger.exception("cross_file_taint_error")
+
+    # Cross-language taint
+    cl_report = ""
+    try:
+        from src.services.cross_language_taint import CrossLanguageTaintAnalyzer
+
+        cl = CrossLanguageTaintAnalyzer()
+        cl_result = cl.analyze(file_contents)
+        if cl_result.findings or cl_result.cross_language_flows > 0:
+            lines = [
+                "## Cross-Language Taint Analysis",
+                f"\n**Languages:** {cl_result.languages_analyzed} | "
+                f"**Routes:** {cl_result.routes_discovered} | "
+                f"**Calls:** {cl_result.http_calls_discovered} | "
+                f"**Flows:** {cl_result.cross_language_flows} | "
+                f"**Findings:** {len(cl_result.findings)}",
+            ]
+            for f in cl_result.findings:
+                lines.append(
+                    f"- **[{f.severity.value}]** {f.rule_id}: "
+                    f"{f.message} (line {f.line})",
+                )
+            verdict = "BLOCK" if any(
+                f.severity == Severity.BLOCK for f in cl_result.findings
+            ) else "WARN" if cl_result.findings else "PASS"
+            lines.append(f"\n**Verdict: {verdict}**")
+            cl_report = "\n".join(lines)
+    except Exception:
+        logger.exception("cross_language_taint_error")
+
+    return cf_report, cl_report
 
 
 async def _deep_scan_imports(
@@ -1190,6 +1355,9 @@ def _compute_deep_verdict(
     import_report: str,
     docker_report: str,
     sandbox_report: str = "",
+    hall_report: str = "",
+    cf_report: str = "",
+    cl_report: str = "",
 ) -> str:
     """Compute the overall deep scan verdict."""
     has_block = any(f.severity == Severity.BLOCK for f in findings)
@@ -1204,6 +1372,18 @@ def _compute_deep_verdict(
 
     # Check docker failures
     if docker_report and "### Failed" in docker_report:
+        return "BLOCK"
+
+    # Hallucinated sanitizers = BLOCK
+    if hall_report and "Verdict: BLOCK" in hall_report:
+        return "BLOCK"
+
+    # Cross-file taint BLOCK findings
+    if cf_report and "Verdict: BLOCK" in cf_report:
+        return "BLOCK"
+
+    # Cross-language taint BLOCK findings
+    if cl_report and "Verdict: BLOCK" in cl_report:
         return "BLOCK"
 
     # Check sandbox failures
@@ -1414,7 +1594,7 @@ async def codetrust_vulnerability_scan(
         if versions.strip():
             ver_list = [v.strip() for v in versions.split(",")]
             if len(ver_list) == len(pkg_list):
-                version_map = dict(zip(pkg_list, ver_list))
+                version_map = dict(zip(pkg_list, ver_list, strict=True))
 
         from src.services.vulnerability import VulnerabilityService
 
@@ -1544,6 +1724,225 @@ async def codetrust_license_check(
             ok=ok,
             duration_ms=int((time.monotonic() - started) * 1000),
             payload={"language": language, "package_count": len(packages.split(","))},
+        )
+
+
+# ── Hallucination-Aware Taint Analysis ──────────────────────────────────────
+
+@mcp.tool(name="codetrust_hallucination_scan")
+async def codetrust_hallucination_scan(
+    code: str,
+    language: str = "python",
+    filename: str = "untitled",
+) -> str:
+    """Detect hallucinated sanitizers in AI-generated code.
+
+    Verifies that every sanitizer function used in taint chains actually
+    exists. Catches fake modules like 'ai_utils.sanitize_html' that AI
+    models hallucinate — code that looks safe but provides zero protection.
+
+    Args:
+        code: Source code to analyze.
+        language: Programming language (python, javascript, go).
+        filename: Filename for context in findings.
+
+    Returns:
+        Markdown-formatted hallucination analysis report.
+    """
+    logger.info("mcp_hallucination_scan", language=language, filename=filename)
+    started = time.monotonic()
+    ok = False
+    try:
+        lang = Language(language.lower())
+        from src.services.hallucination_taint import HallucinationTaintAnalyzer
+
+        hall_analyzer = HallucinationTaintAnalyzer()
+        result = hall_analyzer.analyze(code, lang, filename)
+
+        lines: list[str] = [
+            "## Hallucination-Aware Taint Analysis\n",
+            f"**Verified sanitizers:** {len(result.verified_sanitizers)}",
+            f"**Hallucinated sanitizers:** {len(result.hallucinated_sanitizers)}",
+            f"**Findings:** {len(result.findings)}\n",
+        ]
+
+        if result.hallucinated_sanitizers:
+            lines.append("### Hallucinated (fake) sanitizers\n")
+            for s in result.hallucinated_sanitizers:
+                lines.append(f"- `{s}` — does not exist, taint chain NOT broken")
+            lines.append("")
+
+        if result.verified_sanitizers:
+            lines.append("### Verified (real) sanitizers\n")
+            for s in result.verified_sanitizers:
+                lines.append(f"- `{s}`")
+            lines.append("")
+
+        for finding in result.findings:
+            lines.append(
+                f"- **[{finding.severity.value}]** {finding.rule_id}: "
+                f"{finding.message} (line {finding.line})",
+            )
+
+        verdict = "BLOCK" if result.hallucinated_sanitizers else "PASS"
+        lines.append(f"\n**Verdict: {verdict}**")
+        ok = True
+        return "\n".join(lines)
+    except ValueError as exc:
+        return f"Error: Unsupported language '{language}'. {exc}"
+    finally:
+        _emit_mcp_tool_invoked(
+            tool="codetrust_hallucination_scan",
+            ok=ok,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            payload={"language": language, "filename": filename},
+        )
+
+
+# ── Cross-File Taint Analysis ──────────────────────────────────────────────
+
+@mcp.tool(name="codetrust_cross_file_taint")
+async def codetrust_cross_file_taint(
+    files_json: str,
+) -> str:
+    """Track tainted data flowing across file import boundaries.
+
+    Detects when user input in file A propagates through imports to
+    reach a dangerous sink in file B. Requires multiple files.
+
+    Args:
+        files_json: JSON object mapping relative file paths to source code.
+            Example: {"app.py": "from flask import...", "db.py": "import sqlite3..."}
+
+    Returns:
+        Markdown-formatted cross-file taint report.
+    """
+    logger.info("mcp_cross_file_taint")
+    started = time.monotonic()
+    ok = False
+    try:
+        file_contents: dict[str, str] = json.loads(files_json)
+        if not file_contents:
+            return "No files provided. Pass a JSON object of {filepath: code}."
+
+        from src.services.cross_file_taint import CrossFileTaintAnalyzer
+
+        cf_analyzer = CrossFileTaintAnalyzer()
+        result = cf_analyzer.analyze(file_contents)
+
+        lines: list[str] = [
+            "## Cross-File Taint Analysis\n",
+            f"**Files analyzed:** {result.total_files}",
+            f"**Exports found:** {result.total_exports}",
+            f"**Tainted exports:** {result.tainted_exports}",
+            f"**Cross-file flows:** {result.cross_file_flows}",
+            f"**Findings:** {len(result.findings)}\n",
+        ]
+
+        if not result.findings:
+            lines.append("No cross-file taint flows detected.")
+        else:
+            for finding in result.findings:
+                lines.append(
+                    f"- **[{finding.severity.value}]** {finding.rule_id}: "
+                    f"{finding.message} (line {finding.line})",
+                )
+                if finding.suggestion:
+                    lines.append(f"  Fix: {finding.suggestion}")
+
+        verdict = "BLOCK" if any(
+            f.severity == Severity.BLOCK for f in result.findings
+        ) else "WARN" if result.findings else "PASS"
+        lines.append(f"\n**Verdict: {verdict}**")
+        ok = True
+        return "\n".join(lines)
+    except json.JSONDecodeError as exc:
+        return f"Error: Invalid JSON — {exc}"
+    finally:
+        _emit_mcp_tool_invoked(
+            tool="codetrust_cross_file_taint",
+            ok=ok,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            payload={"file_count": len(file_contents) if "file_contents" in dir() else 0},
+        )
+
+
+# ── Cross-Language Taint Analysis ───────────────────────────────────────────
+
+@mcp.tool(name="codetrust_cross_language_taint")
+async def codetrust_cross_language_taint(
+    files_json: str,
+) -> str:
+    """Track tainted data across HTTP/gRPC boundaries between languages.
+
+    The capability no other security tool has. Detects when:
+    - A JS frontend sends user input via fetch() to a Python backend
+    - A Python service forwards data to a Go microservice
+    - Unsanitized data reaches a SQL query across 3+ language hops
+
+    Supports 20+ frameworks: Flask, FastAPI, Django, Express, NestJS,
+    Gin, Fiber, Echo, Chi, and gRPC across all languages.
+
+    Args:
+        files_json: JSON object mapping relative file paths to source code.
+            Must include files from 2+ languages for cross-language analysis.
+            Example: {"frontend/api.js": "fetch('/users'...)", "backend/app.py": "@app.route..."}
+
+    Returns:
+        Markdown-formatted cross-language taint report with full attack chain.
+    """
+    logger.info("mcp_cross_language_taint")
+    started = time.monotonic()
+    ok = False
+    try:
+        file_contents: dict[str, str] = json.loads(files_json)
+        if not file_contents:
+            return "No files provided. Pass a JSON object of {filepath: code}."
+
+        from src.services.cross_language_taint import CrossLanguageTaintAnalyzer
+
+        cl_analyzer = CrossLanguageTaintAnalyzer()
+        result = cl_analyzer.analyze(file_contents)
+
+        lines: list[str] = [
+            "## Cross-Language Taint Analysis\n",
+            f"**Files analyzed:** {result.total_files}",
+            f"**Languages detected:** {result.languages_analyzed}",
+            f"**HTTP routes discovered:** {result.routes_discovered}",
+            f"**HTTP calls discovered:** {result.http_calls_discovered}",
+            f"**Cross-language flows:** {result.cross_language_flows}",
+            f"**gRPC services:** {result.grpc_services_discovered}",
+            f"**gRPC calls:** {result.grpc_calls_discovered}",
+            f"**gRPC flows:** {result.grpc_flows}",
+            f"**Findings:** {len(result.findings)}\n",
+        ]
+
+        if not result.findings:
+            lines.append("No cross-language taint flows detected.")
+        else:
+            for finding in result.findings:
+                lines.append(
+                    f"### [{finding.severity.value}] {finding.rule_id}",
+                )
+                lines.append(f"{finding.message}")
+                if finding.suggestion:
+                    lines.append(f"**Fix:** {finding.suggestion}")
+                lines.append(f"**Line:** {finding.line}\n")
+
+        verdict = "BLOCK" if any(
+            f.severity == Severity.BLOCK for f in result.findings
+        ) else "WARN" if result.findings else "PASS"
+        lines.append(f"**Verdict: {verdict}**")
+        ok = True
+        return "\n".join(lines)
+    except json.JSONDecodeError as exc:
+        return f"Error: Invalid JSON — {exc}"
+    finally:
+        _emit_mcp_tool_invoked(
+            tool="codetrust_cross_language_taint",
+            ok=ok,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            payload={"file_count": len(file_contents) if "file_contents" in dir() else 0},
         )
 
 

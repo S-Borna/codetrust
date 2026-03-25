@@ -41,6 +41,7 @@ class Language(StrEnum):
     HTML = "html"
     TERRAFORM = "terraform"
     RUBY = "ruby"
+    KOTLIN = "kotlin"
     PHP = "php"
     POWERSHELL = "powershell"
 

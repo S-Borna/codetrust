@@ -820,3 +820,203 @@ class UserServiceServicer(user_pb2_grpc.UserServiceServicer):
         assert result.grpc_services_discovered == 0
         assert result.grpc_calls_discovered == 0
         assert result.grpc_flows == 0
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Java Spring MVC route + HTTP call tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestJavaRouteExtraction:
+    """Test Java Spring MVC route extraction."""
+
+    def test_get_mapping(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect @GetMapping annotation."""
+        code = '@GetMapping("/api/users")\npublic List<User> getUsers() { return userService.findAll(); }'
+        routes = analyzer._extract_java_routes("UserController.java", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "/api/users"
+        assert routes[0].method == "GET"
+        assert routes[0].language == Language.JAVA
+
+    def test_post_mapping(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect @PostMapping annotation."""
+        code = '@PostMapping("/api/users")\npublic User createUser(@RequestBody UserDto dto) { return userService.create(dto); }'
+        routes = analyzer._extract_java_routes("UserController.java", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "/api/users"
+        assert routes[0].method == "POST"
+
+    def test_request_mapping(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect @RequestMapping annotation."""
+        code = '@RequestMapping("/api/health")\npublic String health() { return "ok"; }'
+        routes = analyzer._extract_java_routes("HealthController.java", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "/api/health"
+
+
+class TestJavaHttpCalls:
+    """Test Java HTTP client call extraction."""
+
+    def test_resttemplate_get(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect RestTemplate.getForObject call."""
+        code = 'String result = restTemplate.getForObject("/api/users", String.class);'
+        calls = analyzer._extract_java_http_calls("Client.java", code)
+        assert len(calls) >= 1
+        assert calls[0].url_pattern == "/api/users"
+        assert calls[0].method == "GET"
+
+    def test_webclient_post(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect WebClient.post().uri() call."""
+        code = 'webClient.post().uri("/api/orders").bodyValue(order).retrieve();'
+        calls = analyzer._extract_java_http_calls("OrderClient.java", code)
+        assert len(calls) >= 1
+        assert calls[0].url_pattern == "/api/orders"
+        assert calls[0].method == "POST"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  C# ASP.NET Core route + HTTP call tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCSharpRouteExtraction:
+    """Test C# ASP.NET Core route extraction."""
+
+    def test_httpget_attribute(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect [HttpGet] attribute."""
+        code = '[HttpGet("api/users")]\npublic IActionResult GetUsers() { return Ok(users); }'
+        routes = analyzer._extract_csharp_routes("UsersController.cs", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "api/users"
+        assert routes[0].method == "GET"
+        assert routes[0].language == Language.CSHARP
+
+    def test_httppost_attribute(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect [HttpPost] attribute."""
+        code = '[HttpPost("api/users")]\npublic IActionResult CreateUser([FromBody] UserDto dto) { return Created(user); }'
+        routes = analyzer._extract_csharp_routes("UsersController.cs", code)
+        assert len(routes) >= 1
+        assert routes[0].method == "POST"
+
+
+class TestCSharpHttpCalls:
+    """Test C# HTTP client call extraction."""
+
+    def test_httpclient_getasync(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect HttpClient.GetAsync call."""
+        code = 'var response = await httpClient.GetAsync("/api/products");'
+        calls = analyzer._extract_csharp_http_calls("ProductService.cs", code)
+        assert len(calls) >= 1
+        assert calls[0].url_pattern == "/api/products"
+        assert calls[0].method == "GET"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Kotlin Ktor route + HTTP call tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestKotlinRouteExtraction:
+    """Test Kotlin Ktor route extraction."""
+
+    def test_ktor_get_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Ktor get() DSL route."""
+        code = 'get("/api/items") {\n    call.respond(items)\n}'
+        routes = analyzer._extract_kotlin_routes("Routes.kt", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "/api/items"
+        assert routes[0].method == "GET"
+        assert routes[0].language == Language.KOTLIN
+
+    def test_ktor_post_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Ktor post() DSL route."""
+        code = 'post("/api/items") {\n    val item = call.receive<Item>()\n}'
+        routes = analyzer._extract_kotlin_routes("Routes.kt", code)
+        assert len(routes) >= 1
+        assert routes[0].method == "POST"
+
+
+class TestKotlinHttpCalls:
+    """Test Kotlin HTTP client call extraction."""
+
+    def test_ktor_client_get(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Ktor client.get() call."""
+        code = 'val response = client.get("/api/users")'
+        calls = analyzer._extract_kotlin_http_calls("ApiClient.kt", code)
+        assert len(calls) >= 1
+        assert calls[0].url_pattern == "/api/users"
+        assert calls[0].method == "GET"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Rust Actix/Axum route + HTTP call tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRustRouteExtraction:
+    """Test Rust Actix-web and Axum route extraction."""
+
+    def test_actix_get_attribute(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Actix #[get()] attribute."""
+        code = '#[get("/api/items")]\nasync fn get_items() -> impl Responder { HttpResponse::Ok().json(items) }'
+        routes = analyzer._extract_rust_routes("handlers.rs", code)
+        assert len(routes) >= 1
+        assert routes[0].path == "/api/items"
+        assert routes[0].method == "GET"
+        assert routes[0].language == Language.RUST
+
+    def test_axum_route(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect Axum .route() call."""
+        code = 'let app = Router::new()\n    .route("/api/users", get(list_users))\n    .route("/api/users", post(create_user));'
+        routes = analyzer._extract_rust_routes("main.rs", code)
+        assert len(routes) >= 2
+        methods = {r.method for r in routes}
+        assert "GET" in methods
+        assert "POST" in methods
+
+
+class TestRustHttpCalls:
+    """Test Rust reqwest HTTP client call extraction."""
+
+    def test_reqwest_get(self, analyzer: CrossLanguageTaintAnalyzer) -> None:
+        """Detect reqwest client.get() call."""
+        code = 'let response = client.get("/api/data").send().await?;'
+        calls = analyzer._extract_rust_http_calls("api_client.rs", code)
+        assert len(calls) >= 1
+        assert calls[0].url_pattern == "/api/data"
+        assert calls[0].method == "GET"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  C# Taint definition tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCSharpTaintDefinitions:
+    """Verify C# taint sources, sinks, sanitizers are registered."""
+
+    def test_csharp_sources_exist(self) -> None:
+        """C# taint sources are registered."""
+        from src.rules.taint_rules import TAINT_SOURCES
+        assert Language.CSHARP in TAINT_SOURCES
+        assert len(TAINT_SOURCES[Language.CSHARP]) >= 10
+
+    def test_csharp_sinks_exist(self) -> None:
+        """C# taint sinks are registered."""
+        from src.rules.taint_rules import TAINT_SINKS
+        assert Language.CSHARP in TAINT_SINKS
+        assert len(TAINT_SINKS[Language.CSHARP]) >= 15
+
+    def test_csharp_sanitizers_exist(self) -> None:
+        """C# taint sanitizers are registered."""
+        from src.rules.taint_rules import TAINT_SANITIZERS
+        assert Language.CSHARP in TAINT_SANITIZERS
+        assert len(TAINT_SANITIZERS[Language.CSHARP]) >= 10
+
+    def test_csharp_sql_injection_sink(self) -> None:
+        """C# has SQL injection sinks."""
+        from src.rules.taint_rules import TAINT_SINKS
+        sinks = TAINT_SINKS[Language.CSHARP]
+        sql_sinks = [s for s in sinks if s.category == "sql_injection"]
+        assert len(sql_sinks) >= 3

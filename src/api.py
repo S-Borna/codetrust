@@ -4,6 +4,7 @@
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -331,7 +332,7 @@ async def _resolve_auth_from_key(
     key: str, db: DatabaseService | None,
 ) -> AuthContext:
     """Resolve auth from an API key (master or database-backed)."""
-    if key == settings.api_key:
+    if settings.api_key and hmac.compare_digest(key, settings.api_key):
         return AuthContext(
             user_id="system_master_key", plan="enterprise", is_admin=True,
         )
@@ -1169,7 +1170,9 @@ async def validate_license_endpoint(
         raise HTTPException(status_code=401, detail="License key required")
 
     # Validate against configured master key or database
-    is_valid = license_key == settings.api_key and bool(settings.api_key)
+    is_valid = bool(settings.api_key) and hmac.compare_digest(
+        license_key, settings.api_key,
+    )
 
     # Check database for registered license keys
     db = getattr(request.app.state, "db", None)

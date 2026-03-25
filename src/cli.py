@@ -876,7 +876,7 @@ def _report_fix_telemetry(
             },
         )
     except Exception:
-        pass  # best-effort
+        logger.debug("autofix_telemetry_failed", exc_info=True)
 
 
 def cmd_fix(args: argparse.Namespace) -> int:
@@ -2983,7 +2983,7 @@ def _scan_process_import_findings(
             },
         )
     except Exception:
-        pass  # best-effort
+        logger.debug("import_telemetry_failed", exc_info=True)
     return hallucinations_found, all_findings
 
 
@@ -3125,7 +3125,8 @@ def _scan_validate_signatures(
                     sig_findings_total += 1
                     if "hallucinated" in finding.rule_id:
                         hallucinations_caught += 1
-            except OSError:
+            except OSError as exc:
+                logger.debug("sig_scan_read_error", file=str(fpath), error=str(exc))
                 continue
 
         if not machine_output:
@@ -3228,7 +3229,8 @@ def _scan_runtime_verify(
                     verified_total += 1
                     if vf.verified:
                         exploitable_total += 1
-            except OSError:
+            except OSError as exc:
+                logger.debug("runtime_verify_read_error", file=str(fpath), error=str(exc))
                 continue
 
         if not machine_output:
@@ -4057,7 +4059,8 @@ def _detect_source_root() -> Path | None:
                 content = pyproject.read_text()
                 if 'name = "codetrust"' in content:
                     return candidate
-            except OSError:
+            except OSError as exc:
+                logger.debug("pyproject_read_error", path=str(pyproject), error=str(exc))
                 continue
         # Stop at filesystem root or home
         if candidate == Path.home() or candidate == candidate.parent:
@@ -4841,8 +4844,8 @@ def cmd_shield(args: argparse.Namespace) -> int:
                         f"{entry.get('rule_id', '')}"
                     )
                 sys.stdout.write(f"  {color}[{verdict}]\033[0m {detail}\n")
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as exc:
+                logger.debug("audit_log_parse_error", line=line[:80], error=str(exc))
         return 0
 
     if action == "install":

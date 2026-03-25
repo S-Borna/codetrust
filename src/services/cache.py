@@ -15,6 +15,17 @@ REDIS_CONNECT_RETRIES: int = 3
 REDIS_RETRY_DELAY_SECONDS: int = 2
 
 
+def _redact_url(url: str) -> str:
+    """Redact credentials from a URL for safe logging."""
+    parts = urlsplit(url)
+    if parts.password:
+        netloc = f"{parts.username or ''}:***@{parts.hostname or ''}"
+        if parts.port:
+            netloc += f":{parts.port}"
+        return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    return url
+
+
 class CacheService:
     """Redis-backed cache with TTL support. Gracefully degrades if Redis unavailable."""
 
@@ -51,7 +62,7 @@ class CacheService:
                 try:
                     logger.warning(
                         "redis_connect_attempt",
-                        url=url,
+                        url=_redact_url(url),
                         attempt=attempt,
                         max_attempts=total_attempts,
                     )
@@ -63,12 +74,12 @@ class CacheService:
                     )
                     await self._client.ping()
                     self._redis_url = url
-                    logger.warning("redis_connected", url=url, attempt=attempt)
+                    logger.warning("redis_connected", url=_redact_url(url), attempt=attempt)
                     return
                 except redis.RedisError as exc:
                     logger.warning(
                         "redis_connect_failed",
-                        url=url,
+                        url=_redact_url(url),
                         attempt=attempt,
                         max_attempts=total_attempts,
                         error=str(exc),
@@ -76,7 +87,10 @@ class CacheService:
                     self._client = None
                     if attempt < total_attempts:
                         await asyncio.sleep(REDIS_RETRY_DELAY_SECONDS)
-        logger.warning("redis_connection_unavailable", tried_urls=candidates)
+        logger.warning(
+            "redis_connection_unavailable",
+            tried_urls=[_redact_url(u) for u in candidates],
+        )
 
     def raw_client(self) -> redis.Redis | None:
         """Return the underlying redis client (or None if unavailable)."""

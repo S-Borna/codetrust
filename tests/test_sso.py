@@ -399,35 +399,35 @@ class TestFetchUserinfo:
 # ---------------------------------------------------------------------------
 
 class TestParseIdToken:
-    def test_parse_roles_as_list(self, oidc_service: OIDCService) -> None:
+    async def test_parse_roles_as_list(self, oidc_service: OIDCService) -> None:
         token = jwt.encode(
             {"sub": "u1", "email": "a@b.com", "roles": ["admin", "user"]},
             "secret",
             algorithm="HS256",
         )
-        user = oidc_service._parse_id_token(token)
+        user = await oidc_service._parse_id_token(token)
         assert user.roles == ["admin", "user"]
         assert user.is_admin is True
 
-    def test_parse_roles_as_string(self, oidc_service: OIDCService) -> None:
+    async def test_parse_roles_as_string(self, oidc_service: OIDCService) -> None:
         token = jwt.encode(
             {"sub": "u2", "roles": "viewer"},
             "secret",
             algorithm="HS256",
         )
-        user = oidc_service._parse_id_token(token)
+        user = await oidc_service._parse_id_token(token)
         assert user.roles == ["viewer"]
 
-    def test_parse_no_roles(self, oidc_service: OIDCService) -> None:
+    async def test_parse_no_roles(self, oidc_service: OIDCService) -> None:
         token = jwt.encode({"sub": "u3"}, "secret", algorithm="HS256")
-        user = oidc_service._parse_id_token(token)
+        user = await oidc_service._parse_id_token(token)
         assert user.roles == []
 
-    def test_raw_claims_preserved(self, oidc_service: OIDCService) -> None:
+    async def test_raw_claims_preserved(self, oidc_service: OIDCService) -> None:
         token = jwt.encode(
             {"sub": "u4", "custom": "value"},
             "secret",
             algorithm="HS256",
         )
-        user = oidc_service._parse_id_token(token)
+        user = await oidc_service._parse_id_token(token)
         assert user.raw_claims["custom"] == "value"

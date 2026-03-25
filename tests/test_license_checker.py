@@ -14,11 +14,9 @@ from src.services.license_checker import (
     ECOSYSTEM_URLS,
     LicenseInfo,
     LicenseRisk,
-    LicenseScanResponse,
     LicenseService,
     classify_license,
 )
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

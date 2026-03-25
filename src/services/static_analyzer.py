@@ -620,9 +620,8 @@ class StaticAnalyzer:
                 callback_depth = 0
 
             # Only flag setState when NOT inside any callback scope
-            if callback_depth == 0 and set_state_re.search(stripped):
-                # Also skip if preceded by arrow function on same line
-                if "=>" not in stripped:
+            # Also skip if preceded by arrow function on same line
+            if callback_depth == 0 and set_state_re.search(stripped) and "=>" not in stripped:
                     findings.append(
                         Finding(
                             rule_id="react_set_state_in_render",

@@ -27,6 +27,7 @@ Usage:
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -218,7 +219,7 @@ def _policy_pin_gate(*, proxy: bool = False) -> dict[str, object] | None:
         return None
 
     current_hash = get_policy_manifest_hash(_workspace)
-    if current_hash == _session_policy_hash:
+    if hmac.compare_digest(current_hash, _session_policy_hash):
         return None
 
     payload = {
@@ -1063,7 +1064,7 @@ def _build_governance_posture_payload() -> dict[str, object]:
     """Return current governance posture snapshot."""
     integrity = _evaluate_policy_integrity()
     current_policy_hash = get_policy_manifest_hash(_workspace)
-    policy_pin_match = current_policy_hash == _session_policy_hash
+    policy_pin_match = hmac.compare_digest(current_policy_hash, _session_policy_hash)
     readiness_reasons: list[str] = []
     if integrity.verdict != "ALLOW":
         readiness_reasons.append("policy_integrity_not_allow")

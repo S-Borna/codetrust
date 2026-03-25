@@ -28,6 +28,7 @@ Or via .codetrust.toml (project-level):
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
@@ -229,7 +230,7 @@ class OIDCService:
             access_token = data.get("access_token", "")
 
             if id_token:
-                return self._parse_id_token(id_token)
+                return await self._parse_id_token(id_token)
             if access_token:
                 return await self._fetch_userinfo(access_token)
 
@@ -239,17 +240,70 @@ class OIDCService:
             logger.exception("oidc_exchange_error")
             return None
 
-    def _parse_id_token(self, id_token: str) -> OIDCUser:
-        """Parse an ID token without full verification (trusting TLS).
+    async def _fetch_jwks_key(self, id_token: str) -> jwt.PyJWK | None:
+        """Fetch the signing key from the IdP JWKS endpoint.
 
-        In production, verify signature against JWKS. For now we decode
-        without verification since the token came over HTTPS from the IdP.
+        Caches the JWKS keyset for 1 hour to avoid repeated network calls.
+        Returns None if JWKS is not configured or fetch fails.
         """
-        claims = jwt.decode(
-            id_token,
-            options={"verify_signature": False},
-            algorithms=["RS256", "HS256"],
-        )
+        jwks_uri = self._config.jwks_uri
+        if not jwks_uri:
+            return None
+
+        jwks_cache_ttl: int = 3600
+        now = time.monotonic()
+        if self._jwks is None or (now - self._jwks_fetched_at) > jwks_cache_ttl:
+            try:
+                resp = await self._http.get(jwks_uri, timeout=10)
+                if resp.status_code == 200:
+                    self._jwks = resp.json()
+                    self._jwks_fetched_at = now
+                else:
+                    logger.warning(
+                        "jwks_fetch_failed", status=resp.status_code,
+                    )
+                    return None
+            except Exception:
+                logger.exception("jwks_fetch_error")
+                return None
+
+        try:
+            jwk_set = jwt.PyJWKSet.from_dict(self._jwks)
+            header = jwt.get_unverified_header(id_token)
+            kid = header.get("kid")
+            for key in jwk_set.keys:
+                if key.key_id == kid:
+                    return key
+            logger.warning("jwks_kid_not_found", kid=kid)
+        except (jwt.PyJWKSetError, jwt.DecodeError) as exc:
+            logger.warning("jwks_parse_error", error=str(exc))
+        return None
+
+    async def _parse_id_token(self, id_token: str) -> OIDCUser:
+        """Parse and verify an OIDC ID token.
+
+        Attempts JWKS signature verification first. Falls back to unverified
+        decode only if JWKS is not configured (logs a warning).
+        """
+        signing_key = await self._fetch_jwks_key(id_token)
+        if signing_key is not None:
+            claims = jwt.decode(
+                id_token,
+                key=signing_key.key,
+                algorithms=["RS256", "ES256"],
+                audience=self._config.client_id,
+                issuer=self._config.issuer,
+            )
+        else:
+            logger.warning(
+                "oidc_unverified_decode",
+                reason="JWKS unavailable — decoding without signature verification",
+            )
+            claims = jwt.decode(
+                id_token,
+                options={"verify_signature": False},
+                algorithms=["RS256", "HS256"],
+            )
 
         roles = claims.get(self._config.role_claim, [])
         if isinstance(roles, str):

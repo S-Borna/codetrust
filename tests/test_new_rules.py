@@ -85,7 +85,7 @@ class TestSuppressLint:
         findings = [f for f in analyzer.scan_code(code, "App.java") if f.rule_id == "suppress_lint"]
         assert len(findings) >= 1
 
-    def test_pragma_no_cover(self, analyzer: StaticAnalyzer) -> None:
+    def test_pragma_no_cover_type_checking(self, analyzer: StaticAnalyzer) -> None:
         code = "if TYPE_CHECKING:  # pragma: no cover\n"
         findings = [f for f in analyzer.scan_code(code, "app.py") if f.rule_id == "suppress_lint"]
         assert len(findings) >= 1

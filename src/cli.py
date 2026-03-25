@@ -2433,12 +2433,24 @@ def _policy_sync_pyproject(
 
 
 def cmd_policy(args: argparse.Namespace) -> int:
-    """Policy wizard for generating governance config presets."""
+    """Policy wizard and commit policy management."""
     project_dir = Path.cwd()
 
     sub = str(getattr(args, "subcommand", ""))
+    if sub == "show":
+        return _policy_show(project_dir)
+    if sub == "init":
+        return _policy_init(project_dir, yes=bool(getattr(args, "yes", False)))
+    if sub == "validate":
+        return _policy_validate(project_dir)
+    if sub == "test":
+        return _policy_test(
+            project_dir,
+            model=str(getattr(args, "model", "gpt-4o")),
+            editor=str(getattr(args, "editor", "copilot")),
+        )
     if sub != "wizard":
-        _echo("Run: codetrust policy wizard")
+        _echo("Usage: codetrust policy {wizard|show|init|validate|test}")
         return 1
 
     yes = bool(getattr(args, "yes", False))
@@ -2458,6 +2470,154 @@ def cmd_policy(args: argparse.Namespace) -> int:
     )
 
     _echo("\nDone.\n")
+    return 0
+
+
+def _policy_show(project_dir: Path) -> int:
+    """Show current commit policy from .codetrust.toml."""
+    from src.services.commit_policy import load_policy_config
+
+    config = load_policy_config(project_dir)
+    _echo(f"\n{color('Commit Policy', BOLD)}\n")
+    _echo(f"  Model mode:     {config.model_mode}")
+    if config.models_allowed:
+        _echo(f"  Models allowed: {', '.join(config.models_allowed)}")
+    if config.models_blocked:
+        _echo(f"  Models blocked: {', '.join(config.models_blocked)}")
+    _echo(f"  Editor mode:    {config.editor_mode}")
+    if config.editors_allowed:
+        _echo(f"  Editors allowed: {', '.join(config.editors_allowed)}")
+    if config.editors_blocked:
+        _echo(f"  Editors blocked: {', '.join(config.editors_blocked)}")
+    _echo(f"  Allow AI:       {config.allow_ai_generated}")
+    _echo(f"  Require review: {config.require_human_review}")
+    _echo(f"  Max AI ratio:   {config.max_ai_ratio}")
+    _echo(f"  Personality:    {config.personality}")
+    _echo()
+    return 0
+
+
+_DEFAULT_POLICY_TOML = """\
+[policy]
+# Model controls: "none", "allowlist", "blocklist", "audit"
+model_mode = "none"
+models_allowed = []
+models_blocked = []
+
+# Editor controls: "none", "allowlist", "blocklist", "audit"
+editor_mode = "none"
+editors_allowed = []
+editors_blocked = []
+
+# AI commit controls
+allow_ai_generated = true
+require_human_review = false
+max_ai_ratio = 1.0
+
+# Review personality: "strict", "standard", "mentor"
+personality = "strict"
+"""
+
+
+def _policy_init(project_dir: Path, *, yes: bool) -> int:
+    """Create default [policy] section in .codetrust.toml."""
+    toml_path = project_dir / ".codetrust.toml"
+
+    if toml_path.exists():
+        existing = toml_path.read_text(encoding="utf-8")
+        if "[policy]" in existing and not yes:
+            _echo(f"  {color('!', YELLOW)} [policy] already exists in .codetrust.toml")
+            _echo("  Use --yes to overwrite")
+            return 1
+
+    if toml_path.exists():
+        content = toml_path.read_text(encoding="utf-8")
+        if "[policy]" not in content:
+            content = content.rstrip() + "\n\n" + _DEFAULT_POLICY_TOML
+        else:
+            # Replace existing [policy] section — find from [policy] to next section or EOF
+            lines = content.split("\n")
+            new_lines: list[str] = []
+            in_policy = False
+            for line in lines:
+                if line.strip() == "[policy]":
+                    in_policy = True
+                    continue
+                if in_policy and line.strip().startswith("["):
+                    in_policy = False
+                if not in_policy:
+                    new_lines.append(line)
+            content = "\n".join(new_lines).rstrip() + "\n\n" + _DEFAULT_POLICY_TOML
+
+        toml_path.write_text(content, encoding="utf-8")
+    else:
+        toml_path.write_text(_DEFAULT_POLICY_TOML, encoding="utf-8")
+
+    _echo(f"  {color('+', GREEN)} Policy config written to {toml_path}")
+    return 0
+
+
+def _policy_validate(project_dir: Path) -> int:
+    """Validate the current commit policy config."""
+    from src.services.commit_policy import VALID_MODES, VALID_PERSONALITIES, load_policy_config
+
+    config = load_policy_config(project_dir)
+    errors: list[str] = []
+
+    if config.model_mode not in VALID_MODES:
+        errors.append(f"Invalid model_mode: {config.model_mode}")
+    if config.editor_mode not in VALID_MODES:
+        errors.append(f"Invalid editor_mode: {config.editor_mode}")
+    if config.personality not in VALID_PERSONALITIES:
+        errors.append(f"Invalid personality: {config.personality}")
+    if not (0.0 <= config.max_ai_ratio <= 1.0):
+        errors.append(f"max_ai_ratio must be 0.0-1.0, got {config.max_ai_ratio}")
+    if config.model_mode == "allowlist" and not config.models_allowed:
+        errors.append("model_mode=allowlist but models_allowed is empty")
+    if config.editor_mode == "allowlist" and not config.editors_allowed:
+        errors.append("editor_mode=allowlist but editors_allowed is empty")
+
+    if errors:
+        _echo(f"\n{color('Policy Validation', BOLD)} — FAILED\n")
+        for e in errors:
+            _echo(f"  {color('X', RED)} {e}")
+        _echo()
+        return 1
+
+    _echo(f"\n{color('Policy Validation', BOLD)} — {color('PASS', GREEN)}\n")
+    return 0
+
+
+def _policy_test(project_dir: Path, *, model: str, editor: str) -> int:
+    """Test policy against a mock commit."""
+    from src.services.commit_policy import CommitPolicyEngine, FileAttribution
+
+    engine = CommitPolicyEngine(project_dir)
+    mock_files = [
+        FileAttribution(
+            file="test_file.py", model=model, provider="simulated",
+            editor=editor, ai_probability=0.95,
+        ),
+    ]
+    violations = engine.evaluate(mock_files)
+
+    _echo(f"\n{color('Policy Test', BOLD)}\n")
+    _echo(f"  Simulated: model={model}, editor={editor}, ai_prob=0.95\n")
+
+    if not violations:
+        _echo(f"  {color('+', GREEN)} Commit would be ALLOWED\n")
+        return 0
+
+    for v in violations:
+        v_color = RED if v.severity == "BLOCK" else YELLOW
+        _echo(f"  {color(v.severity, v_color)} [{v.rule}] {v.message}")
+
+    blocks = sum(1 for v in violations if v.severity == "BLOCK")
+    if blocks:
+        _echo(f"\n  {color('Commit would be BLOCKED', RED)}\n")
+        return 1
+
+    _echo(f"\n  {color('Commit would be ALLOWED with warnings', YELLOW)}\n")
     return 0
 
 
@@ -4727,6 +4887,18 @@ def _add_governance_policy_audit_subparsers(
     )
     policy_wizard.add_argument("--yes", action="store_true", help="Overwrite/update without prompting")
 
+    policy_sub.add_parser("show", help="Show current commit policy from .codetrust.toml")
+    policy_init = policy_sub.add_parser("init", help="Create default [policy] section in .codetrust.toml")
+    policy_init.add_argument("--yes", action="store_true", help="Overwrite existing policy")
+    policy_sub.add_parser("validate", help="Validate the current commit policy config")
+    policy_test = policy_sub.add_parser("test", help="Test policy against a mock commit")
+    policy_test.add_argument(
+        "--model", default="gpt-4o", help="Model to simulate (default: gpt-4o)",
+    )
+    policy_test.add_argument(
+        "--editor", default="copilot", help="Editor to simulate (default: copilot)",
+    )
+
     _add_audit_subparser(subparsers)
 
 
@@ -4866,6 +5038,457 @@ def cmd_shield(args: argparse.Namespace) -> int:
     return 1
 
 
+# ─────────────────────────────────────────────────────────────────
+#  AI Observability subparsers & commands
+# ─────────────────────────────────────────────────────────────────
+
+_HOOK_SCRIPT = "codetrust_pre_commit.py"
+
+
+def _add_ai_observability_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register AI Observability CLI subcommands."""
+    # --- mcp-audit ---
+    mcp_audit_p = subparsers.add_parser(
+        "mcp-audit", help="Scan IDE configs for MCP servers",
+    )
+    mcp_audit_p.add_argument(
+        "--workspace", "-w", default=".", help="Project root (default: .)",
+    )
+    mcp_audit_p.add_argument(
+        "--json", action="store_true", help="Output as JSON",
+    )
+
+    # --- shadow-scan ---
+    shadow_p = subparsers.add_parser(
+        "shadow-scan", help="Detect installed AI coding tools",
+    )
+    shadow_p.add_argument(
+        "--approved", nargs="*", default=None,
+        help="Approved tool IDs (e.g. github_copilot cursor)",
+    )
+    shadow_p.add_argument(
+        "--json", action="store_true", help="Output as JSON",
+    )
+
+    # --- attribute ---
+    attr_p = subparsers.add_parser(
+        "attribute", help="Attribute AI model origin for files",
+    )
+    attr_p.add_argument(
+        "targets", nargs="*", default=["."],
+        help="Files or directories to analyze",
+    )
+    attr_p.add_argument(
+        "--json", action="store_true", help="Output as JSON",
+    )
+
+    # --- risk-profile ---
+    risk_p = subparsers.add_parser(
+        "risk-profile", help="Developer AI risk scoring",
+    )
+    risk_p.add_argument(
+        "--workspace", "-w", default=".", help="Repository root (default: .)",
+    )
+    risk_p.add_argument(
+        "--max-commits", type=int, default=200,
+        help="Max commits to analyze per author (default: 200)",
+    )
+    risk_p.add_argument(
+        "--json", action="store_true", help="Output as JSON",
+    )
+
+    # --- benchmark ---
+    bench_p = subparsers.add_parser(
+        "benchmark", help="LLM code quality benchmarks",
+    )
+    bench_p.add_argument(
+        "--workspace", "-w", default=".", help="Repository root (default: .)",
+    )
+    bench_p.add_argument(
+        "--json", action="store_true", help="Output as JSON",
+    )
+
+    # --- hook ---
+    hook_p = subparsers.add_parser(
+        "hook", help="Manage CodeTrust pre-commit hook",
+    )
+    hook_sub = hook_p.add_subparsers(dest="subcommand")
+    hook_sub.add_parser("install", help="Install pre-commit hook into .git/hooks")
+    hook_sub.add_parser("uninstall", help="Remove CodeTrust pre-commit hook")
+    hook_sub.add_parser("report", help="Show latest commit report")
+
+
+# ─────────────────────────────────────────────────────────────────
+#  AI Observability command handlers
+# ─────────────────────────────────────────────────────────────────
+
+
+def cmd_mcp_audit(args: argparse.Namespace) -> int:
+    """Scan IDE configs for MCP server definitions."""
+    from src.services.mcp_discovery import MCPDiscoveryService
+
+    workspace = Path(args.workspace).resolve()
+    svc = MCPDiscoveryService()
+    result = svc.audit(workspace=workspace, include_project_local=True)
+
+    if getattr(args, "json", False):
+        import json as _json
+        data = {
+            "configs_scanned": result.configs_scanned,
+            "configs_found": result.configs_found,
+            "servers": [
+                {
+                    "name": s.name, "source_ide": s.source_ide,
+                    "risk_level": s.risk_level,
+                    "command": s.command, "risk_reason": s.risk_reason,
+                }
+                for s in result.servers
+            ],
+        }
+        _echo(_json.dumps(data, indent=2))
+        return 0
+
+    _echo(f"\n{color('MCP Server Audit', BOLD)}\n")
+    _echo(f"  Configs scanned: {result.configs_scanned}")
+    _echo(f"  Configs found:   {result.configs_found}")
+    _echo(f"  Servers:         {len(result.servers)}\n")
+
+    for s in result.servers:
+        risk_color = RED if s.risk_level == "high" else (
+            YELLOW if s.risk_level == "medium" else GREEN
+        )
+        icon = "!" if s.risk_level != "low" else "+"
+        _echo(
+            f"  {color(icon, risk_color)} {s.name} ({s.source_ide}) — "
+            f"{color(s.risk_level, risk_color)}"
+        )
+        if s.risk_reason:
+            _echo(f"    {s.risk_reason}")
+
+    _echo()
+    return 0
+
+
+def cmd_shadow_scan(args: argparse.Namespace) -> int:
+    """Detect installed AI coding tools."""
+    from src.services.shadow_ai import ShadowAIScanner
+
+    approved = frozenset(args.approved) if args.approved is not None else None
+    scanner = ShadowAIScanner()
+    result = scanner.scan(approved_tools=approved)
+
+    if getattr(args, "json", False):
+        import json as _json
+        data = {
+            "total_found": result.total_found,
+            "approved": [
+                {"tool_id": d.tool_id, "display_name": d.display_name,
+                 "detected_via": d.detected_via}
+                for d in result.approved
+            ],
+            "unapproved": [
+                {"tool_id": d.tool_id, "display_name": d.display_name,
+                 "detected_via": d.detected_via}
+                for d in result.unapproved
+            ],
+        }
+        _echo(_json.dumps(data, indent=2))
+        return 0
+
+    _echo(f"\n{color('Shadow AI Scan', BOLD)}\n")
+    _echo(f"  AI tools found: {result.total_found}\n")
+
+    for d in result.approved:
+        _echo(f"  {color('+', GREEN)} {d.display_name} — approved ({d.detected_via})")
+
+    for d in result.unapproved:
+        _echo(f"  {color('!', YELLOW)} {d.display_name} — unapproved ({d.detected_via})")
+
+    if not result.detections:
+        _echo("  No AI coding tools detected.")
+
+    _echo()
+    return 0
+
+
+def cmd_attribute(args: argparse.Namespace) -> int:
+    """Attribute AI model origin for files."""
+    from src.services.ai_attribution import AIAttributor
+
+    attributor = AIAttributor()
+    all_results: list[object] = []
+
+    for target in args.targets:
+        target_path = Path(target).resolve()
+        if target_path.is_dir():
+            results = attributor.analyze_directory(target_path)
+            all_results.extend(results)
+        elif target_path.is_file():
+            result = attributor.analyze_file(target_path, workspace=target_path.parent)
+            all_results.append(result)
+        else:
+            _echo(f"  {color('!', YELLOW)} Not found: {target}")
+
+    if getattr(args, "json", False):
+        import json as _json
+        data = [
+            {
+                "file": r.file, "primary_source": r.primary_source,
+                "primary_model": r.primary_model,
+                "ai_probability": r.ai_probability, "method": r.method,
+            }
+            for r in all_results
+        ]
+        _echo(_json.dumps(data, indent=2))
+        return 0
+
+    _echo(f"\n{color('AI Attribution', BOLD)}\n")
+
+    ai_count = 0
+    for r in all_results:
+        if r.ai_probability > 0.5:
+            ai_count += 1
+            prob_pct = int(r.ai_probability * 100)
+            _echo(
+                f"  {color('!', YELLOW)} {r.file} — {r.primary_source} "
+                f"({r.primary_model}) {prob_pct}% [{r.method}]"
+            )
+        else:
+            _echo(f"  {color('+', GREEN)} {r.file} — human")
+
+    _echo(f"\n  {len(all_results)} files analyzed, {ai_count} AI-attributed\n")
+    return 0
+
+
+def cmd_risk_profile(args: argparse.Namespace) -> int:
+    """Developer AI risk scoring."""
+    from src.services.developer_risk import DeveloperRiskService
+
+    workspace = Path(args.workspace).resolve()
+    svc = DeveloperRiskService()
+    result = svc.assess(workspace=workspace, max_commits=args.max_commits)
+
+    if getattr(args, "json", False):
+        import json as _json
+        data = {
+            "total_developers": result.total_developers,
+            "high_risk_count": result.high_risk_count,
+            "profiles": [
+                {
+                    "author": p.author, "email": p.email,
+                    "total_commits": p.total_commits,
+                    "ai_commits": p.ai_commits, "ai_ratio": p.ai_ratio,
+                    "models_used": p.models_used, "block_rate": p.block_rate,
+                    "risk_score": p.risk_score, "trust_level": p.trust_level,
+                }
+                for p in result.profiles
+            ],
+        }
+        _echo(_json.dumps(data, indent=2))
+        return 0
+
+    _echo(f"\n{color('Developer Risk Profiles', BOLD)}\n")
+    _echo(f"  Developers: {result.total_developers}")
+    _echo(f"  High risk:  {result.high_risk_count}\n")
+
+    for p in result.profiles:
+        level_color = RED if p.trust_level == "high_risk" else (
+            YELLOW if p.trust_level == "elevated" else GREEN
+        )
+        _echo(
+            f"  {color(p.trust_level.upper().ljust(11), level_color)} "
+            f"{p.author} — score {p.risk_score}, "
+            f"AI ratio {int(p.ai_ratio * 100)}%, "
+            f"blocks {p.block_count}"
+        )
+        if p.models_used:
+            _echo(f"             Models: {', '.join(p.models_used)}")
+
+    _echo()
+    return 0
+
+
+def cmd_benchmark(args: argparse.Namespace) -> int:
+    """Show LLM code quality benchmarks."""
+    from src.services.llm_benchmark import LLMBenchmarkService
+
+    workspace = Path(args.workspace).resolve()
+    svc = LLMBenchmarkService()
+    result = svc.aggregate(workspace=workspace)
+
+    if getattr(args, "json", False):
+        import json as _json
+        data = {
+            "total_entries": result.total_entries,
+            "total_files": result.total_files,
+            "models": [
+                {
+                    "model": m.model, "files_scanned": m.files_scanned,
+                    "total_lines": m.total_lines,
+                    "total_blocks": m.total_blocks,
+                    "total_warns": m.total_warns,
+                    "block_rate_per_100": m.block_rate_per_100,
+                    "warn_rate_per_100": m.warn_rate_per_100,
+                }
+                for m in result.models
+            ],
+        }
+        _echo(_json.dumps(data, indent=2))
+        return 0
+
+    _echo(f"\n{color('LLM Benchmark', BOLD)}\n")
+    _echo(f"  Data points: {result.total_entries}")
+    _echo(f"  Files:       {result.total_files}\n")
+
+    if not result.models:
+        _echo("  No benchmark data yet. Run scans with attribution enabled.\n")
+        return 0
+
+    for m in sorted(result.models, key=lambda x: x.block_rate_per_100):
+        rate_color = RED if m.block_rate_per_100 > 5 else (
+            YELLOW if m.block_rate_per_100 > 2 else GREEN
+        )
+        _echo(
+            f"  {m.model.ljust(25)} "
+            f"{color(f'{m.block_rate_per_100:.1f}', rate_color)} blocks/100L  "
+            f"{m.warn_rate_per_100:.1f} warns/100L  "
+            f"{m.files_scanned} files"
+        )
+
+    _echo()
+    return 0
+
+
+def cmd_hook(args: argparse.Namespace) -> int:
+    """Manage CodeTrust pre-commit hook."""
+    sub = str(getattr(args, "subcommand", ""))
+
+    if sub == "install":
+        return _hook_install()
+    if sub == "uninstall":
+        return _hook_uninstall()
+    if sub == "report":
+        return _hook_report()
+
+    _echo("Usage: codetrust hook {install|uninstall|report}")
+    return 1
+
+
+def _hook_install() -> int:
+    """Install CodeTrust pre-commit hook into .git/hooks."""
+    git_dir = Path.cwd() / ".git"
+    if not git_dir.is_dir():
+        _echo(f"  {color('X', RED)} Not a git repository")
+        return 1
+
+    hooks_dir = git_dir / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+    target = hooks_dir / "pre-commit"
+
+    # Find the hook source
+    src_candidates = [
+        Path(__file__).parent.parent / "hooks" / _HOOK_SCRIPT,
+        Path.cwd() / "hooks" / _HOOK_SCRIPT,
+    ]
+    src_path: Path | None = None
+    for candidate in src_candidates:
+        if candidate.is_file():
+            src_path = candidate
+            break
+
+    if src_path is None:
+        _echo(f"  {color('X', RED)} Hook script not found: {_HOOK_SCRIPT}")
+        return 1
+
+    # Check if pre-commit already exists and is not ours
+    if target.exists():
+        existing = target.read_text(encoding="utf-8", errors="replace")
+        if "codetrust" not in existing.lower():
+            backup = target.with_suffix(".pre-codetrust")
+            shutil.copy2(target, backup)
+            _echo(f"  Existing hook backed up to {backup.name}")
+
+    # Write wrapper that invokes the hook via python
+    wrapper_content = (
+        "#!/usr/bin/env bash\n"
+        "# CodeTrust pre-commit hook — do not edit manually\n"
+        f'exec python3 "{src_path.resolve()}" "$@"\n'
+    )
+    target.write_text(wrapper_content, encoding="utf-8")
+    target.chmod(0o755)
+
+    _echo(f"  {color('+', GREEN)} Pre-commit hook installed: {target}")
+    _echo(f"  Source: {src_path.resolve()}")
+    return 0
+
+
+def _hook_uninstall() -> int:
+    """Remove CodeTrust pre-commit hook."""
+    target = Path.cwd() / ".git" / "hooks" / "pre-commit"
+    if not target.exists():
+        _echo("  No pre-commit hook installed.")
+        return 0
+
+    content = target.read_text(encoding="utf-8", errors="replace")
+    if "codetrust" not in content.lower():
+        _echo(f"  {color('!', YELLOW)} Pre-commit hook is not a CodeTrust hook — skipping")
+        return 1
+
+    target.unlink()
+    _echo(f"  {color('+', GREEN)} Pre-commit hook removed")
+
+    # Restore backup if exists
+    backup = target.with_suffix(".pre-codetrust")
+    if backup.exists():
+        shutil.move(str(backup), str(target))
+        _echo(f"  Previous hook restored from {backup.name}")
+
+    return 0
+
+
+def _hook_report() -> int:
+    """Show the latest commit report."""
+    report_dir = Path.cwd() / ".codetrust" / "reports"
+    if not report_dir.is_dir():
+        _echo("  No commit reports found.")
+        return 0
+
+    reports = sorted(report_dir.glob("commit_*.json"), reverse=True)
+    if not reports:
+        _echo("  No commit reports found.")
+        return 0
+
+    latest = reports[0]
+    try:
+        data = json.loads(latest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        _echo(f"  {color('X', RED)} Failed to read report: {exc}")
+        return 1
+
+    _echo(f"\n{color('Latest Commit Report', BOLD)}\n")
+    _echo(f"  Timestamp: {data.get('timestamp', '?')}")
+    _echo(f"  Files:     {data.get('files_analyzed', 0)}")
+    _echo(f"  Blocks:    {data.get('total_blocks', 0)}")
+    _echo(f"  Warns:     {data.get('total_warns', 0)}")
+
+    models = data.get("models_used", [])
+    if models:
+        _echo(f"  Models:    {', '.join(models)}")
+
+    editors = data.get("editors_used", [])
+    if editors:
+        _echo(f"  Editors:   {', '.join(editors)}")
+
+    policy_v = data.get("policy_violations", 0)
+    if policy_v:
+        _echo(f"  Policy violations: {policy_v}")
+
+    _echo(f"\n  Report: {latest}\n")
+    return 0
+
+
 def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     """Route parsed CLI args to the appropriate command handler."""
     if args.command == "init":
@@ -4905,6 +5528,18 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_audit(args)
     if args.command == "shield":
         return cmd_shield(args)
+    if args.command == "mcp-audit":
+        return cmd_mcp_audit(args)
+    if args.command == "shadow-scan":
+        return cmd_shadow_scan(args)
+    if args.command == "attribute":
+        return cmd_attribute(args)
+    if args.command == "risk-profile":
+        return cmd_risk_profile(args)
+    if args.command == "benchmark":
+        return cmd_benchmark(args)
+    if args.command == "hook":
+        return cmd_hook(args)
 
     parser.print_help()
     return 0
@@ -4933,6 +5568,7 @@ def main() -> int:
     _add_trend_subparser(subparsers)
     _add_governance_policy_audit_subparsers(subparsers)
     _add_shield_subparser(subparsers)
+    _add_ai_observability_subparsers(subparsers)
 
     args = parser.parse_args()
     return _route_command(args, parser)

@@ -269,7 +269,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
 
     // Activate LLM API call interceptor (AI Observability)
-    activateInterceptor(context, outputChannel);
+    try {
+        activateInterceptor(context, outputChannel);
+    } catch (interceptorErr: unknown) {
+        const msg = interceptorErr instanceof Error ? interceptorErr.message : String(interceptorErr);
+        outputChannel.appendLine(`CodeTrust Attribution: failed to activate — ${msg}`);
+    }
 
     const stats = cache.getStats();
     outputChannel.appendLine(

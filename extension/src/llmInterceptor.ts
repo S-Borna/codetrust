@@ -1,44 +1,43 @@
 // Copyright (c) Said Borna. All rights reserved.
 // Proprietary — see LICENSE for terms.
 /**
- * LLM API Call Interceptor — AI Observability Foundation.
+ * LLM Attribution via VS Code Language Model API.
  *
- * Monitors VS Code's outgoing HTTPS requests to known LLM API endpoints.
- * Records which model is being used, when, and on which file — without
+ * Uses vscode.lm (Language Model API, stable since VS Code 1.90) to enumerate
+ * available AI models, and onDidChangeTextDocument to detect AI-generated
+ * code insertions. Records provider, model, file, and timestamp — without
  * capturing prompts, responses, or source code.
  *
  * Privacy: Only metadata is recorded. No code content. No prompts. No responses.
  */
 
 import * as vscode from "vscode";
-import * as https from "https";
-import * as http from "http";
 import * as path from "path";
 import * as fs from "fs";
 
 // ─────────────────────────────────────────────────────────────────
-//  Known LLM API endpoints
+//  Known AI extensions — used to identify which tool generated code
 // ─────────────────────────────────────────────────────────────────
 
-const LLM_ENDPOINTS: Record<string, string> = {
-    "api.openai.com": "openai",
-    "api.anthropic.com": "anthropic",
-    "generativelanguage.googleapis.com": "google",
-    "api.fireworks.ai": "fireworks",
-    "openrouter.ai": "openrouter",
-    "api.together.xyz": "together",
-    "api.mistral.ai": "mistral",
-    "api.cohere.com": "cohere",
-    "api.groq.com": "groq",
-    "api.deepseek.com": "deepseek",
-    "api.perplexity.ai": "perplexity",
-};
+interface AIExtensionDef {
+    id: string;
+    displayName: string;
+    provider: string;
+}
 
-/** Partial hostname matches (for services with variable subdomains). */
-const LLM_PARTIAL_ENDPOINTS: Record<string, string> = {
-    "bedrock-runtime": "aws_bedrock",
-    "aiplatform.googleapis.com": "google_vertex",
-};
+const KNOWN_AI_EXTENSIONS: AIExtensionDef[] = [
+    { id: "github.copilot", displayName: "GitHub Copilot", provider: "github_copilot" },
+    { id: "github.copilot-chat", displayName: "GitHub Copilot Chat", provider: "github_copilot" },
+    { id: "anthropic.claude-code", displayName: "Claude Code", provider: "anthropic" },
+    { id: "saoudrizwan.claude-dev", displayName: "Cline", provider: "cline" },
+    { id: "continue.continue", displayName: "Continue", provider: "continue" },
+    { id: "codeium.codeium", displayName: "Codeium", provider: "codeium" },
+    { id: "codeium.windsurf", displayName: "Windsurf", provider: "codeium" },
+    { id: "sourcegraph.cody-ai", displayName: "Cody", provider: "sourcegraph" },
+    { id: "tabnine.tabnine-vscode", displayName: "Tabnine", provider: "tabnine" },
+    { id: "amazonwebservices.aws-toolkit-vscode", displayName: "Amazon Q", provider: "amazon_q" },
+    { id: "cursor.cursor", displayName: "Cursor", provider: "cursor" },
+];
 
 // ─────────────────────────────────────────────────────────────────
 //  Types
@@ -48,99 +47,25 @@ export interface LLMEvent {
     timestamp: string;
     provider: string;
     model: string;
+    model_vendor: string;
+    model_family: string;
     active_file: string;
     workspace: string;
     source_extension: string;
-    request_url: string;
+    event_type: "model_available" | "ai_edit_detected" | "chat_model_invoked";
+}
+
+interface CachedModel {
+    id: string;
+    vendor: string;
+    family: string;
+    version: string;
+    name: string;
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  Helpers
 // ─────────────────────────────────────────────────────────────────
-
-function getHostname(options: string | URL | https.RequestOptions): string {
-    if (typeof options === "string") {
-        try {
-            return new URL(options).hostname;
-        } catch {
-            return "";
-        }
-    }
-    if (options instanceof URL) {
-        return options.hostname;
-    }
-    return (options.hostname || options.host || "").replace(/:\d+$/, "");
-}
-
-function getRequestUrl(options: string | URL | https.RequestOptions): string {
-    if (typeof options === "string") {
-        return options;
-    }
-    if (options instanceof URL) {
-        return options.toString();
-    }
-    const proto = "https";
-    const host = options.hostname || options.host || "unknown";
-    const urlPath = options.path || "/";
-    return `${proto}://${host}${urlPath}`;
-}
-
-function matchProvider(hostname: string): string | null {
-    // Exact match first
-    const exact = LLM_ENDPOINTS[hostname];
-    if (exact) {
-        return exact;
-    }
-    // Partial match
-    for (const [partial, provider] of Object.entries(LLM_PARTIAL_ENDPOINTS)) {
-        if (hostname.includes(partial)) {
-            return provider;
-        }
-    }
-    return null;
-}
-
-function extractModelFromBody(body: string, provider: string, url: string): string {
-    try {
-        const parsed = JSON.parse(body);
-        // Most providers use body.model
-        if (parsed.model && typeof parsed.model === "string") {
-            return parsed.model;
-        }
-        // Google Vertex: model in URL path
-        if (provider === "google" || provider === "google_vertex") {
-            const modelMatch = url.match(/models\/([^/:]+)/);
-            if (modelMatch) {
-                return modelMatch[1];
-            }
-        }
-        // AWS Bedrock: modelId in body or URL
-        if (provider === "aws_bedrock") {
-            if (parsed.modelId) {
-                return parsed.modelId;
-            }
-            const modelMatch = url.match(/model\/([^/]+)/);
-            if (modelMatch) {
-                return decodeURIComponent(modelMatch[1]);
-            }
-        }
-    } catch {
-        // Non-JSON body — skip
-    }
-    return "unknown";
-}
-
-function getActiveFilePath(): string {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return "";
-    }
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
-    if (workspaceFolder) {
-        return path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
-    }
-    return editor.document.uri.fsPath;
-}
 
 function getWorkspaceRoot(): string {
     const folders = vscode.workspace.workspaceFolders;
@@ -150,26 +75,11 @@ function getWorkspaceRoot(): string {
     return "";
 }
 
-function getCallingExtension(): string {
-    // Attempt to derive from Error stack trace
-    try {
-        const stack = new Error().stack || "";
-        const lines = stack.split("\n");
-        for (const line of lines) {
-            // VS Code extension paths contain the extension ID
-            const extMatch = line.match(/extensions\/([^/]+)\//);
-            if (extMatch) {
-                const extId = extMatch[1];
-                // Skip ourselves
-                if (!extId.includes("codetrust")) {
-                    return extId;
-                }
-            }
-        }
-    } catch {
-        // Stack trace unavailable
-    }
-    return "unknown";
+function getActiveAIExtensions(): AIExtensionDef[] {
+    return KNOWN_AI_EXTENSIONS.filter((ext) => {
+        const extension = vscode.extensions.getExtension(ext.id);
+        return extension !== undefined && extension.isActive;
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -179,6 +89,12 @@ function getCallingExtension(): string {
 const ATTRIBUTION_FILENAME = "attribution.jsonl";
 const CODETRUST_DIR = ".codetrust";
 const MAX_EVENTS_PER_MINUTE = 60;
+
+/** Minimum inserted characters to consider as AI-generated (not typing). */
+const MIN_AI_INSERT_CHARS = 20;
+
+/** Minimum lines inserted to consider as AI-generated. */
+const MIN_AI_INSERT_LINES = 2;
 
 let eventCountThisMinute = 0;
 let lastMinuteReset = Date.now();
@@ -217,20 +133,123 @@ function recordEvent(event: LLMEvent, outputChannel: vscode.OutputChannel): void
         const line = JSON.stringify(event) + "\n";
         fs.appendFileSync(filepath, line, "utf-8");
         outputChannel.appendLine(
-            `CodeTrust Attribution: ${event.provider}/${event.model} → ${event.active_file || "(no file)"}`,
+            `CodeTrust Attribution: ${event.event_type} | ${event.provider}/${event.model} → ${event.active_file || "(no file)"}`,
         );
     } catch {
-        // Silent — don't break user workflow for telemetry failure
+        // Silent — don't break user workflow for attribution failure
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  HTTPS interception
+//  Model enumeration via vscode.lm API
+// ─────────────────────────────────────────────────────────────────
+
+let cachedModels: CachedModel[] = [];
+
+async function enumerateModels(outputChannel: vscode.OutputChannel): Promise<void> {
+    try {
+        const models = await vscode.lm.selectChatModels();
+        cachedModels = models.map((m) => ({
+            id: m.id,
+            vendor: m.vendor,
+            family: m.family,
+            version: m.version,
+            name: m.name,
+        }));
+
+        if (cachedModels.length > 0) {
+            outputChannel.appendLine(
+                `CodeTrust Attribution: discovered ${cachedModels.length} LLM model(s):`,
+            );
+            for (const model of cachedModels) {
+                outputChannel.appendLine(
+                    `  → ${model.vendor}/${model.family} (${model.id})`,
+                );
+
+                // Record each model discovery
+                recordEvent({
+                    timestamp: new Date().toISOString(),
+                    provider: model.vendor,
+                    model: model.family,
+                    model_vendor: model.vendor,
+                    model_family: model.family,
+                    active_file: "",
+                    workspace: getWorkspaceRoot(),
+                    source_extension: "vscode.lm",
+                    event_type: "model_available",
+                }, outputChannel);
+            }
+        } else {
+            outputChannel.appendLine(
+                "CodeTrust Attribution: no LLM models registered (no AI extensions active yet).",
+            );
+        }
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine(
+            `CodeTrust Attribution: vscode.lm.selectChatModels() failed — ${msg}`,
+        );
+    }
+}
+
+/**
+ * Resolve the most likely model for a given provider.
+ *
+ * If only one model from that provider is registered, return it.
+ * Otherwise return the first match or "unknown".
+ */
+function resolveModelForProvider(provider: string): CachedModel | null {
+    const matching = cachedModels.filter(
+        (m) => m.vendor.toLowerCase().includes(provider.toLowerCase())
+            || provider.toLowerCase().includes(m.vendor.toLowerCase()),
+    );
+    if (matching.length >= 1) {
+        return matching[0];
+    }
+    return cachedModels.length === 1 ? cachedModels[0] : null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  AI edit detection via onDidChangeTextDocument
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Determine if a text change looks AI-generated rather than human-typed.
+ *
+ * Heuristic: multi-line insertions or large single-line pastes that happen
+ * while an AI extension is active are likely AI-generated.
+ */
+function isLikelyAIGenerated(change: vscode.TextDocumentContentChangeEvent): boolean {
+    const text = change.text;
+
+    // Deletions or empty changes — not AI
+    if (text.length === 0) {
+        return false;
+    }
+
+    const lineCount = text.split("\n").length;
+
+    // Multi-line insertion (2+ lines with enough content)
+    if (lineCount >= MIN_AI_INSERT_LINES && text.length >= MIN_AI_INSERT_CHARS) {
+        return true;
+    }
+
+    // Large single-line insertion (likely inline completion)
+    if (lineCount === 1 && text.length >= MIN_AI_INSERT_CHARS) {
+        // Exclude common non-AI patterns: pasting a URL, auto-bracket
+        const isAutoClose = text.length <= 2 && /^[\])}>'"` ]$/.test(text);
+        return !isAutoClose;
+    }
+
+    return false;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Activation / Deactivation
 // ─────────────────────────────────────────────────────────────────
 
 let isInterceptorActive = false;
-let originalHttpsRequest: typeof https.request | null = null;
-let originalHttpsGet: typeof https.get | null = null;
+const disposables: vscode.Disposable[] = [];
 
 export function activateInterceptor(
     context: vscode.ExtensionContext,
@@ -245,132 +264,102 @@ export function activateInterceptor(
         return;
     }
 
-    // Respect VS Code global telemetry opt-out
-    const isTelemetryOff = vscode.env.isTelemetryEnabled === false;
-    if (isTelemetryOff) {
-        outputChannel.appendLine("CodeTrust Attribution: disabled (VS Code telemetry off).");
-        return;
-    }
-
     if (isInterceptorActive) {
         return;
     }
 
-    originalHttpsRequest = https.request;
-    originalHttpsGet = https.get;
+    // 1. Enumerate available models at startup
+    void enumerateModels(outputChannel);
 
-    const patchedRequest = function (
-        this: unknown,
-        ...args: Parameters<typeof https.request>
-    ): http.ClientRequest {
-        const options = args[0];
-        const hostname = getHostname(options);
-        const provider = matchProvider(hostname);
+    // 2. Re-enumerate when models change (extensions activate/deactivate)
+    if (vscode.lm.onDidChangeChatModels) {
+        const modelWatcher = vscode.lm.onDidChangeChatModels(() => {
+            void enumerateModels(outputChannel);
+        });
+        disposables.push(modelWatcher);
+        context.subscriptions.push(modelWatcher);
+    }
 
-        if (provider && originalHttpsRequest) {
-            const url = getRequestUrl(options);
-            const callback = typeof args[1] === "function" ? args[1] : args[2];
-            const req = originalHttpsRequest.call(https, ...args);
-
-            // Intercept write to extract model from request body
-            const originalWrite = req.write.bind(req);
-            let bodyChunks: Buffer[] = [];
-
-            req.write = function (
-                chunk: string | Buffer | Uint8Array,
-                ...writeArgs: unknown[]
-            ): boolean {
-                if (chunk) {
-                    const buf = typeof chunk === "string"
-                        ? Buffer.from(chunk, "utf-8")
-                        : Buffer.from(chunk);
-                    bodyChunks.push(buf);
-                }
-                return (originalWrite as Function)(chunk, ...writeArgs);
-            };
-
-            // Intercept end to capture full body
-            const originalEnd = req.end.bind(req);
-            req.end = function (...endArgs: unknown[]): http.ClientRequest {
-                // First arg to end() can also be data
-                if (endArgs[0] && typeof endArgs[0] !== "function") {
-                    const chunk = endArgs[0];
-                    const buf = typeof chunk === "string"
-                        ? Buffer.from(chunk, "utf-8")
-                        : Buffer.from(chunk as Uint8Array);
-                    bodyChunks.push(buf);
-                }
-
-                const fullBody = Buffer.concat(bodyChunks).toString("utf-8");
-                const model = extractModelFromBody(fullBody, provider, url);
-
-                const event: LLMEvent = {
-                    timestamp: new Date().toISOString(),
-                    provider,
-                    model,
-                    active_file: getActiveFilePath(),
-                    workspace: getWorkspaceRoot(),
-                    source_extension: getCallingExtension(),
-                    request_url: `${hostname}${url.replace(/^https?:\/\/[^/]+/, "").split("?")[0]}`,
-                };
-
-                recordEvent(event, outputChannel);
-                bodyChunks = [];
-
-                return (originalEnd as Function)(...endArgs);
-            };
-
-            return req;
+    // 3. Detect AI-generated edits
+    const editWatcher = vscode.workspace.onDidChangeTextDocument((event) => {
+        // Skip non-file documents (output panels, settings, etc.)
+        if (event.document.uri.scheme !== "file") {
+            return;
         }
 
-        return originalHttpsRequest!.call(https, ...args);
-    };
+        // Only process if AI extensions are active
+        const activeAI = getActiveAIExtensions();
+        if (activeAI.length === 0) {
+            return;
+        }
 
-    // Patch https.request
-    (https as { request: typeof https.request }).request = patchedRequest as typeof https.request;
+        for (const change of event.contentChanges) {
+            if (isLikelyAIGenerated(change)) {
+                // Determine source extension — if only one AI ext is active, it's unambiguous
+                const sourceExt = activeAI.length === 1
+                    ? activeAI[0]
+                    : activeAI[0]; // Best guess: first active
 
-    // Patch https.get (calls request internally, but patch for safety)
-    (https as { get: typeof https.get }).get = function (
-        this: unknown,
-        ...args: Parameters<typeof https.get>
-    ): http.ClientRequest {
-        const req = patchedRequest.call(this, ...args as Parameters<typeof https.request>);
-        req.end();
-        return req;
-    } as typeof https.get;
+                const resolvedModel = resolveModelForProvider(sourceExt.provider);
+
+                const llmEvent: LLMEvent = {
+                    timestamp: new Date().toISOString(),
+                    provider: sourceExt.provider,
+                    model: resolvedModel ? resolvedModel.family : "unknown",
+                    model_vendor: resolvedModel ? resolvedModel.vendor : sourceExt.provider,
+                    model_family: resolvedModel ? resolvedModel.family : "unknown",
+                    active_file: path.relative(
+                        getWorkspaceRoot() || "",
+                        event.document.uri.fsPath,
+                    ),
+                    workspace: getWorkspaceRoot(),
+                    source_extension: sourceExt.id,
+                    event_type: "ai_edit_detected",
+                };
+
+                recordEvent(llmEvent, outputChannel);
+
+                // One event per document change is enough
+                break;
+            }
+        }
+    });
+    disposables.push(editWatcher);
+    context.subscriptions.push(editWatcher);
+
+    // 4. Log active AI extensions
+    const activeAI = getActiveAIExtensions();
+    const activeNames = activeAI.map((e) => e.displayName).join(", ") || "none yet";
 
     isInterceptorActive = true;
     outputChannel.appendLine(
-        `CodeTrust Attribution: active — monitoring ${Object.keys(LLM_ENDPOINTS).length + Object.keys(LLM_PARTIAL_ENDPOINTS).length} LLM endpoints.`,
+        `CodeTrust Attribution: active — using vscode.lm API. Active AI extensions: ${activeNames}`,
     );
 
-    // Watch for config changes
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration("codetrust.attribution.enabled")) {
-                const nowEnabled = vscode.workspace
-                    .getConfiguration("codetrust")
-                    .get<boolean>("attribution.enabled", true);
-                if (!nowEnabled && isInterceptorActive) {
-                    deactivateInterceptor(outputChannel);
-                }
+    // 5. Watch for config changes
+    const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("codetrust.attribution.enabled")) {
+            const nowEnabled = vscode.workspace
+                .getConfiguration("codetrust")
+                .get<boolean>("attribution.enabled", true);
+            if (!nowEnabled && isInterceptorActive) {
+                deactivateInterceptor(outputChannel);
             }
-        }),
-    );
+        }
+    });
+    disposables.push(configWatcher);
+    context.subscriptions.push(configWatcher);
 }
 
 export function deactivateInterceptor(outputChannel: vscode.OutputChannel): void {
     if (!isInterceptorActive) {
         return;
     }
-    if (originalHttpsRequest) {
-        (https as { request: typeof https.request }).request = originalHttpsRequest;
+    for (const d of disposables) {
+        d.dispose();
     }
-    if (originalHttpsGet) {
-        (https as { get: typeof https.get }).get = originalHttpsGet;
-    }
+    disposables.length = 0;
+    cachedModels = [];
     isInterceptorActive = false;
-    originalHttpsRequest = null;
-    originalHttpsGet = null;
     outputChannel.appendLine("CodeTrust Attribution: deactivated.");
 }

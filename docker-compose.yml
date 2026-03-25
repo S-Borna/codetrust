@@ -11,8 +11,8 @@ services:
       - CODETRUST_DEBUG=false
       - CODETRUST_REDIS_URL=redis://redis:6379
       - CODETRUST_REDIS_ENABLED=true
-      - CODETRUST_API_KEY=${CODETRUST_API_KEY:-}
-      - CODETRUST_DATABASE_URL=postgresql+asyncpg://codetrust:codetrust@postgres:5432/codetrust
+      - CODETRUST_API_KEY=${CODETRUST_API_KEY:-dev}
+      - CODETRUST_DATABASE_URL=${CODETRUST_DATABASE_URL:-postgresql+asyncpg://codetrust:codetrust@postgres:5432/codetrust}
       - CODETRUST_STRIPE_SECRET_KEY=${CODETRUST_STRIPE_SECRET_KEY:-}
       - CODETRUST_STRIPE_WEBHOOK_SECRET=${CODETRUST_STRIPE_WEBHOOK_SECRET:-}
     depends_on:
@@ -32,7 +32,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 3
     restart: unless-stopped
 
   postgres:
@@ -40,16 +40,37 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: codetrust
-      POSTGRES_PASSWORD: codetrust
-      POSTGRES_DB: codetrust
+      POSTGRES_USER: ${POSTGRES_USER:-codetrust}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codetrust}
+      POSTGRES_DB: ${POSTGRES_DB:-codetrust}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U codetrust"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 3
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:8000
+      - DATABASE_URL=${DASHBOARD_DATABASE_URL:-postgresql://codetrust:codetrust@postgres:5432/codetrust}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-in-production}
+      - STRIPE_SECRET_KEY=${CODETRUST_STRIPE_SECRET_KEY:-}
+      - STRIPE_PRICE_PRO=${CODETRUST_STRIPE_PRICE_PRO:-}
+      - STRIPE_PRICE_ENTERPRISE=${CODETRUST_STRIPE_PRICE_ENTERPRISE:-}
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

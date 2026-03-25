@@ -1,0 +1,53 @@
+name: CodeTrust Scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codetrust-scan:
+    name: CodeTrust Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Run CodeTrust Scan
+        uses: ./action
+        id: scan
+        with:
+          fail-on: block
+          sarif: "true"
+
+      - name: Upload SARIF to GitHub Security
+        if: always() && steps.scan.outputs.sarif-file
+        uses: github/codeql-action/upload-sarif@cdcdbb579706841c47f7063dda365e292e5cad7a  # v3.26.13
+        with:
+          sarif_file: codetrust-results.sarif
+          category: codetrust
+
+      - name: Comment scan results on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'codetrust-report.md';
+            if (fs.existsSync(reportPath)) {
+              const report = fs.readFileSync(reportPath, 'utf8');
+              const body = `## CodeTrust Scan Results\n\n${report}`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body.substring(0, 65000)
+              });
+            }

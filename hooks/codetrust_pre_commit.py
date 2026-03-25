@@ -31,6 +31,13 @@ CODE_EXTENSIONS: frozenset[str] = frozenset({
     ".sql", ".tf", ".sh", ".dockerfile",
 })
 
+# Infrastructure config files that use env var references — skip scanning
+# to avoid false positives on ${VAR:-default} patterns.
+INFRA_CONFIG_SKIP: frozenset[str] = frozenset({
+    "docker-compose.yml", "docker-compose.yaml",
+    "docker-compose.override.yml", "docker-compose.override.yaml",
+})
+
 SEVERITY_BLOCK = "BLOCK"
 SEVERITY_WARN = "WARN"
 
@@ -236,6 +243,8 @@ def main() -> int:
 
     for filepath in staged:
         if Path(filepath).suffix.lower() not in CODE_EXTENSIONS:
+            continue
+        if Path(filepath).name.lower() in INFRA_CONFIG_SKIP:
             continue
 
         findings = scan_file(filepath)

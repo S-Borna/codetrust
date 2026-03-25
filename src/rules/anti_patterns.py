@@ -42,6 +42,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": _HEREDOC + r"[-']?\w+",
         "message": "Heredoc detected. Use template files or multi-line strings.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace the heredoc with a proper file-writing tool. "
+            "For git commit: use `git commit -F <tmpfile>` where tmpfile is created via Write tool. "
+            "For file creation: use the Write/create_file tool directly. "
+            "For shell config: use a template file and `envsubst` or variable expansion."
+        ),
     },
     {
         "id": "hardcoded_secret",
@@ -51,24 +57,50 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
         "message": "Possible hardcoded secret. Use environment variables.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Move the secret to an environment variable. "
+            "1. Add the key to .env (never commit .env). "
+            "2. Reference via os.environ['KEY'] (Python), process.env.KEY (JS/TS), or os.Getenv('KEY') (Go). "
+            "3. Add the key name to .env.example with a placeholder value."
+        ),
     },
     {
         "id": "eval_exec",
         "pattern": r"\b(eval|exec)\s*\(",
         "message": "eval/exec is a security risk. Use safe alternatives.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace eval/exec with a safe alternative: "
+            "For JSON parsing: use json.loads(). "
+            "For math expressions: use ast.literal_eval(). "
+            "For dynamic dispatch: use a dict mapping of allowed functions. "
+            "For config: use a validated Pydantic model or dataclass."
+        ),
     },
     {
         "id": "sql_injection",
         "pattern": r'(?:execute|executemany|cursor\.execute)\s*\(\s*(?:f["\']|[^)]*\.format\s*\()',
         "message": "Possible SQL injection via string formatting. Use parameterized queries.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace f-string/format SQL with parameterized queries: "
+            "cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)) for psycopg2, "
+            "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,)) for sqlite3, "
+            "or use an ORM (SQLAlchemy, Prisma, GORM) that handles parameterization automatically."
+        ),
     },
     {
         "id": "pickle_load",
         "pattern": r"pickle\.loads?\s*\(",
         "message": "pickle.load is unsafe with untrusted data. Use JSON or msgpack.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace pickle with a safe serialization format: "
+            "json.loads()/json.dumps() for general data, "
+            "msgpack.packb()/msgpack.unpackb() for binary efficiency, "
+            "or pydantic model.model_validate_json() for typed deserialization. "
+            "If pickle is required for ML models, use safetensors or ONNX format instead."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -98,6 +130,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             "Find and resolve the underlying problem."
         ),
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Delete the symptom-fix code and its marker comment. "
+            "Run root-cause analysis: ask 'why is this happening?' at least 3 times. "
+            "Fix the upstream source of the problem (validation, schema, API contract). "
+            "If a temporary fix is truly needed, open a tracked issue with deadline instead."
+        ),
     },
     {
         "id": "except_swallow",
@@ -105,6 +143,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Exception caught and silently swallowed (pass/...). Handle the error or re-raise.",
         "severity": Severity.BLOCK,
         "special_handler": "check_except_swallow",
+        "suggestion": (
+            "Replace `pass` or `...` in the except block with one of: "
+            "1. `logger.exception('Context: what operation failed')` to log with traceback. "
+            "2. `raise` to re-raise the original exception. "
+            "3. `raise SpecificError('message') from exc` to chain exceptions. "
+            "Catch the most specific exception type possible (e.g., ValueError, KeyError)."
+        ),
     },
     {
         "id": "null_coalesce_smell",
@@ -191,6 +236,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "suggestion": (
+            "Replace `datetime.utcnow()` with `datetime.now(tz=timezone.utc)`. "
+            "Add `from datetime import datetime, timezone` at the top of the file. "
+            "This returns a timezone-aware datetime that works correctly across time zones."
+        ),
     },
     {
         "id": "datetime_naive",
@@ -242,6 +292,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "suggestion": (
+            "Replace string concatenation with parameterized queries: "
+            "Instead of `'SELECT * FROM t WHERE id=' + id`, use "
+            "`cursor.execute('SELECT * FROM t WHERE id = %s', (id,))`. "
+            "For ORMs: use query builder methods (e.g., .filter(Model.id == id)). "
+            "Never concatenate user input into SQL strings."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -319,6 +376,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SELECT * is fragile — specify columns explicitly.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "Replace `SELECT *` with explicit column names: "
+            "`SELECT id, name, email, created_at FROM users`. "
+            "This prevents breakage when columns are added/removed and improves query performance."
+        ),
     },
     {
         "id": "sql_delete_no_where",
@@ -326,6 +388,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DELETE without WHERE will remove all rows. Add a WHERE clause.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "Add a WHERE clause to scope the deletion: "
+            "`DELETE FROM table_name WHERE condition;`. "
+            "If you truly need to remove all rows, use `TRUNCATE TABLE table_name;` which is explicit about intent."
+        ),
     },
     {
         "id": "sql_update_no_where",
@@ -333,6 +400,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "UPDATE without WHERE will modify all rows. Add a WHERE clause.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "Add a WHERE clause to scope the update: "
+            "`UPDATE table_name SET column = value WHERE id = target_id;`. "
+            "If updating all rows is intentional, add a comment explaining why."
+        ),
     },
     {
         "id": "sql_drop_no_if_exists",
@@ -340,6 +412,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DROP without IF EXISTS may fail. Use DROP … IF EXISTS.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "Add IF EXISTS to make the DROP idempotent: "
+            "`DROP TABLE IF EXISTS table_name;`. "
+            "This prevents errors when the object doesn't exist and makes migrations re-runnable."
+        ),
     },
     {
         "id": "sql_grant_all",
@@ -347,6 +424,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GRANT ALL gives excessive privileges. Grant only what is needed.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "Replace `GRANT ALL` with specific privileges: "
+            "`GRANT SELECT, INSERT, UPDATE ON schema.table TO role;`. "
+            "Follow principle of least privilege — only grant what the application actually needs. "
+            "Read-only services should only get SELECT."
+        ),
     },
     {
         "id": "sql_foreign_key_checks_off",
@@ -354,6 +437,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling foreign key checks bypasses referential integrity. Ensure it is re-enabled.",
         "severity": Severity.BLOCK,
         "file_types": [".sql"],
+        "suggestion": (
+            "If disabling FK checks for a migration, wrap it in a transaction and re-enable immediately: "
+            "`SET FOREIGN_KEY_CHECKS=0; ... your DDL ... SET FOREIGN_KEY_CHECKS=1;`. "
+            "Better: restructure the migration to respect FK ordering (create parent tables first). "
+            "Never leave FK checks disabled in production."
+        ),
     },
     # --- WARN severity ---
     {
@@ -417,6 +506,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:database|db|sql|postgres|mysql|mongo|redis)[_-]?(?:url|uri|dsn)(?:\s*:\s*\w+)?\s*[:=]\s*[\"']?[\w+]+://\w+:\S+@",
         "message": "Database URL contains embedded credentials. Use environment variables for username and password.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Split the database URL into components using environment variables: "
+            "DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME. "
+            "Construct the URL at runtime: "
+            "`f'postgresql://{os.environ[\"DB_USER\"]}:{os.environ[\"DB_PASS\"]}@{os.environ[\"DB_HOST\"]}/{os.environ[\"DB_NAME\"]}'`. "
+            "Or use a single DATABASE_URL env var loaded from .env (never committed)."
+        ),
     },
 
     # --- Python: network connections without timeout ---
@@ -488,6 +584,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Secret in Dockerfile ENV/ARG. Use runtime secrets or build-time --secret flag.",
         "severity": Severity.BLOCK,
         "file_types": [".dockerfile"],
+        "suggestion": (
+            "Remove the secret from Dockerfile ENV/ARG. Instead: "
+            "1. Pass at runtime: `docker run -e SECRET_KEY=value ...` "
+            "2. Use BuildKit secrets: `RUN --mount=type=secret,id=mysecret cat /run/secrets/mysecret`. "
+            "3. Use docker-compose secrets or Kubernetes Secrets for orchestrated environments."
+        ),
     },
 
     # ─── Docker Compose ──────────────────────────────────────────
@@ -556,6 +658,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace the hardcoded value with an environment variable reference. "
+            "YAML: `api_key: ${API_KEY}` with envsubst, or use a .env file. "
+            "TOML: reference via code, not in the config file itself. "
+            "For production: use a secret manager (AWS Secrets Manager, HashiCorp Vault, Doppler)."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -568,6 +676,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "dangerouslySetInnerHTML bypasses React's XSS protection. Sanitize input or use a safe renderer.",
         "severity": Severity.BLOCK,
         "file_types": [".jsx", ".tsx", ".js", ".ts"],
+        "suggestion": (
+            "Replace dangerouslySetInnerHTML with a safe alternative: "
+            "1. Use DOMPurify: `dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(html)}}`. "
+            "2. Use a Markdown renderer (react-markdown) for user-generated content. "
+            "3. If rendering trusted HTML, add `// SECURITY: content is pre-sanitized by [source]` comment."
+        ),
     },
     {
         "id": "react_no_key_in_list",
@@ -611,6 +725,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Direct innerHTML assignment bypasses sanitization. Use React's rendering or a sanitizer.",
         "severity": Severity.BLOCK,
         "file_types": [".jsx", ".tsx", ".js", ".ts"],
+        "suggestion": (
+            "Replace `.innerHTML = value` with safe DOM methods: "
+            "1. React: use JSX rendering or dangerouslySetInnerHTML with DOMPurify. "
+            "2. Vanilla JS: use `element.textContent = value` for text, or "
+            "`element.appendChild(document.createTextNode(value))`. "
+            "3. If HTML is required: `element.innerHTML = DOMPurify.sanitize(value)`."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -623,6 +744,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Privileged container. Remove privileged: true unless absolutely necessary.",
         "severity": Severity.BLOCK,
         "file_types": [".yml", ".yaml"],
+        "suggestion": (
+            "Remove `privileged: true` from the container spec. Instead: "
+            "1. Use specific capabilities: `capabilities: { add: ['NET_ADMIN'] }`. "
+            "2. Use securityContext with minimal permissions. "
+            "3. If hardware access is needed, use `devices:` to mount only the specific device."
+        ),
     },
     {
         "id": "k8s_host_network",
@@ -666,24 +793,45 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\btee\s+\S+\s*" + _HEREDOC,
         "message": "tee with heredoc detected. AI agents must use template files, not shell tricks.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `tee file <<EOF ... EOF` with the Write/create_file tool. "
+            "Write the content directly to the file using your editor's file creation capability. "
+            "Heredocs in shell are prohibited — they bypass validation and introduce formatting issues."
+        ),
     },
     {
         "id": "agent_echo_multiline_redirect",
         "pattern": r"echo\s+-e\s+.*\\n.*>\s*\S+",
         "message": "echo -e with newlines to write files. Use proper file I/O or template files.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `echo -e '...\\n...' > file` with the Write/create_file tool. "
+            "Write multi-line content using your editor's file creation tool, not shell echo. "
+            "This ensures correct encoding, line endings, and allows content validation."
+        ),
     },
     {
         "id": "agent_cat_heredoc",
         "pattern": r"cat\s*>\s*\S+\s*" + _HEREDOC,
         "message": "cat with heredoc redirect. Heredocs are prohibited. Use template files.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `cat > file <<EOF ... EOF` with the Write/create_file tool. "
+            "Use your editor's native file creation to write the content directly. "
+            "If in a script, use Python/Node to write the file with proper encoding."
+        ),
     },
     {
         "id": "agent_subprocess_shell_true",
         "pattern": r"subprocess\.\w+\(.*shell\s*=\s*True",
         "message": "subprocess with shell=True. Use shell=False and pass args as list.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `subprocess.run('cmd arg1 arg2', shell=True)` with "
+            "`subprocess.run(['cmd', 'arg1', 'arg2'], shell=False, check=True)`. "
+            "Pass arguments as a list to prevent shell injection. "
+            "If you need shell features (pipes, globs), use subprocess.PIPE or pathlib.glob() instead."
+        ),
     },
     {
         "id": "agent_os_system",
@@ -691,12 +839,23 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "os.system is unsafe. Use subprocess.run with shell=False.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "suggestion": (
+            "Replace `os.system('command args')` with "
+            "`subprocess.run(['command', 'args'], check=True, capture_output=True)`. "
+            "Add `import subprocess` and remove `import os` if no longer needed. "
+            "subprocess.run gives you return code, stdout, and stderr control."
+        ),
     },
     {
         "id": "agent_os_popen",
         "pattern": r"\bos\.popen\s*\(",
         "message": "os.popen is unsafe. Use subprocess.run with shell=False.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `os.popen('command')` with "
+            "`subprocess.run(['command'], capture_output=True, text=True, check=True)`. "
+            "Access output via `result.stdout`. This avoids shell injection and gives proper error handling."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -736,6 +895,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"[\"'](?:sk-[a-zA-Z0-9]{48}|pk_test_[a-zA-Z0-9]{24}|xoxb-[0-9]{10,})[\"']",
         "message": "String resembles a real API key format (OpenAI/Stripe/Slack). Verify it's not fabricated by AI.",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace the hardcoded key-like string with an environment variable: "
+            "`os.environ['OPENAI_API_KEY']` (Python), `process.env.STRIPE_SECRET_KEY` (JS). "
+            "If this is a test, use a clearly fake value like 'sk-test-placeholder-not-real'. "
+            "Never commit real or real-looking API keys to source control."
+        ),
     },
 
     # --- Hallucinated Python imports ---
@@ -745,6 +910,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Import from a commonly hallucinated AI package. This package likely does not exist on PyPI.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "suggestion": (
+            "This package does not exist on PyPI — it was hallucinated. "
+            "Remove the import and use a real package instead. "
+            "Common alternatives: scikit-learn (sklearn), transformers (huggingface), "
+            "langchain, openai, anthropic, torch (PyTorch), tensorflow. "
+            "Verify any package exists on pypi.org before importing."
+        ),
     },
     {
         "id": "hallucinated_import_misspelled",
@@ -752,6 +924,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Misspelled import — AI hallucinated a typo. Check PyPI for the correct package name.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "suggestion": (
+            "Fix the misspelled import. Common corrections: "
+            "requets/requsts → requests, beautifulsoup → beautifulsoup4 (bs4), "
+            "sklear → sklearn, tenserflow → tensorflow, pytorch → torch, "
+            "numpyy → numpy, pands → pandas, matplotib → matplotlib, "
+            "sqlachemy → sqlalchemy, fasttapi → fastapi, fask → flask, djano → django."
+        ),
     },
 
     # --- Hallucinated function/method calls ---
@@ -810,6 +989,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Avoid eval/class_eval/module_eval — use safe metaprogramming alternatives.",
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
+        "suggestion": (
+            "Replace eval with safe Ruby metaprogramming: "
+            "1. Use `define_method` instead of `class_eval` with string interpolation. "
+            "2. Use `public_send`/`send` with a whitelist of allowed method names. "
+            "3. For config: use YAML.safe_load or JSON.parse instead of eval."
+        ),
     },
     {
         "id": "ruby_system_exec",
@@ -817,6 +1002,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Shell command execution detected. Use shell-escape or parameterized commands.",
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
+        "suggestion": (
+            "Replace shell execution with Shellwords-escaped commands: "
+            "`system('cmd', Shellwords.escape(user_input))` or use Open3: "
+            "`stdout, stderr, status = Open3.capture3('cmd', arg1, arg2)`. "
+            "Never interpolate user input into backtick or system() strings."
+        ),
     },
     {
         "id": "ruby_send_public_send",
@@ -831,6 +1022,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Debug breakpoint left in code. Remove binding.pry before deploying.",
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
+        "suggestion": (
+            "Delete the `binding.pry` line. "
+            "Add a pre-commit hook to catch debug breakpoints: "
+            "`grep -rn 'binding.pry' app/ lib/ && exit 1`. "
+            "Use conditional debugging: `binding.pry if ENV['DEBUG']` during development only."
+        ),
     },
     {
         "id": "ruby_puts_p_debug",
@@ -874,6 +1071,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible hardcoded secret in Ruby code. Use environment variables (ENV['KEY']).",
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
+        "suggestion": (
+            "Replace the hardcoded secret with `ENV.fetch('KEY_NAME')`. "
+            "Use `ENV.fetch` (not `ENV[]`) to fail fast if the variable is missing. "
+            "Add the key to .env via dotenv gem and to .env.example with a placeholder. "
+            "For Rails: use `Rails.application.credentials` or `config/credentials.yml.enc`."
+        ),
     },
     {
         "id": "ruby_hallucinated_gem",
@@ -882,6 +1085,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".rb"],
         "skip_comments": True,
+        "suggestion": (
+            "This gem name is misspelled or does not exist. Common corrections: "
+            "activrecord → activerecord, actionspack → actionpack, "
+            "ruby_json → json (stdlib), http_client → httparty or faraday, "
+            "easy_http → net/http (stdlib) or faraday, ruby_async → async. "
+            "Verify on rubygems.org before adding to Gemfile."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -894,6 +1104,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval/assert is a critical security risk. Use safe alternatives.",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace eval/assert with safe alternatives: "
+            "For JSON: use json_decode(). For config: use parse_ini_file() or YAML. "
+            "For dynamic class instantiation: use a factory pattern with a whitelist. "
+            "For templates: use Twig, Blade, or other sandboxed template engines."
+        ),
     },
     {
         "id": "php_shell_exec",
@@ -901,6 +1117,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Shell command execution detected. Use escapeshellarg/escapeshellcmd for user input.",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace direct shell execution with escaped commands: "
+            "`$output = shell_exec('cmd ' . escapeshellarg($userInput));`. "
+            "Better: use PHP native functions (file_get_contents, copy, mkdir) instead of shell commands. "
+            "For complex operations: use Symfony Process component with argument arrays."
+        ),
     },
     {
         "id": "php_sql_injection",
@@ -908,6 +1130,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible SQL injection via variable interpolation. Use prepared statements (PDO/mysqli).",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace interpolated SQL with PDO prepared statements: "
+            "`$stmt = $pdo->prepare('SELECT * FROM users WHERE id = :id'); "
+            "$stmt->execute(['id' => $userId]);`. "
+            "For mysqli: `$stmt = $conn->prepare('SELECT * FROM users WHERE id = ?'); "
+            "$stmt->bind_param('i', $userId);`. Never embed $variables in SQL strings."
+        ),
     },
     {
         "id": "php_var_dump",
@@ -923,6 +1152,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Deprecated mysql_* functions. Use PDO or mysqli instead (mysql_* removed in PHP 7+).",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace mysql_* with PDO (recommended) or mysqli: "
+            "mysql_connect → `$pdo = new PDO('mysql:host=localhost;dbname=db', $user, $pass)`. "
+            "mysql_query → `$pdo->prepare($sql)->execute()`. "
+            "mysql_fetch_array → `$stmt->fetch(PDO::FETCH_ASSOC)`. "
+            "PDO supports prepared statements by default, preventing SQL injection."
+        ),
     },
     {
         "id": "php_error_suppression",
@@ -944,6 +1180,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "unserialize() on untrusted data enables object injection attacks. Use json_decode instead.",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace `unserialize($data)` with `json_decode($data, true)`. "
+            "If PHP serialization is required, use `unserialize($data, ['allowed_classes' => false])` "
+            "to prevent object injection. For complex data: use json_encode/json_decode consistently."
+        ),
     },
     {
         "id": "php_md5_password",
@@ -951,6 +1192,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Weak hash for passwords. Use password_hash() with PASSWORD_BCRYPT or PASSWORD_ARGON2ID.",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace `md5($password)` / `sha1($password)` with: "
+            "`$hash = password_hash($password, PASSWORD_ARGON2ID);` for hashing, "
+            "`password_verify($password, $hash)` for verification. "
+            "PASSWORD_ARGON2ID is strongest; fall back to PASSWORD_BCRYPT if Argon2 is unavailable."
+        ),
     },
     {
         "id": "php_die_exit",
@@ -965,6 +1212,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible hardcoded secret in PHP code. Use environment variables (getenv/dotenv).",
         "severity": Severity.BLOCK,
         "file_types": [".php"],
+        "suggestion": (
+            "Replace the hardcoded secret with an environment variable: "
+            "`$apiKey = getenv('API_KEY');` or `$_ENV['API_KEY']`. "
+            "Use vlucas/phpdotenv to load .env files. "
+            "For Laravel: use `config('services.api.key')` backed by .env."
+        ),
     },
     {
         "id": "php_hallucinated_namespace",
@@ -973,6 +1226,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".php"],
         "skip_comments": True,
+        "suggestion": (
+            "Fix the misspelled namespace. Common corrections: "
+            "Laravel\\Http → Illuminate\\Http, Symfony\\Components → Symfony\\Component, "
+            "Doctrine\\ORM\\Managers → Doctrine\\ORM\\EntityManager, "
+            "GuzzleHttp\\Requests → GuzzleHttp\\Client. "
+            "Verify on packagist.org and use `composer show` to check installed packages."
+        ),
     },
     # ═══════════════════════════════════════════════════════════════
     #  POWERSHELL RULES (.ps1 / .psm1 / .psd1)
@@ -983,6 +1243,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Invoke-Expression executes arbitrary strings. Use direct cmdlet calls or validated input.",
         "severity": Severity.BLOCK,
         "file_types": [".ps1", ".psm1"],
+        "suggestion": (
+            "Replace Invoke-Expression with direct cmdlet calls: "
+            "Instead of `Invoke-Expression \"Get-Process $name\"`, use `Get-Process -Name $name`. "
+            "For dynamic commands, use the call operator: `& $cmdPath $args`. "
+            "For script blocks: `$sb = [scriptblock]::Create($code); & $sb`."
+        ),
     },
     {
         "id": "ps_execution_policy_bypass",
@@ -990,6 +1256,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Setting ExecutionPolicy to Bypass/Unrestricted disables script signing checks.",
         "severity": Severity.BLOCK,
         "file_types": [".ps1", ".psm1"],
+        "suggestion": (
+            "Remove the Set-ExecutionPolicy Bypass/Unrestricted call. "
+            "Use `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` for development. "
+            "For CI/CD: set the policy at the system level, not in scripts. "
+            "Sign scripts with a code-signing certificate for production environments."
+        ),
     },
     {
         "id": "ps_plaintext_credential",
@@ -997,6 +1269,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Converting plaintext to SecureString exposes secrets. Use credential prompts or vaults.",
         "severity": Severity.BLOCK,
         "file_types": [".ps1", ".psm1"],
+        "suggestion": (
+            "Replace plaintext SecureString with a secure credential source: "
+            "1. Interactive: `$cred = Get-Credential`. "
+            "2. From vault: `$secret = Get-AzKeyVaultSecret -VaultName 'vault' -Name 'key'`. "
+            "3. From env var: `$secure = ConvertTo-SecureString $env:SECRET -AsPlainText -Force` "
+            "(only if the env var is injected securely at runtime, never hardcoded)."
+        ),
     },
     {
         "id": "ps_hardcoded_password",
@@ -1004,6 +1283,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded credential in PowerShell script. Use SecureString, Key Vault, or environment variables.",
         "severity": Severity.BLOCK,
         "file_types": [".ps1", ".psm1"],
+        "suggestion": (
+            "Replace the hardcoded credential with an environment variable: "
+            "`$password = $env:DB_PASSWORD`. "
+            "For Azure: use `Get-AzKeyVaultSecret`. "
+            "For AWS: use `Get-SECSecretValue`. "
+            "Add the variable name to your deployment documentation."
+        ),
     },
     {
         "id": "ps_write_host",
@@ -1070,6 +1356,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Wildcard IAM action grants full access. Follow the principle of least privilege.",
         "severity": Severity.BLOCK,
         "file_types": [".tf", ".hcl"],
+        "suggestion": (
+            "Replace `Action = \"*\"` with specific actions the service needs: "
+            "`actions = [\"s3:GetObject\", \"s3:PutObject\", \"s3:ListBucket\"]`. "
+            "Use AWS IAM Access Analyzer to identify the minimum required permissions. "
+            "Scope resources with ARN patterns instead of `Resource = \"*\"`."
+        ),
     },
     {
         "id": "tf_public_s3_acl",
@@ -1077,6 +1369,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 bucket with public ACL exposes data. Use bucket policies and block public access settings.",
         "severity": Severity.BLOCK,
         "file_types": [".tf", ".hcl"],
+        "suggestion": (
+            "Remove the public ACL and add block public access: "
+            "`acl = \"private\"` and add `aws_s3_bucket_public_access_block` resource with "
+            "`block_public_acls = true, block_public_policy = true, "
+            "ignore_public_acls = true, restrict_public_buckets = true`. "
+            "If public access is needed, use CloudFront with OAI/OAC instead."
+        ),
     },
     {
         "id": "tf_open_security_group",
@@ -2124,6 +2423,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query built with fmt.Sprintf is vulnerable to SQL injection — use parameterized queries",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
+        "suggestion": (
+            "Replace `db.Query(fmt.Sprintf(\"SELECT ... WHERE id = %s\", id))` with "
+            "`db.Query(\"SELECT ... WHERE id = $1\", id)` (PostgreSQL) or "
+            "`db.Query(\"SELECT ... WHERE id = ?\", id)` (MySQL). "
+            "For complex queries: use sqlx or GORM query builders."
+        ),
     },
     {
         "id": "go_os_exec_shell",
@@ -2145,6 +2450,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "InsecureSkipVerify:true disables TLS certificate validation — enables MITM attacks",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
+        "suggestion": (
+            "Remove `InsecureSkipVerify: true` from tls.Config. "
+            "If connecting to internal services with self-signed certs, add the CA to the cert pool: "
+            "`tlsConfig := &tls.Config{RootCAs: certPool}` where certPool contains your CA certificate. "
+            "Never skip TLS verification in production."
+        ),
     },
     {
         "id": "go_math_rand_security",
@@ -2173,6 +2484,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DES/RC4/Blowfish are deprecated ciphers — use AES-GCM (crypto/cipher with aes.NewGCM)",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
+        "suggestion": (
+            "Replace with AES-256-GCM: "
+            "`block, _ := aes.NewCipher(key)` then `gcm, _ := cipher.NewGCM(block)`. "
+            "Use a 32-byte key for AES-256. Generate nonces with crypto/rand. "
+            "For key derivation: use golang.org/x/crypto/argon2 or scrypt."
+        ),
     },
     {
         "id": "go_hardcoded_creds",
@@ -2180,6 +2497,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded credentials in Go source — load from environment or secrets manager",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
+        "suggestion": (
+            "Replace hardcoded credentials with `os.Getenv(\"SECRET_NAME\")`. "
+            "Use `godotenv.Load()` (github.com/joho/godotenv) for local development. "
+            "For production: use cloud secret managers (AWS SSM, GCP Secret Manager, HashiCorp Vault)."
+        ),
     },
 
     # --- Java Security ---
@@ -2189,6 +2511,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL string concatenation in Java — use PreparedStatement with parameterized queries",
         "severity": Severity.BLOCK,
         "file_types": [".java"],
+        "suggestion": (
+            "Replace Statement with PreparedStatement: "
+            "`PreparedStatement ps = conn.prepareStatement(\"SELECT * FROM users WHERE id = ?\"); "
+            "ps.setInt(1, userId); ResultSet rs = ps.executeQuery();`. "
+            "For JPA/Hibernate: use named parameters `:param` or Criteria API."
+        ),
     },
     {
         "id": "java_deserialize_object",
@@ -2196,6 +2524,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java deserialization is a critical RCE vector — validate class allow-list before deserializing",
         "severity": Severity.BLOCK,
         "file_types": [".java"],
+        "suggestion": (
+            "Replace ObjectInputStream with a safe alternative: "
+            "1. Use JSON (Jackson/Gson): `objectMapper.readValue(json, MyClass.class)`. "
+            "2. If Java serialization is required, use `ObjectInputFilter` to whitelist classes. "
+            "3. Never deserialize untrusted data without class filtering."
+        ),
     },
     {
         "id": "java_xpath_injection",
@@ -2217,6 +2551,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded password/secret in Java — load from environment or secrets manager",
         "severity": Severity.BLOCK,
         "file_types": [".java"],
+        "suggestion": (
+            "Replace with `System.getenv(\"SECRET_NAME\")`. "
+            "For Spring Boot: use `@Value(\"${SECRET_NAME}\")` or application.yml with env var references. "
+            "For production: use HashiCorp Vault, AWS Secrets Manager, or Spring Cloud Config."
+        ),
     },
     {
         "id": "java_weak_md5_sha1",
@@ -2224,6 +2563,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5/SHA-1 are cryptographically broken — use SHA-256 or stronger",
         "severity": Severity.BLOCK,
         "file_types": [".java"],
+        "suggestion": (
+            "Replace `MessageDigest.getInstance(\"MD5\")` with `MessageDigest.getInstance(\"SHA-256\")`. "
+            "For password hashing: use BCrypt (`BCrypt.hashpw()`) or Argon2 via BouncyCastle. "
+            "For HMAC: use `Mac.getInstance(\"HmacSHA256\")`."
+        ),
     },
     {
         "id": "java_runtime_exec",
@@ -2231,6 +2575,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Runtime.exec() with string argument is vulnerable to command injection — use ProcessBuilder with list",
         "severity": Severity.BLOCK,
         "file_types": [".java"],
+        "suggestion": (
+            "Replace `Runtime.getRuntime().exec(cmd)` with ProcessBuilder: "
+            "`new ProcessBuilder(List.of(\"cmd\", \"arg1\", \"arg2\")).start()`. "
+            "ProcessBuilder takes arguments as a list, preventing shell injection. "
+            "Never pass user input as a single string to exec()."
+        ),
     },
     {
         "id": "java_random_not_secure",
@@ -2252,6 +2602,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "All Spring Boot Actuator endpoints exposed — restrict to specific endpoints in production",
         "severity": Severity.BLOCK,
         "file_types": [".properties", ".yml", ".yaml"],
+        "suggestion": (
+            "Replace `management.endpoints.web.exposure.include=*` with specific endpoints: "
+            "`management.endpoints.web.exposure.include=health,info,metrics`. "
+            "Secure sensitive endpoints with Spring Security: "
+            "`management.endpoints.web.exposure.exclude=env,beans,configprops`."
+        ),
     },
 
     # --- C/C++ Security ---
@@ -2261,6 +2617,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "gets() has no bounds checking — use fgets() with explicit buffer size",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp", ".h", ".hpp"],
+        "suggestion": (
+            "Replace `gets(buf)` with `fgets(buf, sizeof(buf), stdin)`. "
+            "fgets() reads at most sizeof(buf)-1 characters and null-terminates. "
+            "Note: gets() was removed from C11 standard — this code will not compile with modern compilers."
+        ),
     },
     {
         "id": "c_strcpy_unsafe",

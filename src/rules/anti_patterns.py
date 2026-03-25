@@ -1987,6 +1987,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "tempfile.mktemp() has TOCTOU race — use tempfile.mkstemp() or tempfile.NamedTemporaryFile()",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace `tempfile.mktemp()` with `tempfile.mkstemp()` (returns fd+path) or "
+            "`tempfile.NamedTemporaryFile(delete=False)` (returns file object). "
+            "mktemp has a TOCTOU race — another process can create the file between name generation and use."
+        ),
     },
     {
         "id": "py_flask_debug_mode",
@@ -1994,6 +1999,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Flask debug=True enables remote code execution via the debugger — disable in production",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace `app.run(debug=True)` with `app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')`. "
+            "Or use Flask CLI: `flask run` reads FLASK_DEBUG from environment. "
+            "The Werkzeug debugger allows arbitrary code execution — never enable in production."
+        ),
     },
     {
         "id": "py_django_debug_true",
@@ -2002,6 +2012,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".py", ".cfg", ".ini"],
         "exclude_path_contains": ["test", "example", "sample"],
+        "suggestion": (
+            "Replace `DEBUG = True` with `DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'`. "
+            "Or use django-environ: `DEBUG = env.bool('DJANGO_DEBUG', default=False)`. "
+            "DEBUG=True exposes settings, SQL queries, and stack traces to end users."
+        ),
     },
     {
         "id": "py_django_secret_key_hardcoded",
@@ -2009,6 +2024,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Django SECRET_KEY is hardcoded — load from environment variable",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace with `SECRET_KEY = os.environ['DJANGO_SECRET_KEY']`. "
+            "Generate a strong key: `python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\"`. "
+            "Add to .env and .env.example (with placeholder)."
+        ),
     },
     {
         "id": "py_flask_secret_hardcoded",
@@ -2016,6 +2036,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Flask secret_key is hardcoded — load from environment variable",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace with `app.secret_key = os.environ['FLASK_SECRET_KEY']`. "
+            "Generate: `python -c \"import secrets; print(secrets.token_hex(32))\"`. "
+            "The secret_key signs session cookies — if leaked, sessions can be forged."
+        ),
     },
     {
         "id": "py_jinja2_autoescape_off",
@@ -2023,6 +2048,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Jinja2 autoescape=False enables XSS — enable autoescape for HTML templates",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace `autoescape=False` with `autoescape=True` or use "
+            "`select_autoescape(['html', 'xml'])` for selective escaping. "
+            "Use `Markup()` or `|safe` filter only for explicitly trusted content."
+        ),
     },
     {
         "id": "py_assert_auth",
@@ -2030,6 +2060,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "assert is stripped by Python -O flag — never use assert for authentication checks",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace `assert user.is_admin` with an explicit check: "
+            "`if not user.is_admin: raise PermissionError('Admin access required')`. "
+            "Python's `-O` flag removes all assert statements — auth bypassed in optimized builds."
+        ),
     },
     {
         "id": "py_open_write_path_traversal",
@@ -2037,6 +2072,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "open() with user-controlled path enables path traversal — validate and sanitize path",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Sanitize the path: `safe_path = pathlib.Path(base_dir) / pathlib.Path(user_input).name`. "
+            "Use `.resolve()` and verify it starts with the allowed base directory: "
+            "`if not safe_path.resolve().is_relative_to(base_dir): raise ValueError('path traversal')`. "
+            "Never pass raw user input to open()."
+        ),
     },
     {
         "id": "py_header_injection",
@@ -2044,6 +2085,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "User-controlled value in response header enables header injection — sanitize value",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Strip newlines from user input before setting headers: "
+            "`value = user_input.replace('\\r', '').replace('\\n', '')`. "
+            "Or use a strict allowlist: `re.sub(r'[^a-zA-Z0-9_\\-]', '', value)`. "
+            "Header injection enables response splitting and cache poisoning."
+        ),
     },
 
     # --- JavaScript/TypeScript Injection ---
@@ -2053,6 +2100,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "child_process.exec() is vulnerable to command injection — use execFile() with explicit args",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".mjs", ".cjs"],
+        "suggestion": (
+            "Replace `exec('cmd ' + userInput)` with `execFile('cmd', [userInput])`. "
+            "execFile does not invoke a shell, preventing injection. "
+            "For complex commands: use `spawn('cmd', args, {shell: false})`. "
+            "If shell features needed: validate input against strict allowlist."
+        ),
     },
     {
         "id": "js_innerhtml_xss",
@@ -2060,6 +2113,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "innerHTML assignment is vulnerable to XSS — use textContent or DOMPurify.sanitize()",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx", ".html"],
+        "suggestion": (
+            "Replace `el.innerHTML = value` with `el.textContent = value` for text content. "
+            "If HTML rendering required: `el.innerHTML = DOMPurify.sanitize(value)`. "
+            "Install: `npm install dompurify`. Import: `import DOMPurify from 'dompurify'`."
+        ),
     },
     {
         "id": "js_document_write",
@@ -2067,6 +2125,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "document.write() is vulnerable to XSS and blocks rendering — use DOM manipulation instead",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx", ".html"],
+        "suggestion": (
+            "Replace `document.write(html)` with DOM manipulation: "
+            "`const el = document.createElement('div'); el.textContent = text; document.body.appendChild(el)`. "
+            "For React: use JSX rendering. document.write() blocks parsing and is never needed in modern code."
+        ),
     },
     {
         "id": "js_prototype_pollution",
@@ -2081,6 +2144,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "String passed to Function()/setTimeout()/setInterval() is equivalent to eval() — use function references",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
+        "suggestion": (
+            "Replace string argument with function reference: "
+            "`setTimeout(() => doWork(), 1000)` instead of `setTimeout('doWork()', 1000)`. "
+            "For Function(): use a closure or arrow function. String arguments are eval'd at runtime."
+        ),
     },
     {
         "id": "js_sql_string_concat",
@@ -2088,6 +2156,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "String concatenation in SQL query enables SQL injection — use parameterized queries",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts"],
+        "suggestion": (
+            "Replace string interpolation with parameterized queries: "
+            "Knex: `knex('users').where('id', userId)`. "
+            "pg: `client.query('SELECT * FROM users WHERE id = $1', [userId])`. "
+            "Prisma: `prisma.user.findUnique({where: {id: userId}})`. Never concatenate user input into SQL."
+        ),
     },
     {
         "id": "js_regex_catastrophic",
@@ -2095,6 +2169,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "User-controlled RegExp enables ReDoS — validate and limit user-provided patterns",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts"],
+        "suggestion": (
+            "Never pass user input directly to `new RegExp()`. Instead: "
+            "1. Escape user input: `input.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')`. "
+            "2. Use string methods (includes, startsWith) instead of regex. "
+            "3. If regex needed: use `re2` package (linear-time matching, no ReDoS)."
+        ),
     },
     {
         "id": "js_insecure_cookie",
@@ -2102,6 +2182,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cookie with httpOnly:false or secure:false exposes session to XSS/MITM — set both to true",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts"],
+        "suggestion": (
+            "Set secure cookie options: `{httpOnly: true, secure: true, sameSite: 'strict', maxAge: 3600000}`. "
+            "httpOnly prevents JavaScript access (XSS protection). "
+            "secure ensures HTTPS-only transmission. sameSite prevents CSRF."
+        ),
     },
     {
         "id": "js_no_https_fetch",
@@ -2130,6 +2215,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Open redirect via user-controlled URL — validate destination against allowlist",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
+        "suggestion": (
+            "Validate redirect URL against an allowlist: "
+            "`const allowed = ['/dashboard', '/profile']; "
+            "if (!allowed.includes(url)) url = '/';`. "
+            "For absolute URLs: verify hostname matches your domain. "
+            "Never redirect to user-provided external URLs without validation."
+        ),
     },
     {
         "id": "js_dangerously_set_html",
@@ -2157,30 +2249,60 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"gh[pousr]_[A-Za-z0-9_]{36,255}",
         "message": "GitHub personal access token detected — revoke immediately and use secrets manager",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Revoke the token immediately at github.com/settings/tokens. "
+            "2. Generate a new fine-grained token with minimal scopes. "
+            "3. Store in env var: `os.environ['GITHUB_TOKEN']` (Python), `process.env.GITHUB_TOKEN` (JS). "
+            "4. For CI: use GitHub Actions secrets (`${{ secrets.GITHUB_TOKEN }}`)."
+        ),
     },
     {
         "id": "secret_stripe_key",
         "pattern": r"(sk|pk)_(test|live)_[A-Za-z0-9]{24,}",
         "message": "Stripe API key detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Roll the key in Stripe Dashboard → Developers → API keys. "
+            "2. Store as env var: `STRIPE_SECRET_KEY` for sk_*, `STRIPE_PUBLISHABLE_KEY` for pk_*. "
+            "3. Use restricted keys with minimal permissions for each service. "
+            "4. For tests: use `sk_test_*` keys, never `sk_live_*` in code."
+        ),
     },
     {
         "id": "secret_openai_key",
         "pattern": r"sk-[A-Za-z0-9]{48}",
         "message": "OpenAI API key detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Revoke at platform.openai.com/api-keys. "
+            "2. Create a new key with project-scoped permissions. "
+            "3. Store as `OPENAI_API_KEY` env var. The OpenAI SDK reads it automatically. "
+            "4. For orgs: use service accounts, not personal keys."
+        ),
     },
     {
         "id": "secret_anthropic_key",
         "pattern": r"sk-ant-[A-Za-z0-9\-]{95,}",
         "message": "Anthropic API key detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Revoke at console.anthropic.com/settings/keys. "
+            "2. Create a new key with workspace-scoped permissions. "
+            "3. Store as `ANTHROPIC_API_KEY` env var. The Anthropic SDK reads it automatically. "
+            "4. Use separate keys for dev/staging/prod environments."
+        ),
     },
     {
         "id": "secret_sendgrid_key",
         "pattern": r"SG\.[A-Za-z0-9\-_]{22}\.[A-Za-z0-9\-_]{43}",
         "message": "SendGrid API key detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Revoke at app.sendgrid.com/settings/api_keys. "
+            "2. Create a new key with restricted access (Mail Send only). "
+            "3. Store as `SENDGRID_API_KEY` env var. "
+            "4. Use API key permissions to limit to specific scopes."
+        ),
     },
     {
         "id": "secret_twilio_sid",
@@ -2193,12 +2315,23 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"twilio.*['\"][a-f0-9]{32}['\"]",
         "message": "Twilio Auth Token detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Rotate in Twilio Console → Account → API keys. "
+            "2. Store as `TWILIO_AUTH_TOKEN` env var. "
+            "3. Use API keys (SK-prefixed) instead of Auth Token for production."
+        ),
     },
     {
         "id": "secret_slack_token",
         "pattern": r"xox[baprs]-[A-Za-z0-9\-]+",
         "message": "Slack token detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Revoke at api.slack.com/apps → OAuth & Permissions → Revoke. "
+            "2. Regenerate with minimal bot scopes. "
+            "3. Store as `SLACK_BOT_TOKEN` env var. "
+            "4. Use Socket Mode for development, HTTP endpoints for production."
+        ),
     },
     {
         "id": "secret_jwt_hardcoded",
@@ -2206,24 +2339,48 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded JWT secret — load signing key from environment variable",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts"],
+        "suggestion": (
+            "Replace hardcoded secret with env var: "
+            "`jwt.sign(payload, process.env.JWT_SECRET, {algorithm: 'HS256', expiresIn: '1h'})`. "
+            "For production: use RS256 with key pair instead of shared secret. "
+            "Minimum secret length: 256 bits (32 bytes)."
+        ),
     },
     {
         "id": "secret_private_key_header",
         "pattern": r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----",
         "message": "Private key material in source code — store in secure key management system",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Remove the private key from source code immediately. Store in: "
+            "1. AWS KMS / GCP Cloud KMS / Azure Key Vault for cloud environments. "
+            "2. HashiCorp Vault for self-hosted. "
+            "3. File system with 600 permissions referenced by path env var. "
+            "Never commit private keys — add *.pem, *.key to .gitignore."
+        ),
     },
     {
         "id": "secret_google_api_key",
         "pattern": r"AIza[0-9A-Za-z\-_]{35}",
         "message": "Google API key detected — restrict key and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Restrict key in Google Cloud Console → Credentials → Edit key → Application/API restrictions. "
+            "2. Store as `GOOGLE_API_KEY` env var. "
+            "3. For server-side: use service account with IAM roles instead of API key. "
+            "4. Set referrer/IP restrictions to prevent unauthorized use."
+        ),
     },
     {
         "id": "secret_heroku_api_key",
         "pattern": r"[hH]eroku.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
         "message": "Heroku API key detected — revoke immediately and load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "1. Regenerate at Heroku Dashboard → Account → API Key → Regenerate. "
+            "2. Store as `HEROKU_API_KEY` env var. "
+            "3. For CI: use Heroku OAuth tokens with limited scope instead of account API key."
+        ),
     },
     {
         "id": "secret_gcp_service_account",
@@ -2231,12 +2388,24 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GCP service account credentials in source — store in secret manager, never commit",
         "severity": Severity.BLOCK,
         "file_types": [".json"],
+        "suggestion": (
+            "Remove the service account JSON from source code. Instead: "
+            "1. Use Workload Identity Federation (no key file needed). "
+            "2. If key file required: store in GCP Secret Manager, reference by path. "
+            "3. Set `GOOGLE_APPLICATION_CREDENTIALS` env var to the key file path. "
+            "4. Add *.json service account files to .gitignore."
+        ),
     },
     {
         "id": "secret_redis_password",
         "pattern": r"redis://[^@\s]+:[^@\s]+@",
         "message": "Redis URL contains credentials — store in environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Store the full Redis URL in an env var: `REDIS_URL=redis://user:pass@host:port`. "
+            "Reference via `os.environ['REDIS_URL']` (Python) or `process.env.REDIS_URL` (JS). "
+            "For production: use Redis ACL with per-service credentials and TLS (`rediss://`)."
+        ),
     },
 
     # --- Cryptography ---
@@ -2245,6 +2414,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"hashlib\.md5\s*\(|MD5\s*\(|\.md5\s*\(",
         "message": "MD5 is cryptographically broken — use SHA-256 or SHA-3 for security-sensitive hashing",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace MD5 with SHA-256: `hashlib.sha256(data).hexdigest()` (Python), "
+            "`crypto.createHash('sha256').update(data).digest('hex')` (JS). "
+            "For passwords: use bcrypt/argon2, never plain hashing. "
+            "For checksums (non-security): MD5 is acceptable but document intent."
+        ),
     },
     {
         "id": "crypto_sha1_weak",
@@ -2257,12 +2432,24 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\bDES\b|\bTripleDES\b|Cipher\.DES|DES\.new\s*\(",
         "message": "DES/3DES is deprecated — use AES-256-GCM instead",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace DES/3DES with AES-256-GCM: "
+            "Python: `from cryptography.hazmat.primitives.ciphers.aead import AESGCM; "
+            "key = AESGCM.generate_key(bit_length=256)`. "
+            "JS: `crypto.createCipheriv('aes-256-gcm', key, iv)`. "
+            "AES-GCM provides both encryption and authentication."
+        ),
     },
     {
         "id": "crypto_ecb_mode",
         "pattern": r"\.MODE_ECB\b|AES\.MODE_ECB|mode\s*=\s*['\"]?ECB",
         "message": "ECB mode reveals data patterns — use AES-GCM or AES-CBC with random IV",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace ECB with GCM mode: `AES.new(key, AES.MODE_GCM)` (pycryptodome) or "
+            "`AESGCM(key).encrypt(nonce, data, None)` (cryptography). "
+            "GCM provides authenticated encryption. Generate a unique nonce/IV per operation with `os.urandom(12)`."
+        ),
     },
     {
         "id": "crypto_weak_random",
@@ -2284,6 +2471,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RSA key size below 2048 bits is insecure — use at least 2048, prefer 4096",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace with `RSA.generate(4096)` or `rsa.generate_private_key(public_exponent=65537, key_size=4096)`. "
+            "Minimum: 2048 bits. Recommended: 4096 bits. "
+            "For new systems: consider Ed25519 (EdDSA) — faster and more secure than RSA."
+        ),
     },
     {
         "id": "crypto_hardcoded_iv",
@@ -2291,24 +2483,46 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded IV for encryption — generate a random IV for each encryption operation",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace hardcoded IV with `iv = os.urandom(12)` for GCM or `os.urandom(16)` for CBC. "
+            "Prepend the IV to the ciphertext: `output = iv + ciphertext`. "
+            "The IV does not need to be secret but MUST be unique per encryption."
+        ),
     },
     {
         "id": "crypto_ssl_no_verify",
         "pattern": r"verify\s*=\s*False|ssl_verify\s*=\s*False|VERIFY_PEER\s*=\s*False|check_hostname\s*=\s*False",
         "message": "SSL certificate verification disabled — enables MITM attacks",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Remove `verify=False`. If connecting to internal services with self-signed certs: "
+            "1. Add the CA cert to a cert bundle: `verify='/path/to/ca-bundle.crt'`. "
+            "2. Or add to system trust store. "
+            "Never disable verification in production — it makes TLS pointless."
+        ),
     },
     {
         "id": "crypto_ssl_v2_v3",
         "pattern": r"SSLv2|SSLv3|TLSv1_0|TLSv1_1|PROTOCOL_SSLv|ssl\.PROTOCOL_TLS\b",
         "message": "SSLv2/SSLv3/TLS1.0/TLS1.1 are deprecated — use TLS 1.2+ (PROTOCOL_TLS_CLIENT)",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace with TLS 1.2+: `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` (Python). "
+            "Set minimum version: `ctx.minimum_version = ssl.TLSVersion.TLSv1_2`. "
+            "For Node.js: `tls.createServer({minVersion: 'TLSv1.2'})`. "
+            "SSLv2/v3 and TLS 1.0/1.1 have known vulnerabilities (POODLE, BEAST)."
+        ),
     },
     {
         "id": "crypto_password_plaintext",
         "pattern": r"password\s*=\s*['\"][^'\"]{4,}['\"]",
         "message": "Plaintext password in source — load from environment variable",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Move password to environment variable: `os.environ['DB_PASSWORD']` (Python), "
+            "`process.env.DB_PASSWORD` (JS). For local dev: use .env file (never committed). "
+            "For production: use secrets manager (AWS SSM, HashiCorp Vault, Doppler)."
+        ),
     },
     {
         "id": "crypto_weak_bcrypt_rounds",
@@ -2322,6 +2536,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"algorithm\s*=\s*['\"]none['\"]|algorithms\s*=\s*\[['\"]none['\"]",
         "message": "JWT 'none' algorithm disables signature verification — always specify a strong algorithm",
         "severity": Severity.BLOCK,
+        "suggestion": (
+            "Replace `algorithm='none'` with a strong algorithm: "
+            "`algorithm='HS256'` for HMAC (shared secret) or `algorithm='RS256'` for RSA (key pair). "
+            "Always verify: `jwt.decode(token, key, algorithms=['HS256'])` — note the list, never allow 'none'."
+        ),
     },
     {
         "id": "crypto_insecure_hash_passwords",
@@ -2329,6 +2548,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Plain hash for passwords — use bcrypt, argon2, or scrypt with salt",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Replace plain hashing with a dedicated password hasher: "
+            "`from argon2 import PasswordHasher; ph = PasswordHasher(); hash = ph.hash(password)`. "
+            "Or bcrypt: `import bcrypt; hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12))`. "
+            "Never use SHA-256/MD5 directly for passwords — they lack salt and iterations."
+        ),
     },
     {
         "id": "crypto_empty_cipher_key",
@@ -2336,6 +2561,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty encryption key — key must be cryptographically random and of correct length",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Generate a proper key: `key = os.urandom(32)` for AES-256 or "
+            "`key = AESGCM.generate_key(bit_length=256)`. "
+            "Store the key securely in a secrets manager or encrypted file. "
+            "For key derivation from password: use `PBKDF2` or `Scrypt` with salt."
+        ),
     },
 
     # --- AI-Specific Security ---
@@ -2351,7 +2582,14 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"eval\s*\(\s*(llm|ai|gpt|claude|response|completion)",
         "message": "eval() on LLM response enables arbitrary code execution — never execute LLM output",
         "severity": Severity.BLOCK,
-        "file_types": [".py", ".js", ".ts"],
+        "file_types": [".py", ".ts", ".js"],
+        "suggestion": (
+            "Never eval() LLM output. Instead: "
+            "1. Parse as JSON: `json.loads(llm_response)` for structured data. "
+            "2. Use a restricted sandbox (RestrictedPython, VM2) if code execution is required. "
+            "3. Validate against a schema before processing. "
+            "LLM output is untrusted input — treat it like user input."
+        ),
     },
     {
         "id": "ai_system_prompt_override",
@@ -2407,6 +2645,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AI tool exposes subprocess/os.system — tools with shell execution are high-risk",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "suggestion": (
+            "Remove shell execution from AI tool definitions. Instead: "
+            "1. Use a strict allowlist of permitted commands. "
+            "2. Run in a sandboxed environment (Docker, gVisor). "
+            "3. Use subprocess.run with shell=False and validated argument list. "
+            "AI agents may invoke tools with adversarial inputs via prompt injection."
+        ),
     },
 
     # --- Go Security ---
@@ -2629,6 +2874,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "strcpy() is vulnerable to buffer overflow — use strncpy() or strlcpy() with size",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp", ".h", ".hpp"],
+        "suggestion": (
+            "Replace `strcpy(dst, src)` with `strncpy(dst, src, sizeof(dst) - 1); dst[sizeof(dst) - 1] = '\\0';`. "
+            "Or use `strlcpy(dst, src, sizeof(dst))` on BSD/macOS. "
+            "For C++: use `std::string` instead of C-style string operations."
+        ),
     },
     {
         "id": "c_sprintf_unsafe",
@@ -2636,6 +2886,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "sprintf() is vulnerable to buffer overflow — use snprintf() with buffer size",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp", ".h", ".hpp"],
+        "suggestion": (
+            "Replace `sprintf(buf, fmt, ...)` with `snprintf(buf, sizeof(buf), fmt, ...)`. "
+            "snprintf guarantees null-termination and prevents buffer overflow. "
+            "For C++: use `std::format()` (C++20) or `std::ostringstream`."
+        ),
     },
     {
         "id": "c_strcat_unsafe",
@@ -2643,6 +2898,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "strcat() is vulnerable to buffer overflow — use strncat() with remaining size",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp", ".h", ".hpp"],
+        "suggestion": (
+            "Replace `strcat(dst, src)` with `strncat(dst, src, sizeof(dst) - strlen(dst) - 1)`. "
+            "Or use `strlcat(dst, src, sizeof(dst))` on BSD/macOS. "
+            "For C++: use `std::string::append()` or `+=` operator."
+        ),
     },
     {
         "id": "c_scanf_unsafe",
@@ -2657,6 +2917,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "system() is vulnerable to command injection — use execve() with validated args",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp", ".h", ".hpp"],
+        "suggestion": (
+            "Replace `system(cmd)` with `execve()` or `posix_spawn()` with explicit argument array. "
+            "Example: `char *args[] = {\"cmd\", \"arg1\", NULL}; execve(\"/usr/bin/cmd\", args, environ);`. "
+            "system() passes through shell — any metacharacter in input enables injection."
+        ),
     },
     {
         "id": "c_malloc_no_null_check",
@@ -2671,6 +2936,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "printf with variable as format string — use printf(\"%s\", var) to prevent format string attacks",
         "severity": Severity.BLOCK,
         "file_types": [".c", ".cpp"],
+        "suggestion": (
+            "Replace `printf(user_str)` with `printf(\"%s\", user_str)`. "
+            "A variable format string allows attackers to read/write memory via %x, %n specifiers. "
+            "Same applies to fprintf, sprintf, snprintf — always use a literal format string."
+        ),
     },
     {
         "id": "c_integer_overflow",
@@ -2694,6 +2964,12 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": ".unwrap() panics on None/Err — use ? operator, expect() with message, or match for error handling",
         "severity": Severity.WARN,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace `.unwrap()` with the `?` operator: `let value = fallible_fn()?;`. "
+            "Or use `.expect(\"context message\")` for better panic messages. "
+            "For Option: use `.unwrap_or(default)` or `.unwrap_or_else(|| compute_default())`. "
+            "In libraries: never unwrap — always propagate errors to callers."
+        ),
     },
     {
         "id": "rust_command_new_shell",
@@ -2708,6 +2984,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded secret in Rust — load from environment with std::env::var()",
         "severity": Severity.BLOCK,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace with `std::env::var(\"SECRET_NAME\").expect(\"SECRET_NAME must be set\")`. "
+            "Use dotenv crate for local dev. For production: use cloud secrets manager."
+        ),
     },
     {
         "id": "rust_sqlx_raw_query",
@@ -2715,6 +2995,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "sqlx::query with format! string is SQL injection — use query! macro or bind parameters",
         "severity": Severity.BLOCK,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace `sqlx::query(&format!(...))` with `sqlx::query!(\"SELECT ... WHERE id = $1\", id)` "
+            "or `sqlx::query(\"...\").bind(id)`. The query! macro validates SQL at compile time."
+        ),
     },
     {
         "id": "rust_from_utf8_unchecked",
@@ -2722,6 +3006,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "from_utf8_unchecked() causes UB on invalid UTF-8 — use from_utf8() with error handling",
         "severity": Severity.BLOCK,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace `from_utf8_unchecked(bytes)` with `String::from_utf8(bytes)?` or "
+            "`str::from_utf8(bytes)?`. The safe versions return Result and handle invalid UTF-8 gracefully."
+        ),
     },
     {
         "id": "rust_mem_transmute",
@@ -2729,6 +3017,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "mem::transmute is extremely unsafe — use safe conversions (as, From/Into, bytemuck) instead",
         "severity": Severity.WARN,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace transmute with safe alternatives: `as` for numeric casts, `From/Into` for type "
+            "conversions, `bytemuck::cast` for POD types, `zerocopy::FromBytes` for zero-copy parsing."
+        ),
     },
     {
         "id": "rust_panic_in_lib",
@@ -2736,6 +3028,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "panic! in library code — return Result/Option to let callers handle errors",
         "severity": Severity.WARN,
         "file_types": [".rs"],
+        "suggestion": (
+            "Replace `panic!(\"msg\")` with `return Err(MyError::new(\"msg\"))`. Define a custom error "
+            "type implementing std::error::Error. Use thiserror crate for ergonomic error types."
+        ),
     },
 
     # --- Shell Security ---
@@ -2745,6 +3041,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "curl|bash pipe executes remote code without verification — download, verify checksum, then execute",
         "severity": Severity.BLOCK,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Download first, verify, then execute: `curl -fsSL url -o script.sh && "
+            "sha256sum -c checksum.txt && bash script.sh`. Or use a package manager "
+            "(apt, brew, pip) instead of curl|bash."
+        ),
     },
     {
         "id": "sh_chmod_777",
@@ -2752,6 +3053,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "chmod 777 grants world-writable permissions — use minimal permissions (e.g., 755 for executables)",
         "severity": Severity.BLOCK,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Use minimal permissions: `chmod 755` for executables, `chmod 644` for files, "
+            "`chmod 600` for secrets. 777 allows any user to read, write, and execute."
+        ),
     },
     {
         "id": "sh_rm_rf_root",
@@ -2759,6 +3064,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "rm -rf targeting root or home directory — add path validation before destructive operations",
         "severity": Severity.BLOCK,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Add a safety check: `if [ -n \"$DIR\" ] && [ \"$DIR\" != \"/\" ]; then rm -rf \"$DIR\"; fi`. "
+            "Use `set -u` to fail on undefined variables. Never rm -rf with variable paths without validation."
+        ),
     },
     {
         "id": "sh_unquoted_variable",
@@ -2766,6 +3075,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unquoted variable in shell — use \"$VAR\" to prevent word splitting and globbing",
         "severity": Severity.INFO,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Always double-quote variables: `\"$variable\"` instead of `$variable`. Unquoted variables "
+            "are subject to word splitting and glob expansion, causing bugs with spaces and special characters."
+        ),
     },
     {
         "id": "sh_sudo_without_check",
@@ -2773,6 +3086,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "sudo usage — ensure script validates it's running with appropriate privileges",
         "severity": Severity.INFO,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Check if running as root first: `if [ \"$(id -u)\" -ne 0 ]; then echo 'Run as root'; exit 1; fi`. "
+            "Or use `sudo -n` (non-interactive) to fail fast if password required."
+        ),
     },
     {
         "id": "sh_eval_variable",
@@ -2780,6 +3097,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval with variable enables code injection — avoid eval; use case statements or arrays",
         "severity": Severity.BLOCK,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Remove eval and use direct command execution. If dynamic commands are needed, use an array: "
+            "`cmd=(\"binary\" \"--flag\" \"$value\"); \"${cmd[@]}\"`. eval enables injection attacks."
+        ),
     },
     {
         "id": "sh_source_remote",
@@ -2787,6 +3108,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sourcing remote content executes untrusted code — download and verify before sourcing",
         "severity": Severity.BLOCK,
         "file_types": [".sh", ".bash", ".zsh"],
+        "suggestion": (
+            "Download to local file first, inspect, then source: `curl -fsSL url -o lib.sh && "
+            "cat lib.sh && source lib.sh`. Never source remote URLs directly — you cannot verify the content."
+        ),
     },
 
     # --- ORM & Database ---
@@ -3097,6 +3422,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Handle the error: `result, err := fn(); if err != nil { return fmt.Errorf(\"context: %w\", err) }`. "
+            "If truly ignorable, document why: `_ = fn() // error ignored: best-effort cleanup`."
+        ),
     },
     {
         "id": "go_context_background",
@@ -3105,6 +3434,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `context.Background()` with the request context: `ctx := r.Context()` in HTTP handlers. "
+            "For non-HTTP: accept context as first parameter `func DoWork(ctx context.Context, ...)`."
+        ),
     },
     {
         "id": "go_sync_mutex_copy",
@@ -3113,6 +3446,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Change function signature to accept pointer: `func Process(mu *sync.Mutex)` or embed in a "
+            "struct with pointer receiver. Copying a mutex duplicates its lock state — causes data races."
+        ),
     },
     {
         "id": "go_channel_leak",
@@ -3121,6 +3458,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Add timeout or cancellation: `select { case msg := <-ch: handle(msg); case <-ctx.Done(): "
+            "return; case <-time.After(30*time.Second): return }`. Never block indefinitely on a channel in a goroutine."
+        ),
     },
     {
         "id": "go_nil_map_write",
@@ -3129,6 +3470,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Initialize the map: `m := make(map[string]int)` instead of `var m map[string]int`. "
+            "Or use a map literal: `m := map[string]int{}`. Writing to a nil map panics at runtime."
+        ),
     },
     {
         "id": "go_string_builder",
@@ -3145,6 +3490,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Protect shared data with sync.Mutex: `mu.Lock(); defer mu.Unlock(); slice = append(slice, item)`. "
+            "Or use channels to serialize access. Run `go test -race` to detect races."
+        ),
     },
     {
         "id": "go_json_omitempty",
@@ -3161,6 +3510,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Set a timeout: `client := &http.Client{Timeout: 30 * time.Second}`. For fine-grained control: "
+            "set DialContext timeout, TLSHandshakeTimeout, and ResponseHeaderTimeout separately."
+        ),
     },
     {
         "id": "go_log_fatal_handler",
@@ -3169,6 +3522,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `log.Fatal(err)` with `log.Println(err); http.Error(w, \"Internal Server Error\", "
+            "http.StatusInternalServerError); return`. log.Fatal kills the entire server process."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -3333,6 +3690,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `value!` with `guard let value = optional else { return }` or "
+            "`if let value = optional { ... }`. For guaranteed values: use `?? defaultValue`. "
+            "Force unwrap crashes on nil."
+        ),
     },
     {
         "id": "swift_force_try",
@@ -3341,6 +3703,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `try! expression` with `do { try expression } catch { handleError(error) }`. "
+            "Or use `try?` to convert to optional. try! crashes on any thrown error."
+        ),
     },
     {
         "id": "swift_implicitly_unwrapped",
@@ -3349,6 +3715,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `var name: String!` with `var name: String?` and use optional binding. "
+            "Implicitly unwrapped optionals crash on nil access. Only valid for IBOutlets and dependency injection."
+        ),
     },
     {
         "id": "swift_nslog_production",
@@ -3357,6 +3727,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace NSLog with os_log: `import os; let logger = Logger(subsystem: \"com.app\", "
+            "category: \"network\"); logger.info(\"message\")`. NSLog is slow, not private, and visible in Console.app."
+        ),
     },
     {
         "id": "swift_hardcoded_url",
@@ -3365,6 +3739,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Move URL to configuration: `let url = Bundle.main.infoDictionary?[\"API_URL\"] as? String "
+            "?? \"default\"`. Or use a Config.plist with environment-specific values."
+        ),
     },
     {
         "id": "swift_keychain_no_acl",
@@ -3373,6 +3751,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Add access control: `let access = SecAccessControlCreateWithFlags(nil, "
+            "kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryCurrentSet, nil)`. "
+            "Store sensitive data with biometric protection."
+        ),
     },
     {
         "id": "swift_userdefaults_sensitive",
@@ -3381,6 +3764,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".swift"],
         "skip_comments": True,
+        "suggestion": (
+            "Move sensitive data to Keychain: `SecItemAdd([kSecClass: kSecClassGenericPassword, "
+            "kSecAttrAccount: key, kSecValueData: data] as CFDictionary, nil)`. "
+            "UserDefaults is unencrypted and backed up to iCloud."
+        ),
     },
 
     # ═══════════════════════════════════════════════════════════════
@@ -4132,6 +4520,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".kt"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `value!!` with `value ?: throw IllegalStateException(\"Expected non-null\")` for "
+            "explicit error, or `value?.let { ... }` for safe handling. !! throws NPE without context."
+        ),
     },
     {
         "id": "kotlin_runblocking_coroutine",
@@ -4140,6 +4532,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".kt"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `runBlocking { ... }` with a proper coroutine scope: `lifecycleScope.launch { }` "
+            "(Android), `CoroutineScope(Dispatchers.IO).launch { }`, or make the function `suspend`. "
+            "runBlocking blocks the calling thread."
+        ),
     },
     {
         "id": "kotlin_mutablelist_exposed",
@@ -4148,6 +4545,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".kt"],
         "skip_comments": True,
+        "suggestion": (
+            "Expose as read-only List: `private val _items = mutableListOf<T>(); val items: List<T> "
+            "get() = _items`. This prevents external mutation while allowing internal modification."
+        ),
     },
     {
         "id": "kotlin_globalscope",
@@ -4156,6 +4557,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".kt"],
         "skip_comments": True,
+        "suggestion": (
+            "Replace `GlobalScope.launch { }` with a structured scope: `viewModelScope.launch { }` "
+            "(Android), `lifecycleScope.launch { }`, or custom "
+            "`CoroutineScope(SupervisorJob() + Dispatchers.Default)`. GlobalScope ignores lifecycle."
+        ),
     },
     # --- Android ---
     {
@@ -14134,6 +14540,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:Bucket|Table|Database|Queue)\s*\((?:(?!removal_policy|removalPolicy)[^)]*)\)",
         "message": "CDK resource without removal policy. Set RemovalPolicy.RETAIN for stateful resources.",
         "severity": Severity.WARN,
+        "file_types": [".ts", ".js", ".py"],
+        "skip_comments": True,
     },
     {
         "id": "cdk2_wildcard_iam",
@@ -15253,6 +15661,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)Content-Security-Policy(?!.*frame-ancestors)",
         "message": "CSP missing frame-ancestors. Add to prevent clickjacking.",
         "severity": Severity.WARN,
+        "file_types": [".js", ".ts", ".py", ".yml", ".yaml", ".conf"],
+        "skip_comments": True,
     },
     {
         "id": "hsts2_short_max_age",
@@ -15411,6 +15821,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:chaos|experiment|fault_injection)(?!.*(?:blast_radius|scope|target|limit))",
         "message": "Chaos experiment without blast radius definition. Limit scope of failure injection.",
         "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml", ".tf", ".hcl", ".json"],
     },
     {
         "id": "chaos_production_no_approval",
@@ -15466,12 +15877,14 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:runbook|playbook)(?!.*(?:step|procedure|instruction|action))",
         "message": "Runbook without procedural steps. Add step-by-step instructions.",
         "severity": Severity.WARN,
+        "file_types": [".md", ".yml", ".yaml", ".txt"],
     },
     {
         "id": "runbook_no_escalation",
         "pattern": r"(?i)(?:runbook|playbook)(?!.*(?:escalat|contact|oncall|page|notify))",
         "message": "Runbook without escalation path. Define when and who to escalate to.",
         "severity": Severity.WARN,
+        "file_types": [".md", ".yml", ".yaml", ".txt"],
     },
     {
         "id": "sre_toil_no_tracking",
@@ -15484,6 +15897,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:chaos|fault_injection)(?!.*(?:monitor|observe|dashboard|alert|metric))",
         "message": "Chaos experiment without monitoring. Observe system behavior during experiments.",
         "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml", ".tf", ".hcl", ".json"],
     },
     {
         "id": "incident_no_timeline",
@@ -18399,6 +18813,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"!\s*(?:\.|\[)",
         "message": "Non-null assertion operator (!) masks potential null/undefined bugs; use optional chaining or explicit null checks",
         "severity": Severity.WARN,
+        "file_types": [".ts", ".tsx"],
     },
     {
         "id": "r2a_055",

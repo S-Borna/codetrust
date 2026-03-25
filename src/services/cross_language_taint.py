@@ -19,6 +19,10 @@ Supported frameworks:
   Python:  Flask, FastAPI, Django, Starlette, aiohttp, Tornado
   JS/TS:   Express, NestJS, Fastify, Hapi, fetch(), axios, got
   Go:      net/http, Gin, Fiber, Echo, Chi, gorilla/mux
+  Java:    Spring MVC, Spring Boot (RestTemplate, WebClient)
+  C#:      ASP.NET Core (HttpClient)
+  Kotlin:  Ktor, Spring Boot Kotlin
+  Rust:    Actix-web, Axum (reqwest)
   gRPC:    Proto service defs, Python/Go/JS client stubs, Go/Python server impls
 
 No other taint analysis tool does this. Not Semgrep. Not SonarQube. Not Snyk.
@@ -321,6 +325,100 @@ _GO_GORILLA_ROUTE = re.compile(
 )
 
 # ───────────────────────────────────────────────────────────────
+#  Java Spring MVC / Spring Boot
+# ───────────────────────────────────────────────────────────────
+
+# @GetMapping("/path"), @PostMapping("/path"), etc.
+_JAVA_SPRING_MAPPING = re.compile(
+    r"""@(Get|Post|Put|Delete|Patch)Mapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# @RequestMapping(value="/path", method=RequestMethod.GET)
+_JAVA_REQUEST_MAPPING = re.compile(
+    r"""@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# Class-level @RequestMapping prefix
+_JAVA_CONTROLLER_PREFIX = re.compile(
+    r"""@(?:Rest)?Controller\s*(?:\n|.)*?@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# RestTemplate: restTemplate.getForObject("/url", ...)
+_JAVA_RESTTEMPLATE = re.compile(
+    r"""(?:\w+\.)?(?:restTemplate|template)\.(getForObject|postForObject|exchange|getForEntity|postForEntity)\s*\(\s*['"]([^'"]+)['"]""",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# WebClient: webClient.get().uri("/url")
+_JAVA_WEBCLIENT = re.compile(
+    r"""(?:\w+\.)?webClient\.(get|post|put|delete|patch)\s*\(\s*\)\.uri\s*\(\s*['"]([^'"]+)['"]""",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  C# ASP.NET Core
+# ───────────────────────────────────────────────────────────────
+
+# [HttpGet("path")], [HttpPost("path")], etc.
+_CSHARP_HTTP_ATTR = re.compile(
+    r"""\[Http(Get|Post|Put|Delete|Patch)\s*\(\s*['"]([^'"]+)['"]\s*\)\]""",
+    re.MULTILINE,
+)
+
+# [Route("api/[controller]")] class-level
+_CSHARP_ROUTE_ATTR = re.compile(
+    r"""\[Route\s*\(\s*['"]([^'"]+)['"]\s*\)\]""",
+    re.MULTILINE,
+)
+
+# HttpClient: httpClient.GetAsync("/url")
+_CSHARP_HTTPCLIENT = re.compile(
+    r"""(?:\w+\.)?(?:httpClient|client|_client)\.(GetAsync|PostAsync|PutAsync|DeleteAsync|SendAsync)\s*\(\s*['"]([^'"]+)['"]""",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  Kotlin (Ktor + Spring Boot)
+# ───────────────────────────────────────────────────────────────
+
+# Ktor routing: get("/path") { }, post("/path") { }
+_KOTLIN_KTOR_ROUTE = re.compile(
+    r"""\b(get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]\s*\)""",
+    re.MULTILINE,
+)
+
+# Ktor client: client.get("/url"), client.post("/url")
+_KOTLIN_KTOR_CLIENT = re.compile(
+    r"""client\.(get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]""",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# ───────────────────────────────────────────────────────────────
+#  Rust (Actix-web + Axum)
+# ───────────────────────────────────────────────────────────────
+
+# Actix: #[get("/path")], #[post("/path")]
+_RUST_ACTIX_ATTR = re.compile(
+    r"""#\[(get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]\s*\)\]""",
+    re.MULTILINE,
+)
+
+# Axum: .route("/path", get(handler))
+_RUST_AXUM_ROUTE = re.compile(
+    r"""\.route\s*\(\s*['"]([^'"]+)['"]\s*,\s*(get|post|put|delete|patch)\s*\(""",
+    re.MULTILINE,
+)
+
+# reqwest: client.get("/url").send()
+_RUST_REQWEST_CLIENT = re.compile(
+    r"""client\.(get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]""",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# ───────────────────────────────────────────────────────────────
 #  gRPC patterns: proto definitions, client stubs, server impls
 # ───────────────────────────────────────────────────────────────
 
@@ -513,6 +611,14 @@ class CrossLanguageTaintAnalyzer:
             return self._extract_js_routes(filepath, code, language)
         if language == Language.GO:
             return self._extract_go_routes(filepath, code)
+        if language == Language.JAVA:
+            return self._extract_java_routes(filepath, code)
+        if language == Language.CSHARP:
+            return self._extract_csharp_routes(filepath, code)
+        if language == Language.KOTLIN:
+            return self._extract_kotlin_routes(filepath, code)
+        if language == Language.RUST:
+            return self._extract_rust_routes(filepath, code)
         return []
 
     def _extract_python_routes(
@@ -849,6 +955,14 @@ class CrossLanguageTaintAnalyzer:
             return self._extract_python_http_calls(filepath, code)
         if language == Language.GO:
             return self._extract_go_http_calls(filepath, code)
+        if language == Language.JAVA:
+            return self._extract_java_http_calls(filepath, code)
+        if language == Language.CSHARP:
+            return self._extract_csharp_http_calls(filepath, code)
+        if language == Language.KOTLIN:
+            return self._extract_kotlin_http_calls(filepath, code)
+        if language == Language.RUST:
+            return self._extract_rust_http_calls(filepath, code)
         return []
 
     def _extract_js_http_calls(
@@ -927,6 +1041,240 @@ class CrossLanguageTaintAnalyzer:
                 language=Language.GO,
             ))
 
+        return calls
+
+    # ───────────────────────────────────────────────────────────────
+    #  Java Spring MVC / Spring Boot extractors
+    # ───────────────────────────────────────────────────────────────
+
+    def _extract_java_routes(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpRoute]:
+        """Extract Spring MVC routes from Java code."""
+        routes: list[HttpRoute] = []
+        for match in _JAVA_SPRING_MAPPING.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<annotation>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.JAVA,
+            ))
+        for match in _JAVA_REQUEST_MAPPING.finditer(code):
+            path = match.group(1)
+            if not any(r.path == path for r in routes):
+                routes.append(HttpRoute(
+                    path=path,
+                    method="ANY",
+                    handler_name="<annotation>",
+                    file=filepath,
+                    line=code[:match.start()].count("\n") + 1,
+                    language=Language.JAVA,
+                ))
+        return routes
+
+    def _extract_java_http_calls(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpCall]:
+        """Extract RestTemplate/WebClient calls from Java code."""
+        calls: list[HttpCall] = []
+        for match in _JAVA_RESTTEMPLATE.finditer(code):
+            method_name = match.group(1).lower()
+            method = "POST" if "post" in method_name else "GET"
+            url = match.group(2)
+            calls.append(HttpCall(
+                url_pattern=url,
+                method=method,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.JAVA,
+            ))
+        for match in _JAVA_WEBCLIENT.finditer(code):
+            method = match.group(1).upper()
+            url = match.group(2)
+            calls.append(HttpCall(
+                url_pattern=url,
+                method=method,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.JAVA,
+            ))
+        return calls
+
+    # ───────────────────────────────────────────────────────────────
+    #  C# ASP.NET Core extractors
+    # ───────────────────────────────────────────────────────────────
+
+    def _extract_csharp_routes(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpRoute]:
+        """Extract ASP.NET Core routes from C# code."""
+        routes: list[HttpRoute] = []
+        for match in _CSHARP_HTTP_ATTR.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<attribute>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.CSHARP,
+            ))
+        return routes
+
+    def _extract_csharp_http_calls(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpCall]:
+        """Extract HttpClient calls from C# code."""
+        calls: list[HttpCall] = []
+        method_map = {
+            "getasync": "GET",
+            "postasync": "POST",
+            "putasync": "PUT",
+            "deleteasync": "DELETE",
+            "sendasync": "ANY",
+        }
+        for match in _CSHARP_HTTPCLIENT.finditer(code):
+            method_name = match.group(1).lower()
+            method = method_map.get(method_name, "ANY")
+            url = match.group(2)
+            calls.append(HttpCall(
+                url_pattern=url,
+                method=method,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.CSHARP,
+            ))
+        return calls
+
+    # ───────────────────────────────────────────────────────────────
+    #  Kotlin (Ktor + Spring Boot) extractors
+    # ───────────────────────────────────────────────────────────────
+
+    def _extract_kotlin_routes(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpRoute]:
+        """Extract Ktor and Spring Boot Kotlin routes."""
+        routes: list[HttpRoute] = []
+        # Ktor DSL routes
+        for match in _KOTLIN_KTOR_ROUTE.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<ktor>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.KOTLIN,
+            ))
+        # Spring Boot Kotlin uses same annotations as Java
+        for match in _JAVA_SPRING_MAPPING.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            if not any(
+                r.path == path and r.method == method
+                for r in routes
+            ):
+                routes.append(HttpRoute(
+                    path=path,
+                    method=method,
+                    handler_name="<annotation>",
+                    file=filepath,
+                    line=code[:match.start()].count("\n") + 1,
+                    language=Language.KOTLIN,
+                ))
+        return routes
+
+    def _extract_kotlin_http_calls(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpCall]:
+        """Extract Ktor client and OkHttp calls from Kotlin code."""
+        calls: list[HttpCall] = []
+        for match in _KOTLIN_KTOR_CLIENT.finditer(code):
+            method = match.group(1).upper()
+            url = match.group(2)
+            calls.append(HttpCall(
+                url_pattern=url,
+                method=method,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.KOTLIN,
+            ))
+        return calls
+
+    # ───────────────────────────────────────────────────────────────
+    #  Rust (Actix-web + Axum) extractors
+    # ───────────────────────────────────────────────────────────────
+
+    def _extract_rust_routes(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpRoute]:
+        """Extract Actix-web and Axum routes from Rust code."""
+        routes: list[HttpRoute] = []
+        for match in _RUST_ACTIX_ATTR.finditer(code):
+            method = match.group(1).upper()
+            path = match.group(2)
+            routes.append(HttpRoute(
+                path=path,
+                method=method,
+                handler_name="<actix>",
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.RUST,
+            ))
+        for match in _RUST_AXUM_ROUTE.finditer(code):
+            path = match.group(1)
+            method = match.group(2).upper()
+            if not any(
+                r.path == path and r.method == method
+                for r in routes
+            ):
+                routes.append(HttpRoute(
+                    path=path,
+                    method=method,
+                    handler_name="<axum>",
+                    file=filepath,
+                    line=code[:match.start()].count("\n") + 1,
+                    language=Language.RUST,
+                ))
+        return routes
+
+    def _extract_rust_http_calls(
+        self,
+        filepath: str,
+        code: str,
+    ) -> list[HttpCall]:
+        """Extract reqwest calls from Rust code."""
+        calls: list[HttpCall] = []
+        for match in _RUST_REQWEST_CLIENT.finditer(code):
+            method = match.group(1).upper()
+            url = match.group(2)
+            calls.append(HttpCall(
+                url_pattern=url,
+                method=method,
+                file=filepath,
+                line=code[:match.start()].count("\n") + 1,
+                language=Language.RUST,
+            ))
         return calls
 
     # ═══════════════════════════════════════════════════════════════

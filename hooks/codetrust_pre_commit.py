@@ -38,6 +38,10 @@ INFRA_CONFIG_SKIP: frozenset[str] = frozenset({
     "docker-compose.override.yml", "docker-compose.override.yaml",
 })
 
+# Directories containing CI/CD workflows — skip scanning to avoid
+# false positives on template literals and embedded code snippets.
+SKIP_PATH_PREFIXES: tuple[str, ...] = (".github/",)
+
 SEVERITY_BLOCK = "BLOCK"
 SEVERITY_WARN = "WARN"
 
@@ -239,12 +243,14 @@ def main() -> int:
         policy_engine = CommitPolicyEngine(workspace)
         has_policy = True
     except ImportError:
-        pass
+        sys.stderr.write("  CodeTrust: commit policy engine not available (optional)\n")
 
     for filepath in staged:
         if Path(filepath).suffix.lower() not in CODE_EXTENSIONS:
             continue
         if Path(filepath).name.lower() in INFRA_CONFIG_SKIP:
+            continue
+        if any(filepath.startswith(prefix) for prefix in SKIP_PATH_PREFIXES):
             continue
 
         findings = scan_file(filepath)

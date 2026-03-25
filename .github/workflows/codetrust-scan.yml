@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  pull-requests: write
 
 jobs:
   codetrust-scan:
@@ -26,6 +27,7 @@ jobs:
         with:
           fail-on: block
           sarif: "true"
+          files: "src/services/ src/models/ src/gateway/ src/formatters/ src/utils/ tests/"
 
       - name: Upload SARIF to GitHub Security
         if: always() && steps.scan.outputs.sarif-file

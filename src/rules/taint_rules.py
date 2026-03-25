@@ -97,12 +97,28 @@ JAVA_SOURCES: tuple[TaintSource, ...] = (
     TaintSource("@CookieValue", "@CookieValue", Language.JAVA, "Spring MVC cookie value"),
 )
 
+CSHARP_SOURCES: tuple[TaintSource, ...] = (
+    TaintSource("Request.Query", "Request.Query", Language.CSHARP, "ASP.NET query string"),
+    TaintSource("Request.Form", "Request.Form", Language.CSHARP, "ASP.NET form data"),
+    TaintSource("Request.Body", "Request.Body", Language.CSHARP, "ASP.NET request body"),
+    TaintSource("Request.Headers", "Request.Headers", Language.CSHARP, "ASP.NET request headers"),
+    TaintSource("Request.RouteValues", "Request.RouteValues", Language.CSHARP, "ASP.NET route values"),
+    TaintSource("HttpContext.Request", "HttpContext.Request", Language.CSHARP, "ASP.NET HTTP context"),
+    TaintSource("[FromBody]", "[FromBody]", Language.CSHARP, "ASP.NET model binding body"),
+    TaintSource("[FromQuery]", "[FromQuery]", Language.CSHARP, "ASP.NET model binding query"),
+    TaintSource("[FromRoute]", "[FromRoute]", Language.CSHARP, "ASP.NET model binding route"),
+    TaintSource("[FromHeader]", "[FromHeader]", Language.CSHARP, "ASP.NET model binding header"),
+    TaintSource("[FromForm]", "[FromForm]", Language.CSHARP, "ASP.NET model binding form"),
+    TaintSource("Console.ReadLine", "Console.ReadLine(", Language.CSHARP, "Console input"),
+)
+
 TAINT_SOURCES: dict[Language, tuple[TaintSource, ...]] = {
     Language.PYTHON: PYTHON_SOURCES,
     Language.JAVASCRIPT: JAVASCRIPT_SOURCES,
     Language.TYPESCRIPT: JAVASCRIPT_SOURCES,
     Language.GO: GO_SOURCES,
     Language.JAVA: JAVA_SOURCES,
+    Language.CSHARP: CSHARP_SOURCES,
 }
 
 
@@ -279,12 +295,41 @@ JAVA_SINKS: tuple[TaintSink, ...] = (
     TaintSink("DirContext.search", ".search(", CATEGORY_LDAP_INJECTION, Language.JAVA, "JNDI LDAP search"),
 )
 
+CSHARP_SINKS: tuple[TaintSink, ...] = (
+    # SQL injection
+    TaintSink("SqlCommand.ExecuteReader", "ExecuteReader(", CATEGORY_SQL_INJECTION, Language.CSHARP, "ADO.NET SQL query"),
+    TaintSink("SqlCommand.ExecuteNonQuery", "ExecuteNonQuery(", CATEGORY_SQL_INJECTION, Language.CSHARP, "ADO.NET SQL execute"),
+    TaintSink("SqlCommand.ExecuteScalar", "ExecuteScalar(", CATEGORY_SQL_INJECTION, Language.CSHARP, "ADO.NET SQL scalar"),
+    TaintSink("FromSqlRaw", ".FromSqlRaw(", CATEGORY_SQL_INJECTION, Language.CSHARP, "EF Core raw SQL"),
+    TaintSink("ExecuteSqlRaw", ".ExecuteSqlRaw(", CATEGORY_SQL_INJECTION, Language.CSHARP, "EF Core execute raw"),
+    # Command injection
+    TaintSink("Process.Start", "Process.Start(", CATEGORY_COMMAND_INJECTION, Language.CSHARP, "System process execution"),
+    TaintSink("ProcessStartInfo", "ProcessStartInfo(", CATEGORY_COMMAND_INJECTION, Language.CSHARP, "Process start info"),
+    # XSS
+    TaintSink("Html.Raw", "Html.Raw(", CATEGORY_XSS, Language.CSHARP, "Razor unencoded HTML output"),
+    TaintSink("Content", ".Content(", CATEGORY_XSS, Language.CSHARP, "MVC content result"),
+    # Path traversal
+    TaintSink("File.ReadAllText", "File.ReadAllText(", CATEGORY_PATH_TRAVERSAL, Language.CSHARP, "File read"),
+    TaintSink("File.WriteAllText", "File.WriteAllText(", CATEGORY_PATH_TRAVERSAL, Language.CSHARP, "File write"),
+    TaintSink("File.Delete", "File.Delete(", CATEGORY_PATH_TRAVERSAL, Language.CSHARP, "File delete"),
+    TaintSink("Path.Combine", "Path.Combine(", CATEGORY_PATH_TRAVERSAL, Language.CSHARP, "Path construction"),
+    # SSRF
+    TaintSink("HttpClient.GetAsync", ".GetAsync(", CATEGORY_SSRF, Language.CSHARP, "HTTP GET request"),
+    TaintSink("HttpClient.PostAsync", ".PostAsync(", CATEGORY_SSRF, Language.CSHARP, "HTTP POST request"),
+    # Deserialization
+    TaintSink("BinaryFormatter.Deserialize", "BinaryFormatter.Deserialize(", CATEGORY_DESERIALIZATION, Language.CSHARP, "Binary deserialization"),
+    TaintSink("JsonSerializer.Deserialize", "JsonSerializer.Deserialize(", CATEGORY_DESERIALIZATION, Language.CSHARP, "JSON deserialization"),
+    # LDAP
+    TaintSink("DirectorySearcher.FindAll", ".FindAll(", CATEGORY_LDAP_INJECTION, Language.CSHARP, "LDAP directory search"),
+)
+
 TAINT_SINKS: dict[Language, tuple[TaintSink, ...]] = {
     Language.PYTHON: PYTHON_SINKS,
     Language.JAVASCRIPT: JAVASCRIPT_SINKS,
     Language.TYPESCRIPT: JAVASCRIPT_SINKS,
     Language.GO: GO_SINKS,
     Language.JAVA: JAVA_SINKS,
+    Language.CSHARP: CSHARP_SINKS,
 }
 
 
@@ -389,10 +434,33 @@ JAVA_SANITIZERS: tuple[TaintSanitizer, ...] = (
     TaintSanitizer("@Validated", "@Validated", Language.JAVA, "Spring validation annotation"),
 )
 
+CSHARP_SANITIZERS: tuple[TaintSanitizer, ...] = (
+    # Type casting
+    TaintSanitizer("int.Parse", "int.Parse(", Language.CSHARP, "Integer parse"),
+    TaintSanitizer("int.TryParse", "int.TryParse(", Language.CSHARP, "Safe integer parse"),
+    TaintSanitizer("Convert.ToInt32", "Convert.ToInt32(", Language.CSHARP, "Integer conversion"),
+    # HTML encoding
+    TaintSanitizer("HtmlEncoder.Encode", "HtmlEncoder.Encode(", Language.CSHARP, "HTML encoding"),
+    TaintSanitizer("WebUtility.HtmlEncode", "WebUtility.HtmlEncode(", Language.CSHARP, "HTML encoding"),
+    # URL encoding
+    TaintSanitizer("UrlEncoder.Encode", "UrlEncoder.Encode(", Language.CSHARP, "URL encoding"),
+    TaintSanitizer("Uri.EscapeDataString", "Uri.EscapeDataString(", Language.CSHARP, "URI escaping"),
+    # Path sanitization
+    TaintSanitizer("Path.GetFileName", "Path.GetFileName(", Language.CSHARP, "Extracts filename only"),
+    # SQL parameterization
+    TaintSanitizer("SqlParameter", "new SqlParameter(", Language.CSHARP, "SQL parameterized query"),
+    TaintSanitizer("AddWithValue", ".AddWithValue(", Language.CSHARP, "SQL parameterized value"),
+    # Validation
+    TaintSanitizer("[Required]", "[Required]", Language.CSHARP, "Data annotation validation"),
+    TaintSanitizer("[Range]", "[Range(", Language.CSHARP, "Range validation annotation"),
+    TaintSanitizer("Regex.IsMatch", "Regex.IsMatch(", Language.CSHARP, "Regex validation"),
+)
+
 TAINT_SANITIZERS: dict[Language, tuple[TaintSanitizer, ...]] = {
     Language.PYTHON: PYTHON_SANITIZERS,
     Language.JAVASCRIPT: JAVASCRIPT_SANITIZERS,
     Language.TYPESCRIPT: JAVASCRIPT_SANITIZERS,
     Language.GO: GO_SANITIZERS,
     Language.JAVA: JAVA_SANITIZERS,
+    Language.CSHARP: CSHARP_SANITIZERS,
 }

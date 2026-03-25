@@ -67,6 +67,37 @@ class InterceptResult:
 
 # Heredoc marker split to prevent content scanner self-detection
 _HEREDOC = "<" + "<"
+_HEREDOC_RE = re.compile(_HEREDOC + r"[-']?\s*[\w\"']+")
+
+# Context-specific heredoc suggestions — the agent gets exact instructions
+# for how to accomplish what it was trying to do WITHOUT heredoc.
+_HEREDOC_CONTEXTS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\bgit\s+commit\b"),
+        "Write the message to a temp file with create_file, then: git commit -F /tmp/commit_msg.txt",
+    ),
+    (
+        re.compile(r"\bgit\s+tag\b"),
+        "Write the tag message to a temp file, then: git tag -F /tmp/tag_msg.txt <tagname>",
+    ),
+    (
+        re.compile(r"\b(?:cat|tee)\s+.*>\s*\S+"),
+        "Use the create_file tool to create the file directly.",
+    ),
+    (
+        re.compile(r"\b(?:ssh|mysql|psql|sqlite3)\b"),
+        "Write the commands/query to a temp file, then pass via -f or stdin redirect.",
+    ),
+]
+
+
+def _heredoc_suggestion(command: str) -> str:
+    """Return context-specific remediation for heredoc usage."""
+    for ctx_pattern, suggestion in _HEREDOC_CONTEXTS:
+        if ctx_pattern.search(command):
+            return suggestion
+    return "Use the create_file or replace_string_in_file tool instead."
+
 
 # ═══════════════════════════════════════════════════════════════
 #  Terminal command patterns — deterministic regex matching
@@ -79,7 +110,7 @@ _TERMINAL_RULES: list[dict] = [
     {
         "id": "gateway_heredoc",
         "pattern": _HEREDOC + r"[-']?\s*[\w\"']+",
-        "message": "Heredoc detected in terminal command. Heredocs corrupt files via shell escaping.",
+        "message": "Heredoc (<<) is permanently prohibited. Zero exceptions.",
         "suggestion": "Use the create_file or replace_string_in_file tool instead.",
         "severity": Verdict.BLOCK,
     },
@@ -886,8 +917,25 @@ class CommandInterceptor:
                 message="Governance is disabled.",
             )
 
+        # Heredoc — context-aware suggestion (checked before generic rules)
+        if "gateway_heredoc" not in self._disabled_rules and _HEREDOC_RE.search(command):
+            suggestion = _heredoc_suggestion(command)
+            return InterceptResult(
+                verdict=Verdict.BLOCK,
+                action_type=ActionType.TERMINAL_COMMAND,
+                original_action=command,
+                rule_id="gateway_heredoc",
+                message="Heredoc (<<) is permanently prohibited. Zero exceptions.",
+                suggestion=suggestion,
+                root_cause="Heredoc corrupts files via shell escaping and bypasses safe file-write tools.",
+                safe_fix=suggestion,
+            )
+
         for rule in self._compiled_terminal:
             if rule["id"] in self._disabled_rules:
+                continue
+            # Skip static heredoc rule — already handled above with dynamic suggestion
+            if rule["id"] == "gateway_heredoc":
                 continue
             if rule["_re"].search(command):
                 return InterceptResult(

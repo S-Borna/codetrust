@@ -223,7 +223,7 @@ class StaticAnalyzer:
                     message=rule["message"],
                     file=filename,
                     line=line_num,
-                    suggestion="",
+                    suggestion=str(rule.get("suggestion", "")),
                 ))
         return findings
 

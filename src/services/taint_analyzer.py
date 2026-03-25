@@ -501,12 +501,14 @@ class TaintAnalyzer:
         """Mark variable as tainted if RHS contains a source."""
         source = self._find_source_in_text(rhs_text, language)
         if source is not None:
+            sanitizer = self._find_sanitizer_in_text(rhs_text, language)
             line = node.start_point.row + 1
             tainted[var_name] = TaintRecord(
                 var_name=var_name,
                 source=source,
                 source_line=line,
                 chain=[var_name],
+                sanitized=sanitizer is not None,
             )
 
     def _check_propagation(
@@ -1006,6 +1008,11 @@ class TaintAnalyzer:
                 for sub in child.children:
                     if sub.type == identifier_type:
                         return sub.text.decode("utf-8") if sub.text else None
+            # Java: local_variable_declaration → variable_declarator → identifier
+            if child.type == "variable_declarator":
+                for sub in child.children:
+                    if sub.type == identifier_type:
+                        return sub.text.decode("utf-8") if sub.text else None
         return None
 
     def _extract_rhs_text(
@@ -1024,6 +1031,8 @@ class TaintAnalyzer:
             return self._extract_js_rhs(node_text)
         if language == Language.GO:
             return self._extract_go_rhs(node_text)
+        if language in (Language.JAVA, Language.CSHARP):
+            return self._extract_java_rhs(node_text)
         return node_text
 
     def _extract_python_rhs(self, text: str) -> str | None:
@@ -1039,6 +1048,17 @@ class TaintAnalyzer:
         if eq_pos < 0:
             return None
         return text[eq_pos + 1:].strip()
+
+    def _extract_java_rhs(self, text: str) -> str | None:
+        """Extract RHS from a Java local variable declaration.
+
+        Handles `Type var = expr;` by finding the first `=`.
+        """
+        eq_pos = text.find("=")
+        if eq_pos < 0:
+            return None
+        rhs = text[eq_pos + 1:].strip()
+        return rhs.rstrip(";").strip()
 
     def _extract_go_rhs(self, text: str) -> str | None:
         """Extract RHS from a Go short variable declaration (`:=`).

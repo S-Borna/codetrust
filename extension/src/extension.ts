@@ -27,6 +27,7 @@ import { getApiKeySecret, migrateApiKeySettingToSecretIfNeeded } from "./secrets
 import { sendTelemetry } from "./telemetry";
 import { injectUniversalInstructions, watchForGovernanceDisruption } from "./universal-instructions";
 import { injectMcpServerConfigs, watchForMcpConfigDisruption, verifyMcpServerHealth } from "./mcp-config-injection";
+import { activateInterceptor, deactivateInterceptor } from "./llmInterceptor";
 
 // ─────────────────────────────────────────────────────────────────
 //  Copilot global instruction injection
@@ -266,6 +267,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         scan_type: config.scanType,
         enabled_languages_count: config.enabledLanguages.length,
     });
+
+    // Activate LLM API call interceptor (AI Observability)
+    activateInterceptor(context, outputChannel);
 
     const stats = cache.getStats();
     outputChannel.appendLine(
@@ -537,6 +541,7 @@ export function deactivate(): void {
     if (!codetrustOutputChannel) {
         return;
     }
+    deactivateInterceptor(codetrustOutputChannel);
     codetrustOutputChannel.appendLine(
         "CodeTrust: deactivate called — preserving injected global governance state.",
     );

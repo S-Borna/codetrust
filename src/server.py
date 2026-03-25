@@ -5,6 +5,7 @@
 import json
 import logging
 import os
+import pathlib
 import sys
 import time
 
@@ -2055,6 +2056,114 @@ async def codetrust_cross_language_taint(
             duration_ms=int((time.monotonic() - started) * 1000),
             payload={"file_count": len(file_contents) if "file_contents" in dir() else 0},
         )
+
+
+# ─────────────────────────────────────────────────────────────────
+#  AI Observability & Attribution Tools
+# ─────────────────────────────────────────────────────────────────
+
+
+@mcp.tool(name="codetrust_mcp_audit")
+async def codetrust_mcp_audit(
+    workspace: str = "",
+    include_project_local: bool = True,
+) -> str:
+    """Discover and audit all MCP servers configured across IDEs.
+
+    Scans Claude Desktop, Claude Code, Cursor, VS Code, Cline, and
+    project-local configs. Classifies each server as vetted or unvetted.
+
+    Args:
+        workspace: Project root for local config scanning. Empty = skip local.
+        include_project_local: Whether to scan .mcp.json etc.
+    """
+    from src.services.mcp_discovery import MCPDiscoveryService
+
+    svc = MCPDiscoveryService()
+    ws = pathlib.Path(workspace) if workspace else None
+    result = svc.audit(workspace=ws, include_project_local=include_project_local)
+    return svc.build_report(result)
+
+
+@mcp.tool(name="codetrust_shadow_scan")
+async def codetrust_shadow_scan(
+    approved_tools: str = "",
+) -> str:
+    """Detect installed AI coding tools on this machine.
+
+    Scans for Copilot, Cursor, Cline, Aider, Windsurf, Claude Code, etc.
+
+    Args:
+        approved_tools: Comma-separated tool IDs that are approved.
+                       Empty = no filtering (all shown as approved).
+    """
+    from src.services.shadow_ai import ShadowAIScanner
+
+    scanner = ShadowAIScanner()
+    approved = frozenset(approved_tools.split(",")) if approved_tools else None
+    result = scanner.scan(approved_tools=approved)
+    return scanner.build_report(result)
+
+
+@mcp.tool(name="codetrust_attribute")
+async def codetrust_attribute(
+    filepath: str,
+    workspace: str = "",
+) -> str:
+    """Analyze a file for AI model attribution.
+
+    Three-tier detection: IDE hook data (0.95), git trailers (0.6-0.9),
+    code heuristics (0.25-0.9).
+
+    Args:
+        filepath: Path to file to analyze.
+        workspace: Project root. Empty = derive from filepath.
+    """
+    from src.services.ai_attribution import AIAttributor
+
+    attributor = AIAttributor()
+    fp = pathlib.Path(filepath)
+    ws = pathlib.Path(workspace) if workspace else fp.parent
+    result = attributor.analyze_file(fp, workspace=ws)
+    return attributor.build_report([result])
+
+
+@mcp.tool(name="codetrust_risk_profile")
+async def codetrust_risk_profile(
+    workspace: str = ".",
+    max_commits: int = 200,
+) -> str:
+    """Compute developer risk profiles for a repository.
+
+    Scores developers based on BLOCK rate, AI usage ratio, and model choices.
+
+    Args:
+        workspace: Repository root.
+        max_commits: Max commits to analyze per author.
+    """
+    from src.services.developer_risk import DeveloperRiskService
+
+    svc = DeveloperRiskService()
+    result = svc.assess(pathlib.Path(workspace), max_commits=max_commits)
+    return svc.build_report(result)
+
+
+@mcp.tool(name="codetrust_benchmark")
+async def codetrust_benchmark(
+    workspace: str = ".",
+) -> str:
+    """Show LLM security benchmark — per-model code quality statistics.
+
+    Aggregates scan data correlated with AI model attribution.
+
+    Args:
+        workspace: Project root containing .codetrust/benchmark.jsonl.
+    """
+    from src.services.llm_benchmark import LLMBenchmarkService
+
+    svc = LLMBenchmarkService()
+    result = svc.aggregate(pathlib.Path(workspace))
+    return svc.build_report(result)
 
 
 if __name__ == "__main__":

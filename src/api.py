@@ -1085,10 +1085,23 @@ def _build_scan_findings_for_telemetry(findings: Sequence[object] | None) -> lis
 
 
 def _collect_deep_scan_findings(result: DeepScanResponse) -> list[Finding]:
-    """Flatten findings from deep scan layers for telemetry impact attribution."""
-    combined: list[Finding] = list(result.static_scan.findings)
+    """Flatten findings from deep scan layers for telemetry impact attribution.
+
+    When both regex and AST fire on the same line, the AST finding is kept
+    (more precise) and the regex duplicate is dropped.
+    """
+    from src.services.ast_analyzer import AstAnalyzer
+
+    static_findings: list[Finding] = list(result.static_scan.findings)
+    ast_findings: list[Finding] = []
     if result.ast_scan is not None:
-        combined.extend(result.ast_scan.findings)
+        ast_findings = list(result.ast_scan.findings)
+
+    # Dedup: remove regex findings superseded by AST findings on same line
+    deduped_static = AstAnalyzer.dedup_with_regex(static_findings, ast_findings)
+
+    combined: list[Finding] = deduped_static
+    combined.extend(ast_findings)
     if result.signature_validation is not None:
         combined.extend(result.signature_validation.findings)
     if result.taint_scan is not None:

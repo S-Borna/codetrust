@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 from src.models.enums import Language, Severity
 from src.models.responses import Finding
 from src.services.ast_analyzer import (
+    AST_BACKED_RULE_IDS,
+    AST_SUPERSEDES,
     COMPLEXITY_THRESHOLD,
     LANGUAGE_NODES,
     SUPPORTED_LANGUAGES,
@@ -456,6 +458,450 @@ class TestDeepNesting:
 
 
 # ---------------------------------------------------------------------------
+# AST-migration: Missing timeout tests
+# ---------------------------------------------------------------------------
+
+
+class TestMissingTimeouts:
+    """Tests for AST-based timeout detection."""
+
+    def test_python_asyncclient_no_timeout(self, analyzer: AstAnalyzer) -> None:
+        """httpx.AsyncClient() without timeout is flagged."""
+        code = "import httpx\nclient = httpx.AsyncClient()\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 1
+        assert "AsyncClient" in timeout_f[0].message
+
+    def test_python_asyncclient_with_timeout(self, analyzer: AstAnalyzer) -> None:
+        """httpx.AsyncClient(timeout=30) is not flagged."""
+        code = "import httpx\nclient = httpx.AsyncClient(timeout=30)\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 0
+
+    def test_python_create_engine_no_timeout(self, analyzer: AstAnalyzer) -> None:
+        """create_engine() without timeout is flagged."""
+        code = "from sqlalchemy import create_engine\nengine = create_engine('sqlite:///:memory:')\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 1
+
+    def test_python_create_engine_with_timeout(self, analyzer: AstAnalyzer) -> None:
+        """create_engine() with connect_timeout is not flagged."""
+        code = (
+            "from sqlalchemy import create_engine\n"
+            "engine = create_engine('pg://host/db', connect_timeout=10)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 0
+
+    def test_js_fetch_no_timeout(self, analyzer: AstAnalyzer) -> None:
+        """JS fetch() without timeout is flagged."""
+        code = 'const resp = fetch("/api/data");\n'
+        findings = analyzer.analyze(code, Language.JAVASCRIPT, "test.js")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 1
+
+    def test_js_fetch_with_timeout(self, analyzer: AstAnalyzer) -> None:
+        """JS fetch() with timeout in options is not flagged."""
+        code = 'const resp = fetch("/api", { timeout: 5000 });\n'
+        findings = analyzer.analyze(code, Language.JAVASCRIPT, "test.js")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Missing timeout findings have WARN severity."""
+        code = "import httpx\nclient = httpx.AsyncClient()\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert timeout_f[0].severity == Severity.WARN
+
+    def test_unrelated_calls_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Regular function calls are not flagged for timeout."""
+        code = "def foo():\n    result = bar(1, 2)\n    return result\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 0
+
+    def test_multiline_call_with_timeout(self, analyzer: AstAnalyzer) -> None:
+        """Multi-line call with timeout on a different line is not flagged."""
+        code = (
+            "import httpx\n"
+            "client = httpx.AsyncClient(\n"
+            "    auth=auth,\n"
+            "    timeout=30,\n"
+            "    verify=True,\n"
+            ")\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        timeout_f = [f for f in findings if f.rule_id == "ast_missing_timeout"]
+        assert len(timeout_f) == 0
+
+
+# ---------------------------------------------------------------------------
+# AST-migration: Missing resource limit tests
+# ---------------------------------------------------------------------------
+
+
+class TestMissingResourceLimits:
+    """Tests for AST-based resource limit detection."""
+
+    def test_threadpool_no_limit(self, analyzer: AstAnalyzer) -> None:
+        """ThreadPoolExecutor() without max_workers is flagged."""
+        code = (
+            "from concurrent.futures import ThreadPoolExecutor\n"
+            "pool = ThreadPoolExecutor()\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 1
+        assert "max_workers" in resource_f[0].message
+
+    def test_threadpool_with_limit(self, analyzer: AstAnalyzer) -> None:
+        """ThreadPoolExecutor(max_workers=4) is not flagged."""
+        code = (
+            "from concurrent.futures import ThreadPoolExecutor\n"
+            "pool = ThreadPoolExecutor(max_workers=4)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 0
+
+    def test_queue_no_maxsize(self, analyzer: AstAnalyzer) -> None:
+        """Queue() without maxsize is flagged."""
+        code = "from queue import Queue\nq = Queue()\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 1
+
+    def test_queue_with_maxsize(self, analyzer: AstAnalyzer) -> None:
+        """Queue(maxsize=100) is not flagged."""
+        code = "from queue import Queue\nq = Queue(maxsize=100)\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 0
+
+    def test_create_engine_pool_no_limit(self, analyzer: AstAnalyzer) -> None:
+        """create_engine() without pool_size is flagged for resource limits."""
+        code = (
+            "from sqlalchemy import create_engine\n"
+            "engine = create_engine('sqlite:///:memory:')\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 1
+
+    def test_create_engine_with_pool_size(self, analyzer: AstAnalyzer) -> None:
+        """create_engine(pool_size=5) is not flagged."""
+        code = (
+            "from sqlalchemy import create_engine\n"
+            "engine = create_engine('pg://host/db', pool_size=5)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Missing resource limit findings have WARN severity."""
+        code = (
+            "from concurrent.futures import ThreadPoolExecutor\n"
+            "pool = ThreadPoolExecutor()\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert resource_f[0].severity == Severity.WARN
+
+    def test_unrelated_constructors_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Regular class constructors are not flagged."""
+        code = "class Foo:\n    pass\nobj = Foo()\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        resource_f = [f for f in findings if f.rule_id == "ast_missing_resource_limit"]
+        assert len(resource_f) == 0
+
+
+# ---------------------------------------------------------------------------
+# AST-migration: Broad exception handler tests
+# ---------------------------------------------------------------------------
+
+
+class TestBroadExceptionHandlers:
+    """Tests for AST-based broad exception detection."""
+
+    def test_python_except_exception(self, analyzer: AstAnalyzer) -> None:
+        """except Exception is flagged as too broad."""
+        code = "try:\n    x = 1\nexcept Exception:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 1
+        assert "Exception" in exc_f[0].message
+
+    def test_python_except_base_exception(self, analyzer: AstAnalyzer) -> None:
+        """except BaseException is flagged as too broad."""
+        code = "try:\n    x = 1\nexcept BaseException:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 1
+
+    def test_python_bare_except(self, analyzer: AstAnalyzer) -> None:
+        """Bare except: is flagged."""
+        code = "try:\n    x = 1\nexcept:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 1
+        assert "Bare exception" in exc_f[0].message
+
+    def test_python_specific_exception_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """except ValueError is not flagged."""
+        code = "try:\n    x = 1\nexcept ValueError:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 0
+
+    def test_python_multiple_specific_exceptions(self, analyzer: AstAnalyzer) -> None:
+        """except (ValueError, TypeError) is not flagged."""
+        code = "try:\n    x = 1\nexcept (ValueError, TypeError):\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 0
+
+    def test_java_catch_throwable(self, analyzer: AstAnalyzer) -> None:
+        """Java catch(Throwable) is flagged."""
+        code = (
+            "class Foo {\n"
+            "    void bar() {\n"
+            "        try { int x = 1; }\n"
+            "        catch (Throwable e) { }\n"
+            "    }\n"
+            "}\n"
+        )
+        findings = analyzer.analyze(code, Language.JAVA, "Foo.java")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) >= 1
+
+    def test_java_specific_exception_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Java catch(IOException) is not flagged."""
+        code = (
+            "class Foo {\n"
+            "    void bar() {\n"
+            "        try { int x = 1; }\n"
+            "        catch (IOException e) { }\n"
+            "    }\n"
+            "}\n"
+        )
+        findings = analyzer.analyze(code, Language.JAVA, "Foo.java")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Broad exception findings have WARN severity."""
+        code = "try:\n    x = 1\nexcept Exception:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert exc_f[0].severity == Severity.WARN
+
+    def test_js_catch_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """JS catch(e) is not flagged (only form available in JS)."""
+        code = "try { x = 1; } catch (e) { console.log(e); }\n"
+        findings = analyzer.analyze(code, Language.JAVASCRIPT, "test.js")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 0
+
+    def test_go_no_exception_handlers(self, analyzer: AstAnalyzer) -> None:
+        """Go has no exception handlers — no findings."""
+        code = "package main\nfunc foo() { }\n"
+        findings = analyzer.analyze(code, Language.GO, "test.go")
+        exc_f = [f for f in findings if f.rule_id == "ast_broad_exception"]
+        assert len(exc_f) == 0
+
+
+# ---------------------------------------------------------------------------
+# AST-migration phase 2: Silent exception swallow tests
+# ---------------------------------------------------------------------------
+
+
+class TestSilentExceptionSwallow:
+    """Tests for AST-based silent exception swallow detection."""
+
+    def test_except_with_pass(self, analyzer: AstAnalyzer) -> None:
+        """except block with only 'pass' is flagged."""
+        code = "try:\n    x = 1\nexcept ValueError:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert len(swallow_f) == 1
+        assert "ValueError" in swallow_f[0].message
+
+    def test_except_with_ellipsis(self, analyzer: AstAnalyzer) -> None:
+        """except block with only '...' is flagged."""
+        code = "try:\n    x = 1\nexcept ValueError:\n    ...\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert len(swallow_f) == 1
+
+    def test_except_with_logging_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """except block with logging is not flagged."""
+        code = (
+            "try:\n"
+            "    x = 1\n"
+            "except ValueError as e:\n"
+            "    logger.error(e)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert len(swallow_f) == 0
+
+    def test_except_with_raise_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """except block with re-raise is not flagged."""
+        code = (
+            "try:\n"
+            "    x = 1\n"
+            "except ValueError:\n"
+            "    raise\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert len(swallow_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Silent swallow findings have WARN severity."""
+        code = "try:\n    x = 1\nexcept ValueError:\n    pass\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert swallow_f[0].severity == Severity.WARN
+
+    def test_multiple_handlers(self, analyzer: AstAnalyzer) -> None:
+        """Multiple swallowed handlers are each flagged."""
+        code = (
+            "try:\n"
+            "    x = 1\n"
+            "except ValueError:\n"
+            "    pass\n"
+            "except TypeError:\n"
+            "    pass\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        swallow_f = [f for f in findings if f.rule_id == "ast_silent_exception_swallow"]
+        assert len(swallow_f) == 2
+
+
+# ---------------------------------------------------------------------------
+# AST-migration phase 2: Unbounded loop growth tests
+# ---------------------------------------------------------------------------
+
+
+class TestUnboundedLoopGrowth:
+    """Tests for AST-based unbounded loop growth detection."""
+
+    def test_append_in_while_true(self, analyzer: AstAnalyzer) -> None:
+        """append() inside while True is flagged."""
+        code = (
+            "items = []\n"
+            "while True:\n"
+            "    items.append(1)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        loop_f = [f for f in findings if f.rule_id == "ast_unbounded_loop_growth"]
+        assert len(loop_f) == 1
+        assert "append" in loop_f[0].message
+
+    def test_extend_in_while_true(self, analyzer: AstAnalyzer) -> None:
+        """extend() inside while True is flagged."""
+        code = (
+            "items = []\n"
+            "while True:\n"
+            "    items.extend([1, 2])\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        loop_f = [f for f in findings if f.rule_id == "ast_unbounded_loop_growth"]
+        assert len(loop_f) == 1
+
+    def test_append_in_bounded_loop(self, analyzer: AstAnalyzer) -> None:
+        """append() in for loop is not flagged."""
+        code = (
+            "items = []\n"
+            "for i in range(10):\n"
+            "    items.append(i)\n"
+        )
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        loop_f = [f for f in findings if f.rule_id == "ast_unbounded_loop_growth"]
+        assert len(loop_f) == 0
+
+    def test_append_outside_loop(self, analyzer: AstAnalyzer) -> None:
+        """append() outside loop is not flagged."""
+        code = "items = []\nitems.append(1)\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        loop_f = [f for f in findings if f.rule_id == "ast_unbounded_loop_growth"]
+        assert len(loop_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Unbounded loop growth findings have WARN severity."""
+        code = "while True:\n    items.append(1)\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        loop_f = [f for f in findings if f.rule_id == "ast_unbounded_loop_growth"]
+        assert loop_f[0].severity == Severity.WARN
+
+
+# ---------------------------------------------------------------------------
+# AST-migration phase 2: Module-level mutable state tests
+# ---------------------------------------------------------------------------
+
+
+class TestModuleLevelMutable:
+    """Tests for AST-based module-level mutable state detection."""
+
+    def test_module_dict_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Module-level dict literal is flagged."""
+        code = "cache = {}\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 1
+        assert "cache" in mut_f[0].message
+
+    def test_module_list_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Module-level list literal is flagged."""
+        code = "results = []\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 1
+
+    def test_module_constructor_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Module-level dict() constructor is flagged."""
+        code = "registry = dict()\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 1
+
+    def test_uppercase_constant_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """UPPER_CASE dict is not flagged (convention: constant)."""
+        code = "CACHE = {}\nDEFAULT_LIST = []\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 0
+
+    def test_function_local_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """List inside function is not flagged."""
+        code = "def foo():\n    local = []\n    return local\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 0
+
+    def test_immutable_not_flagged(self, analyzer: AstAnalyzer) -> None:
+        """Module-level string/int/tuple is not flagged."""
+        code = "name = 'test'\ncount = 0\ncoords = (1, 2)\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert len(mut_f) == 0
+
+    def test_severity_is_warn(self, analyzer: AstAnalyzer) -> None:
+        """Module-level mutable findings have WARN severity."""
+        code = "cache = {}\n"
+        findings = analyzer.analyze(code, Language.PYTHON, "test.py")
+        mut_f = [f for f in findings if f.rule_id == "ast_module_level_mutable"]
+        assert mut_f[0].severity == Severity.WARN
+
+
+# ---------------------------------------------------------------------------
 # Full analysis orchestration
 # ---------------------------------------------------------------------------
 
@@ -786,3 +1232,116 @@ class TestDeepScanAstIntegration:
         ast_findings = data["ast_scan"]["total_findings"]
         assert ast_findings > 0
         assert data["total_findings"] >= ast_findings
+
+
+# ---------------------------------------------------------------------------
+# AST-backed rule mapping and dedup tests
+# ---------------------------------------------------------------------------
+
+
+class TestAstRuleMapping:
+    """Tests for AST_SUPERSEDES mapping and dedup logic."""
+
+    def test_all_mapped_rules_exist_in_anti_patterns(self) -> None:
+        """Every rule in AST_SUPERSEDES must exist in ANTI_PATTERNS."""
+        from src.rules.anti_patterns import ANTI_PATTERNS
+
+        rule_ids = {r["id"] for r in ANTI_PATTERNS}
+        for regex_id in AST_SUPERSEDES:
+            assert regex_id in rule_ids, f"{regex_id} not in ANTI_PATTERNS"
+
+    def test_all_ast_targets_are_valid(self) -> None:
+        """Every AST target in AST_SUPERSEDES must be a valid ast_ rule_id."""
+        valid_ast_ids = {
+            "ast_missing_timeout",
+            "ast_missing_resource_limit",
+            "ast_broad_exception",
+            "ast_silent_exception_swallow",
+            "ast_unbounded_loop_growth",
+            "ast_module_level_mutable",
+        }
+        for ast_id in AST_SUPERSEDES.values():
+            assert ast_id in valid_ast_ids, f"{ast_id} not a valid AST check"
+
+    def test_backed_ids_is_frozenset(self) -> None:
+        """AST_BACKED_RULE_IDS is a frozenset for O(1) lookup."""
+        assert isinstance(AST_BACKED_RULE_IDS, frozenset)
+        assert len(AST_BACKED_RULE_IDS) == len(AST_SUPERSEDES)
+
+    def test_dedup_removes_regex_when_ast_covers_same_line(self) -> None:
+        """Regex finding on same file:line as AST finding is removed."""
+        regex_findings = [
+            Finding(
+                rule_id="connection_no_timeout",
+                severity=Severity.WARN,
+                message="regex version",
+                file="test.py",
+                line=5,
+            ),
+            Finding(
+                rule_id="some_other_rule",
+                severity=Severity.WARN,
+                message="unrelated",
+                file="test.py",
+                line=10,
+            ),
+        ]
+        ast_findings = [
+            Finding(
+                rule_id="ast_missing_timeout",
+                severity=Severity.WARN,
+                message="AST version",
+                file="test.py",
+                line=5,
+            ),
+        ]
+        result = AstAnalyzer.dedup_with_regex(regex_findings, ast_findings)
+        assert len(result) == 1
+        assert result[0].rule_id == "some_other_rule"
+
+    def test_dedup_keeps_regex_when_no_ast_on_same_line(self) -> None:
+        """Regex finding is kept when no AST finding on same line."""
+        regex_findings = [
+            Finding(
+                rule_id="connection_no_timeout",
+                severity=Severity.WARN,
+                message="regex version",
+                file="test.py",
+                line=5,
+            ),
+        ]
+        ast_findings = [
+            Finding(
+                rule_id="ast_missing_timeout",
+                severity=Severity.WARN,
+                message="AST version",
+                file="other.py",
+                line=5,
+            ),
+        ]
+        result = AstAnalyzer.dedup_with_regex(regex_findings, ast_findings)
+        assert len(result) == 1
+
+    def test_dedup_keeps_non_backed_rules(self) -> None:
+        """Non-AST-backed regex rules are never deduped."""
+        regex_findings = [
+            Finding(
+                rule_id="hardcoded_secret",
+                severity=Severity.BLOCK,
+                message="secret found",
+                file="test.py",
+                line=5,
+            ),
+        ]
+        ast_findings = [
+            Finding(
+                rule_id="ast_missing_timeout",
+                severity=Severity.WARN,
+                message="something",
+                file="test.py",
+                line=5,
+            ),
+        ]
+        result = AstAnalyzer.dedup_with_regex(regex_findings, ast_findings)
+        assert len(result) == 1
+        assert result[0].rule_id == "hardcoded_secret"

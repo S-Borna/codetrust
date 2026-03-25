@@ -259,6 +259,11 @@
                         ".env.production"
                     ],
                     "description": "Files that require confirmation before AI agent writes or deletes"
+                },
+                "codetrust.attribution.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable AI model attribution — monitors LLM API calls to track which model generates code (metadata only, no prompts/code captured)"
                 }
             }
         }

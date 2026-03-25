@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from src.server import (
     codetrust_cross_language_taint,
     codetrust_deep_scan,
@@ -20,7 +18,6 @@ from src.server import (
     codetrust_list_rules,
     codetrust_static_scan,
 )
-
 
 # ── Vulnerable code samples ─────────────────────────────────────────────────
 

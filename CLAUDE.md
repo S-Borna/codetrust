@@ -111,13 +111,15 @@ Workflow: Call proxy → if APPROVED, call native tool with identical params. If
 
 You are building **CodeTrust** — an AI governance enforcement platform distributed as an MCP server + cloud API. This is a paid product. Every line of code must be production-grade.
 
-**Current capabilities (2026-03-23):**
+**Current capabilities (2026-03-25):**
 - 1,284 rules (1,202 scan + 82 gateway), 23 languages
+- 10 AST deep checks: complexity, unused vars, unreachable code, deep nesting, missing timeouts, missing resource limits, broad exception handlers, silent exception swallow, unbounded loop growth, module-level mutable state
 - Cross-file taint analysis: Python, JS/TS, Go
 - Cross-LANGUAGE taint analysis: Python↔JS/TS↔Go via HTTP boundary detection (unique — no competitor has this)
+- 280 taint definitions (sources, sinks, sanitizers) across Python, JS/TS, Go, Java
 - IDEs: VS Code, Chrome extension, JetBrains (IntelliJ/PyCharm/WebStorm)
 - CI/CD: GitHub Actions, Jenkins, GitLab CI, Azure Pipelines, Bitbucket
-- 2,135+ tests, ruff clean
+- 2,391+ tests, ruff clean
 
 **Quality mandate:** The goal is not feature parity with SonarQube/Semgrep/Snyk — it is to CRUSH them on quality. Every feature must exploit a structural advantage competitors cannot replicate.
 

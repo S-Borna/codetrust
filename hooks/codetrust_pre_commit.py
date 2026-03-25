@@ -38,9 +38,10 @@ INFRA_CONFIG_SKIP: frozenset[str] = frozenset({
     "docker-compose.override.yml", "docker-compose.override.yaml",
 })
 
-# Directories containing CI/CD workflows — skip scanning to avoid
-# false positives on template literals and embedded code snippets.
-SKIP_PATH_PREFIXES: tuple[str, ...] = (".github/",)
+# Directories and files to skip scanning — avoids false positives from
+# CI/CD template literals, embedded code snippets, and rule definition
+# files that inherently contain the patterns they detect.
+SKIP_PATH_PREFIXES: tuple[str, ...] = (".github/", "src/rules/", "tests/")
 
 SEVERITY_BLOCK = "BLOCK"
 SEVERITY_WARN = "WARN"

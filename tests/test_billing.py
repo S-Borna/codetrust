@@ -1,11 +1,19 @@
 """Tests for billing service — Stripe integration."""
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+import stripe as stripe_lib
 
 from src.models.enums import PlanTier
 from src.services.billing import PLAN_LIMITS, BillingService
+
+_STRIPE_TEST_KEY = os.environ.get("CODETRUST_STRIPE_SECRET_KEY", "")
+_HAS_STRIPE = _STRIPE_TEST_KEY.startswith("sk_test_")
+_skip_no_stripe = pytest.mark.skipif(
+    not _HAS_STRIPE, reason="CODETRUST_STRIPE_SECRET_KEY (test) not set",
+)
 
 
 @pytest.fixture()
@@ -255,3 +263,86 @@ class TestPlanLimits:
         assert PlanTier.FREE in PLAN_LIMITS
         assert PlanTier.PRO in PLAN_LIMITS
         assert PlanTier.ENTERPRISE in PLAN_LIMITS
+
+
+# ── Stripe Integration Tests (require sk_test_ key) ────────────────────────
+
+
+@_skip_no_stripe
+class TestStripeIntegration:
+    """Live integration tests against Stripe test-mode API."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_stripe(self) -> None:
+        """Configure Stripe with test key."""
+        stripe_lib.api_key = _STRIPE_TEST_KEY
+
+    async def test_create_and_delete_customer(self) -> None:
+        """Create a real test customer and clean up."""
+        svc = BillingService()
+        assert svc.is_configured()
+
+        cust_id = await svc.create_customer(
+            "pytest-integration@codetrust.ai", "Pytest Test", "pytest_user_001",
+        )
+        assert cust_id.startswith("cus_")
+
+        fetched = stripe_lib.Customer.retrieve(cust_id)
+        assert fetched.email == "pytest-integration@codetrust.ai"
+        assert fetched.metadata["codetrust_user_id"] == "pytest_user_001"
+
+        stripe_lib.Customer.delete(cust_id)
+
+    async def test_checkout_session_pro(self) -> None:
+        """Create a checkout session for Pro plan."""
+        svc = BillingService()
+        cust_id = await svc.create_customer(
+            "pytest-checkout@codetrust.ai", "Checkout Test", "pytest_checkout",
+        )
+
+        url = await svc.create_checkout_session(cust_id, "pro")
+        assert "checkout.stripe.com" in url
+
+        stripe_lib.Customer.delete(cust_id)
+
+    async def test_checkout_session_enterprise(self) -> None:
+        """Create a checkout session for Enterprise plan."""
+        svc = BillingService()
+        cust_id = await svc.create_customer(
+            "pytest-ent@codetrust.ai", "Enterprise Test", "pytest_ent",
+        )
+
+        url = await svc.create_checkout_session(cust_id, "enterprise")
+        assert "checkout.stripe.com" in url
+
+        stripe_lib.Customer.delete(cust_id)
+
+    async def test_portal_session(self) -> None:
+        """Create a customer portal session."""
+        svc = BillingService()
+        cust_id = await svc.create_customer(
+            "pytest-portal@codetrust.ai", "Portal Test", "pytest_portal",
+        )
+
+        url = await svc.create_portal_session(cust_id)
+        assert "billing.stripe.com" in url
+
+        stripe_lib.Customer.delete(cust_id)
+
+    async def test_subscription_status_empty(self) -> None:
+        """Empty subscription ID returns 'none'."""
+        svc = BillingService()
+        status = await svc.get_subscription_status("")
+        assert status == "none"
+
+    async def test_invalid_plan_returns_empty(self) -> None:
+        """Unknown plan returns empty checkout URL."""
+        svc = BillingService()
+        cust_id = await svc.create_customer(
+            "pytest-invalid@codetrust.ai", "Invalid Test", "pytest_invalid",
+        )
+
+        url = await svc.create_checkout_session(cust_id, "nonexistent_plan")
+        assert url == ""
+
+        stripe_lib.Customer.delete(cust_id)

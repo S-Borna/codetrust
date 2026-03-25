@@ -195,6 +195,101 @@ function process(req, res) {
 
 
 # ---------------------------------------------------------------------------
+# Java taint detection
+# ---------------------------------------------------------------------------
+
+
+class TestJavaTaint:
+    """Tests for Java source-to-sink taint tracking (Spring/JDBC/Hibernate)."""
+
+    def test_jdbc_sql_injection(self, analyzer: TaintAnalyzer) -> None:
+        """Detect tainted servlet param flowing to Statement.executeQuery."""
+        code = '''
+public void doGet(HttpServletRequest request, HttpServletResponse response) {
+    String id = request.getParameter("id");
+    Statement stmt = conn.createStatement();
+    stmt.executeQuery("SELECT * FROM users WHERE id = " + id);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "UserServlet.java")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+        assert taint[0].severity == Severity.BLOCK
+
+    def test_hibernate_hql_injection(self, analyzer: TaintAnalyzer) -> None:
+        """Detect tainted data flowing to Hibernate createQuery."""
+        code = '''
+public User findUser(HttpServletRequest request) {
+    String name = request.getParameter("name");
+    return session.createQuery("FROM User WHERE name = '" + name + "'").uniqueResult();
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "UserDao.java")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+    def test_command_injection(self, analyzer: TaintAnalyzer) -> None:
+        """Detect tainted data flowing to Runtime.exec."""
+        code = '''
+public void runCommand(HttpServletRequest request) {
+    String cmd = request.getParameter("cmd");
+    Runtime.getRuntime().exec(cmd);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "CmdServlet.java")
+        taint = [f for f in findings if f.rule_id == "taint_command_injection"]
+        assert len(taint) >= 1
+
+    def test_path_traversal(self, analyzer: TaintAnalyzer) -> None:
+        """Detect tainted data flowing to File constructor."""
+        code = '''
+public void readFile(HttpServletRequest request) {
+    String path = request.getParameter("file");
+    File f = new File(path);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "FileServlet.java")
+        taint = [f for f in findings if f.rule_id == "taint_path_traversal"]
+        assert len(taint) >= 1
+
+    def test_ssrf_resttemplate(self, analyzer: TaintAnalyzer) -> None:
+        """Detect tainted URL flowing to Spring RestTemplate."""
+        code = '''
+public String proxy(HttpServletRequest request) {
+    String url = request.getParameter("url");
+    return restTemplate.getForObject(url, String.class);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "ProxyController.java")
+        taint = [f for f in findings if f.rule_id == "taint_ssrf"]
+        assert len(taint) >= 1
+
+    def test_sanitized_no_finding(self, analyzer: TaintAnalyzer) -> None:
+        """Integer.parseInt sanitizes taint — no SQL injection."""
+        code = '''
+public void safeQuery(HttpServletRequest request) {
+    int id = Integer.parseInt(request.getParameter("id"));
+    stmt.executeQuery("SELECT * FROM users WHERE id = " + id);
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "SafeServlet.java")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) == 0
+
+    def test_servlet_param_to_jpa_native_query(self, analyzer: TaintAnalyzer) -> None:
+        """Detect servlet param flowing to JPA native query."""
+        code = '''
+public List<User> search(HttpServletRequest request) {
+    String filter = request.getParameter("filter");
+    return em.createNativeQuery("SELECT * FROM users WHERE " + filter).getResultList();
+}
+'''
+        findings = analyzer.analyze(code, Language.JAVA, "SearchController.java")
+        taint = [f for f in findings if f.rule_id == "taint_sql_injection"]
+        assert len(taint) >= 1
+
+
+# ---------------------------------------------------------------------------
 # Edge cases and robustness
 # ---------------------------------------------------------------------------
 

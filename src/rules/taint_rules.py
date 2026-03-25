@@ -80,9 +80,21 @@ GO_SOURCES: tuple[TaintSource, ...] = (
 )
 
 JAVA_SOURCES: tuple[TaintSource, ...] = (
+    # Servlet API
     TaintSource("request.getParameter", "request.getParameter(", Language.JAVA, "Servlet parameter"),
+    TaintSource("request.getParameterValues", "request.getParameterValues(", Language.JAVA, "Servlet multi-value parameter"),
     TaintSource("request.getInputStream", "request.getInputStream(", Language.JAVA, "Servlet input stream"),
     TaintSource("request.getHeader", "request.getHeader(", Language.JAVA, "Servlet request header"),
+    TaintSource("request.getQueryString", "request.getQueryString(", Language.JAVA, "Servlet raw query string"),
+    TaintSource("request.getPathInfo", "request.getPathInfo(", Language.JAVA, "Servlet path info"),
+    TaintSource("request.getCookies", "request.getCookies(", Language.JAVA, "Servlet cookies"),
+    TaintSource("request.getRequestURI", "request.getRequestURI(", Language.JAVA, "Servlet request URI"),
+    # Spring MVC
+    TaintSource("@RequestParam", "@RequestParam", Language.JAVA, "Spring MVC query/form parameter"),
+    TaintSource("@PathVariable", "@PathVariable", Language.JAVA, "Spring MVC URL path variable"),
+    TaintSource("@RequestBody", "@RequestBody", Language.JAVA, "Spring MVC JSON request body"),
+    TaintSource("@RequestHeader", "@RequestHeader", Language.JAVA, "Spring MVC request header"),
+    TaintSource("@CookieValue", "@CookieValue", Language.JAVA, "Spring MVC cookie value"),
 )
 
 TAINT_SOURCES: dict[Language, tuple[TaintSource, ...]] = {
@@ -224,7 +236,47 @@ GO_SINKS: tuple[TaintSink, ...] = (
 )
 
 JAVA_SINKS: tuple[TaintSink, ...] = (
-    TaintSink(".rawQuery", ".rawQuery(", CATEGORY_SQL_INJECTION, Language.JAVA),
+    # SQL injection — JDBC
+    TaintSink("Statement.execute", ".execute(", CATEGORY_SQL_INJECTION, Language.JAVA, "JDBC Statement.execute"),
+    TaintSink("Statement.executeQuery", ".executeQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "JDBC Statement.executeQuery"),
+    TaintSink("Statement.executeUpdate", ".executeUpdate(", CATEGORY_SQL_INJECTION, Language.JAVA, "JDBC Statement.executeUpdate"),
+    TaintSink("Connection.prepareStatement", ".prepareStatement(", CATEGORY_SQL_INJECTION, Language.JAVA, "SQL in PreparedStatement creation"),
+    TaintSink("Connection.nativeQuery", ".nativeQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "JPA native query"),
+    # SQL injection — Hibernate / JPA
+    TaintSink("Session.createQuery", ".createQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "Hibernate HQL query"),
+    TaintSink("Session.createSQLQuery", ".createSQLQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "Hibernate native SQL"),
+    TaintSink("EntityManager.createNativeQuery", ".createNativeQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "JPA native SQL query"),
+    TaintSink("EntityManager.createQuery", ".createQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "JPA/JPQL query"),
+    # SQL injection — Spring JDBC
+    TaintSink("JdbcTemplate.query", "jdbcTemplate.query(", CATEGORY_SQL_INJECTION, Language.JAVA, "Spring JdbcTemplate query"),
+    TaintSink("JdbcTemplate.update", "jdbcTemplate.update(", CATEGORY_SQL_INJECTION, Language.JAVA, "Spring JdbcTemplate update"),
+    TaintSink("JdbcTemplate.execute", "jdbcTemplate.execute(", CATEGORY_SQL_INJECTION, Language.JAVA, "Spring JdbcTemplate execute"),
+    TaintSink("NamedParameterJdbcTemplate.query", "namedParameterJdbcTemplate.query(", CATEGORY_SQL_INJECTION, Language.JAVA, "Spring named JDBC query"),
+    TaintSink(".rawQuery", ".rawQuery(", CATEGORY_SQL_INJECTION, Language.JAVA, "Android raw SQL query"),
+    # Command injection
+    TaintSink("Runtime.exec", "Runtime.getRuntime().exec(", CATEGORY_COMMAND_INJECTION, Language.JAVA, "Java Runtime.exec"),
+    TaintSink("ProcessBuilder", "new ProcessBuilder(", CATEGORY_COMMAND_INJECTION, Language.JAVA, "Java ProcessBuilder"),
+    # XSS — Servlet response
+    TaintSink("response.getWriter", "response.getWriter().print", CATEGORY_XSS, Language.JAVA, "Servlet response writer"),
+    TaintSink("PrintWriter.println", ".println(", CATEGORY_XSS, Language.JAVA, "Servlet PrintWriter output"),
+    # Path traversal
+    TaintSink("new File", "new File(", CATEGORY_PATH_TRAVERSAL, Language.JAVA, "File path construction"),
+    TaintSink("Paths.get", "Paths.get(", CATEGORY_PATH_TRAVERSAL, Language.JAVA, "NIO path construction"),
+    TaintSink("FileInputStream", "new FileInputStream(", CATEGORY_PATH_TRAVERSAL, Language.JAVA, "File input stream"),
+    TaintSink("FileOutputStream", "new FileOutputStream(", CATEGORY_PATH_TRAVERSAL, Language.JAVA, "File output stream"),
+    # SSRF
+    TaintSink("URL.openConnection", ".openConnection(", CATEGORY_SSRF, Language.JAVA, "Java URL connection"),
+    TaintSink("HttpClient.send", "httpClient.send(", CATEGORY_SSRF, Language.JAVA, "Java 11+ HttpClient"),
+    TaintSink("RestTemplate.getForObject", "restTemplate.getForObject(", CATEGORY_SSRF, Language.JAVA, "Spring RestTemplate GET"),
+    TaintSink("RestTemplate.postForObject", "restTemplate.postForObject(", CATEGORY_SSRF, Language.JAVA, "Spring RestTemplate POST"),
+    TaintSink("WebClient.get", "webClient.get(", CATEGORY_SSRF, Language.JAVA, "Spring WebFlux WebClient"),
+    # Deserialization
+    TaintSink("ObjectInputStream.readObject", ".readObject(", CATEGORY_DESERIALIZATION, Language.JAVA, "Java deserialization"),
+    TaintSink("XMLDecoder.readObject", ".readObject(", CATEGORY_DESERIALIZATION, Language.JAVA, "XML deserialization"),
+    # Code injection
+    TaintSink("ScriptEngine.eval", ".eval(", CATEGORY_CODE_INJECTION, Language.JAVA, "Java ScriptEngine eval"),
+    # LDAP injection
+    TaintSink("DirContext.search", ".search(", CATEGORY_LDAP_INJECTION, Language.JAVA, "JNDI LDAP search"),
 )
 
 TAINT_SINKS: dict[Language, tuple[TaintSink, ...]] = {
@@ -312,9 +364,35 @@ GO_SANITIZERS: tuple[TaintSanitizer, ...] = (
     TaintSanitizer("filepath.Clean", "filepath.Clean(", Language.GO, "File path sanitization"),
 )
 
+JAVA_SANITIZERS: tuple[TaintSanitizer, ...] = (
+    # Type casting
+    TaintSanitizer("Integer.parseInt", "Integer.parseInt(", Language.JAVA, "String to int"),
+    TaintSanitizer("Integer.valueOf", "Integer.valueOf(", Language.JAVA, "String to Integer"),
+    TaintSanitizer("Long.parseLong", "Long.parseLong(", Language.JAVA, "String to long"),
+    TaintSanitizer("Double.parseDouble", "Double.parseDouble(", Language.JAVA, "String to double"),
+    TaintSanitizer("UUID.fromString", "UUID.fromString(", Language.JAVA, "UUID validation/cast"),
+    # HTML/XSS sanitization
+    TaintSanitizer("HtmlUtils.htmlEscape", "HtmlUtils.htmlEscape(", Language.JAVA, "Spring HTML escape"),
+    TaintSanitizer("StringEscapeUtils.escapeHtml4", "StringEscapeUtils.escapeHtml4(", Language.JAVA, "Apache Commons HTML escape"),
+    TaintSanitizer("Jsoup.clean", "Jsoup.clean(", Language.JAVA, "Jsoup HTML sanitizer"),
+    TaintSanitizer("ESAPI.encoder", "ESAPI.encoder().encodeForHTML(", Language.JAVA, "OWASP ESAPI HTML encoder"),
+    # SQL parameterization
+    TaintSanitizer("PreparedStatement", "preparedStatement.set", Language.JAVA, "JDBC parameterized query"),
+    TaintSanitizer("CriteriaBuilder", "criteriaBuilder.", Language.JAVA, "JPA Criteria API (safe by design)"),
+    # URL/path sanitization
+    TaintSanitizer("URLEncoder.encode", "URLEncoder.encode(", Language.JAVA, "URL encoding"),
+    TaintSanitizer("Paths.get.normalize", ".normalize(", Language.JAVA, "NIO path normalization"),
+    # Validation
+    TaintSanitizer("Pattern.matches", "Pattern.matches(", Language.JAVA, "Regex validation"),
+    TaintSanitizer("StringUtils.isNumeric", "StringUtils.isNumeric(", Language.JAVA, "Apache Commons numeric check"),
+    TaintSanitizer("@Valid", "@Valid", Language.JAVA, "Bean Validation annotation"),
+    TaintSanitizer("@Validated", "@Validated", Language.JAVA, "Spring validation annotation"),
+)
+
 TAINT_SANITIZERS: dict[Language, tuple[TaintSanitizer, ...]] = {
     Language.PYTHON: PYTHON_SANITIZERS,
     Language.JAVASCRIPT: JAVASCRIPT_SANITIZERS,
     Language.TYPESCRIPT: JAVASCRIPT_SANITIZERS,
     Language.GO: GO_SANITIZERS,
+    Language.JAVA: JAVA_SANITIZERS,
 }

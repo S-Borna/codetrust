@@ -46,6 +46,7 @@ docker-compose.override.yml
 .local/
 /SESSION_LOG.md
 /CODEBASE_KNOWLEDGE.md
+CLAUDE.md
 
 # CodeTrust runtime artifacts
 .codetrust/

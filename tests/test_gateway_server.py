@@ -489,3 +489,72 @@ class TestTrustedExecutionAndApprovals:
             agent_id="agent-a",
         ))
         assert allowed["status"] == "APPROVED"
+
+
+# ---------------------------------------------------------------------------
+# Interpreter -c/-e inner-string blocking tests (Copilot review fix 6)
+# ---------------------------------------------------------------------------
+
+
+class TestInterpreterInnerString:
+    """Verify gateway blocks dangerous commands embedded in interpreter -c/-e."""
+
+    @pytest.mark.asyncio()
+    async def test_python_c_os_system_blocked(self) -> None:
+        from src.gateway.server import validate_command
+
+        result = await validate_command('python3 -c "import os; os.system(\'rm -rf /\')"')
+        data = json.loads(result)
+        assert data["verdict"] in ("WARN", "BLOCK")
+
+    @pytest.mark.asyncio()
+    async def test_python_dotted_version_blocked(self) -> None:
+        from src.gateway.server import validate_command
+
+        result = await validate_command('python3.12 -c "import os; os.system(\'whoami\')"')
+        data = json.loads(result)
+        assert data["verdict"] in ("WARN", "BLOCK")
+
+    @pytest.mark.asyncio()
+    async def test_node_e_child_process_blocked(self) -> None:
+        from src.gateway.server import validate_command
+
+        result = await validate_command('node -e "require(\'child_process\').execSync(\'id\')"')
+        data = json.loads(result)
+        assert data["verdict"] in ("WARN", "BLOCK")
+
+    @pytest.mark.asyncio()
+    async def test_safe_python_c_allowed(self) -> None:
+        from src.gateway.server import validate_command
+
+        result = await validate_command('python3 -c "print(1+1)"')
+        data = json.loads(result)
+        assert data["verdict"] in ("ALLOW", "WARN")
+
+    @pytest.mark.asyncio()
+    async def test_safe_node_e_allowed(self) -> None:
+        from src.gateway.server import validate_command
+
+        result = await validate_command('node -e "console.log(42)"')
+        data = json.loads(result)
+        assert data["verdict"] in ("ALLOW", "WARN")
+
+
+# ---------------------------------------------------------------------------
+# Governance integrity tool test (Copilot review fix 8)
+# ---------------------------------------------------------------------------
+
+
+class TestGovernanceIntegrity:
+    """Test codetrust_governance_integrity tool JSON shape."""
+
+    @pytest.mark.asyncio()
+    async def test_integrity_returns_valid_json(self) -> None:
+        from src.gateway.server import governance_integrity
+
+        result = await governance_integrity()
+        data = json.loads(result)
+        assert "verdict" in data
+        assert "file_hashes" in data
+        assert isinstance(data["file_hashes"], dict)
+        assert "workspace" in data

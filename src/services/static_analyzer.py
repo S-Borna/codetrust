@@ -816,6 +816,8 @@ class StaticAnalyzer:
         jwt_encode_re = re.compile(r"jwt\.encode\s*\(")
         exp_indicators = re.compile(r"""["']exp["']|timedelta""")
         for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
             if not jwt_encode_re.search(line):
                 continue
             # Look back 5 lines for exp/timedelta
@@ -830,8 +832,8 @@ class StaticAnalyzer:
                 file=filename,
                 line=line_num,
                 suggestion=(
-                    "A JWT without exp claim is valid forever. Always: "
-                    "payload['exp'] = datetime.utcnow() + timedelta(hours=1)."
+                    "A JWT without an 'exp' claim is valid indefinitely. Always set a "
+                    "numeric UTC expiry: payload['exp'] = int(datetime.now(timezone.utc).timestamp()) + 3600."
                 ),
             ))
         return findings

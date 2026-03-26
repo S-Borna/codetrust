@@ -46,7 +46,7 @@ from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import GovernancePolicy, PolicyEngine
 from src.gateway.policy_integrity import (
     PolicyIntegrityResult,
-    _build_current_hashes,
+    build_current_hashes,
     get_policy_manifest_hash,
     verify_policy_integrity,
 )
@@ -1470,8 +1470,9 @@ async def governance_integrity(workspace: str | None = None) -> str:
 
     Computes current hashes of governance-critical files (.codetrust.toml,
     CLAUDE.md, .cursorrules, .windsurfrules, etc.) and compares them against
-    the signed policy-integrity manifest. Returns WARN if any file has changed
-    since the last manifest signing.
+    the signed policy-integrity manifest, flagging any files that have changed
+    since the last manifest signing. Hash mismatches are treated as BLOCK-level
+    findings by the underlying integrity engine.
 
     Args:
         workspace: Optional workspace path override. Defaults to gateway workspace.
@@ -1485,7 +1486,7 @@ async def governance_integrity(workspace: str | None = None) -> str:
     integrity_result = verify_policy_integrity(target_workspace, sign_key=sign_key)
     _audit_policy_integrity(integrity_result, action="governance_integrity_check")
 
-    current_hashes = _build_current_hashes(Path(target_workspace))
+    current_hashes = build_current_hashes(Path(target_workspace))
 
     report: dict[str, object] = {
         "verdict": integrity_result.verdict,

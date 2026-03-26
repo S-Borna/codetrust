@@ -104,7 +104,7 @@ def _heredoc_suggestion(command: str) -> str:
 # ═══════════════════════════════════════════════════════════════
 
 _INTERPRETER_FLAG_RE = re.compile(
-    r"""(?:python[23]?|node|ruby|perl)\s+-[ce]\s+(.+)""",
+    r"""(?:python(?:\d+(?:\.\d+)*)?|node|ruby|perl)\s+-[ce]\s+(.+)""",
     re.DOTALL,
 )
 

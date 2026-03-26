@@ -60,7 +60,7 @@ def _sign_payload(payload: dict[str, object], sign_key: str) -> str:
     return hmac.new(sign_key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def _build_current_hashes(workspace: Path) -> dict[str, str]:
+def build_current_hashes(workspace: Path) -> dict[str, str]:
     """Build hash map for policy files that currently exist."""
     file_hashes: dict[str, str] = {}
     for rel_path in POLICY_TARGET_FILES:
@@ -94,7 +94,7 @@ def create_policy_integrity_manifest(
 ) -> dict[str, object]:
     """Create and persist signed policy integrity manifest in workspace."""
     workspace = Path(workspace_path)
-    file_hashes = _build_current_hashes(workspace)
+    file_hashes = build_current_hashes(workspace)
     payload: dict[str, object] = {
         "version": version,
         "issued_at": int(time.time()),
@@ -173,7 +173,7 @@ def verify_policy_integrity(workspace_path: str | Path, *, sign_key: str) -> Pol
             metadata={"manifest_path": str(manifest_path)},
         )
 
-    current_hashes = _build_current_hashes(workspace)
+    current_hashes = build_current_hashes(workspace)
 
     mismatches: list[dict[str, str]] = []
     for rel_path, expected_hash in manifest_hashes.items():

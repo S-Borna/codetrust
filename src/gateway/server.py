@@ -948,9 +948,11 @@ async def proxy_replace_string_in_file(
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
-    # Validate the incoming new content as a file write
-    combined_content = f"{old_string}\n---replaced-by---\n{new_string}"
-    result = _interceptor.check_file_write(path, combined_content)
+    # Delta-only validation: scan only new_string (what the agent writes),
+    # not old_string (what already exists in the file). This prevents
+    # IDE freezing on large files — a 1-line edit in a 30K-line file
+    # validates in milliseconds instead of seconds.
+    result = _interceptor.check_file_write(path, new_string)
     return _proxy_result(
         result,
         allow_reason=allow_reason,

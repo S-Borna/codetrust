@@ -23492,7 +23492,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query built with f-string in execute() call - use parameterized queries instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "execute(f'SELECT ... {user_input}') injects directly. Use execute('SELECT ... WHERE id = %s', (user_id,)). The %s is DB-API parameterization, not Python formatting — the driver sends it as a bound value that can never be interpreted as SQL."
             ),
     },
     {
@@ -23501,7 +23501,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query using percent formatting in execute() - use parameterized queries instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "execute('SELECT ... %s' % val) uses Python string formatting before the driver sees it. Switch to execute('SELECT ... WHERE id = %s', (val,)) — same %s syntax but passed as second argument, making it a bound parameter instead of string interpolation."
             ),
     },
     {
@@ -23510,7 +23510,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ORM raw() query built with f-string - use parameterized raw queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "ORM.raw(f'SELECT ... {input}') bypasses the ORM's query builder protections. Use ORM.raw('SELECT ... WHERE id = %s', [input]) — the raw() method accepts params as the second argument. Or better: use the ORM's filter/where API which parameterizes automatically."
             ),
     },
     {
@@ -23519,7 +23519,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Django extra() with string concatenation in WHERE clause - use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Django extra() with string concatenation in WHERE clause - use parameterized queries. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Django extra(where=['col=' + val]) concatenates into raw SQL. Use extra(where=['col=%s'], params=[val]) — the params argument binds safely. Better: extra() is deprecated since Django 3.2. Migrate to .annotate() with F()/Value() expressions or .filter() with Q() objects."
             ),
     },
     {
@@ -23528,7 +23528,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Django RawSQL with f-string interpolation enables SQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "Django RawSQL(f'...{input}...') injects via f-string. Use RawSQL('function(%s)', (input,)) — pass user data as params tuple. Or use Django's database functions (Func, Value, Cast) which generate parameterized SQL without raw strings."
             ),
     },
     {
@@ -23537,7 +23537,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL cursor.execute() with string concatenation - use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "cursor.execute('SELECT * FROM t WHERE id=' + user_id) concatenates user input into SQL. Use cursor.execute('SELECT * FROM t WHERE id = %s', (user_id,)). The tuple as second argument makes %s a parameter placeholder, not string formatting."
             ),
     },
     {
@@ -23546,7 +23546,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query with template literal interpolation - use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "db.query(`SELECT * FROM users WHERE id = ${userId}`) interpolates via template literal. Use db.query('SELECT * FROM users WHERE id = $1', [userId]). Template literals in SQL are never safe — the database receives the interpolated string as-is."
             ),
     },
     {
@@ -23555,7 +23555,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database exec/execute with template literal interpolation - use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "db.execute(`INSERT INTO t VALUES (${val})`) interpolates into SQL via template literal. Use db.execute('INSERT INTO t VALUES ($1)', [val]). For multiple values: db.execute('INSERT INTO t VALUES ($1, $2)', [val1, val2])."
             ),
     },
     {
@@ -23564,7 +23564,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Knex whereRaw with template literal interpolation - use parameter binding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "knex.whereRaw(`col = ${input}`) interpolates into WHERE clause. Use knex.whereRaw('col = ?', [input]) — the ? placeholder is Knex's parameter binding. Or use knex.where({col: input}) which parameterizes automatically."
             ),
     },
     {
@@ -23573,7 +23573,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Go SQL query built with Sprintf - use parameterized queries with $1 or ? placeholders",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "fmt.Sprintf in SQL queries enables injection. Go's database/sql has built-in parameterization: db.Query('SELECT * FROM users WHERE id = $1', userID). Use $1, $2 for PostgreSQL, ? for MySQL. The driver handles escaping. Never use Sprintf, fmt.Fprintf, or string concatenation for SQL."
+                "db.Query(fmt.Sprintf('SELECT ... WHERE id=%s', userID)) builds SQL via Sprintf. Use db.Query('SELECT ... WHERE id=$1', userID) for PostgreSQL or db.Query('SELECT ... WHERE id=?', userID) for MySQL. Go's database/sql handles parameterization natively."
             ),
     },
     {
@@ -23582,7 +23582,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Go SQL clause built with fmt.Sprintf - use db.Query with args",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "fmt.Sprintf in SQL queries enables injection. Go's database/sql has built-in parameterization: db.Query('SELECT * FROM users WHERE id = $1', userID). Use $1, $2 for PostgreSQL, ? for MySQL. The driver handles escaping. Never use Sprintf, fmt.Fprintf, or string concatenation for SQL."
+                "fmt.Sprintf('WHERE col = %s', val) for SQL clauses builds injectable strings. Use db.Query with positional args: db.Query('SELECT * FROM t WHERE col = $1 AND status = $2', val, status). Each $N corresponds to an argument."
             ),
     },
     {
@@ -23591,7 +23591,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "TypeORM QueryBuilder with template literal in where() - use parameter binding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "TypeORM .where(`col = ${input}`) interpolates via template literal. Use .where('col = :val', { val: input }) — TypeORM's :param syntax creates a parameterized query. Or use the QueryBuilder's type-safe API: .where('col = :val', { val })."
             ),
     },
     {
@@ -23600,7 +23600,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sequelize raw query with template literal interpolation - use replacements or bind parameters",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "sequelize.query(`SELECT ... ${input}`) interpolates. Use sequelize.query('SELECT ... WHERE id = :id', { replacements: { id: input } }) or sequelize.query('SELECT ... WHERE id = $1', { bind: [input] }). Replacements are escaped, bind params are parameterized."
             ),
     },
     {
@@ -23609,7 +23609,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "EF Core FromSqlRaw with string interpolation - use FromSqlInterpolated instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "FromSqlRaw($'SELECT ... {input}') uses C# string interpolation which builds the SQL before EF sees it. Use FromSqlInterpolated($'SELECT ... {input}') — despite looking identical, FromSqlInterpolated converts interpolation to parameters automatically."
             ),
     },
     {
@@ -23618,7 +23618,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java Statement.execute with string concatenation - use PreparedStatement",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Java Statement.execute('SELECT ...' + input) uses concatenation. Use PreparedStatement: PreparedStatement ps = conn.prepareStatement('SELECT * FROM t WHERE id = ?'); ps.setString(1, input); ResultSet rs = ps.executeQuery(). The ? is parameterized by JDBC."
             ),
     },
     {
@@ -23627,7 +23627,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java createStatement with string concatenation - use prepareStatement with parameter binding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "createStatement().executeQuery('...' + input) has no parameter binding. Replace with: PreparedStatement ps = conn.prepareStatement('SELECT * FROM t WHERE id = ?'); ps.setInt(1, id); Use setString/setInt/setLong matching the column type."
             ),
     },
     {
@@ -23636,7 +23636,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Knex orderByRaw with template literal interpolation enables SQL injection via ORDER BY",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "knex.orderByRaw(`${col} ${dir}`) allows ORDER BY injection — an attacker can inject UNION SELECT. Validate col against an allowlist of column names: if (!['name','date','id'].includes(col)) throw Error(). Direction must be 'ASC' or 'DESC' only."
             ),
     },
     {
@@ -23645,7 +23645,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Knex havingRaw with template literal interpolation enables SQL injection via HAVING",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "knex.havingRaw(`count > ${input}`) injects into HAVING. Use knex.havingRaw('count > ?', [input]). HAVING injection can extract data via boolean-based techniques even without UNION, so parameterization is essential."
             ),
     },
     {
@@ -23654,7 +23654,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Knex joinRaw with template literal interpolation enables SQL injection via JOIN",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "knex.joinRaw(`t2 ON t1.id = ${expr}`) injects into JOIN. Use knex.joinRaw('t2 ON t1.id = ?', [value]). Or use Knex's type-safe join: knex.join('t2', 't1.id', 't2.fk_id') which generates safe SQL."
             ),
     },
     {
@@ -23663,7 +23663,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic table name via string concatenation - validate against allowlist of table names",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Dynamic table name via 'SELECT * FROM ' + tableName enables injection. Table names cannot be parameterized in most databases. Validate against an explicit allowlist: ALLOWED_TABLES = {'users', 'orders', 'products'}; assert table in ALLOWED_TABLES."
             ),
     },
     {
@@ -23672,7 +23672,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic column or type name with f-string in ORM schema definition",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "Dynamic column/type names in ORM schema definitions via f-strings allow schema injection. Validate column names against ^[a-zA-Z_][a-zA-Z0-9_]*$ regex and use an allowlist of type names. Schema definitions should be static, not runtime-generated."
             ),
     },
     {
@@ -23681,7 +23681,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Rails ActiveRecord raw execute with string interpolation - use sanitize_sql or parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "ActiveRecord::Base.connection.execute('SELECT ... #{input}') uses Ruby interpolation. Use sanitize_sql: execute(sanitize_sql(['SELECT * FROM t WHERE id = ?', input])). Or use ActiveRecord query interface: Model.where(id: input) which parameterizes automatically."
             ),
     },
     {
@@ -23690,7 +23690,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "PHP direct query with variable interpolation - use prepared statements with PDO",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "PHP $db->query('SELECT ... $var') interpolates PHP variables. Use PDO prepared statements: $stmt = $pdo->prepare('SELECT * FROM t WHERE id = :id'); $stmt->execute(['id' => $input]). Named parameters (:id) are clearer than positional (?)."
             ),
     },
     {
@@ -23699,7 +23699,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using deprecated mysql_query function - use PDO or mysqli with prepared statements",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "mysql_query() was removed in PHP 7.0 due to security issues (no parameterization support). Use PDO: $stmt = $pdo->prepare('SELECT * FROM t WHERE id = ?'); $stmt->execute([$id]). Or mysqli with prepared statements: $stmt = $mysqli->prepare('...')."
             ),
     },
     {
@@ -23708,7 +23708,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Knex/Laravel selectRaw with template literal interpolation - use parameter binding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "selectRaw(`${expr} as alias`) with template literals injects into SELECT. Use selectRaw('? as alias', [expr]) for Knex, or DB::raw('? as alias', [$expr]) for Laravel. SELECT injection can exfiltrate data from other tables via subqueries."
             ),
     },
     {
@@ -23717,7 +23717,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Laravel DB::select/statement with variable interpolation - use parameter binding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Laravel DB::select/statement with variable interpolation - use parameter binding. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "DB::select('SELECT ... $var') uses PHP interpolation. Use DB::select('SELECT * FROM t WHERE id = ?', [$id]) — Laravel's query builder accepts an array of bindings as the second argument. Or use Eloquent: Model::where('id', $id)->get()."
             ),
     },
     {
@@ -23726,7 +23726,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Go database Exec with fmt.Sprintf - use Exec with parameter placeholders",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "db.Exec(fmt.Sprintf('INSERT ...', vals)) builds SQL via Sprintf. Use db.Exec('INSERT INTO t (col) VALUES ($1)', val) with positional parameters. For bulk inserts: use a transaction with prepared statements, not Sprintf loops."
             ),
     },
     {
@@ -23735,7 +23735,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "LIKE clause with string concatenation - vulnerable to SQL injection and wildcard injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "LIKE '%' + input + '%' is injectable: input = %' UNION SELECT * FROM secrets-- . Use LIKE ? with the wildcard in the bound value: cursor.execute('... LIKE %s', ['%' + escaped_input + '%']). Escape % and _ in the user input first."
             ),
     },
     {
@@ -23744,7 +23744,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using Unsafe() to bypass SQL builder protections - review for injection risk",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Unsafe() explicitly bypasses squirrel/dbr/reform's SQL injection protections. If you need dynamic SQL: validate column/table names against allowlists. Audit every Unsafe() call — each one is a potential injection point that the builder deliberately cannot protect."
             ),
     },
     {
@@ -23753,7 +23753,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring Data @Query with string concatenation - use named parameters with :param syntax",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "Spring @Query('...' + param) concatenates into JPQL/SQL. Use named parameters: @Query('SELECT u FROM User u WHERE u.name = :name') with @Param('name'). For native queries: @Query(value = '... WHERE id = :id', nativeQuery = true)."
             ),
     },
     {
@@ -23762,7 +23762,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JWT algorithm set to 'none' - this disables signature verification entirely",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "JWT alg:'none' means the token has no signature — anyone can forge any payload. Explicitly require an algorithm: jwt.verify(token, secret, { algorithms: ['HS256'] }). Never include 'none' in the accepted algorithms list. This is CVE-2015-9235."
             ),
     },
     {
@@ -23771,7 +23771,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JWT verification disabled - tokens will be accepted without signature validation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "verify: false/verify_signature: False accepts tokens without checking the signature. Any attacker can create valid-looking tokens. Always verify: jwt.decode(token, key, algorithms=['RS256']). If you need to read unverified claims: use jwt.decode with verify=False ONLY for debugging, never in production."
             ),
     },
     {
@@ -23780,7 +23780,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JWT accepts both symmetric and asymmetric algorithms - vulnerable to algorithm confusion attack",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Accepting both HS256 (symmetric) and RS256 (asymmetric) enables algorithm confusion (CVE-2016-5431). An attacker signs with the PUBLIC key using HS256. Fix: specify exactly one algorithm: jwt.verify(token, key, { algorithms: ['RS256'] }). The server decides the algorithm, not the token."
             ),
     },
     {
@@ -23789,7 +23789,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JWT expiration set too long - tokens should expire in hours, not hundreds of days",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "JWT expiresIn:'365d' or similar long expiration means a stolen token grants access for months/years. Use short-lived access tokens (15 min) with refresh token rotation (7 days). Set expiresIn: '15m' for access, '7d' for refresh with single-use enforcement."
             ),
     },
     {
@@ -23798,7 +23798,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Session cookie secure flag disabled - cookies will be sent over unencrypted HTTP",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "cookie_secure = False sends session cookies over HTTP, visible to anyone on the network. Set Secure=True so the cookie is only sent over HTTPS. In Django: SESSION_COOKIE_SECURE = True. In Flask: SESSION_COOKIE_SECURE = True. In Express: cookie: { secure: true }."
             ),
     },
     {
@@ -23807,7 +23807,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cookie httpOnly flag disabled - cookie accessible to JavaScript, enabling XSS theft",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "httpOnly: false makes the cookie accessible to JavaScript via document.cookie. XSS can steal it. Set httpOnly: true — the cookie is sent with requests but invisible to JS. In Express: cookie: { httpOnly: true }. In Django: SESSION_COOKIE_HTTPONLY = True (default)."
             ),
     },
     {
@@ -23816,7 +23816,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SameSite=None without Secure flag - cookie will be rejected by modern browsers",
         "severity": Severity.WARN,
             "suggestion": (
-                "Insecure cookie configuration enables session theft. Set: Secure (HTTPS only), HttpOnly (no JavaScript access), SameSite=Lax or Strict (CSRF protection), Path=/ (scope), and appropriate Max-Age. For session cookies: omit Max-Age to make them session-only."
+                "SameSite=None requires the Secure flag — browsers reject None without Secure. If you need cross-site cookies (third-party auth, embeds): set both SameSite=None AND Secure=true. Otherwise use SameSite=Lax (default in modern browsers) which blocks most CSRF."
             ),
     },
     {
@@ -23825,7 +23825,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Session ID set from user input - vulnerable to session fixation attack",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Setting session ID from req.query/req.body enables session fixation — an attacker sends a link with session_id=KNOWN_VALUE, then hijacks after victim logs in. Always regenerate session ID on login: req.session.regenerate(). Never accept session IDs from client input."
             ),
     },
     {
@@ -23834,7 +23834,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Session ID set from user input - vulnerable to session fixation attack",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Session ID from request parameters enables fixation attacks. On login: destroy the old session and create a new one. In Django: request.session.cycle_key(). In Flask: session.regenerate(). In PHP: session_regenerate_id(true). The true parameter deletes the old session."
             ),
     },
     {
@@ -23843,7 +23843,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "User role assigned from request input - privilege escalation vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "user.role = request.body.role lets users set their own role to 'admin'. Roles must come from the database or token claims, never from request input. After authentication: user.role = db.getUserRole(user.id). Use middleware to inject the role from a trusted source."
             ),
     },
     {
@@ -23852,7 +23852,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Admin flag set from user-controlled input - must be derived from server-side authorization",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "isAdmin from request input (req.body.isAdmin) is trivially exploitable. Admin status must be derived from server-side data: the user's record in the database, a claim in a verified JWT, or a role in the session. Never trust client-side admin flags."
             ),
     },
     {
@@ -23861,7 +23861,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded password comparison - use proper password hashing with bcrypt/argon2",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Comparing password directly against a string (password === 'admin123') means the password is stored in plaintext in source code. Use bcrypt: const match = await bcrypt.compare(inputPassword, storedHash). Passwords must be hashed before storage."
             ),
     },
     {
@@ -23870,7 +23870,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Plain text password comparison - use bcrypt.compare or equivalent constant-time comparison",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Direct password comparison (password === storedPassword) means passwords are stored in plaintext. Use bcrypt.compare(inputPassword, hash) which is constant-time and handles the salt automatically. In Python: bcrypt.checkpw(password.encode(), stored_hash)."
             ),
     },
     {
@@ -23879,7 +23879,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "API key or token compared from query parameter - use headers and constant-time comparison",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "API key in query parameter (?api_key=xxx) appears in server logs, browser history, and referer headers. Send keys in headers: Authorization: Bearer <key> or X-API-Key: <key>. Compare with constant-time function: hmac.compare_digest(key, stored_key) to prevent timing attacks."
             ),
     },
     {
@@ -23888,7 +23888,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5 used for password hashing - MD5 is cryptographically broken, use bcrypt or argon2",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "MD5 for passwords is crackable in seconds with hashcat (~10 billion MD5/s on modern GPU). Use bcrypt: bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)). bcrypt is intentionally slow (~100ms/hash at rounds=12), making brute force impractical."
             ),
     },
     {
@@ -23897,7 +23897,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SHA1 used for password hashing - SHA1 is deprecated, use bcrypt or argon2",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "SHA-1 for passwords provides no salt and is too fast for password hashing (~3 billion SHA-1/s on GPU). Use bcrypt (bcrypt.hashpw), argon2 (argon2.hash), or scrypt (hashlib.scrypt). These are deliberately slow and include built-in salting."
             ),
     },
     {
@@ -23906,7 +23906,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Destructive or admin endpoint marked as public/anonymous - requires authentication",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Destructive endpoints (delete, remove, admin) marked @Public/@AllowAnonymous allow unauthenticated access to dangerous operations. Remove the public annotation and add authentication + authorization: @Authenticated @RequiresRole('admin'). Audit all public endpoints."
             ),
     },
     {
@@ -23915,7 +23915,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS allows all origins with wildcard - restrict to specific trusted domains",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "CORS origin: '*' allows any website to make API requests. If credentials aren't needed: this may be acceptable for public APIs. If credentials are needed: set specific origins: origin: ['https://app.example.com']. Use a validation function for dynamic origins."
             ),
     },
     {
@@ -23924,7 +23924,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS allows credentials with wildcard origin - browsers will reject this, but it signals misconfiguration",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "credentials: true with origin: '*' is rejected by browsers, but reflecting the Origin header without validation is equivalent and does work. Always validate Origin against an explicit allowlist. Never reflect the Origin header directly into Access-Control-Allow-Origin."
             ),
     },
     {
@@ -23933,7 +23933,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Storing authentication token in browser storage - vulnerable to XSS theft, use httpOnly cookies",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "localStorage/sessionStorage is accessible to any JavaScript on the page — XSS steals all tokens. Store auth tokens in httpOnly cookies: the browser sends them automatically and JavaScript cannot read them. For SPAs: use the BFF (Backend for Frontend) pattern."
             ),
     },
     {
@@ -23942,7 +23942,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RSA key length under 2048 bits - insufficient for security, use at least 2048",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: RSA key length under 2048 bits - insufficient for security, use at least 2048. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "512/768/1024-bit RSA keys are factorable. 512-bit was factored in 1999, 768-bit in 2009, 1024-bit is within reach. Use modulusLength: 2048 minimum, 4096 for long-term security. Or use Ed25519 (256-bit but equivalent to RSA-3072) for better performance."
             ),
     },
     {
@@ -23951,7 +23951,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSRF protection disabled - forms and state-changing endpoints are vulnerable to cross-site request forgery",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Disabling CSRF protection (csrf.disable(), @csrf_exempt) allows attackers to submit forms on behalf of authenticated users. If your API uses cookies for auth: CSRF protection is mandatory. For token-based APIs (Authorization header): CSRF is not needed since browsers don't auto-send the header."
             ),
     },
     {
@@ -23960,7 +23960,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "OAuth state parameter is null or empty - vulnerable to CSRF in OAuth flow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Empty/null OAuth state parameter means the authorization callback accepts any response, enabling CSRF. Generate: state = secrets.token_urlsafe(32), store in session, verify in callback: if request.args['state'] != session['oauth_state']: abort(403)."
             ),
     },
     {
@@ -23969,7 +23969,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Bcrypt cost factor too low (under 10) - brute force is feasible, use at least 10 rounds",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Bcrypt rounds=4 hashes in microseconds — brute force is trivial. Use rounds=12 minimum (OWASP 2024): bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)). Each increment doubles the time: rounds=10 ~100ms, rounds=12 ~400ms, rounds=14 ~1.6s."
             ),
     },
     {
@@ -23978,7 +23978,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passport local strategy with sessions disabled - ensure token-based auth is properly implemented",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Passport local strategy with session: false requires your own token management. Ensure: token is signed (JWT with RS256), has expiry (15min), is sent via httpOnly cookie or Authorization header, and is validated on every request. Without sessions, you own the entire auth lifecycle."
             ),
     },
     {
@@ -23987,7 +23987,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Open redirect from user-controlled input - validate redirect URLs against allowlist",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "window.location.href = userInput enables phishing: attacker crafts URL with redirect to a clone site. Validate: const url = new URL(input, window.location.origin); if (url.origin !== window.location.origin) reject. Only allow relative paths or whitelisted domains."
             ),
     },
     {
@@ -23996,7 +23996,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Server-side redirect using user-controlled input - validate against allowlist of permitted URLs",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "res.redirect(req.query.next) enables open redirect. Validate: if (!req.query.next.startsWith('/')) return res.redirect('/'); Also block protocol-relative URLs (//evil.com). In Django: use django.utils.http.url_has_allowed_host_and_scheme(url, allowed_hosts)."
             ),
     },
     {
@@ -24005,7 +24005,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Decorator order issue - @login_required should be after @route (innermost decorator runs first)",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "In Flask/FastAPI, decorators apply bottom-up. @login_required above @app.route means login_required runs AFTER route registration. Correct order: @app.route('/path') then @login_required on the next line (innermost = runs first). Wrong order = unprotected endpoint."
             ),
     },
     {
@@ -24014,7 +24014,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Login attempt limit set too high (500+) - effectively disables brute force protection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "MAX_LOGIN_ATTEMPTS=9999 effectively disables brute force protection. Set to 5-10 attempts, then: progressive delays (1s, 2s, 4s...), temporary account lockout (15 min), or CAPTCHA. Use redis or database to track per-account attempt counts with TTL-based reset."
             ),
     },
     {
@@ -24023,7 +24023,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JWT secret/key derived from user input - secret must be server-side only",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "JWT secret from req.body.secret means attackers control the verification key. The secret/key must be server-side only: loaded from environment variable or secrets manager at startup. Never accept keys, secrets, or signing material from any request input."
             ),
     },
     {
@@ -24032,7 +24032,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 bucket or object ACL set to public-read-write - allows anyone to read and modify data",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: S3 bucket or object ACL set to public-read-write - allows anyone to read and modify data. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "S3 ACL public-read-write allows anyone to upload malware, delete data, or host phishing pages on your bucket. Set BucketOwnerFullControl and use bucket policies with specific principal ARNs for cross-account access. Enable S3 Block Public Access at the account level."
             ),
     },
     {
@@ -24041,7 +24041,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 bucket or object ACL set to public-read - verify this is intentional, most buckets should be private",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: S3 bucket or object ACL set to public-read - verify this is intentional, most buckets should be private. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "S3 public-read exposes all objects. If intentional (static website hosting): use CloudFront with OAI instead. If unintentional: remove the ACL and set BlockPublicAccess: true. Audit with: aws s3api get-bucket-acl --bucket name."
             ),
     },
     {
@@ -24050,7 +24050,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 public access block disabled - enable all four public access block settings",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "S3 Block Public Access has four independent settings: BlockPublicAcls, IgnorePublicAcls, BlockPublicPolicy, RestrictPublicBuckets. Enable ALL four: aws s3api put-public-access-block --bucket name --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true."
             ),
     },
     {
@@ -24059,7 +24059,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 block public policy disabled - bucket policies can make data public",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "With BlockPublicPolicy disabled, a bucket policy with Principal: '*' makes all objects public. Enable it: aws s3api put-public-access-block with BlockPublicPolicy=true. For public content: use CloudFront with Origin Access Identity instead of public bucket policies."
             ),
     },
     {
@@ -24068,7 +24068,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM policy grants full access to all resources - apply least-privilege principle",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "IAM policy with Action: '*' Resource: '*' is equivalent to root. Create specific policies: Action: ['s3:GetObject', 's3:PutObject'] Resource: 'arn:aws:s3:::bucket/*'. Use AWS Access Analyzer to identify actual permissions needed based on CloudTrail activity."
             ),
     },
     {
@@ -24077,7 +24077,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM policy grants full IAM access - enables privilege escalation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "IAM policy granting iam:* enables privilege escalation — the entity can create new admin users, modify any policy, or assume any role. Restrict to specific IAM actions: iam:ChangePassword for self-service, iam:PassRole for specific roles only."
             ),
     },
     {
@@ -24086,7 +24086,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Resource policy grants access to all AWS principals - restrict to specific accounts or roles",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Resource policy with Principal: '*' grants access to ALL AWS accounts and anonymous users. Specify exact principals: Principal: { AWS: 'arn:aws:iam::123456789012:role/RoleName' }. Use aws:PrincipalOrgID condition to restrict to your AWS Organization."
             ),
     },
     {
@@ -24095,7 +24095,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Security group allows all traffic from all IPs - restrict to specific ports and CIDR ranges",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Security group allows all traffic from all IPs - restrict to specific ports and CIDR ranges. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Security group with 0.0.0.0/0 on all ports allows unrestricted inbound traffic. Define specific rules: port 443 from your CDN IPs, port 22 from your VPN CIDR only. Use security group references for inter-service communication instead of CIDR ranges."
             ),
     },
     {
@@ -24104,7 +24104,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SSH port 22 open to all IPs - restrict to specific CIDR ranges or use SSM/bastion",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: SSH port 22 open to all IPs - restrict to specific CIDR ranges or use SSM/bastion. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "SSH (22) open to 0.0.0.0/0 is the #1 target for brute force bots. Remove port 22 from public security groups. Use AWS Systems Manager Session Manager (no SSH needed) or restrict to your VPN/office CIDR: aws ec2 authorize-security-group-ingress --cidr YOUR_IP/32."
             ),
     },
     {
@@ -24113,7 +24113,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RDP port 3389 open to all IPs - restrict to specific CIDR ranges or use bastion host",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: RDP port 3389 open to all IPs - restrict to specific CIDR ranges or use bastion host. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "RDP (3389) open to internet is actively exploited for ransomware (BlueKeep, CVE-2019-0708). Remove port 3389 from public security groups. Use AWS Systems Manager Fleet Manager for remote desktop, or restrict to VPN-only CIDR with MFA."
             ),
     },
     {
@@ -24122,7 +24122,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Storage encryption disabled - enable encryption at rest for EBS volumes, RDS, and S3",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Unencrypted storage means data is readable from stolen disks or snapshots. Enable: EBS encryption (--encrypted), RDS encryption (--storage-encrypted), S3 default encryption (--server-side-encryption-configuration). Use KMS CMK for cross-account key management."
             ),
     },
     {
@@ -24131,7 +24131,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Access logging disabled - enable logging for audit trail and security monitoring",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Without access logging, you have no forensic data for security incidents. Enable: S3 server access logging, ALB access logs to S3, CloudTrail for API calls, VPC Flow Logs. Use AWS Config to enforce logging requirements across all resources."
             ),
     },
     {
@@ -24140,7 +24140,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 bucket versioning disabled - enable for data protection and recovery",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: S3 bucket versioning disabled - enable for data protection and recovery. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "S3 versioning disabled means deleted or overwritten objects are gone permanently. Enable: aws s3api put-bucket-versioning --bucket name --versioning-configuration Status=Enabled. Add lifecycle rules to expire old versions after N days to control costs."
             ),
     },
     {
@@ -24149,7 +24149,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Multi-AZ deployment disabled for database - single AZ creates availability risk",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Multi-AZ deployment disabled for database - single AZ creates availability risk. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Single-AZ database fails completely during AZ outage. Enable Multi-AZ: aws rds modify-db-instance --multi-az. For Aurora: add reader instances in different AZs. Multi-AZ adds a synchronous standby — automatic failover in 60-120 seconds."
             ),
     },
     {
@@ -24158,7 +24158,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Deletion protection disabled on database or load balancer - enable to prevent accidental deletion",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Deletion protection disabled on database or load balancer - enable to prevent accidental deletion. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Without deletion protection, terraform destroy or a misconfigured pipeline can delete the database. Enable: aws rds modify-db-instance --deletion-protection. For ALB: aws elbv2 modify-load-balancer-attributes --attribute routing.http.desync_mitigation_mode."
             ),
     },
     {
@@ -24167,7 +24167,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database backup retention period set to 0 - no automated backups will be created",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Database backup retention period set to 0 - no automated backups will be created. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "BackupRetentionPeriod=0 means zero automated backups and no point-in-time recovery. Set to at least 7 days: aws rds modify-db-instance --backup-retention-period 7. For production: 14-35 days. This is your only recovery option for accidental data deletion."
             ),
     },
     {
@@ -24176,7 +24176,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database instance set to publicly accessible - place in private subnet behind VPN or bastion",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Publicly accessible database is reachable from the internet. Move to a private subnet: modify-db-instance --no-publicly-accessible. Access via: VPN, bastion host, or AWS PrivateLink. Even with security groups, public=true means the DNS resolves to a public IP."
             ),
     },
     {
@@ -24185,7 +24185,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "KMS key ID is empty - using default AWS-managed keys reduces control over encryption",
         "severity": Severity.INFO,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Empty KMS key ID uses AWS-managed keys — you cannot control rotation, deletion, or cross-account access. Create a CMK: aws kms create-key. Reference by alias: --kms-key-id alias/mykey. CMKs give you: custom rotation, key policies, and audit via CloudTrail."
             ),
     },
     {
@@ -24194,7 +24194,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "KMS key rotation disabled - enable automatic annual key rotation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: KMS key rotation disabled - enable automatic annual key rotation. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Without key rotation, a compromised KMS key remains valid indefinitely. Enable annual rotation: aws kms enable-key-rotation --key-id <key-id>. AWS rotates the backing key automatically while keeping the same key ID. Old ciphertexts still decrypt with the old key material."
             ),
     },
     {
@@ -24203,7 +24203,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Minimum TLS version set to 1.0 - use TLS 1.2 or higher",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Data transmitted or stored without encryption is readable by anyone with network or storage access. Use TLS 1.2+ for data in transit. Use AES-256-GCM for data at rest. Never disable certificate verification (verify=False, NODE_TLS_REJECT_UNAUTHORIZED=0)."
+                "TLS 1.0 has known vulnerabilities (BEAST, POODLE). Set minimum TLS 1.2: in CloudFront, set MinimumProtocolVersion: TLSv1.2_2021. In ALB: use the ELBSecurityPolicy-TLS13-1-2-2021-06 policy. PCI-DSS requires TLS 1.2 minimum since 2018."
             ),
     },
     {
@@ -24212,7 +24212,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SSL/TLS enforcement disabled - database connections should require encryption in transit",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Database connections without TLS send queries and results in plaintext. For RDS: set rds.force_ssl=1 in parameter group. For PostgreSQL: sslmode=verify-full in connection string. For MySQL: --require_secure_transport=ON. Verify with: SHOW STATUS LIKE 'Ssl_cipher'."
             ),
     },
     {
@@ -24221,7 +24221,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GCP uniform bucket-level access disabled - ACLs create complex permission management",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "GCP non-uniform bucket access uses legacy ACLs per-object, creating complex and error-prone permissions. Enable uniform bucket-level access: gsutil uniformbucketlevelaccess set on gs://bucket. Then manage all access via IAM policies only."
             ),
     },
     {
@@ -24230,7 +24230,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GCP IAM binding grants access to all users or all authenticated users - restrict to specific principals",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "allUsers or allAuthenticatedUsers in GCP IAM grants access to everyone on the internet or any Google account. Use specific principals: user:email, serviceAccount:sa@project.iam.gserviceaccount.com, or group:group@domain.com."
             ),
     },
     {
@@ -24239,7 +24239,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GKE network policy enforcement disabled - pods can communicate without restriction",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "GKE without network policy enforcement allows all pod-to-pod traffic. Enable: gcloud container clusters update CLUSTER --update-addons=NetworkPolicy=ENABLED. Then create NetworkPolicy resources to restrict traffic. Use Calico or Cilium for advanced policies."
             ),
     },
     {
@@ -24248,7 +24248,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GKE legacy ABAC enabled - use RBAC instead for fine-grained access control",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "GKE legacy ABAC (Attribute-Based Access Control) grants broad permissions based on attributes. Disable: gcloud container clusters update CLUSTER --no-enable-legacy-authorization. Use RBAC: create Role/ClusterRole with specific rules per service account."
             ),
     },
     {
@@ -24257,7 +24257,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GKE node auto-repair or auto-upgrade disabled - increases maintenance burden and security risk",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: GKE node auto-repair or auto-upgrade disabled - increases maintenance burden and security risk. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Disabled auto-repair means unhealthy nodes remain in the cluster, serving errors. Disabled auto-upgrade means missing security patches. Enable both: gcloud container node-pools update POOL --enable-autorepair --enable-autoupgrade."
             ),
     },
     {
@@ -24266,7 +24266,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cloud SQL authorized networks includes 0.0.0.0/0 - database accessible from any IP",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Cloud SQL authorized networks 0.0.0.0/0 makes the database accessible from any IP. Remove and use: Cloud SQL Proxy for application access, Private IP for VPC-internal access, or specific CIDR ranges for office/VPN. Never expose databases to the internet."
             ),
     },
     {
@@ -24275,7 +24275,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "VPC flow logs disabled - enable for network traffic monitoring and security analysis",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "VPC Flow Logs capture IP traffic metadata for security analysis and incident forensics. Enable: gcloud compute networks subnets update SUBNET --enable-flow-logs. Set --aggregation-interval=INTERVAL_5_SEC for security monitoring. Export to BigQuery for analysis."
             ),
     },
     {
@@ -24284,7 +24284,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Point-in-time recovery disabled on database - limits recovery options in case of data loss",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Point-in-time recovery disabled on database - limits recovery options in case of data loss. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Without point-in-time recovery, the database can only be restored to the last snapshot. Enable: aws rds modify-db-instance --backup-retention-period 7. For DynamoDB: aws dynamodb update-continuous-backups --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true."
             ),
     },
     {
@@ -24293,7 +24293,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Azure storage connection string with account key hardcoded - use managed identity or Key Vault",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Azure storage connection strings with AccountKey grant full storage access. Use managed identity: DefaultAzureCredential() which authenticates via the VM/App Service identity without any keys in code. Store connection strings in Azure Key Vault, never in source."
             ),
     },
     {
@@ -24302,7 +24302,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using obsolete cipher (DES/3DES/Blowfish) - use AES-256-GCM or ChaCha20-Poly1305",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "DES (56-bit key), 3DES (CVE-2016-2183 Sweet32), and Blowfish (64-bit block) are obsolete. Use AES-256-GCM: from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes; Cipher(algorithms.AES(key), modes.GCM(iv)). Or ChaCha20-Poly1305 for constrained environments."
             ),
     },
     {
@@ -24311,7 +24311,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AES in ECB mode does not provide semantic security - identical plaintext blocks produce identical ciphertext",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "AES-ECB encrypts each block independently — identical plaintext blocks produce identical ciphertext, revealing patterns (see: ECB penguin). Use AES-GCM which provides both confidentiality and authentication: Cipher(algorithms.AES(key), modes.GCM(iv))."
             ),
     },
     {
@@ -24320,7 +24320,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AES-CBC without authentication (MAC) - vulnerable to padding oracle attacks, use AES-GCM instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "AES-CBC without MAC is vulnerable to padding oracle attacks (CVE-2014-3566). The attacker modifies ciphertext and observes error types to decrypt. Use AES-GCM which includes built-in authentication, or add HMAC-SHA256 of ciphertext with a separate key."
             ),
     },
     {
@@ -24329,7 +24329,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Initialization vector (IV) set to all zeros - IV must be random and unique per encryption",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Math.random() / random.random() are not cryptographically secure — output is predictable. For tokens, keys, nonces: use secrets.token_hex(32) (Python), crypto.randomBytes(32) (Node.js), crypto/rand.Read() (Go). For UUIDs: use uuid4 (random) not uuid1 (MAC-based)."
+                "All-zero IV makes the first block deterministic — identical plaintexts always produce identical ciphertexts. Generate random IV: iv = os.urandom(12) for GCM, os.urandom(16) for CBC. The IV is not secret but must be unique per encryption. Prepend IV to ciphertext for storage."
             ),
     },
     {
@@ -24338,7 +24338,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded initialization vector - IV must be randomly generated for each encryption operation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Hardcoded IV means every encryption with the same key produces predictable output. Generate: iv = os.urandom(12) (GCM) or os.urandom(16) (CBC) for every encryption operation. Store the IV alongside the ciphertext (it does not need to be secret, only unique)."
             ),
     },
     {
@@ -24347,7 +24347,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded encryption key - keys must be generated securely and stored in a key management system",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Hardcoded encryption keys in source code are accessible to anyone with repo access and persist in git history. Generate keys properly: key = os.urandom(32) for AES-256. Store in KMS (AWS KMS, GCP KMS, Azure Key Vault) or environment variable, never in code."
             ),
     },
     {
@@ -24356,7 +24356,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "PBKDF2 iteration count too low (under 60000) - OWASP recommends at least 600000 for SHA-256",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: PBKDF2 iteration count too low (under 60000) - OWASP recommends at least 600000 for SHA-256. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "PBKDF2 with low iterations is fast to brute force. OWASP 2024 recommends: 600,000 iterations for SHA-256, 210,000 for SHA-512. Use: hashlib.pbkdf2_hmac('sha256', password, salt, 600000). Better: switch to argon2id which is memory-hard and resistant to GPU attacks."
             ),
     },
     {
@@ -24365,7 +24365,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5 hash function used - MD5 is cryptographically broken, use SHA-256 or SHA-3",
         "severity": Severity.WARN,
             "suggestion": (
-                "MD5/SHA-1 are cryptographically broken — collision attacks are practical. For password hashing: use bcrypt, scrypt, or argon2 (with salt, high cost factor). For integrity/signatures: use SHA-256 or SHA-3. For HMAC: use hmac.new(key, msg, 'sha256'). Never use MD5/SHA-1 for any security-sensitive purpose."
+                "MD5 is broken — collision attacks are practical (30 seconds on a laptop). For integrity checks: use SHA-256 (hashlib.sha256). For HMAC: use hmac.new(key, msg, 'sha256'). For password hashing: use bcrypt/argon2 (MD5 lacks salt and computational cost)."
             ),
     },
     {
@@ -24374,7 +24374,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SHA-1 hash function used - SHA-1 has known collision attacks, use SHA-256 or SHA-3",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "SHA-1 collisions are practical since 2017 (SHAttered attack, cost ~$110K). Use SHA-256: hashlib.sha256(data).hexdigest(). For git commit signing: git now supports SHA-256 mode. For certificates: CAs stopped issuing SHA-1 certs in 2017."
             ),
     },
     {
@@ -24383,7 +24383,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Non-cryptographic random number generator used - use secrets/crypto.randomBytes for security-sensitive values",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Math.random()/random.random() use a PRNG that is predictable if the seed is known. For tokens: secrets.token_hex(32) (Python), crypto.randomBytes(32) (Node.js). For UUIDs: uuid.uuid4() uses os.urandom. Never use non-crypto random for: tokens, passwords, keys, nonces, or salts."
             ),
     },
     {
@@ -24392,7 +24392,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RC4 stream cipher is cryptographically broken - use AES-GCM or ChaCha20-Poly1305",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "RC4 has statistical biases in the output stream that leak plaintext (CVE-2015-2808). It was removed from TLS in RFC 7465. Replace with AES-256-GCM (authenticated encryption) or ChaCha20-Poly1305 (faster on hardware without AES-NI)."
             ),
     },
     {
@@ -24401,7 +24401,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RSA key size under 2048 bits - use at least 2048 bits, prefer 4096 for long-term security",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: RSA key size under 2048 bits - use at least 2048 bits, prefer 4096 for long-term security. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "RSA keys under 2048 bits are factoring-feasible. 512-bit factored in 1999, 768-bit in 2009. Minimum: generateKeyPairSync('rsa', { modulusLength: 2048 }). For long-term security: use 4096, or switch to Ed25519 (256-bit but equivalent strength to RSA-3072)."
             ),
     },
     {
@@ -24410,7 +24410,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using PKCS#1 v1.5 padding - use OAEP for encryption and PSS for signatures",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's attack (1998) which decrypts RSA ciphertext via ~1M queries. Use OAEP for encryption: OAEP(algorithm=hashes.SHA256(), mgf=MGF1(algorithm=hashes.SHA256())). Use PSS for signatures."
             ),
     },
     {
@@ -24419,7 +24419,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "OpenSSL using weak cipher algorithm - use aes-256-gcm or chacha20-poly1305",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "OpenSSL weak ciphers (DES, RC4, RC2, SEED) are breakable. Use: openssl enc -aes-256-gcm or -chacha20-poly1305. In TLS config: ssl_ciphers 'ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM'; ssl_prefer_server_ciphers on;"
             ),
     },
     {
@@ -24428,7 +24428,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Scrypt cost parameter too low - use N=32768 or higher for password hashing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Scrypt N=1024 or similar low values are fast to brute force. Use N=32768 (2^15), r=8, p=1 for password hashing: hashlib.scrypt(password, salt=salt, n=32768, r=8, p=1, dklen=32). Higher N = more memory and CPU required per hash."
             ),
     },
     {
@@ -24437,7 +24437,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sensitive data written to hash without using HMAC - use HMAC for keyed hashing to prevent length extension attacks",
         "severity": Severity.INFO,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "hash(key + message) is vulnerable to length extension attacks — an attacker can compute hash(key + message + padding + attacker_data) without knowing the key. Use HMAC: hmac.new(key, message, 'sha256').digest(). HMAC has a proven security reduction."
             ),
     },
     {
@@ -24446,7 +24446,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hash comparison using == operator - use hmac.compare_digest or constant-time comparison to prevent timing attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "hash_a == hash_b using == leaks hash length information via timing side-channel. An attacker can determine the correct hash byte-by-byte. Use hmac.compare_digest(hash_a, hash_b) which takes constant time regardless of where the hashes differ."
             ),
     },
     {
@@ -24455,7 +24455,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "TLS certificate verification disabled - enables man-in-the-middle attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Data transmitted or stored without encryption is readable by anyone with network or storage access. Use TLS 1.2+ for data in transit. Use AES-256-GCM for data at rest. Never disable certificate verification (verify=False, NODE_TLS_REJECT_UNAUTHORIZED=0)."
+                "verify=False/CERT_NONE disables TLS certificate validation — any MITM can intercept traffic with a self-signed cert. If the server has a self-signed cert: add the CA to your trust store instead. In Python: requests.get(url, verify='/path/to/ca-bundle.crt')."
             ),
     },
     {
@@ -24464,7 +24464,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Weak TLS cipher suites enabled - use only strong ciphers like AES-GCM and ChaCha20",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Weak cipher suites (RC4, DES, 3DES, export ciphers) are actively exploited. Configure: ssl_ciphers 'ECDHE+AESGCM:ECDHE+CHACHA20'; in nginx. In Python: ctx.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM'). Test with: nmap --script ssl-enum-ciphers."
             ),
     },
     {
@@ -24473,7 +24473,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Minimum TLS version set to 1.0 or SSL 3.0 - use TLS 1.2 as minimum",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Data transmitted or stored without encryption is readable by anyone with network or storage access. Use TLS 1.2+ for data in transit. Use AES-256-GCM for data at rest. Never disable certificate verification (verify=False, NODE_TLS_REJECT_UNAUTHORIZED=0)."
+                "TLS 1.0 (1999) and SSL 3.0 (1996) have protocol-level vulnerabilities (BEAST, POODLE, DROWN). Set: ssl_protocols TLSv1.2 TLSv1.3; in nginx. In Python: ctx.minimum_version = ssl.TLSVersion.TLSv1_2. PCI-DSS 3.2.1 requires TLS 1.2 minimum."
             ),
     },
     {
@@ -24482,7 +24482,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Node.js crypto using weak cipher - use aes-256-gcm or chacha20-poly1305",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Node.js crypto.createCipher('des')/createCipher('rc4') uses broken algorithms. Use: crypto.createCipheriv('aes-256-gcm', key, iv). The -iv suffix is important — createCipher (without iv) derives the key insecurely from a password."
             ),
     },
     {
@@ -24491,7 +24491,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java key generator using obsolete algorithm - use AES with 256-bit keys",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "Java KeyGenerator.getInstance('DES')/('Blowfish') uses obsolete algorithms. Use: KeyGenerator.getInstance('AES'); kg.init(256); Or for passwords: SecretKeyFactory.getInstance('PBKDF2WithHmacSHA256') with high iteration count."
             ),
     },
     {
@@ -24500,7 +24500,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java Cipher.getInstance('AES') defaults to ECB mode - specify AES/GCM/NoPadding explicitly",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Cipher.getInstance('AES') without mode specification defaults to AES/ECB/PKCS5Padding which leaks patterns. Always specify: Cipher.getInstance('AES/GCM/NoPadding'). GCM provides authenticated encryption. Set tag length to 128 bits."
             ),
     },
     {
@@ -24509,7 +24509,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SecureRandom seeded with a fixed value - defeats the purpose of CSPRNG",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Math.random() / random.random() are not cryptographically secure — output is predictable. For tokens, keys, nonces: use secrets.token_hex(32) (Python), crypto.randomBytes(32) (Node.js), crypto/rand.Read() (Go). For UUIDs: use uuid4 (random) not uuid1 (MAC-based)."
+                "SecureRandom seeded with a fixed value (new SecureRandom(fixedSeed)) produces identical sequences on every run. Remove the seed: new SecureRandom() auto-seeds from OS entropy. Java's default SecureRandom is properly seeded via /dev/urandom."
             ),
     },
     {
@@ -24518,7 +24518,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebCrypto PBKDF2 with low iterations - use at least 600000 iterations",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "WebCrypto PBKDF2 with iterations < 600000 is brute-forceable on GPUs. Use: window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' }, key, 256). Higher iterations = slower but more secure."
             ),
     },
     {
@@ -24527,7 +24527,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Custom TrustManager that accepts all certificates - disables TLS verification",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Data transmitted or stored without encryption is readable by anyone with network or storage access. Use TLS 1.2+ for data in transit. Use AES-256-GCM for data at rest. Never disable certificate verification (verify=False, NODE_TLS_REJECT_UNAUTHORIZED=0)."
+                "Custom TrustManager that returns empty checkServerTrusted() accepts ANY certificate. Use the default TrustManager which validates against the system CA store. If you need to trust a specific CA: load it into a custom KeyStore, not by disabling verification entirely."
             ),
     },
     {
@@ -24536,7 +24536,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Node.js using weak hash algorithm - use sha256 or sha512",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Node.js crypto.createHash('md5')/('sha1') uses deprecated hash algorithms. Use: crypto.createHash('sha256') for integrity. For HMAC: crypto.createHmac('sha256', key). For passwords: use bcrypt or argon2 via dedicated npm packages, not raw hash functions."
             ),
     },
     {
@@ -24545,7 +24545,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Private key exported without encryption - protect private keys with a passphrase",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Private key exported without passphrase (format: 'pem', cipher: undefined) means anyone who reads the file gets the key. Encrypt: { type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase: process.env.KEY_PASSPHRASE }. Store encrypted keys only."
             ),
     },
     {
@@ -24554,7 +24554,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DSA key generation - DSA is deprecated in modern standards, use Ed25519 or ECDSA with P-256",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "DSA is deprecated in FIPS 186-5 (2023) and removed from OpenSSH 7.0. Use Ed25519: crypto.generateKeyPairSync('ed25519') — smaller keys (32 bytes), faster verification, and no weak-parameter risks. For NIST compliance: use ECDSA with P-256."
             ),
     },
     {
@@ -24563,7 +24563,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Encoding ciphertext as hex doubles output size - use base64 for more efficient encoding",
         "severity": Severity.INFO,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Hex encoding doubles the output size (32 bytes → 64 chars). Use base64 (32 bytes → 44 chars) or base64url (URL-safe, no padding). In Python: base64.urlsafe_b64encode(ciphertext).decode(). Only use hex for debugging output."
             ),
     },
     {
@@ -24572,7 +24572,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dockerfile does not set a USER - container will run as root by default",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "No USER directive means the container process runs as root (UID 0). Add: RUN addgroup -S app && adduser -S -G app app, then USER app before ENTRYPOINT/CMD. Build steps can run as root, but the runtime process must not."
             ),
     },
     {
@@ -24581,7 +24581,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dockerfile uses base image without pinned version - pin to specific version for reproducibility",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "FROM python:latest changes between builds — yesterday's build used 3.12, today's uses 3.13. Pin: FROM python:3.12.3-slim. For maximum reproducibility: pin the digest: FROM python:3.12.3-slim@sha256:abc123..."
             ),
     },
     {
@@ -24590,7 +24590,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "apt-get install without --no-install-recommends installs unnecessary packages, increasing image size and attack surface",
         "severity": Severity.INFO,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "apt-get install without --no-install-recommends pulls ~30% more packages. Use: RUN apt-get update && apt-get install -y --no-install-recommends pkg1 pkg2 && rm -rf /var/lib/apt/lists/*. This reduces image size and attack surface."
             ),
     },
     {
@@ -24599,7 +24599,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Piping downloaded script to shell in Dockerfile - download, verify checksum, then execute",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "curl ... | sh executes whatever the server returns. If the CDN is compromised or MITM'd, you install malware. Download first, verify checksum, then execute: RUN curl -fsSL url -o script.sh && echo 'expected_sha256  script.sh' | sha256sum -c && sh script.sh && rm script.sh."
             ),
     },
     {
@@ -24608,7 +24608,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Copying entire build context into container - use specific paths and .dockerignore",
         "severity": Severity.WARN,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "COPY . /app copies everything including .git, node_modules, .env, and credentials. Use COPY with specific paths: COPY requirements.txt . then COPY src/ ./src/. Create .dockerignore listing: .git, .env, node_modules, __pycache__, *.pyc."
             ),
     },
     {
@@ -24617,7 +24617,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Secret value set in Dockerfile ENV - secrets should be passed at runtime, not baked into images",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "ENV SECRET_KEY=abc123 bakes the secret into the image layer — visible via docker inspect and docker history --no-trunc. Pass at runtime: docker run -e SECRET_KEY=value. For BuildKit: use --mount=type=secret which doesn't persist in layers."
             ),
     },
     {
@@ -24626,7 +24626,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container exposes SSH port 22 - containers should be accessed via orchestration tools, not SSH",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "SSH in containers violates the one-process-per-container principle and expands attack surface. Access containers via: kubectl exec (K8s), docker exec (Docker), or ECS Execute Command. These use the orchestrator's auth, not SSH keys."
             ),
     },
     {
@@ -24635,7 +24635,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container running in privileged mode - grants full host access, use specific capabilities instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "privileged: true gives ALL Linux capabilities, access to ALL host devices, and disables seccomp/AppArmor. Use specific capabilities: securityContext: { capabilities: { add: ['NET_ADMIN'] } }. Only NET_ADMIN, SYS_PTRACE, or SYS_TIME are commonly needed."
             ),
         "file_types": [".yml", ".yaml", ".toml", ".sh", ".bash"],
     },
@@ -24645,7 +24645,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Pod using host network namespace - bypasses network isolation and network policies",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "hostNetwork: true means the pod shares the node's network stack — it can see all node traffic and bind to any port. This bypasses NetworkPolicies entirely. Use a Service with ClusterIP for internal traffic, or NodePort/LoadBalancer for external."
             ),
     },
     {
@@ -24654,7 +24654,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Pod sharing host PID or IPC namespace - breaks container isolation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "hostPID/hostIPC shares the node's process or IPC namespace — the container can see and signal ALL node processes. Remove hostPID and hostIPC. If you need process monitoring: use a dedicated DaemonSet with minimal RBAC and read-only access."
             ),
     },
     {
@@ -24663,7 +24663,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container configured to run as root user - use runAsNonRoot: true and a non-zero runAsUser",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "runAsUser: 0 runs as root inside the container. Set: securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }. The Dockerfile must create this user: RUN adduser --disabled-password --uid 1000 app."
             ),
     },
     {
@@ -24672,7 +24672,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container root filesystem is writable - use readOnlyRootFilesystem: true and mount specific writable volumes",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Writable root filesystem lets attackers modify binaries, install tools, or create persistence. Set: securityContext: { readOnlyRootFilesystem: true }. Mount writable volumes only where needed: /tmp, /var/log, or app-specific data dirs."
             ),
     },
     {
@@ -24681,7 +24681,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container allows privilege escalation via setuid/setgid - set allowPrivilegeEscalation: false",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "allowPrivilegeEscalation: true (default) lets processes gain capabilities via setuid binaries. Set: securityContext: { allowPrivilegeEscalation: false }. This blocks execve() from gaining new privileges. Combined with drop ALL caps, it prevents most escalation."
             ),
     },
     {
@@ -24690,7 +24690,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container granted dangerous Linux capabilities - follow least-privilege and add only needed caps",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "capabilities: { add: ['SYS_ADMIN'] } is nearly equivalent to root. Drop all and add minimally: capabilities: { drop: ['ALL'], add: ['NET_BIND_SERVICE'] }. SYS_ADMIN alone grants: mount, BPF, namespace creation, and many more privileged operations."
             ),
     },
     {
@@ -24699,7 +24699,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container has no resource limits - set CPU and memory limits to prevent resource exhaustion",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Without resource limits, one container can consume all node CPU/memory, causing OOM kills on other pods. Set: resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 512Mi } }. Requests guarantee minimum, limits cap maximum."
             ),
     },
     {
@@ -24708,7 +24708,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Service account token auto-mounted - set to false unless the pod needs Kubernetes API access",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "automountServiceAccountToken: true (default) mounts a K8s API token in every pod at /var/run/secrets/kubernetes.io/serviceaccount/token. Set false on both ServiceAccount and Pod spec unless the workload needs K8s API access."
             ),
     },
     {
@@ -24717,7 +24717,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ClusterRoleBinding to cluster-admin role - grants unrestricted cluster access",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "ClusterRoleBinding to cluster-admin grants God Mode — unrestricted access to all resources in all namespaces including Secrets. Create namespace-scoped Roles with specific rules: Role with verbs: ['get','list'] on resources: ['pods','services']."
             ),
     },
     {
@@ -24726,7 +24726,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "NetworkPolicy with empty spec - does not restrict any traffic, effectively a no-op",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: NetworkPolicy with empty spec - does not restrict any traffic, effectively a no-op. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "NetworkPolicy with empty spec ({}) matches no traffic — it's a no-op that provides false security. For default-deny: spec: { podSelector: {}, policyTypes: ['Ingress','Egress'] } with empty ingress/egress. Then add specific allow rules."
             ),
     },
     {
@@ -24735,7 +24735,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container image without specific tag or digest - use pinned version tags or SHA256 digests",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "image: myapp without tag defaults to :latest which changes between pulls. Pin: image: myapp:v2.1.3. For immutability: use digest: image: myapp@sha256:abc123. Digests are guaranteed identical across pulls, tags are not."
             ),
     },
     {
@@ -24744,7 +24744,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Image pull policy set to Never/IfNotPresent without digest pinning - may run outdated or different images",
         "severity": Severity.INFO,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "imagePullPolicy: Never/IfNotPresent without digest pinning means the same tag can point to different images over time. Use IfNotPresent only with immutable tags (v1.2.3, not latest) or digests. For CI: use Always with pinned tags."
             ),
     },
     {
@@ -24753,7 +24753,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dockerfile disables health check - implement health checks for container orchestration",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "HEALTHCHECK NONE disables container health monitoring. Docker/K8s cannot detect hung processes. Add: HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:8080/healthz || exit 1. Match the health endpoint to your app."
             ),
     },
     {
@@ -24762,7 +24762,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Setting file permissions to 777 in container - use least-privilege permissions (644 for files, 755 for executables)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "chmod 777 grants read/write/execute to everyone. Use: chmod 644 for config files (owner rw, others r), chmod 755 for executables (owner rwx, others rx), chmod 600 for secrets (owner rw only). In Dockerfile: COPY --chmod=644 config.yaml ."
             ),
     },
     {
@@ -24771,7 +24771,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Bare Pod resource without Deployment/StatefulSet - use higher-level controllers for lifecycle management",
         "severity": Severity.INFO,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Bare Pods are not rescheduled when nodes fail. Use a Deployment (stateless), StatefulSet (stateful), DaemonSet (per-node), or Job (batch). These controllers handle: scaling, rolling updates, failure recovery, and rollback."
             ),
     },
     {
@@ -24780,7 +24780,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Seccomp profile set to Unconfined - use RuntimeDefault or a custom profile",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Seccomp profile set to Unconfined - use RuntimeDefault or a custom profile. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "seccomp: Unconfined disables syscall filtering — the container can use any syscall including ptrace, mount, and reboot. Set: seccompProfile: { type: RuntimeDefault }. RuntimeDefault blocks ~44 dangerous syscalls while allowing normal application operation."
             ),
     },
     {
@@ -24789,7 +24789,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Ingress resource without TLS configuration - configure TLS termination for encrypted traffic",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Ingress without TLS serves traffic over plaintext HTTP. Add TLS: spec.tls: [{ hosts: ['app.example.com'], secretName: app-tls }]. Use cert-manager for automatic Let's Encrypt certificates: annotations: cert-manager.io/cluster-issuer: letsencrypt-prod."
             ),
     },
     {
@@ -24798,7 +24798,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "apk add without --no-cache leaves package index in image, increasing size",
         "severity": Severity.INFO,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "apk add without --no-cache leaves /var/cache/apk/ in the image layer. Use: RUN apk add --no-cache pkg1 pkg2. This is equivalent to: apk update && apk add pkg && rm -rf /var/cache/apk/* but in one layer."
             ),
     },
     {
@@ -24807,7 +24807,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "emptyDir volume without sizeLimit - can consume all node disk space",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: emptyDir volume without sizeLimit - can consume all node disk space. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "emptyDir without sizeLimit can fill the node's entire disk, evicting ALL pods on that node. Set: emptyDir: { sizeLimit: 1Gi }. For tmpfs (RAM-backed): emptyDir: { medium: Memory, sizeLimit: 256Mi }. K8s evicts pods exceeding the limit."
             ),
     },
     {
@@ -24816,7 +24816,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Service type NodePort exposes ports on all cluster nodes - use LoadBalancer or Ingress for production",
         "severity": Severity.INFO,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "NodePort exposes a port (30000-32767) on every cluster node's IP. In production: use LoadBalancer (cloud) or Ingress (L7 routing) instead. NodePort bypasses ingress controllers, WAFs, and centralized TLS termination."
             ),
     },
     {
@@ -24825,7 +24825,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Role grants wildcard verbs on resources - specify exact verbs needed (get, list, watch, etc.)",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Role grants wildcard verbs on resources - specify exact verbs needed (get, list, watch, etc.). Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "RBAC with verbs: ['*'] grants get, list, watch, create, update, patch, delete, and deletecollection. Specify exact verbs needed: verbs: ['get', 'list', 'watch'] for read-only, add 'update' only for resources the workload writes to."
             ),
     },
     {
@@ -24834,7 +24834,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Vue v-html directive renders raw HTML - vulnerable to XSS, sanitize with DOMPurify first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Vue v-html renders raw HTML — an attacker injects <img onerror=steal()>. Sanitize before rendering: import DOMPurify from 'dompurify'; this.safeHtml = DOMPurify.sanitize(userInput). For plain text: use {{ variable }} interpolation which auto-escapes."
             ),
     },
     {
@@ -24843,7 +24843,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Angular innerHTML binding renders raw HTML - use DomSanitizer.sanitize() or bypassSecurityTrust only with trusted content",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "Angular [innerHTML]=userInput bypasses Angular's built-in sanitization only when combined with bypassSecurityTrustHtml(). Without bypass, Angular sanitizes automatically. If you see bypassSecurityTrustHtml with user input: replace with DomSanitizer.sanitize(SecurityContext.HTML, input)."
             ),
     },
     {
@@ -24852,7 +24852,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Angular DomSanitizer bypass used - verify the input is from a trusted source, not user-controlled",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "bypassSecurityTrustHtml/Style/Script/Url/ResourceUrl tells Angular 'I verified this is safe.' If the input comes from a user, database, or API: it is NOT safe. Use DomSanitizer.sanitize() instead, which strips dangerous elements while preserving safe HTML."
             ),
     },
     {
@@ -24861,7 +24861,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval() with user-controlled input - code injection vulnerability, use safe alternatives",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "eval(userInput) executes arbitrary JavaScript. For JSON parsing: JSON.parse(input). For math: use a safe math parser (mathjs). For dynamic dispatch: use a Map of allowed functions: const handlers = new Map([['add', addFn]]); handlers.get(action)?.(args)."
             ),
     },
     {
@@ -24870,7 +24870,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "new Function() with dynamic input - equivalent to eval(), enables code injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "new Function('return ' + userInput)() is eval() in disguise — it creates a function from a string and executes it. Replace with: JSON.parse() for data, a sandboxed interpreter (vm2, quickjs-emscripten) for dynamic code, or a whitelist-based approach."
             ),
     },
     {
@@ -24879,7 +24879,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Direct innerHTML/outerHTML assignment with potentially unsanitized content - use textContent or sanitize first",
         "severity": Severity.WARN,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "element.innerHTML = userInput creates XSS. For text: use element.textContent = userInput (never interpreted as HTML). For HTML: sanitize first: element.innerHTML = DOMPurify.sanitize(userInput, { ALLOWED_TAGS: ['p','br','a'] })."
             ),
     },
     {
@@ -24888,7 +24888,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "javascript: protocol in href attribute - XSS vector, use onClick handler instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "href='javascript:alert(1)' executes JavaScript when the link is clicked. Validate URLs: only allow http:/https: protocols. Check: if (!url.startsWith('https://') && !url.startsWith('/')) reject. Use URL constructor to parse and validate."
             ),
     },
     {
@@ -24897,7 +24897,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "URL attribute bound to user-controlled variable without validation - validate and sanitize URLs",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "User-controlled URL in src/href/action attributes can point to: javascript: (XSS), data: (XSS), or attacker-controlled domains (phishing). Validate with URL constructor: new URL(input); verify protocol is 'https:' and hostname is in allowlist."
             ),
     },
     {
@@ -24906,7 +24906,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Accessing auth tokens in component lifecycle - centralize auth state management",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Accessing auth tokens in component lifecycle methods (componentDidMount, ngOnInit) scatters auth logic across components. Centralize in an auth service/store: authService.getToken() handles refresh, expiry, and storage. Components receive authenticated state via context/store."
             ),
     },
     {
@@ -24915,7 +24915,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Accessing framework internal state directly - may contain sensitive server-side data exposed to client",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Accessing framework internals (__proto__, _internal, $$) may expose server-side data rendered during SSR. These properties are not part of the public API and change without notice. Use the framework's public API and props/state for data access."
             ),
     },
     {
@@ -24924,7 +24924,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Event handler using eval or Function constructor - code injection risk",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Event handler using eval or Function constructor - code injection risk. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "onClick='eval(userInput)' or event handlers with Function constructor enable injection. Use data attributes and event delegation: element.dataset.action = 'safe_action'; then handle via a switch/map of allowed actions in the event listener."
             ),
     },
     {
@@ -24933,7 +24933,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "postMessage with wildcard origin '*' - messages can be received by any window, specify target origin",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: postMessage with wildcard origin '*' - messages can be received by any window, specify target origin. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "postMessage(data, '*') sends to ANY window, including attacker-controlled iframes. Specify the target origin: window.postMessage(data, 'https://trusted-domain.com'). The recipient should also check event.origin before processing."
             ),
     },
     {
@@ -24942,7 +24942,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Message event listener without origin validation - check event.origin before processing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "window.addEventListener('message', handler) without origin check processes messages from any window. Add: if (event.origin !== 'https://trusted-domain.com') return; as the first line. Also validate event.data structure before using it."
             ),
     },
     {
@@ -24951,7 +24951,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "jQuery DOM insertion with dynamic content - sanitize to prevent XSS",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "jQuery .html(userInput), .append(userInput), .after(userInput) all parse HTML and execute scripts. Use .text(userInput) for text content. If HTML is needed: sanitize with DOMPurify.sanitize(input) before passing to .html()."
             ),
     },
     {
@@ -24960,7 +24960,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AngularJS $sce.trustAsHtml with scope variable - verify input is sanitized before trusting",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "AngularJS $sce.trustAsHtml(scopeVar) marks content as safe HTML, bypassing AngularJS sanitization. If scopeVar contains user input: XSS. Use $sanitize service instead: $scope.safeHtml = $sanitize(userInput). Better: migrate from AngularJS (EOL since 2021)."
             ),
     },
     {
@@ -24969,7 +24969,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Angular template URL or template built with string concatenation - use static template paths",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "Dynamic template URLs via concatenation (templateUrl: base + userInput) allow template injection — an attacker loads an arbitrary HTML file. Use static template paths only: templateUrl: './my-component.html'. If dynamic templates are needed: use a whitelist map."
             ),
     },
     {
@@ -24978,7 +24978,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Content Security Policy disabled in Helmet - CSP is critical for XSS prevention",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Disabling CSP in Helmet (contentSecurityPolicy: false) removes the primary XSS prevention header. Set: helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"] } } })."
             ),
     },
     {
@@ -24987,7 +24987,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "X-Frame-Options disabled or permissive - enables clickjacking attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "X-Frame-Options: ALLOWALL or its absence enables clickjacking — an attacker embeds your page in an invisible iframe and captures clicks. Set: helmet({ frameguard: { action: 'deny' } }) or header X-Frame-Options: DENY. CSP frame-ancestors 'none' is the modern equivalent."
             ),
     },
     {
@@ -24996,7 +24996,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "React ref used to set innerHTML - bypasses React's XSS protections, sanitize first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "React ref.current.innerHTML = userInput bypasses React's XSS protection entirely. React escapes JSX by default, but ref-based DOM manipulation doesn't. Use dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(input) }} if HTML rendering is genuinely needed."
             ),
     },
     {
@@ -25005,7 +25005,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Router query parameter rendered via dangerouslySetInnerHTML - reflected XSS vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "dangerouslySetInnerHTML={{ __html: router.query.param }} is reflected XSS — the attacker crafts a URL with the payload in the query string. Never render URL parameters as HTML. Use: {router.query.param} in JSX (auto-escaped) or sanitize with DOMPurify."
             ),
     },
     {
@@ -25014,7 +25014,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Accessing non-public environment variable in client-side code - may leak server secrets to browser",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Non-NEXT_PUBLIC_ environment variables in client-side code leak server secrets to the browser bundle. Next.js only exposes NEXT_PUBLIC_* prefixed vars to the client. Move server-only vars to API routes. Audit: grep for process.env in client components."
             ),
         "file_types": [".jsx", ".tsx", ".vue", ".svelte"],
     },
@@ -25024,7 +25024,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Link with target=_blank without rel=noopener - enables reverse tabnabbing attack",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Link with target=_blank without rel=noopener - enables reverse tabnabbing attack. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "target='_blank' without rel='noopener' lets the opened page access window.opener, enabling reverse tabnabbing — the opened page changes the opener's URL to a phishing site. Add: rel='noopener noreferrer'. Modern browsers add noopener by default, but be explicit."
             ),
     },
     {
@@ -25033,7 +25033,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DOMParser HTML output used as innerHTML - parse result may contain executable script content",
         "severity": Severity.WARN,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "new DOMParser().parseFromString(html, 'text/html') parses HTML but does NOT execute scripts during parsing. However, using the parsed result as innerHTML can execute event handlers (onerror, onload). Sanitize the parsed result with DOMPurify before DOM insertion."
             ),
     },
     {
@@ -25042,7 +25042,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Goroutine launched without context or cancellation mechanism - use context.Context for lifecycle management",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Goroutine launched without context or cancellation mechanism - use context.Context for lifecycle management. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Goroutines without context.Context cannot be cancelled, causing goroutine leaks. Pass ctx as first parameter: func process(ctx context.Context) { select { case <-ctx.Done(): return; case result := <-ch: ... } }. Create with context.WithTimeout(parent, 30*time.Second)."
             ),
     },
     {
@@ -25051,7 +25051,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Goroutine with infinite loop without select or context.Done - potential goroutine leak",
         "severity": Severity.WARN,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "for { ... } without select on ctx.Done() runs until the process exits. Add: select { case <-ctx.Done(): return; case <-ticker.C: doWork(); }. The context allows the caller to cancel. Use context.WithCancel() or context.WithTimeout() from the parent."
             ),
     },
     {
@@ -25060,7 +25060,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty error handling block - error silently swallowed, log or return the error",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "if err != nil { } silently drops the error. At minimum: log.Printf('operation failed: %v', err). Better: return fmt.Errorf('operation: %w', err) to propagate with context. Go errors must be either handled, returned, or logged — never dropped."
             ),
     },
     {
@@ -25069,7 +25069,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Error replaced with nil return - caller loses error context, propagate the error",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "if err != nil { return nil } loses the error context — the caller thinks everything succeeded. Return the error: return nil, fmt.Errorf('read config: %w', err). The %w verb allows errors.Is/As to unwrap. Only return nil error when recovery is implemented."
             ),
     },
     {
@@ -25078,7 +25078,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Defer of Unlock before Lock call - defer runs at function exit, ensure Lock is called before defer Unlock",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "defer mu.Unlock() before mu.Lock() means Unlock runs before Lock. Correct: mu.Lock(); defer mu.Unlock(). defer captures at registration time — the Unlock is deferred at function exit, which is correct only when Lock precedes it."
             ),
     },
     {
@@ -25087,7 +25087,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blanket panic recovery in defer - log the recovered value and consider whether recovery is appropriate",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "defer func() { recover() }() catches ALL panics including those from programming errors (nil pointer, index out of range). Log what was recovered: if r := recover(); r != nil { log.Printf('recovered: %v, stack: %s', r, debug.Stack()) }."
             ),
     },
     {
@@ -25096,7 +25096,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Slice aliasing via [:] creates a reference, not a copy - use copy() or append to new slice for independence",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Slice aliasing via [:] creates a reference, not a copy - use copy() or append to new slice for independence. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "b := a[:] creates a slice header pointing to the same underlying array — mutations to b modify a. For independence: b := make([]T, len(a)); copy(b, a). Or: b := append([]T(nil), a...). Both allocate new backing arrays."
             ),
     },
     {
@@ -25105,7 +25105,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "append() result not assigned - append may return a new slice, always assign the result",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: append() result not assigned - append may return a new slice, always assign the result. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "append() may return a new slice if capacity is exceeded. Always assign: slice = append(slice, elem). Without assignment: the new elements may be in a different array that is immediately garbage collected. This is Go's most common slice bug."
             ),
         "file_types": [".go"],
     },
@@ -25115,7 +25115,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Goroutine in range loop captures loop variable by reference - pass as parameter to avoid race condition",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "for _, v := range items { go func() { use(v) }() } — all goroutines share the same v, which changes each iteration. Fix: go func(val T) { use(val) }(v) — pass v as a parameter, creating a per-goroutine copy. Go 1.22+ fixes this for loop variables."
             ),
     },
     {
@@ -25124,7 +25124,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fixed sleep for retry/polling - use exponential backoff with jitter",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "time.Sleep(5 * time.Second) between retries uses fixed delays. Use exponential backoff: delay := time.Duration(math.Pow(2, float64(attempt))) * time.Second. Add jitter: delay += time.Duration(rand.Int63n(int64(delay/2))). Cap at a maximum delay."
             ),
     },
     {
@@ -25133,7 +25133,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "http.ListenAndServe used directly - use http.Server with timeouts configured (ReadTimeout, WriteTimeout)",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "http.ListenAndServe has no timeouts — a slow client holds a connection indefinitely. Use http.Server: &http.Server{Addr: ':8080', ReadTimeout: 5*time.Second, WriteTimeout: 10*time.Second, IdleTimeout: 120*time.Second}. Call server.ListenAndServe()."
             ),
     },
     {
@@ -25142,7 +25142,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using http.DefaultClient or top-level Get/Post - has no timeout, create client with explicit timeout",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "http.Get()/http.DefaultClient has no timeout — a hanging server blocks your goroutine forever. Create a client: client := &http.Client{Timeout: 30 * time.Second}. For fine-grained control: use context.WithTimeout on the request."
             ),
     },
     {
@@ -25151,7 +25151,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTTP response error ignored with blank identifier - always check and handle HTTP errors",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "resp, _ := http.Get(url) ignores the error. If err is non-nil, resp is nil — resp.Body.Close() panics. Always: resp, err := http.Get(url); if err != nil { return err }; defer resp.Body.Close()."
             ),
     },
     {
@@ -25160,7 +25160,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "json.Unmarshal error not checked on next line - malformed JSON will cause silent data loss",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "var data T; json.Unmarshal(body, &data) — if Unmarshal fails, data is zero-valued but the code continues as if parsing succeeded. Check: if err := json.Unmarshal(body, &data); err != nil { return fmt.Errorf('invalid JSON: %w', err) }."
             ),
     },
     {
@@ -25169,7 +25169,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Defer resp.Body.Close before checking error - if err is not nil, resp may be nil causing panic",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "defer resp.Body.Close() before checking err is a panic on error: when err != nil, resp is nil. Correct order: resp, err := http.Get(url); if err != nil { return err }; defer resp.Body.Close(). Close only after confirming resp is not nil."
             ),
     },
     {
@@ -25178,7 +25178,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Struct containing sync.Mutex - ensure the struct is never copied (pass by pointer, implement noCopy)",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Struct with sync.Mutex copied by value creates a second mutex with the same state — the copy does not synchronize with the original. Always pass by pointer: func process(s *MyStruct). Add a noCopy field: type MyStruct struct { noCopy noCopy; mu sync.Mutex }."
             ),
     },
     {
@@ -25187,7 +25187,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Select with only ctx.Done case - if this is the only case, the goroutine blocks unnecessarily, add default or other cases",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "select { case <-ctx.Done(): return } with no other cases blocks until cancellation — the goroutine does nothing useful. If polling: add a ticker case. If waiting for work: add a channel case. A single-case select is usually a sign of missing logic."
             ),
     },
     {
@@ -25196,7 +25196,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unbuffered channel created without apparent consumer goroutine - may cause deadlock",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "ch := make(chan T) without a consumer goroutine deadlocks on ch <- value because unbuffered channels block until someone reads. Either: start a consumer goroutine before sending, or use buffered: ch := make(chan T, bufSize) where bufSize matches expected volume."
             ),
     },
     {
@@ -25205,7 +25205,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "os.Exit called outside main - prevents defer cleanup and makes testing difficult",
         "severity": Severity.WARN,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "os.Exit(1) outside main skips ALL deferred functions — database connections, files, temp cleanup never run. Return an error instead: return fmt.Errorf('fatal: %w', err). Let main() call os.Exit after all cleanup. This also makes functions testable."
             ),
     },
     {
@@ -25214,7 +25214,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "log.Fatal/Panic outside main function - terminates program without cleanup, return errors instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "log.Fatal/log.Panic outside main calls os.Exit(1)/panic() which skips defers and makes the function untestable. Return errors: return fmt.Errorf('critical: %w', err). Let main() decide whether to exit. For libraries: never call log.Fatal."
             ),
     },
     {
@@ -25223,7 +25223,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Converting bytes to string for empty check - use len() == 0 to avoid allocation",
         "severity": Severity.INFO,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "string(bytes) == '' allocates a new string to check emptiness. Use len(bytes) == 0 which checks the slice header length with zero allocation. For nil-safety: len(nil) == 0 returns true, so it handles both nil and empty slices."
             ),
     },
     {
@@ -25232,7 +25232,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Error message starts with uppercase - Go convention is lowercase error messages without punctuation",
         "severity": Severity.INFO,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "Go convention: error messages are lowercase without punctuation. return fmt.Errorf('Read config: %w', err) should be: return fmt.Errorf('read config: %w', err). Errors are often wrapped: fmt.Errorf('init: %w', err) produces 'init: read config: file not found'."
             ),
     },
     {
@@ -25241,7 +25241,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Error()/String() method may cause infinite recursion if it references the receiver in fmt.Sprintf",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "func (e MyError) Error() string { return fmt.Sprintf('error: %v', e) } calls Error() on itself via %v, causing infinite recursion. Use e's fields directly: return fmt.Sprintf('error: code=%d msg=%s', e.Code, e.Msg). Never pass the receiver to fmt in Error()/String()."
             ),
     },
     {
@@ -25250,7 +25250,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "context.Background/TODO used without timeout or cancellation - wrap with WithTimeout or WithCancel",
         "severity": Severity.INFO,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "context.Background()/context.TODO() without timeout means the operation runs until it finishes or the process dies. Wrap: ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second); defer cancel(). Pass ctx to all downstream calls."
             ),
     },
     {
@@ -25259,7 +25259,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Test uses t.Error/Errorf without return - test continues executing after failure, use t.Fatal instead or add return",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "t.Errorf('...') records the failure but continues execution — subsequent assertions may panic on nil values. Use t.Fatalf('...') or t.Errorf('...'); return. t.Fatal stops the test immediately. Use t.Error only when remaining assertions are still meaningful."
             ),
     },
     {

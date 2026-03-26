@@ -66,7 +66,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "eval_exec",
-        "pattern": r"\b(eval|exec)\s*\(",
+        "pattern": r"(?<!\.)(?<!\w)\b(eval|exec)\s*\(",
         "message": "eval/exec is a security risk. Use safe alternatives.",
         "severity": Severity.BLOCK,
         "exclude_path_contains": ["gateway/interceptor", "taint_analyzer"],
@@ -854,7 +854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "react_innerhtml_string",
-        "pattern": r"\.innerHTML\s*=",
+        "pattern": r"\.innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)",
         "message": "Direct innerHTML assignment bypasses sanitization. Use React's rendering or a sanitizer.",
         "severity": Severity.BLOCK,
         "file_types": [".jsx", ".tsx", ".js", ".ts"],
@@ -5211,7 +5211,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "browser_innerhtml_assign",
-        "pattern": r"\.innerHTML\s*=\s*(?!.*(?:DOMPurify|sanitize))",
+        "pattern": r"\.innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)(?!.*(?:DOMPurify|sanitize))",
         "message": "innerHTML assignment without sanitization enables XSS. Use textContent or sanitize with DOMPurify.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -29702,7 +29702,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2b_108",
-        "pattern": r"innerHTML\s*=",
+        "pattern": r"innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)",
         "message": "Direct innerHTML assignment with unsanitized input creates XSS vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (

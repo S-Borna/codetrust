@@ -46,6 +46,7 @@ docker-compose.override.yml
 .local/
 /SESSION_LOG.md
 /CODEBASE_KNOWLEDGE.md
+CLAUDE.md
 
 # CodeTrust runtime artifacts
 .codetrust/
@@ -83,6 +84,9 @@ scan_all_projects.py
 IP_HANDOVER.md
 PLAN.md
 SPEC.md
+
+# Claude Code internal state
+.claude/
 
 # Local dev scripts
 setup.sh

@@ -28782,7 +28782,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blocking Await.result defeats async execution model and can cause thread starvation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Await.result(future, duration) blocks the calling thread, consuming a thread pool slot. In Akka: use pipeTo pattern: future.pipeTo(sender()). In Play: return the Future directly from the controller. Blocking defeats the purpose of async — only block at application boundaries."
             ),
     },
     {
@@ -28791,7 +28791,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Future.onComplete with pattern match often drops Failure case silently",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Future.onComplete with pattern match often drops Failure case silently. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "future.onComplete { case Success(v) => process(v) } silently drops failures. Always handle both: onComplete { case Success(v) => process(v); case Failure(e) => logger.error('Failed', e) }. Or use future.recover { case e => fallback } for inline error handling."
             ),
     },
     {
@@ -28800,7 +28800,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Global ExecutionContext is unsuitable for blocking I/O - use a dedicated thread pool",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "ExecutionContext.global is the Fork/Join pool — blocking I/O (JDBC, file I/O) starves it, freezing all CPU-bound work. Create dedicated: implicit val dbEc = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10)). Size I/O pools based on connection count, not CPU cores."
             ),
     },
     {
@@ -28809,7 +28809,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unsafe cast via asInstanceOf bypasses compile-time type safety and risks ClassCastException",
         "severity": Severity.WARN,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "x.asInstanceOf[T] throws ClassCastException at runtime if the type is wrong. Use pattern matching: x match { case t: T => process(t); case _ => handleError() }. Or use shapeless/type-safe casts. asInstanceOf is acceptable only when the type is proven by an isInstanceOf check immediately before."
             ),
     },
     {
@@ -28818,7 +28818,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Reflective instantiation via classOf.newInstance is deprecated and bypasses constructor safety",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "classOf[T].newInstance() is deprecated — it cannot invoke constructors with arguments and silently ignores access control. Use: classOf[T].getDeclaredConstructor().newInstance(). Or use Scala reflection: runtimeMirror.reflectClass(typeOf[T].typeSymbol.asClass).reflectConstructor(...)."
             ),
     },
     {
@@ -28827,7 +28827,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java ObjectInputStream deserialization is a well-known remote code execution vector",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Java ObjectInputStream deserialization instantiates arbitrary classes — ysoserial provides ready-made RCE payloads for every major Java framework. Never deserialize untrusted data with ObjectInputStream. Use JSON (Jackson/Gson), Protobuf, or Avro. If Java serialization is required: use ObjectInputFilter (Java 9+) with an explicit allowlist."
             ),
     },
     {
@@ -28836,7 +28836,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Implicit conversion methods create hidden type coercions that obscure control flow",
         "severity": Severity.WARN,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Implicit conversions (implicit def intToString(i: Int): String) make code unpredictable — a type error silently becomes a conversion. In Scala 3: use given/using instead. In Scala 2: prefer type classes (implicit val) over implicit conversions. Limit scope to the companion object."
             ),
     },
     {
@@ -28845,7 +28845,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Future with blocking wrapper still consumes a thread - use a dedicated blocking dispatcher",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Future { blocking { Thread.sleep(1000) } } still consumes a thread from the pool — blocking{} only hints the pool to add compensating threads. Use a dedicated dispatcher: Future { longOperation() }(blockingDispatcher). Configure in application.conf: blocking-dispatcher { executor = 'thread-pool-executor' }."
             ),
     },
     {
@@ -28854,7 +28854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Runtime type check via isInstanceOf indicates possible type erasure issue or design flaw",
         "severity": Severity.INFO,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "x.isInstanceOf[List[String]] always returns true due to type erasure — at runtime, it only checks List, not the String parameter. Use ClassTag: def check[T: ClassTag](x: Any) = x match { case _: T => true }. Or redesign to avoid runtime type checks (use sealed traits + pattern matching)."
             ),
     },
     {
@@ -28863,7 +28863,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating multiple ActorSystems is resource-intensive - reuse a single system per JVM",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Creating multiple ActorSystems is resource-intensive - reuse a single system per JVM. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Each ActorSystem creates its own thread pools, scheduler, and configuration — 5 ActorSystems = 5x thread overhead. Create ONE per JVM: val system = ActorSystem('app'). Pass it via dependency injection. For testing: use TestKit with a single test system."
             ),
     },
     {
@@ -28872,7 +28872,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using sender() in Future callback captures a stale ActorRef that may point to dead letter",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Using sender() in Future callback captures a stale ActorRef that may point to dead letter. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Future { ... }.map(result => sender() ! result) — sender() inside the Future callback returns deadLetters because the original sender is no longer the current message's sender. Capture first: val replyTo = sender(); Future { ... }.map(result => replyTo ! result)."
             ),
     },
     {
@@ -28881,7 +28881,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mutable var in actor state without synchronization risks data races",
         "severity": Severity.WARN,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "var counter = 0 in an actor seems safe (actors process one message at a time) but becomes a race condition if the var is accessed from a Future callback or a different dispatcher. Use context.become with immutable state: context.become(active(counter + 1))."
             ),
     },
     {
@@ -28890,7 +28890,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "scala.collection.JavaConversions is deprecated - use JavaConverters or scala.jdk.CollectionConverters",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "scala.collection.JavaConversions performs implicit conversions that can trigger at unexpected points. In Scala 2.13+: use scala.jdk.CollectionConverters with explicit .asJava/.asScala. In older Scala: use JavaConverters (also explicit). Never use JavaConversions."
             ),
     },
     {
@@ -28899,7 +28899,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Calling .get on Option/Try/Future throws on empty - use getOrElse, fold, or pattern match",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "option.get throws NoSuchElementException on None, future.get blocks, try.get throws the exception. Use: option.getOrElse(default), future.map(process), try.fold(handleError, handleSuccess). Or pattern match: option match { case Some(v) => v; case None => default }."
             ),
     },
     {
@@ -28908,7 +28908,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passing null explicitly defeats Scala type safety - use Option instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Passing null in Scala code means Option, map, filter, and pattern matching all break with NullPointerException. Use Option(possiblyNull) which converts null to None. In APIs: return Option[T] instead of T | null. Scala code should never produce or accept null."
             ),
         "file_types": [".scala", ".sc"],
     },
@@ -28918,7 +28918,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Explicit SerialVersionUID with Java serialization may indicate use of insecure serialization",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Explicit SerialVersionUID with Java serialization may indicate use of insecure serialization. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Explicit @SerialVersionUID with Java Serializable indicates use of Java serialization — a known RCE vector. Migrate to JSON (circe, play-json), Protobuf, or Avro. If Java serialization is required for Akka remoting: use Akka Serialization with Jackson or Protobuf serializer."
             ),
     },
     {
@@ -28927,7 +28927,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Overuse of TypeTag/ClassTag to work around erasure often signals a design that fights the type system",
         "severity": Severity.INFO,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Pervasive TypeTag/ClassTag usage to work around erasure signals a design fighting the type system. Prefer sealed trait hierarchies with pattern matching (no runtime type checks needed). Use TypeTag only at API boundaries where type information must cross serialization."
             ),
     },
     {
@@ -28936,7 +28936,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using synchronized blocks in actor-based code mixes concurrency models and risks deadlocks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "synchronized blocks in actor code mix two concurrency models — actors guarantee single-threaded message processing, making synchronized unnecessary and potentially deadlock-causing. Remove synchronized. If protecting shared state: move it into the actor's receive handler."
             ),
     },
     {
@@ -28945,7 +28945,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Manually managing Promise/Future pairs is error-prone - prefer Future combinators",
         "severity": Severity.INFO,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "val p = Promise[T](); Future { p.success(result) } is fragile — forgetting to complete the promise hangs callers forever. Use Future { computation() } which handles success/failure automatically. Or Future.fromTry(Try { computation() }) for synchronous code."
             ),
     },
     {
@@ -28954,7 +28954,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Awaiting with Duration.Inf can hang indefinitely - always set a finite timeout",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "Await.result(future, Duration.Inf) blocks the thread forever if the future never completes. Set a finite timeout: Await.result(future, 30.seconds). Handle TimeoutException: try { Await.result(f, 30.seconds) } catch { case _: TimeoutException => fallback }."
             ),
     },
     {
@@ -28963,7 +28963,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "The @unchecked annotation suppresses exhaustiveness warnings, hiding potential MatchError at runtime",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "(x: @unchecked) match { case a: A => ... } suppresses exhaustiveness warnings — if a new case is added to the sealed trait, the compiler won't warn you, and runtime MatchError occurs. Remove @unchecked and handle all cases. Add a case _ => throw new MatchError for safety."
             ),
     },
     {
@@ -28972,7 +28972,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "scala.sys.process executes shell commands - ensure inputs are sanitized to prevent injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "scala.sys.process.Process('cmd ' + userInput) passes through the shell. Use Process(Seq('cmd', arg1, arg2)) — the Seq form bypasses shell interpretation. Validate inputs against an allowlist. Never concatenate user input into process command strings."
             ),
     },
     {
@@ -28981,7 +28981,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Default XMLInputFactory is vulnerable to XXE - disable external entities explicitly",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "XMLInputFactory.newInstance() with default settings processes external entities (XXE). Set: factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false); factory.setProperty(XMLInputFactory.SUPPORT_DTD, false). Apply to all XML parsing: SAX, DOM, StAX."
             ),
     },
     {
@@ -28990,7 +28990,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Launching Futures inside foreach without backpressure can overwhelm the thread pool",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "items.foreach(item => Future { process(item) }) launches all futures immediately — 10,000 items = 10,000 concurrent operations overwhelming thread pools and downstream services. Use Source.from(items).mapAsync(parallelism = 10)(process) with Akka Streams for backpressure."
             ),
     },
     {
@@ -28999,7 +28999,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Throwing exceptions in Scala breaks referential transparency - use Either or Try instead",
         "severity": Severity.INFO,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "throw new Exception() breaks referential transparency — the same function returns different results depending on caller context. Use Either[Error, T] for expected failures, or Try { operation() } for wrapping exceptions. Reserve throw for truly unrecoverable errors."
             ),
     },
     {
@@ -29008,7 +29008,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Java Serializable interface enables insecure deserialization attacks - prefer JSON or protobuf",
         "severity": Severity.WARN,
             "suggestion": (
-                "Unsafe deserialization can execute arbitrary code. pickle.loads(), yaml.load(), PHP unserialize(), and Java ObjectInputStream.readObject() all allow code execution from crafted payloads. Use safe alternatives: json.loads() for data, yaml.safe_load() for YAML, or validated schemas with explicit type mappings. Never deserialize untrusted data with native serialization."
+                "Implementing Serializable exposes the class to deserialization attacks — attackers craft byte streams that instantiate objects with malicious state. Use JSON (Jackson, Gson), Protobuf, or Avro for data interchange. Remove implements Serializable unless required by a specific framework (Akka, Spark)."
             ),
     },
     {
@@ -29017,7 +29017,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Implicit value class can cause unexpected boxing in certain contexts due to erasure",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Implicit value class can cause unexpected boxing in certain contexts due to erasure. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Implicit value class (implicit class RichInt(val x: Int) extends AnyVal) boxes when: stored in a collection, pattern matched, or used as a type parameter. This negates the performance benefit. Use extension methods (Scala 3) or explicit enrichment without extends AnyVal when boxing is acceptable."
             ),
     },
     {
@@ -29026,7 +29026,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Calling .head on a collection throws NoSuchElementException if empty - use .headOption",
         "severity": Severity.WARN,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "list.head throws NoSuchElementException on empty collections. Use: list.headOption.getOrElse(default) or list.headOption match { case Some(v) => v; case None => handleEmpty() }. The same applies to .last — use .lastOption."
             ),
     },
     {
@@ -29035,7 +29035,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query built via string concatenation is vulnerable to SQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "SQL query built via string concatenation is vulnerable to SQL injection. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29044,7 +29044,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL query in interpolated string is vulnerable to SQL injection - use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "SQL query in interpolated string is vulnerable to SQL injection. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29053,7 +29053,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "NetDataContractSerializer allows type injection during deserialization",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Unsafe deserialization can execute arbitrary code. pickle.loads(), yaml.load(), PHP unserialize(), and Java ObjectInputStream.readObject() all allow code execution from crafted payloads. Use safe alternatives: json.loads() for data, yaml.safe_load() for YAML, or validated schemas with explicit type mappings. Never deserialize untrusted data with native serialization."
+                "NetDataContractSerializer includes CLR type information in the serialized output — an attacker modifies the type to instantiate arbitrary classes. Use DataContractSerializer with known types, or System.Text.Json with [JsonDerivedType]. Never deserialize untrusted data with NetDataContractSerializer."
             ),
     },
     {
@@ -29062,7 +29062,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling antiforgery token validation exposes the endpoint to CSRF attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Disabling antiforgery token validation exposes the endpoint to CSRF attacks. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29071,7 +29071,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ValidateAntiForgeryToken on GET requests is unnecessary and may mask missing protection on POST",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "[ValidateAntiForgeryToken] on GET requests is unnecessary — GET should be idempotent and not change state. Apply [ValidateAntiForgeryToken] on POST/PUT/DELETE only. If a GET modifies state: refactor it to POST first."
             ),
     },
     {
@@ -29080,7 +29080,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blazor MarkupString renders raw HTML without sanitization, enabling XSS",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "new MarkupString(userInput) in Blazor renders raw HTML without sanitization. Use @userInput (auto-escaped by Razor) for text. If HTML is needed: sanitize with HtmlSanitizer NuGet package before wrapping in MarkupString."
             ),
     },
     {
@@ -29089,7 +29089,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Html.Raw outputs unencoded HTML, creating XSS vulnerability if input is user-controlled",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "@Html.Raw(userInput) outputs unescaped HTML — <script>alert(1)</script> executes. Use @userInput (Razor auto-escapes). If raw HTML is needed: sanitize with HtmlSanitizer: @Html.Raw(sanitizer.Sanitize(userInput)). Html.Raw is safe only with server-generated HTML."
             ),
     },
     {
@@ -29098,7 +29098,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AllowAnonymous bypasses authentication - verify this endpoint truly requires no auth",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "[AllowAnonymous] overrides [Authorize] on the controller — even on endpoints that should require auth. Verify each [AllowAnonymous] endpoint: login, registration, and public content are acceptable. Admin, profile, and data-modifying endpoints must NOT have [AllowAnonymous]."
             ),
     },
     {
@@ -29107,7 +29107,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS policy allowing any origin exposes API to cross-origin abuse",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "builder.WithOrigins('*') or policy.AllowAnyOrigin() allows any website to call your API. Specify: builder.WithOrigins('https://app.example.com'). With credentials: AllowAnyOrigin() + AllowCredentials() throws — use specific origins."
             ),
     },
     {
@@ -29116,7 +29116,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SoapFormatter is vulnerable to deserialization attacks - use modern serializers",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "SoapFormatter deserializes arbitrary .NET types — crafted payloads execute code via gadget chains (ysoserial.net). Replace with: DataContractSerializer, System.Text.Json, or XmlSerializer with known types. SoapFormatter has no safe configuration."
             ),
     },
     {
@@ -29125,7 +29125,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Json.NET TypeNameHandling enables type injection attacks - use None or explicit binder",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "JsonSerializerSettings { TypeNameHandling = TypeNameHandling.All } allows attackers to specify arbitrary types in JSON — deserialization instantiates them. Use TypeNameHandling.None (default). If polymorphism is needed: use a custom SerializationBinder with an explicit type allowlist."
             ),
     },
     {
@@ -29134,7 +29134,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spawning shell process with user input enables command injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Process.Start('cmd', '/c ' + userInput) passes input to the shell. Use: Process.Start(new ProcessStartInfo { FileName = 'program', Arguments = escapedArgs, UseShellExecute = false }). Pass arguments via ArgumentList (NET 5+) which handles escaping."
             ),
     },
     {
@@ -29143,7 +29143,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "EF Core ExecuteSqlRaw with interpolation is SQL injection - use ExecuteSqlInterpolated",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "ExecuteSqlRaw($'DELETE FROM Users WHERE Id = {id}') uses C# string interpolation BEFORE EF sees the query — it is SQL injection. Use ExecuteSqlInterpolated($'DELETE FROM Users WHERE Id = {id}') — despite identical syntax, EF converts interpolation to parameters."
             ),
     },
     {
@@ -29152,7 +29152,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unauthenticated SignalR hubs allow unauthorized real-time message injection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "SignalR hubs without [Authorize] accept connections from any authenticated or anonymous user. Add [Authorize] to the hub class. For granular control: [Authorize(Roles = 'Admin')] or [Authorize(Policy = 'HubAccess')]. Verify auth in OnConnectedAsync too."
             ),
     },
     {
@@ -29161,7 +29161,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SignalR Hub without Authorize attribute may be accessible without authentication",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "SignalR Hub without [Authorize] is accessible to anonymous users by default. Add at class level: [Authorize] public class ChatHub : Hub { }. For specific methods: [Authorize(Roles = 'Admin')] public async Task AdminAction() { }. Also verify OnConnectedAsync checks auth context."
             ),
     },
     {
@@ -29170,7 +29170,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Accessing Task.Result synchronously causes deadlocks in ASP.NET - use await instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "task.Result in ASP.NET synchronously blocks the thread and captures the SynchronizationContext — when the task completes, it tries to resume on the captured context which is blocked, causing deadlock. Use: await task. If sync is unavoidable: task.GetAwaiter().GetResult() with .ConfigureAwait(false)."
             ),
     },
     {
@@ -29179,7 +29179,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GetAwaiter().GetResult() blocks the calling thread and risks deadlock - use await",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "task.GetAwaiter().GetResult() blocks the calling thread — in ASP.NET with SynchronizationContext, this deadlocks. Use await. If calling async from sync: use Task.Run(() => asyncMethod()).GetAwaiter().GetResult() to avoid context capture. Or redesign the call chain to be async throughout."
             ),
     },
     {
@@ -29188,7 +29188,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5 is cryptographically broken - use SHA-256 or better for security-sensitive hashing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "MD5/SHA-1 are cryptographically broken — collision attacks are practical. For password hashing: use bcrypt, scrypt, or argon2 (with salt, high cost factor). For integrity/signatures: use SHA-256 or SHA-3. For HMAC: use hmac.new(key, msg, 'sha256'). Never use MD5/SHA-1 for any security-sensitive purpose."
+                "MD5.Create().ComputeHash(data) uses a broken hash — collisions are trivially producible. Use SHA256.Create().ComputeHash(data) for integrity. For passwords: use Rfc2898DeriveBytes (PBKDF2) with 600,000 iterations or BCrypt.Net. Never use MD5 for any security purpose."
             ),
     },
     {
@@ -29197,7 +29197,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SHA-1 is deprecated for security use - use SHA-256 or SHA-512",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "SHA1.Create() is deprecated for security use since practical collision attacks (SHAttered, 2017). Use SHA256.Create() or SHA512.Create(). For HMAC: use HMACSHA256. For certificates: all CAs stopped issuing SHA-1 certs in 2017."
             ),
     },
     {
@@ -29206,7 +29206,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "P/Invoke via DllImport can execute arbitrary native code - validate library source",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "[DllImport('native.dll')] loads and executes native code — if the DLL is replaced or path-hijacked, arbitrary code runs. Verify: DLL is from a trusted source, loaded from a fixed path (not relative), and signed. Use SetDllDirectory('') to remove CWD from search path."
             ),
     },
     {
@@ -29215,7 +29215,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic assembly loading can execute untrusted code - validate assembly source and integrity",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Assembly.Load(userInput) or Assembly.LoadFrom(path) loads arbitrary .NET assemblies — static constructors execute immediately. Validate: only load from a trusted directory, verify assembly strong name or Authenticode signature. Never load assemblies from user-provided paths."
             ),
     },
     {
@@ -29224,7 +29224,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Non-compiled Regex in hot path causes repeated parsing overhead - use RegexOptions.Compiled",
         "severity": Severity.INFO,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "new Regex(pattern) in a hot path recompiles the regex engine on each call (~1ms overhead). Use: private static readonly Regex _pattern = new Regex(pattern, RegexOptions.Compiled). Compiled regex takes ~10ms to initialize but executes 10x faster than interpreted."
             ),
     },
     {
@@ -29233,7 +29233,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Catching base Exception and swallowing it hides bugs - catch specific exceptions",
         "severity": Severity.WARN,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "catch (Exception) { } swallows ALL exceptions including OutOfMemoryException, StackOverflowException, and ThreadAbortException. Catch specific: catch (HttpRequestException ex) { logger.LogError(ex, 'API call failed'); }. If catching broadly: at minimum log and consider Environment.FailFast for critical errors."
             ),
     },
     {
@@ -29242,7 +29242,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Default MVC JSON settings may expose internal types - configure serialization explicitly",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security-sensitive configuration must not be hardcoded. Use environment variables for secrets, configuration files for non-sensitive settings, and a secrets manager for production. Validate all configuration at startup — fail fast with a clear error, not silently at runtime."
+                "Default JsonSerializerOptions may serialize internal properties, navigation properties, or circular references. Configure: options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull; use [JsonIgnore] on sensitive properties. Create DTOs instead of serializing entities directly."
             ),
     },
     {
@@ -29251,7 +29251,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating HttpClient per request exhausts socket connections - use IHttpClientFactory",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Creating HttpClient per request exhausts socket connections - use IHttpClientFactory. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "new HttpClient() per request exhausts socket connections — each disposed HttpClient keeps its socket in TIME_WAIT for 240s. Use IHttpClientFactory: services.AddHttpClient<MyService>(). Or use a static HttpClient instance. Socket exhaustion causes 'An operation on a socket could not be performed'."
             ),
     },
     {
@@ -29260,7 +29260,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "LosFormatter is vulnerable to deserialization attacks - use secure alternatives",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "LosFormatter deserializes ViewState without type restrictions — crafted ViewState payloads execute code. Migrate to: System.Text.Json for custom serialization, or DataProtection APIs for tamper-proof tokens. If ViewState is needed: enable ViewState MAC validation."
             ),
     },
     {
@@ -29269,7 +29269,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passing unsanitized request data through ViewBag enables XSS in Razor views",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "ViewBag.Message = Request.QueryString['msg']; then @ViewBag.Message in Razor — Razor auto-escapes @ output, but @Html.Raw(ViewBag.Message) does not. Verify all ViewBag values used with Html.Raw are sanitized. Prefer strongly-typed view models over ViewBag."
             ),
     },
     {
@@ -29278,7 +29278,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unquoted variable expansion is subject to word splitting and glob expansion attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Unquoted variable expansion is subject to word splitting and glob expansion attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "echo $var without quotes splits on whitespace and expands globs: var='*.txt hello world' becomes multiple arguments. Always quote: echo '$var'. In conditionals: [[ '$var' == 'value' ]]. The only place unquoting is intentional is in for loops over word lists."
             ),
         "file_types": [".sh", ".bash", ".zsh", ".ksh"],
     },
@@ -29288,7 +29288,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval with variable input enables arbitrary command execution - avoid eval entirely",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "eval with variable input enables arbitrary command execution. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29297,7 +29297,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval with unquoted variable is a command injection vector",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "eval with unquoted variable is a command injection vector. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29306,7 +29306,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "TOCTOU race condition - file state may change between test and use",
         "severity": Severity.WARN,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "if [ -f '$file' ]; then cat '$file'; fi — between the test and cat, the file can be replaced with a symlink to /etc/shadow. Use: open the file first, then check properties via the file descriptor: exec 3< '$file'; fstat on fd 3. Or use O_NOFOLLOW to reject symlinks."
             ),
     },
     {
@@ -29315,7 +29315,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Predictable temp file path enables symlink attacks - use mktemp with template (XXXXXX)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "Using /tmp/myapp.pid or /tmp/data.$$  is predictable — an attacker creates a symlink: ln -s /etc/passwd /tmp/myapp.pid. Use: tmpfile=$(mktemp /tmp/myapp.XXXXXX) which generates a unique random name. mktemp -d for directories."
             ),
     },
     {
@@ -29326,7 +29326,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "exclude_path_contains": ["gateway/interceptor"],
         "file_types": [".sh", ".bash", ".zsh"],
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "echo data > /tmp/app_output enables symlink race: attacker creates ln -s /etc/crontab /tmp/app_output before your script runs. Use mktemp: outfile=$(mktemp /tmp/output.XXXXXX); echo data > $outfile. The XXXXXX generates unpredictable random characters."
             ),
     },
     {
@@ -29335,7 +29335,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Overwriting PATH without preserving existing value may break command resolution",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "PATH='/usr/local/bin' drops all existing PATH entries — commands like ls, grep, cat stop working. Prepend or append: PATH='/new/path:$PATH' (prepend, higher priority) or PATH='$PATH:/new/path' (append, lower priority). Always preserve the existing PATH."
             ),
     },
     {
@@ -29344,7 +29344,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Adding current directory to PATH enables trojan binary execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "PATH='.:$PATH' means running 'ls' executes ./ls if it exists — an attacker drops a malicious 'ls' in the current directory. Never add '.' to PATH. Use explicit paths for local scripts: ./script.sh. This is a classic Unix trojan vector."
             ),
     },
     {
@@ -29353,7 +29353,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "chmod 777 grants world read/write/execute - use minimal permissions",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "chmod 777 grants everyone read+write+execute — any user can modify or replace the file with malicious content. Use: chmod 644 for config (owner rw, others r), chmod 755 for scripts (owner rwx, others rx), chmod 600 for secrets (owner rw only)."
             ),
     },
     {
@@ -29362,7 +29362,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "chmod 666 grants world read/write - use 644 or more restrictive",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: chmod 666 grants world read/write - use 644 or more restrictive. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "chmod 666 grants world read+write — any user can modify the file. Use: chmod 644 (owner rw, group r, others r) for shared config. chmod 640 (owner rw, group r) for group-accessible files. chmod 600 (owner rw only) for private files."
             ),
     },
     {
@@ -29371,7 +29371,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Piping curl output to shell executes unverified remote code",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Piping curl output to shell executes unverified remote code. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29380,7 +29380,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Piping wget output to shell executes unverified remote code",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Piping wget output to shell executes unverified remote code. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29389,7 +29389,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty signal trap silently discards signals - handle or log the signal",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "trap '' SIGTERM silently ignores SIGTERM — the process cannot be gracefully stopped (only SIGKILL works). Handle the signal: trap 'cleanup; exit 0' SIGTERM. If you need to ignore during a critical section: save and restore: trap 'cleanup' SIGTERM."
             ),
     },
     {
@@ -29398,7 +29398,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SIGKILL prevents graceful cleanup - send SIGTERM first and wait before escalating",
         "severity": Severity.INFO,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "kill -9 (SIGKILL) prevents cleanup — temp files, lock files, and child processes are orphaned. Send SIGTERM first: kill $pid; sleep 5; kill -0 $pid 2>/dev/null && kill -9 $pid. This gives the process 5 seconds for graceful shutdown."
             ),
     },
     {
@@ -29407,7 +29407,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "rm -rf / can destroy the entire filesystem - this must never appear in scripts",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "rm -rf / destroys the entire filesystem. Modern systems have --preserve-root but older ones do not. If you need to delete a variable path: validate first: [[ -z '$dir' ]] && exit 1; [[ '$dir' == '/' ]] && exit 1; rm -rf '$dir'. Never use rm -rf with unsanitized variables."
             ),
         "file_types": [".sh", ".bash", ".zsh", ".yml", ".yaml"],
         "skip_comments": True,
@@ -29418,7 +29418,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "rm -rf with variable path can delete unintended directories if variable is empty",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "rm -rf $DIR where DIR is empty expands to rm -rf (current directory or worse). Always quote and validate: [[ -z '$DIR' ]] && { echo 'DIR is empty'; exit 1; }; rm -rf '$DIR'. Use set -u (treat unset variables as errors) at the top of every script."
             ),
     },
     {
@@ -29427,7 +29427,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sourcing from stdin executes arbitrary piped input in current shell context",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Sourcing from stdin executes arbitrary piped input in current shell context. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29436,7 +29436,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "sudo su opens an unrestricted root shell - use sudo with specific commands",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "sudo su opens an unrestricted root shell — the user can do anything with no audit trail of individual commands. Use: sudo command (specific command with sudo logging). For multiple commands: sudo -s with SHELL=/bin/bash which logs the session. Never use sudo su in scripts."
             ),
     },
     {
@@ -29445,7 +29445,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Redirecting all output to /dev/null silences errors that may need investigation",
         "severity": Severity.INFO,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "command > /dev/null 2>&1 discards both stdout AND stderr — errors are invisible. Redirect only stdout: command > /dev/null. Keep stderr visible: command > /dev/null 2>&1 is acceptable only for commands where ALL output is expected noise (cron, background daemons)."
             ),
     },
     {
@@ -29454,7 +29454,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Single-bracket test with == is not POSIX - use = for portability or [[ for bash",
         "severity": Severity.INFO,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "[ '$a' == '$b' ] is not POSIX — the POSIX test command uses single =. Use: [ '$a' = '$b' ] for POSIX portability, or [[ '$a' == '$b' ]] for bash/zsh (supports pattern matching and is safer with unquoted variables). Scripts with #!/bin/sh must use single =."
             ),
     },
     {
@@ -29463,7 +29463,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Piping unquoted echo variable leaks data via glob expansion - quote the variable",
         "severity": Severity.WARN,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "Piping unquoted echo variable leaks data via glob expansion. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29472,7 +29472,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Parsing ls output in for loop breaks on filenames with spaces - use glob or find",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Parsing ls output in for loop breaks on filenames with spaces - use glob or find. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "for f in $(ls *.txt) breaks on filenames with spaces, newlines, or glob characters. Use: for f in *.txt; do ...; done (shell glob, handles spaces). For find: find . -name '*.txt' -exec process {} +. Or: find . -name '*.txt' -print0 | xargs -0 process."
             ),
     },
     {
@@ -29481,7 +29481,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Reading /dev/urandom into a shell variable can include null bytes - use head -c or od",
         "severity": Severity.INFO,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "var=$(cat /dev/urandom) can include null bytes which terminate the shell variable early. Use: random=$(head -c 32 /dev/urandom | base64) for base64 output, or random=$(od -An -tx1 -N16 /dev/urandom | tr -d ' ') for hex. Specify the exact byte count needed."
             ),
     },
     {
@@ -29490,7 +29490,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Exporting passwords as environment variables exposes them in /proc and process listings",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "export DB_PASSWORD='secret' appears in: /proc/PID/environ (readable by same user), ps eww output, and child process environment. Use: read from a file (chmod 600): DB_PASSWORD=$(cat /run/secrets/db_password). Or use a secrets manager. Never export passwords."
             ),
     },
     {
@@ -29499,7 +29499,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Aliasing core utilities changes expected behavior and breaks scripts that depend on them",
         "severity": Severity.INFO,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "alias rm='rm -i' or alias ls='ls --color' changes expected behavior — scripts that use rm or ls break silently. If you want safe defaults: create wrapper functions in .bashrc (not .bash_profile). Never alias core utilities in scripts — use the full path /bin/rm if needed."
             ),
     },
     {
@@ -29508,7 +29508,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "dd writing to raw disk device can destroy partition tables - verify target carefully",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: dd writing to raw disk device can destroy partition tables - verify target carefully. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "dd of=/dev/sda overwrites the disk from byte 0 — partition table, bootloader, and all data destroyed. Triple-check: lsblk to verify the target device. Use: dd if=image.iso of=/dev/sdX bs=4M status=progress conv=fsync. The conv=fsync ensures data is flushed."
             ),
     },
     {
@@ -29517,7 +29517,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "nohup background process without output redirect may write to nohup.out unexpectedly",
         "severity": Severity.INFO,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "nohup command & writes to nohup.out in the current directory, growing unboundedly. Redirect explicitly: nohup command > /var/log/app.log 2>&1 &. Better: use systemd service units for persistent background processes — they handle logging, restart, and resource limits."
             ),
     },
     {
@@ -29526,7 +29526,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Recursive chown on root directory changes ownership of entire filesystem",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "chown -R user:group / changes ownership of the ENTIRE filesystem — system binaries, /etc/passwd, device files. Always use specific paths: chown -R app:app /opt/myapp. Add a safety check: [[ '$target' == '/' ]] && exit 1. Never run recursive chown on / or /usr."
             ),
     },
     {
@@ -29535,7 +29535,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Clearing IFS without restoring it breaks word splitting for the rest of the script",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "IFS=','; ... — after changing IFS, word splitting for the entire script uses comma instead of whitespace. Save and restore: OLD_IFS=$IFS; IFS=','; read -ra arr <<< '$line'; IFS=$OLD_IFS. Or use a subshell: (IFS=','; read -ra arr <<< '$line') which isolates the change."
             ),
     },
     {
@@ -29544,7 +29544,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Infinite loop with no-op body (busy wait) wastes CPU - use sleep or proper wait mechanism",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Infinite loop with no-op body (busy wait) wastes CPU - use sleep or proper wait mechanism. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "while true; do :; done consumes 100% CPU doing nothing. Add sleep: while true; do check_condition && break; sleep 1; done. For event waiting: use inotifywait (file changes), nc -l (network), or select/poll. Busy-wait is never the right approach."
             ),
     },
     {
@@ -29553,7 +29553,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Inline event handlers enable XSS and bypass Content Security Policy",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "onclick='handler()' in HTML bypasses Content Security Policy and mixes behavior with structure. Use: element.addEventListener('click', handler). With CSP: script-src 'nonce-xxx' allows nonce-tagged scripts but blocks inline handlers entirely."
             ),
     },
     {
@@ -29562,7 +29562,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "javascript: URLs in href enable XSS - use proper event listeners",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "href='javascript:void(0)' or href='javascript:action()' is XSS if the URL is user-controlled. For actions: use <button> with addEventListener. For navigation: use a real URL. If preventing default: e.preventDefault() in the event handler."
             ),
     },
     {
@@ -29571,7 +29571,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "javascript: URL in src attribute enables script injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "src='javascript:code' in img/iframe/script tags executes JavaScript. Validate all src attributes: only allow https:// and relative paths. Use URL constructor to parse and verify protocol. CSP with script-src blocks this but defense-in-depth requires input validation too."
             ),
     },
     {
@@ -29580,7 +29580,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "iframe without sandbox attribute allows embedded content full access to parent page",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "iframe without sandbox grants the embedded page full access: scripts, forms, top navigation, popups. Add: <iframe sandbox='allow-scripts' src=...>. Remove allow-same-origin unless needed — with both allow-scripts and allow-same-origin, the sandbox is effectively useless."
             ),
     },
     {
@@ -29589,7 +29589,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Embeddable pages without X-Frame-Options header are vulnerable to clickjacking",
         "severity": Severity.INFO,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Without X-Frame-Options or CSP frame-ancestors, your page can be embedded in attacker iframes for clickjacking. Set: X-Frame-Options: DENY (blocks all framing) or SAMEORIGIN (allows same-domain framing). Modern: Content-Security-Policy: frame-ancestors 'self'."
             ),
     },
     {
@@ -29598,7 +29598,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Form without explicit action attribute may submit to an attacker-controlled URL via base tag",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "A form without an explicit action attribute submits to the current URL — but if an attacker injects a <base href='https://evil.com'> tag, the form submits there instead. Always set action explicitly: <form action='/submit'>. And add CSP: base-uri 'self'."
             ),
     },
     {
@@ -29607,7 +29607,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTML base tag changes all relative URLs and can redirect form submissions and script loads",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Injected <base href='https://evil.com'> redirects all relative URLs — scripts, images, forms, and links load from the attacker's domain. Defend: add CSP header: base-uri 'self'. If base tag is needed: use only in the <head> and validate its href."
             ),
     },
     {
@@ -29616,7 +29616,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Meta refresh can redirect users to malicious sites without consent",
         "severity": Severity.WARN,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "<meta http-equiv='refresh' content='0;url=evil.com'> redirects without consent or warning. If auto-redirect is needed: use server-side 302 redirect which is transparent to the user. Remove client-side meta refresh — it breaks back button navigation and accessibility."
             ),
     },
     {
@@ -29625,7 +29625,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sensitive input fields without autocomplete=off may be cached by browsers",
         "severity": Severity.INFO,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Password and credit card fields without autocomplete='off' are cached by browsers and autofill, persisting credentials on shared computers. Set: <input type='password' autocomplete='new-password'> for registration, autocomplete='current-password' for login. Use 'off' for one-time codes."
             ),
     },
     {
@@ -29634,7 +29634,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Form action using HTTP instead of HTTPS transmits data in cleartext",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "form action='http://...' submits form data (including passwords) over plaintext HTTP. Change to HTTPS: action='https://...'. Enable HSTS to prevent HTTP downgrade. Set CSP: upgrade-insecure-requests to auto-upgrade HTTP form submissions."
             ),
     },
     {
@@ -29643,7 +29643,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSS expression() in inline styles enables script execution in older IE",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "CSS expression() executes JavaScript on every repaint — removed in IE9 but still triggers in compatibility mode. Remove all expression() from stylesheets. For dynamic styling: use JavaScript event listeners. CSP blocks inline styles but not expression() in linked CSS."
             ),
     },
     {
@@ -29652,7 +29652,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSS url(javascript:) in style attribute enables XSS",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "CSS url(javascript:alert(1)) in style attributes executes script in some browsers. Strip javascript: protocol from all CSS url() values. Sanitize inline styles with a CSS sanitizer that allowlists only safe properties and url(https://) values."
             ),
     },
     {
@@ -29661,7 +29661,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSS -moz-binding allows XBL injection for script execution in Firefox",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "CSS -moz-binding: url(evil.xml#xbl) loads XBL bindings that execute JavaScript — removed in Firefox 62 but may appear in legacy code. Remove all -moz-binding declarations. Use CSP to block external binding URLs. Modern browsers do not support XBL."
             ),
     },
     {
@@ -29670,7 +29670,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSS behavior property allows HTC attachment for script execution in IE",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "CSS behavior: url(script.htc) attaches an HTML Component (HTC) file that executes script — IE only, removed in Edge. Remove all behavior: declarations from CSS. HTC files have same-origin restrictions but combined with CSS injection, they enable XSS."
             ),
     },
     {
@@ -29679,7 +29679,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSS @import over HTTP is vulnerable to MITM injection of malicious styles",
         "severity": Severity.WARN,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "@import url('http://...') loads CSS over plaintext — a MITM can inject malicious styles or expressions. Use HTTPS: @import url('https://...'). Or inline the imported styles. CSP style-src restricts import sources but HTTPS is the fundamental fix."
             ),
     },
     {
@@ -29688,7 +29688,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Loading scripts over HTTP enables man-in-the-middle code injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Loading scripts over HTTP enables man-in-the-middle code injection. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29697,7 +29697,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Loading stylesheets over HTTP enables MITM CSS injection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Loading stylesheets over HTTP enables MITM CSS injection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<link href='http://...'> loads CSS over plaintext — a MITM injects CSS that exfiltrates data via background-image: url(evil?data=...). Use HTTPS and SRI: <link href='https://...' integrity='sha384-hash' crossorigin='anonymous'>."
             ),
     },
     {
@@ -29706,7 +29706,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Direct innerHTML assignment with unsanitized input creates XSS vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "element.innerHTML = untrustedInput executes any script, event handler, or SVG payload in the content. For text: element.textContent = input. If HTML is needed: element.innerHTML = DOMPurify.sanitize(input). textContent is always safe — it can never execute code."
             ),
     },
     {
@@ -29715,7 +29715,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Setting outerHTML with user input enables XSS - sanitize before assignment",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "element.outerHTML = userInput replaces the element AND its outer tags — if input contains <script>, it executes. Use textContent for text. If HTML replacement is needed: sanitize with DOMPurify first, then assign to outerHTML."
             ),
     },
     {
@@ -29724,7 +29724,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "insertAdjacentHTML with unsanitized input creates XSS - use textContent or sanitize",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "element.insertAdjacentHTML('beforeend', userInput) parses and inserts HTML at the specified position. Like innerHTML, it executes scripts. Use insertAdjacentText('beforeend', userInput) for text, or sanitize: insertAdjacentHTML('beforeend', DOMPurify.sanitize(input))."
             ),
     },
     {
@@ -29733,7 +29733,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Inline script without CSP nonce may be blocked or indicates missing Content Security Policy",
         "severity": Severity.INFO,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Inline <script> without a CSP nonce is either blocked by CSP (good) or indicates missing CSP (bad). Add: Content-Security-Policy: script-src 'nonce-{random}'. Generate a unique nonce per request. Add nonce to each script: <script nonce='{random}'>. Move inline scripts to external files."
             ),
     },
     {
@@ -29742,7 +29742,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Links with target=_blank without rel=noopener allow reverse tabnapping attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Links with target=_blank without rel=noopener allow reverse tabnapping attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<a target='_blank'> without rel='noopener' allows the opened page to access window.opener — it can redirect your page to a phishing clone (reverse tabnabbing). Add: rel='noopener noreferrer'. Modern browsers add noopener by default but be explicit for older browsers."
             ),
     },
     {
@@ -29751,7 +29751,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTML object tag can embed arbitrary content including Flash and Java applets",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "<object data='...'> embeds arbitrary content: Flash (SWF), Java applets, PDFs with JavaScript. All are active content that can execute code. Remove object tags unless strictly needed. If needed: add CSP: object-src 'none' to block object/embed/applet globally."
             ),
     },
     {
@@ -29760,7 +29760,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTML embed tag can load arbitrary plugins and active content",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "<embed src='...'> loads plugins including Flash and Java — both are end-of-life with known RCE vulnerabilities. Remove embed tags. Use <video>/<audio> for media, <iframe sandbox> for documents. Add CSP: object-src 'none' to block embed/object/applet."
             ),
     },
     {
@@ -29769,7 +29769,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "iframe sandbox with allow-scripts and allow-same-origin negates sandboxing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "sandbox='allow-scripts allow-same-origin' means the iframe can: access the parent page's cookies, modify the parent DOM, and remove its own sandbox attribute. This combination negates sandboxing entirely. Remove allow-same-origin if scripts are enabled, or vice versa."
             ),
     },
     {
@@ -29778,7 +29778,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SVG onload handler enables XSS even in image contexts",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "<svg onload='alert(1)'> executes JavaScript even when SVG is loaded as an image in some contexts. Sanitize SVG: strip all event handlers (onload, onerror, onclick) and <script> elements. Use DOMPurify with FORBID_TAGS: ['script'] and FORBID_ATTR: ['onerror','onload']."
             ),
     },
     {
@@ -29787,7 +29787,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MathML javascript: URL enables script execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "MathML with javascript: URLs (e.g., in href attributes on maction) enables script execution. Strip javascript: protocol from all MathML attributes. If MathML is user-provided: sanitize with DOMPurify which handles MathML namespace. Or render server-side with KaTeX."
             ),
     },
     {
@@ -29796,7 +29796,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "iframe srcdoc with inline scripts injects executable content",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "iframe srcdoc='<script>evil()</script>' injects executable content regardless of the parent page's CSP. If srcdoc is user-controlled: sanitize with DOMPurify. Add sandbox attribute without allow-scripts if possible. srcdoc bypasses the same-origin policy check."
             ),
     },
     {
@@ -29805,7 +29805,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Form with password field using GET method exposes credentials in URL",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "A form with method='GET' and a password field puts the password in the URL: /login?password=secret. Visible in: browser history, server logs, referer headers. Always use method='POST' for forms with sensitive data. POST puts data in the request body, not the URL."
             ),
     },
     {
@@ -29814,7 +29814,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Image without alt attribute is inaccessible to screen readers - add descriptive alt text",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Images without alt text are invisible to screen readers — users hear nothing or the filename. Add descriptive alt: <img alt='Chart showing Q4 revenue growth of 15%'>. For decorative images: alt='' (empty, not missing) tells screen readers to skip."
             ),
     },
     {
@@ -29823,7 +29823,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty alt text on informational image hides content from assistive technology",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "alt='' on an informational image tells screen readers to skip it entirely — the information is lost. Add descriptive alt text explaining what the image conveys. Use alt='' ONLY for decorative images (backgrounds, spacers, dividers) that add no information."
             ),
     },
     {
@@ -29832,7 +29832,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Clickable div is not keyboard accessible - use button or anchor element",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "<div onclick='...'> is not keyboard accessible — Tab cannot focus it, Enter/Space cannot activate it. Use <button onclick='...'> which has built-in keyboard support, focus, and ARIA role. If div styling is needed: style the button to look like a div."
             ),
     },
     {
@@ -29841,7 +29841,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Clickable span is not keyboard accessible - use button or anchor element",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "<span onclick='...'> has no keyboard accessibility, no focus indication, and no semantic meaning. Replace with <button> for actions or <a href='...'> for navigation. Both are keyboard-operable and announced correctly by screen readers."
             ),
     },
     {
@@ -29850,7 +29850,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Data table without header cells is inaccessible - use th elements for column/row headers",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Data tables without <th> elements cannot be navigated by screen readers — users cannot understand which column a value belongs to. Add: <th scope='col'>Name</th> for column headers, <th scope='row'>Row 1</th> for row headers. Use <caption> for the table title."
             ),
     },
     {
@@ -29859,7 +29859,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Element with role=button but no tabindex is not keyboard focusable",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Element with role=button but no tabindex is not keyboard focusable. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "role='button' without tabindex makes the element invisible to keyboard users — they cannot Tab to it. Add tabindex='0' to make it focusable. Also add: onkeydown handler for Enter/Space activation, and aria-pressed if it is a toggle button."
             ),
     },
     {
@@ -29868,7 +29868,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Element is aria-hidden but focusable, creating confusing screen reader behavior",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Element is aria-hidden but focusable, creating confusing screen reader behavior. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "aria-hidden='true' on a focusable element (link, button, input) creates a trap — screen reader users Tab to it but hear nothing. Either: remove aria-hidden, or add tabindex='-1' to remove from tab order. Focusable + aria-hidden is always a bug."
             ),
     },
     {
@@ -29877,7 +29877,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Input without associated label is inaccessible - use label element or aria-label",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Inputs without associated labels are announced as 'edit text' with no context. Link with: <label for='email'>Email</label><input id='email'>. Or use aria-label: <input aria-label='Email address'>. Placeholder is NOT a substitute for label — it disappears on input."
             ),
     },
     {
@@ -29886,7 +29886,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Positive tabindex greater than 1 creates unpredictable tab order - use 0 or -1",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Positive tabindex greater than 1 creates unpredictable tab order - use 0 or -1. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "tabindex='5' creates a custom tab order — Tab jumps to tabindex=1, then 2, then 5, THEN all tabindex=0 elements. This is unpredictable for users. Use tabindex='0' (natural document order) or tabindex='-1' (focusable via JS only, not Tab). Never use tabindex > 0."
             ),
     },
     {
@@ -29895,7 +29895,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling text selection prevents assistive technology users from copying content",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Disabling text selection prevents assistive technology users from copying content. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -29904,7 +29904,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Removing focus outline makes keyboard navigation invisible - provide custom focus styles",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Removing focus outline makes keyboard navigation invisible - provide custom focus styles. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "outline: none on :focus removes the only visual indicator for keyboard navigation — Tab users cannot see where they are. Replace with a visible custom style: :focus-visible { outline: 2px solid #4A90D9; outline-offset: 2px; }. :focus-visible only shows for keyboard, not mouse clicks."
             ),
     },
     {
@@ -29913,7 +29913,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Global focus outline removal destroys keyboard navigation visibility",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Global focus outline removal destroys keyboard navigation visibility. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "*:focus { outline: none } removes focus visibility from EVERY element on the page — keyboard users cannot see where they are. Remove this global rule. Instead, add custom focus styles per component: .btn:focus-visible { box-shadow: 0 0 0 3px rgba(66,153,225,0.6); outline: none; }."
             ),
     },
     {
@@ -29922,7 +29922,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "aria-live region hidden with display:none will not be announced by screen readers",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: aria-live region hidden with display:none will not be announced by screen readers. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "aria-live regions with display:none are not announced — screen readers ignore hidden content. Use: visibility: hidden; height: 0; overflow: hidden; which hides visually but keeps in accessibility tree. Or toggle display:none to display:block when content updates."
             ),
     },
     {
@@ -29931,7 +29931,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Anchor with href='#' is not a real link - use button for actions or a valid URL for navigation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Anchor with href='#' is not a real link - use button for actions or a valid URL for navigation. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<a href='#'>Click here</a> for an action is semantically wrong — links navigate, buttons act. Use <button> for actions (toggle, submit, delete). If styling as a link: <button class='link-style'>. href='#' also scrolls to top on click, confusing users."
             ),
     },
     {
@@ -29940,7 +29940,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fixed pixel font sizes prevent user scaling - use rem or em for accessible text sizing",
         "severity": Severity.INFO,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "font-size: 14px ignores user's browser zoom preference — users who set larger default text are stuck at 14px. Use rem: font-size: 0.875rem (14px at default 16px base). For line-height: use unitless values (line-height: 1.5). WCAG 1.4.4 requires text to scale to 200%."
             ),
     },
     {
@@ -29949,7 +29949,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Marquee element causes motion sickness for vestibular disorder users and is non-standard",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Marquee element causes motion sickness for vestibular disorder users and is non-standard. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<marquee> causes motion sickness for vestibular disorder users, is non-standard (never in any HTML spec), and cannot be paused. Use CSS animation with prefers-reduced-motion media query: @media (prefers-reduced-motion) { .scroll { animation: none; } }. Or simply use static text."
             ),
     },
     {
@@ -29958,7 +29958,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blink element can trigger seizures in photosensitive users and is non-standard",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Blink element can trigger seizures in photosensitive users and is non-standard. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<blink> can trigger seizures in photosensitive epilepsy users (WCAG 2.3.1) and is removed from all modern browsers. Remove entirely. If attention is needed: use a static badge, color change, or one-time fade-in animation that respects prefers-reduced-motion."
             ),
     },
     {
@@ -29967,7 +29967,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty aria-label provides no accessible name - add descriptive text or remove",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "aria-label='' provides no accessible name — screen readers announce the element with no context. Either: add descriptive text (aria-label='Close dialog'), or remove aria-label and use visible text/label instead. An empty aria-label is worse than no aria-label."
             ),
     },
     {
@@ -29976,7 +29976,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Element with role=presentation should not have ARIA attributes - they conflict",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Element with role=presentation should not have ARIA attributes - they conflict. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "role='presentation' removes the element's semantics from the accessibility tree, but ARIA attributes (aria-label, aria-expanded) add semantics back — these conflict. Remove either the role='presentation' or the ARIA attributes. They cannot coexist meaningfully."
             ),
     },
     {
@@ -29985,7 +29985,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Select element without associated label is inaccessible to screen readers",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Select elements without labels are announced as 'combo box' with no context. Add: <label for='country'>Country</label><select id='country'>. Or use aria-label: <select aria-label='Select country'>. Without a label, users cannot determine what the dropdown is for."
             ),
     },
     {
@@ -29994,7 +29994,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Video without caption track is inaccessible to deaf and hard-of-hearing users",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Video without <track kind='captions'> excludes deaf and hard-of-hearing users (WCAG 1.2.2). Add: <track kind='captions' src='captions.vtt' srclang='en' label='English'>. Auto-generate captions with speech-to-text APIs, then manually correct. Captions also help in noisy environments."
             ),
     },
     {
@@ -30003,7 +30003,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Autoplaying audio disrupts screen reader users and violates WCAG 1.4.2",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Autoplaying audio disrupts screen reader users and violates WCAG 1.4.2. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Autoplay audio disrupts screen reader users — their screen reader is drowned out by your audio. WCAG 1.4.2 requires: no autoplay, or autoplay for max 3 seconds, or a mechanism to pause/stop. Use: <audio autoplay> only with muted attribute. Let users choose to play."
             ),
     },
     {
@@ -30012,7 +30012,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using color alone to convey meaning excludes colorblind users",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Using color alone to convey meaning excludes colorblind users. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Using only color to indicate errors (red border), required fields (red asterisk), or status (green=good) excludes colorblind users (8% of males). Add: icons, text labels, or patterns alongside color. Example: 'Error: invalid email' + red border + warning icon."
             ),
     },
     {
@@ -30021,7 +30021,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Heading that contains only a link makes navigation confusing",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Heading that contains only a link makes navigation confusing. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "A heading that contains only a link (<h2><a href='...'>Title</a></h2>) is confusing — screen reader users navigating by headings hear 'link Title' instead of just 'Title'. Put the link inside or after the heading text: <h2>Title</h2><a href='...'>Read more</a>."
             ),
     },
     {
@@ -30030,7 +30030,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "aria-role is not a valid attribute - use role instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: aria-role is not a valid attribute - use role instead. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "aria-role is not a valid attribute. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -30039,7 +30039,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTML element without lang attribute prevents screen readers from using correct pronunciation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Without <html lang='en'>, screen readers guess the language — a French screen reader tries to pronounce English text with French phonetics. Add: <html lang='en'>. For multilingual content: add lang attributes to specific elements: <p lang='fr'>Bonjour</p>."
             ),
     },
     {
@@ -30048,7 +30048,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mouse-only event handler without keyboard equivalent excludes non-mouse users",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Mouse-only event handler without keyboard equivalent excludes non-mouse users. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "onmouseover/onclick without onkeydown/onfocus excludes keyboard-only users (motor disabilities, power users). Add keyboard equivalents: if using onclick: add onkeydown handler for Enter/Space. If using onmouseover: add onfocus. Or use <button> which handles both automatically."
             ),
     },
     {
@@ -30057,7 +30057,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Placeholder as sole label disappears on input and is insufficient for accessibility",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "placeholder='Email' as the only label disappears when the user starts typing — they forget what the field is for. Add a visible <label>: <label for='email'>Email</label><input id='email' placeholder='john@example.com'>. Placeholder supplements the label, never replaces it."
             ),
     },
     {
@@ -30066,7 +30066,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fixed max-width with overflow hidden may clip zoomed text, violating WCAG 1.4.10",
         "severity": Severity.INFO,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "max-width: 800px with overflow: hidden clips content when users zoom to 200% (WCAG 1.4.10 Reflow). Use: max-width: 100% or remove max-width. For overflow: use overflow: auto (scrollbar when needed) instead of hidden. Test at 400% zoom to verify no content is lost."
             ),
     },
     {
@@ -30075,7 +30075,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty title element provides no page context for screen readers and bookmarks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Empty title element provides no page context for screen readers and bookmarks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "<title></title> provides no page context — browser tabs show the URL, screen reader users hear nothing when switching tabs, and bookmarks are unnamed. Add descriptive title: <title>Dashboard - MyApp</title>. Include the page name and app name. Update dynamically for SPAs."
             ),
     },
     {
@@ -30084,7 +30084,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous file read in potentially async context blocks the event loop",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Synchronous file I/O (open().read(), fs.readFileSync) in an async context blocks the event loop. Use: aiofiles.open() in Python asyncio, fs.promises.readFile() in Node.js, or os.ReadFile() in Go (already concurrent). Blocking one goroutine/coroutine blocks all concurrent work on that thread."
             ),
     },
     {
@@ -30093,7 +30093,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous file I/O inside async function blocks the event loop - use aiofiles",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "open(path).read() inside an async def blocks the event loop for disk I/O duration. Use aiofiles: async with aiofiles.open(path) as f: data = await f.read(). Or offload: data = await asyncio.get_event_loop().run_in_executor(None, Path(path).read_text)."
             ),
     },
     {
@@ -30102,7 +30102,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous file read in Node.js blocks the event loop - use fs.promises or fs.readFile",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Synchronous file read in Node.js blocks the event loop. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -30111,7 +30111,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous file write blocks the event loop - use fs.promises.writeFile",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "fs.writeFileSync() blocks the event loop during disk write. Use: await fs.promises.writeFile(path, data). For streaming writes: const stream = fs.createWriteStream(path); stream.write(data). Sync writes are acceptable only in CLI tools or one-time scripts, never in servers."
             ),
     },
     {
@@ -30120,7 +30120,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "forEach with async callback does not await iterations - use for...of with await",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: forEach with async callback does not await iterations - use for...of with await. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "array.forEach(async (item) => { await process(item) }) does NOT await iterations — all async callbacks fire simultaneously and forEach returns immediately. Use: for (const item of array) { await process(item); } for sequential, or Promise.all(array.map(fn)) for parallel."
             ),
     },
     {
@@ -30129,7 +30129,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unbounded in-memory cache object grows without limit - add eviction or use LRU cache",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "cache = {} that only adds entries but never removes them grows until OOM. Use: LRU cache with fixed size (lru-cache npm, functools.lru_cache(maxsize=1000)). Set TTL on entries: cache.set(key, value, { ttl: 3600000 }). Monitor cache size in production metrics."
             ),
     },
     {
@@ -30138,7 +30138,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "lru_cache without maxsize parameter grows unbounded - specify maxsize explicitly",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: lru_cache without maxsize parameter grows unbounded - specify maxsize explicitly. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@lru_cache without maxsize= defaults to 128 in Python 3.8+ but was unlimited before. Always explicit: @lru_cache(maxsize=256). For type-unstable keys: add typed=True. Monitor: func.cache_info() shows hits, misses, and current size."
             ),
     },
     {
@@ -30147,7 +30147,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Nested loop with append may indicate O(n^2) complexity - consider set operations or dict lookup",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Nested loop with append may indicate O(n^2) complexity - consider set operations or dict lookup. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "for x in a: for y in b: if x == y: result.append(x) is O(n*m). Use set intersection: result = list(set(a) & set(b)) which is O(n+m). For dict lookups: build a set/dict from the smaller collection first, then iterate the larger."
             ),
     },
     {
@@ -30156,7 +30156,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Membership test against list literal is O(n) - use a set literal for O(1) lookup",
         "severity": Severity.INFO,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "if x in [1, 2, 3, 4, 5]: is O(n) — Python iterates the entire list. Use a set literal: if x in {1, 2, 3, 4, 5}: which is O(1) hash lookup. Python optimizes frozenset literals at compile time. For repeated checks: store the set in a constant."
             ),
     },
     {
@@ -30165,7 +30165,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Allocating very large array pre-fills with holes and wastes memory - use streaming or chunking",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Allocating very large array pre-fills with holes and wastes memory. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -30174,7 +30174,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "setInterval with async callback can stack overlapping executions - use setTimeout recursion",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "setInterval(async () => { await slow() }, 1000) — if slow() takes 2 seconds, the next interval fires while the previous is still running. Executions stack. Use recursive setTimeout: async function run() { await slow(); setTimeout(run, 1000); }. This ensures no overlap."
             ),
     },
     {
@@ -30183,7 +30183,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Event listener added without corresponding removal creates memory leak on component unmount",
         "severity": Severity.INFO,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "addEventListener without removeEventListener on component unmount leaks listeners — each mount adds another. In React: useEffect(() => { window.addEventListener('resize', handler); return () => window.removeEventListener('resize', handler); }, []). The cleanup function is critical."
             ),
     },
     {
@@ -30192,7 +30192,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Map that grows without deletion is an unbounded memory leak - add eviction logic",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "const cache = new Map(); cache.set(key, value); — without delete(), the Map grows forever. Use: WeakMap for object keys (auto-GC when key is collected), or implement LRU eviction: if (cache.size > MAX) { const oldest = cache.keys().next().value; cache.delete(oldest); }."
             ),
     },
     {
@@ -30201,7 +30201,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SELECT * fetches all columns including unused data - specify only needed columns",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: SELECT * fetches all columns including unused data - specify only needed columns. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "SELECT * fetches all columns including: BLOBs, unused text fields, and internal columns. Specify needed columns: SELECT id, name, email FROM users. This reduces: network transfer, memory usage, and prevents breaking when columns are added. ORMs: use .only() or .defer()."
             ),
     },
     {
@@ -30210,7 +30210,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Converting to list just to get size materializes entire collection - use .length or .count",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Converting to list just to get size materializes entire collection - use .length or .count. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "list(queryset).len() or len(list(iterable)) materializes the entire collection into memory just to count it. Use: queryset.count() (SQL COUNT), len(collection) for sized collections, or sum(1 for _ in iterable) for iterators. Avoid list() for size checks."
             ),
     },
     {
@@ -30219,7 +30219,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Repeated string concatenation in loop creates O(n^2) allocations - use StringBuilder or join",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "result += string in a loop creates a new string each iteration — 1000 iterations = 1000 allocations totaling O(n^2) bytes. Use: parts = []; parts.append(s); ''.join(parts) in Python. In Java: StringBuilder sb = new StringBuilder(); sb.append(s). In Go: strings.Builder."
             ),
     },
     {
@@ -30228,7 +30228,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Regex compiled inside loop or function body recompiles on each call - move to module level",
         "severity": Severity.INFO,
             "suggestion": (
-                "Regex denial of service (ReDoS) — catastrophic backtracking on crafted input can freeze the process. Avoid nested quantifiers: (a+)+ or (a|a)*. Use atomic groups or possessive quantifiers. Set a timeout: re.search(pattern, input, timeout=1.0) in Python 3.12+. Test with: redos-detector or rxxr2."
+                "re.compile(pattern) inside a function body recompiles on every call. Move to module level: _PATTERN = re.compile(r'...'). In JavaScript: const PATTERN = /regex/ at module scope. Python caches the last 512 patterns (re._MAXCACHE) but relying on cache is fragile."
             ),
     },
     {
@@ -30237,7 +30237,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "useEffect with fetch but no cleanup can cause state updates on unmounted components",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: useEffect with fetch but no cleanup can cause state updates on unmounted components. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "useEffect(() => { fetch(url).then(data => setState(data)) }, []) — if the component unmounts before fetch completes, setState on unmounted component logs a warning and wastes work. Add cleanup: useEffect(() => { const controller = new AbortController(); fetch(url, { signal: controller.signal })...; return () => controller.abort(); }, [])."
             ),
     },
     {
@@ -30246,7 +30246,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic RegExp construction in hot path recompiles on each call - cache the compiled regex",
         "severity": Severity.INFO,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "new RegExp(dynamicPattern) in a hot path recompiles on each invocation — the RegExp constructor parses the pattern string every time. Cache compiled regexes: const cache = new Map(); if (!cache.has(pattern)) cache.set(pattern, new RegExp(pattern)); return cache.get(pattern);"
             ),
     },
     {
@@ -30255,7 +30255,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Loading all records then filtering in Java is O(n) memory - push filter to database query",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "repository.findAll().stream().filter(predicate) loads ALL rows into JVM memory, then filters. Push to database: repository.findByStatusAndCreatedAfter(status, date). Use Spring Data specifications for dynamic queries. The database filters millions of rows in milliseconds; Java Stream does it in seconds."
             ),
     },
     {
@@ -30264,7 +30264,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blocking sleep in goroutine wastes OS thread - use time.After or context with timeout",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "time.Sleep(5*time.Second) in a goroutine blocks the OS thread assigned to that goroutine. Use: select { case <-time.After(5*time.Second): case <-ctx.Done(): return }. time.After returns a channel that receives after the duration — no thread blocking, and cancellable via context."
             ),
     },
     {
@@ -30273,7 +30273,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Appending entire slice in loop without pre-allocation causes repeated re-slicing",
         "severity": Severity.INFO,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "for _, item := range items { result = append(result, transform(item)) } re-allocates the backing array multiple times as it grows. Pre-allocate: result := make([]T, 0, len(items)). Pre-allocation with known capacity eliminates all intermediate allocations."
             ),
     },
     {
@@ -30282,7 +30282,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mutex-protected map may be better served by sync.Map for read-heavy workloads",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "sync.Mutex protecting a map works but contends on every read. sync.Map is optimized for read-heavy workloads (no lock on reads) and keys that are stable (written once, read many). For write-heavy: stick with Mutex. Profile with -race flag to verify correctness."
             ),
     },
     {
@@ -30291,7 +30291,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Defer close inside loop delays cleanup until function exit - close explicitly in each iteration",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Defer close inside loop delays cleanup until function exit - close explicitly in each iteration. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "for _, path := range paths { f, _ := os.Open(path); defer f.Close(); ... } — ALL defers execute at function exit, not loop iteration end. Close explicitly: f, err := os.Open(path); if err != nil { continue }; data := process(f); f.Close(). Or use a helper function per iteration."
             ),
     },
     {
@@ -30300,7 +30300,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'requests' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "request (without 's'), python-requests, or requets are typosquat packages that may contain malware. The correct package is: pip install requests (Kenneth Reitz). Verify: pip show requests should show author Kenneth Reitz. Check https://pypi.org/project/requests/."
             ),
     },
     {
@@ -30309,7 +30309,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'lodash' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "lodas, lo-dash, or 1odash are typosquat packages. The correct package is: npm install lodash (John-David Dalton). Verify with: npm info lodash. Modern alternative: use native JS methods (Array.map, Object.entries) — lodash is often unnecessary in ES2020+."
             ),
     },
     {
@@ -30318,7 +30318,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'axios' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "axi0s, axois, or axio are typosquat packages. The correct package is: npm install axios. Verify with npm info axios. Alternative: use native fetch() (available in Node 18+ and all modern browsers) which requires no external dependency."
             ),
     },
     {
@@ -30327,7 +30327,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'colorama' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "colorsama, coloram, or colour-ama are typosquat packages. The correct package is: pip install colorama (Jonathan Hartley). Verify: pip show colorama. For Python 3.12+: consider using built-in ANSI escape codes instead of colorama."
             ),
     },
     {
@@ -30336,7 +30336,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'numpy' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "numpv, nunpy, or numpy-base are typosquat packages. The correct package is: pip install numpy. Verify: pip show numpy should show the NumPy team as maintainer. Check the PyPI page: https://pypi.org/project/numpy/."
             ),
     },
     {
@@ -30345,7 +30345,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "preinstall script in package.json can execute arbitrary code before install - audit the script",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "scripts.preinstall in package.json runs BEFORE dependencies install — it can execute arbitrary code before any integrity checks. Audit: npm show package-name scripts. If preinstall does anything beyond node/npm commands: investigate. Use npm install --ignore-scripts for untrusted packages."
             ),
     },
     {
@@ -30354,7 +30354,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "postinstall script in package.json executes after install - audit for malicious behavior",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "scripts.postinstall runs after npm install — commonly used for native builds (node-gyp) but also abused for malware. Audit: npm show package-name scripts. Legitimate uses: native addon compilation, husky git hooks. Suspicious: downloading executables, running obfuscated code."
             ),
     },
     {
@@ -30363,7 +30363,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "preinstall script downloads remote content - high risk of supply chain attack",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "preinstall script that downloads remote content (curl, wget, fetch) is a supply chain attack indicator. The package runs arbitrary network code before you can inspect it. Block: npm install --ignore-scripts, audit the script, then run it manually if safe."
             ),
     },
     {
@@ -30372,7 +30372,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "postinstall script downloads remote content - high risk of supply chain attack",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "postinstall downloading executables from remote URLs is the primary npm supply chain attack vector (event-stream 2018, ua-parser-js 2021). Block: npm install --ignore-scripts. Audit: read the postinstall script source. Report to npm if malicious: npm report package-name."
             ),
     },
     {
@@ -30381,7 +30381,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "postinstall running inline Node code is a common supply chain attack vector",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: postinstall running inline Node code is a common supply chain attack vector. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "postinstall: 'node -e 'require(...)'' with obfuscated or encoded content is the signature of npm malware. The inline code typically: downloads a payload, exfiltrates environment variables, or installs a backdoor. Report to npm: npm report package-name. Block with --ignore-scripts."
             ),
     },
     {
@@ -30390,7 +30390,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "setup.py install_requires with subprocess indicates possible malicious install hook",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "os.system/subprocess with shell=True passes input to the shell for interpretation. An input of '; rm -rf /' executes after your command. Use subprocess.run(['command', 'arg'], shell=False, check=True) with a list of arguments. shell=False prevents shell metacharacter interpretation entirely."
+                "setup.py with import subprocess in install_requires or cmdclass runs during pip install — it can execute any command with the installing user's permissions. Inspect setup.py before installing: pip download package && unzip && read setup.py. Use pip install --no-build-isolation for auditing."
             ),
     },
     {
@@ -30399,7 +30399,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "setup.py importing system/network modules may execute code during pip install",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "setup.py importing os, socket, urllib, or requests may execute network calls or system commands during pip install. This is a malware indicator. Audit: pip download package-name, extract, and read setup.py before installing. Legitimate packages do not need network access at install time."
             ),
     },
     {
@@ -30408,7 +30408,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Lockfile references non-HTTPS registry URL - packages may be tampered in transit",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "package-lock.json with resolved: 'http://registry...' (not HTTPS) allows MITM to substitute packages with malicious versions during npm install. Fix: npm config set registry https://registry.npmjs.org/ and regenerate: rm package-lock.json && npm install."
             ),
     },
     {
@@ -30417,7 +30417,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Lockfile uses weak SHA-1 integrity hash - update lockfile to use SHA-512",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "integrity: 'sha1-xxx' in lockfile uses SHA-1 which has known collision attacks. Regenerate: rm package-lock.json && npm install — npm 7+ generates sha512 hashes. Verify: grep 'sha1-' package-lock.json should return nothing after regeneration."
             ),
     },
     {
@@ -30426,7 +30426,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Package resolved from non-standard registry - verify registry trustworthiness",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "Resolved URL pointing to a non-npmjs.org registry (e.g., private Verdaccio, GitHub Packages, or unknown domain) may serve modified packages. Verify: the registry is your organization's private registry and is trusted. For public packages: use https://registry.npmjs.org/ only."
             ),
     },
     {
@@ -30435,7 +30435,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "dependency_links in setup.py can pull packages from arbitrary URLs - use standard PyPI",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "dependency_links in setup.py/setup.cfg pulls packages from arbitrary URLs instead of PyPI — an attacker can host a trojanized version. Remove dependency_links. Use: standard PyPI packages, or --extra-index-url for private packages hosted on a trusted server."
             ),
     },
     {
@@ -30444,7 +30444,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "pip install with HTTP index URL exposes packages to MITM attacks - use HTTPS",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "pip install -i http://... downloads packages over plaintext — MITM can substitute any package with malware. Always use HTTPS: pip install -i https://pypi.org/simple/. For private registries: use HTTPS with certificate verification. Never use HTTP index URLs."
             ),
     },
     {
@@ -30453,7 +30453,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "pip --trusted-host disables SSL verification for package downloads",
         "severity": Severity.WARN,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "--trusted-host disables SSL certificate verification for that host — MITM can serve malicious packages. Fix the certificate issue instead: install the CA certificate, or use a properly configured HTTPS mirror. --trusted-host is acceptable only for local development with self-signed certs."
             ),
     },
     {
@@ -30462,7 +30462,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Installing with --ignore-scripts then manually running scripts bypasses npm audit",
         "severity": Severity.INFO,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "npm install --ignore-scripts then manually running lifecycle scripts bypasses npm's built-in audit warnings and security checks. If you need to audit scripts: npm install --ignore-scripts, read the scripts in node_modules/package/package.json, then npm rebuild if safe."
             ),
     },
     {
@@ -30471,7 +30471,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'express' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "expres, expresss, or node-express are typosquat packages. The correct package is: npm install express (TJ Holowaychuk / OpenJS Foundation). Verify: npm info express. Always check download counts — express has 30M+ weekly downloads."
             ),
     },
     {
@@ -30480,7 +30480,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'django' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "djang0, dajngo, or python-django are typosquat packages. The correct package is: pip install Django (Django Software Foundation). Verify: pip show Django should show the DSF as author. The capital D matters for pip show."
             ),
     },
     {
@@ -30489,7 +30489,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'flask' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "flaask, flaskk, or python-flask are typosquat packages. The correct package is: pip install flask (Pallets Projects). Verify: pip show flask. Check maintainer is Pallets on https://pypi.org/project/Flask/."
             ),
     },
     {
@@ -30498,7 +30498,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Possible typosquatting of 'react' package - verify package name",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "reactt, reacct, or react-js are typosquat packages. The correct package is: npm install react (Meta/Facebook). Verify: npm info react — publisher should be fb. react has 20M+ weekly downloads on npm."
             ),
     },
     {
@@ -30507,7 +30507,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Extra index URL over HTTP enables dependency confusion and MITM attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "Extra index URL over HTTP enables dependency confusion and MITM attacks. Consult your framework's security documentation for the recommended fix pattern."
             ),
     },
     {
@@ -30516,7 +30516,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Install script chaining network tools with shell execution is a supply chain attack pattern",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Install scripts that chain curl/wget with shell execution (curl url | sh, wget -O- url | bash) during package install are the primary supply chain attack vector. Block: install with --ignore-scripts. Audit the script source. Report suspicious packages to the registry."
             ),
     },
 

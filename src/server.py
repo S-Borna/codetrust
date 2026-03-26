@@ -259,7 +259,9 @@ async def codetrust_pre_action(
             has_user_specified_stack, has_user_specified_structure,
         )
         ok = True
-        return analyzer.build_report(findings, title="Pre-Action Validation")
+        report = analyzer.build_report(findings, title="Pre-Action Validation")
+        governance_briefing = _build_governance_briefing()
+        return report + governance_briefing
     finally:
         _emit_pre_action_telemetry(
             ok=ok, started=started, task_description=task_description,
@@ -543,6 +545,59 @@ def _build_taint_rule_section() -> list[str]:
     except ImportError:
         lines.append("Taint rules unavailable.")
     return lines
+
+
+TOP_GOVERNANCE_RULES: list[dict[str, str]] = [
+    {
+        "id": "no_heredoc",
+        "enforcement": "BLOCK",
+        "description": "Never use heredoc (<<). Use Write tool or git commit -F instead.",
+    },
+    {
+        "id": "no_git_push",
+        "enforcement": "BLOCK",
+        "description": "Never run git push. User pushes manually.",
+    },
+    {
+        "id": "validate_before_write",
+        "enforcement": "BLOCK",
+        "description": "Call codetrust_validate_file_write before writing any file.",
+    },
+    {
+        "id": "validate_before_command",
+        "enforcement": "BLOCK",
+        "description": "Call codetrust_validate_command before running any terminal command.",
+    },
+    {
+        "id": "no_governance_weakening",
+        "enforcement": "BLOCK",
+        "description": "Never expand skip lists, downgrade severities, or disable scans.",
+    },
+]
+
+
+def _build_governance_briefing() -> str:
+    """Build governance rules briefing section for pre_action response.
+
+    Returns top 5 governance rules that the agent must follow during this session.
+    This ensures every AI agent session starts with explicit governance awareness.
+    """
+    lines: list[str] = [
+        "",
+        "",
+        "### Governance Rules (top 5)",
+        "",
+    ]
+    for rule in TOP_GOVERNANCE_RULES:
+        lines.append(
+            f"- **[{rule['enforcement']}]** `{rule['id']}`: {rule['description']}"
+        )
+    lines.append("")
+    lines.append(
+        "*These rules are enforced by CodeTrust Gateway. "
+        "Violations are logged and blocked automatically.*"
+    )
+    return "\n".join(lines)
 
 
 def _validate_plan(

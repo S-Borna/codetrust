@@ -2661,6 +2661,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Use fmt.Errorf with %w to wrap errors for proper unwrapping with errors.As/Is",
         "severity": Severity.WARN,
         "file_types": [".go"],
+        "suggestion": "Replace `fmt.Sprintf(\"failed: %s\", err)` with `fmt.Errorf(\"failed: %w\", err)`. The %w verb wraps the error so callers can use errors.Is() and errors.As().",
     },
     {
         "id": "go_sql_injection",
@@ -2681,6 +2682,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "exec.Command with shell interpreter — use exec.Command with explicit args to avoid injection",
         "severity": Severity.WARN,
         "file_types": [".go"],
+        "suggestion": "Replace `exec.Command(\"sh\", \"-c\", cmd)` with `exec.Command(\"binary\", \"arg1\", \"arg2\")`. Pass arguments as separate strings to avoid shell injection.",
     },
     {
         "id": "go_http_listenandserve_no_tls",
@@ -2688,6 +2690,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "http.ListenAndServe uses plain HTTP — use http.ListenAndServeTLS for production",
         "severity": Severity.WARN,
         "file_types": [".go"],
+        "suggestion": "Replace `http.ListenAndServe(addr, handler)` with `http.ListenAndServeTLS(addr, \"cert.pem\", \"key.pem\", handler)`. For local dev behind a reverse proxy, this may be acceptable.",
     },
     {
         "id": "go_tls_insecure_skip",
@@ -2782,6 +2785,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "XPath with user input enables XPath injection — use parameterized XPath or validate input",
         "severity": Severity.WARN,
         "file_types": [".java"],
+        "suggestion": "Validate and sanitize all user input before passing to XPath. Use XPathVariableResolver for parameterized queries instead of string concatenation.",
     },
     {
         "id": "java_xxe_factory",
@@ -2789,6 +2793,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DocumentBuilderFactory without XXE protection — disable external entity processing",
         "severity": Severity.WARN,
         "file_types": [".java"],
+        "suggestion": "Disable external entities: `factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true); factory.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true);`.",
     },
     {
         "id": "java_hardcoded_password",
@@ -2833,6 +2838,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "java.util.Random is not cryptographically secure — use SecureRandom for security tokens",
         "severity": Severity.WARN,
         "file_types": [".java"],
+        "suggestion": "Replace `new Random()` with `SecureRandom.getInstanceStrong()` for tokens, keys, or nonces. `java.util.Random` is predictable and unsuitable for security purposes.",
     },
     {
         "id": "java_log_injection",
@@ -2840,6 +2846,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "User input in log statement enables log injection — sanitize input before logging",
         "severity": Severity.WARN,
         "file_types": [".java"],
+        "suggestion": "Use parameterized logging: `log.info(\"User action: {}\", sanitizedInput)` instead of string concatenation. Strip newlines and control characters from user input before logging.",
     },
     {
         "id": "java_spring_actuator_all",
@@ -3482,6 +3489,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Use strings.Builder: `var sb strings.Builder; for _, s := range items { sb.WriteString(s) }; result := sb.String()`. This is O(n) vs O(n^2) for += concatenation.",
     },
     {
         "id": "go_race_condition",
@@ -3538,6 +3546,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".java"],
         "skip_comments": True,
+        "suggestion": "Only disable CSRF for stateless REST APIs using JWT/Bearer tokens. For session-based auth, keep CSRF enabled: `.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))`.",
     },
     {
         "id": "java_equals_null",
@@ -3546,6 +3555,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".java"],
         "skip_comments": True,
+        "suggestion": "Replace `obj.equals(null)` with `obj == null`. For null-safe comparison with a constant, use `\"constant\".equals(obj)` (constant on the left).",
     },
     {
         "id": "java_string_concat_loop",
@@ -3562,6 +3572,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".java"],
         "skip_comments": True,
+        "suggestion": "Throw an exception instead: `throw new RuntimeException(\"Fatal: ...\")`. In Spring Boot, use `SpringApplication.exit(ctx, () -> exitCode)`. Reserve System.exit() for CLI main() only.",
     },
     {
         "id": "java_thread_sleep_sync",
@@ -3570,6 +3581,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".java"],
         "skip_comments": True,
+        "suggestion": "Use `obj.wait(timeout)` instead of `Thread.sleep()` inside synchronized blocks — wait() releases the monitor lock. Or move the sleep outside the synchronized block.",
     },
     {
         "id": "java_catch_throwable",
@@ -4309,6 +4321,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Replace `context.Background()` with `r.Context()` (net/http) or `c.Request().Context()` (Echo/Gin) to propagate request cancellation and deadlines.",
     },
     {
         "id": "go_context_cancel_leak",
@@ -4317,6 +4330,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Add `defer cancel()` immediately after context creation: `ctx, cancel := context.WithTimeout(parent, 30*time.Second); defer cancel()`.",
     },
     {
         "id": "go_context_timeout_short",
@@ -4334,6 +4348,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Move `wg.Add(1)` before the `go func()` call: `wg.Add(1); go func() { defer wg.Done(); ... }()`. Adding inside the goroutine races with wg.Wait().",
     },
     {
         "id": "go_unbuffered_channel_goroutine",
@@ -4350,6 +4365,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Use a pointer receiver or embed the mutex: `type MyStruct struct { mu sync.Mutex }` and use `func (s *MyStruct) Method()`. Never assign or pass a mutex by value.",
     },
     {
         "id": "go_goroutine_infinite_loop",
@@ -4358,6 +4374,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Add a context or done channel: `for { select { case <-ctx.Done(): return; default: ... } }`. This allows graceful shutdown on SIGTERM/cancellation.",
     },
     # --- net/http ---
     {
@@ -4367,6 +4384,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Add `ReadHeaderTimeout: 10 * time.Second` to http.Server config. Without it, attackers can hold connections open indefinitely (Slowloris attack).",
     },
     {
         "id": "go_http_default_client",
@@ -4375,6 +4393,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.WARN,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Create a custom client: `client := &http.Client{Timeout: 30 * time.Second}; resp, err := client.Get(url)`. The default client has no timeout and can hang indefinitely.",
     },
     {
         "id": "go_response_body_leak",
@@ -4387,11 +4406,13 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- database/sql ---
     {
         "id": "go_sql_rows_no_close",
-        "pattern": r"\.Query\s*\([^)]+\)(?!.*defer\s+\w+\.Close)",
+        "pattern": r"\.Query\s*\(",
+        "special_handler": "check_go_sql_close",
         "message": "SQL Rows not closed. Add 'defer rows.Close()' to prevent connection pool exhaustion.",
         "severity": Severity.BLOCK,
         "file_types": [".go"],
         "skip_comments": True,
+        "suggestion": "Add 'defer rows.Close()' immediately after error check: rows, err := db.Query(...); if err != nil { return err }; defer rows.Close().",
     },
     {
         "id": "go_sql_tx_no_rollback",
@@ -5365,6 +5386,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".cs"],
         "skip_comments": True,
+        "suggestion": "Use parameterized queries: `new SqlCommand(\"SELECT * FROM Users WHERE Id = @id\", conn); cmd.Parameters.AddWithValue(\"@id\", userId);`. Never concatenate user input into SQL.",
     },
     {
         "id": "csharp_catch_exception",
@@ -5801,6 +5823,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".cs"],
         "skip_comments": True,
+        "suggestion": "Encode output: `Response.Write(HttpUtility.HtmlEncode(Request.QueryString[\"input\"]))`. In ASP.NET Core, use `HtmlEncoder.Default.Encode()`. Never write raw user input to response.",
     },
     {
         "id": "csharp_viewstate_mac_disabled",
@@ -5817,6 +5840,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".cs"],
         "skip_comments": True,
+        "suggestion": "Replace `FromSqlRaw($\"... {id}\")` with `FromSqlInterpolated($\"... {id}\")`. FromSqlInterpolated auto-parameterizes interpolated values. FromSqlRaw with interpolation is SQL injection.",
     },
     {
         "id": "csharp_connection_string_hardcoded",
@@ -8634,9 +8658,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     {
         "id": "memleak_unclosed_file",
         "pattern": r"^\s*\w+\s*=\s*open\s*\(",
+        "special_handler": "check_unclosed_file",
         "message": "File opened without context manager. Use 'with open(...) as f:' instead.",
         "severity": Severity.WARN,
         "file_types": [".py"],
+        "suggestion": "Use a context manager: with open(path) as f: ...",
     },
     {
         "id": "memleak_circular_reference",
@@ -11051,9 +11077,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "async_missing_timeout",
-        "pattern": r"await\s+(?:requests|urllib|aiohttp\.ClientSession)\s*\(\s*\)\.(?:get|post|put|delete)\([^)]*\)(?!.*timeout)",
+        "pattern": r"await\s+(?:(?:http_?)?client|session\(\)|\brequests\b|aiohttp|httpx|urllib)\.\s*(?:get|post|put|delete|patch|head|options|request|fetch)\s*\(",
+        "special_handler": "check_async_timeout",
         "message": "Async HTTP call without timeout. Add explicit timeout to prevent hanging.",
         "severity": Severity.WARN,
+        "suggestion": "Add timeout= parameter: await client.get(url, timeout=30).",
     },
     {
         "id": "async_unbounded_semaphore",
@@ -14825,9 +14853,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # =====================================================================
     {
         "id": "obs_missing_health_check",
-        "pattern": r"(?i)(?:app|server|express|fastapi|flask)\s*(?:=|\()(?:(?!health|healthz|readyz|livez|ping)[^;])*;",
+        "pattern": r"(?i)(?:app|server|express|fastapi|flask)\s*(?:=|\()",
+        "special_handler": "check_obs_health_check",
         "message": "Application without health check endpoint. Add /health for load balancer monitoring.",
         "severity": Severity.WARN,
+        "suggestion": "Add a health check endpoint: @app.get('/health') or app.get('/healthz', handler).",
     },
     {
         "id": "obs_no_circuit_breaker",

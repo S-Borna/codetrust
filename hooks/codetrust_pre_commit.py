@@ -38,6 +38,13 @@ INFRA_CONFIG_SKIP: frozenset[str] = frozenset({
     "docker-compose.override.yml", "docker-compose.override.yaml",
 })
 
+# Rule definition files contain the patterns they detect — they
+# self-match by design and must be excluded from pre-commit scanning.
+# Not a security bypass — these files are reviewed in PRs.
+RULE_DEFINITION_FILES: frozenset[str] = frozenset({
+    "anti_patterns.py", "enterprise.py", "taint_rules.py",
+})
+
 # Directories containing CI/CD workflows — skip scanning to avoid
 # false positives on template literals and embedded code snippets.
 SKIP_PATH_PREFIXES: tuple[str, ...] = (".github/",)
@@ -249,6 +256,8 @@ def main() -> int:
         if Path(filepath).suffix.lower() not in CODE_EXTENSIONS:
             continue
         if Path(filepath).name.lower() in INFRA_CONFIG_SKIP:
+            continue
+        if Path(filepath).name in RULE_DEFINITION_FILES:
             continue
         if any(filepath.startswith(prefix) for prefix in SKIP_PATH_PREFIXES):
             continue

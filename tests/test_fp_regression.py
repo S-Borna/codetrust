@@ -258,3 +258,174 @@ def process(request):
         nesting = [f for f in findings if f.rule_id in ("coupling_deep_nesting", "quality_deeply_nested_if")]
         block_nesting = [f for f in nesting if f.severity == Severity.BLOCK]
         assert block_nesting == []
+
+
+class TestSpecialHandlersBatch3:
+    """Tests for the 4 new context-aware special handlers (batch 3)."""
+
+    # --- obs_missing_health_check ---
+
+    def test_health_check_present_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """App with /health endpoint should NOT trigger obs_missing_health_check."""
+        code = '''
+app = FastAPI()
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+'''
+        findings = analyzer.scan_code(code, "main.py")
+        health_fps = [f for f in findings if f.rule_id == "obs_missing_health_check"]
+        assert health_fps == []
+
+    def test_healthz_present_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """App with /healthz endpoint should NOT trigger."""
+        code = '''
+const app = express();
+app.get("/healthz", (req, res) => res.json({ok: true}));
+'''
+        findings = analyzer.scan_code(code, "server.js")
+        health_fps = [f for f in findings if f.rule_id == "obs_missing_health_check"]
+        assert health_fps == []
+
+    def test_readyz_present_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """App with readyz function should NOT trigger."""
+        code = '''
+app = Flask(__name__)
+
+def readyz():
+    return "ok"
+'''
+        findings = analyzer.scan_code(code, "app.py")
+        health_fps = [f for f in findings if f.rule_id == "obs_missing_health_check"]
+        assert health_fps == []
+
+    def test_no_health_check_fires(self, analyzer: StaticAnalyzer) -> None:
+        """App without any health endpoint SHOULD trigger."""
+        code = '''
+app = FastAPI()
+
+@app.get("/users")
+def get_users():
+    return []
+'''
+        findings = analyzer.scan_code(code, "main.py")
+        health = [f for f in findings if f.rule_id == "obs_missing_health_check"]
+        assert len(health) == 1
+        assert health[0].suggestion != ""
+
+    # --- async_missing_timeout ---
+
+    def test_async_with_timeout_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """Async call with timeout= in 5-line window should NOT trigger."""
+        code = '''
+response = await client.get(
+    url,
+    timeout=30,
+)
+'''
+        findings = analyzer.scan_code(code, "service.py")
+        timeout_fps = [f for f in findings if f.rule_id == "async_missing_timeout"]
+        assert timeout_fps == []
+
+    def test_async_without_timeout_fires(self, analyzer: StaticAnalyzer) -> None:
+        """Async call without timeout SHOULD trigger."""
+        code = '''
+response = await client.get(url)
+data = response.json()
+'''
+        findings = analyzer.scan_code(code, "service.py")
+        timeout = [f for f in findings if f.rule_id == "async_missing_timeout"]
+        assert len(timeout) == 1
+        assert timeout[0].suggestion != ""
+
+    def test_async_timeout_in_window(self, analyzer: StaticAnalyzer) -> None:
+        """Timeout= within 5-line forward window should suppress finding."""
+        code = '''
+response = await client.post(
+    url,
+    json=payload,
+    headers=headers,
+    timeout=60,
+)
+'''
+        findings = analyzer.scan_code(code, "service.py")
+        timeout_fps = [f for f in findings if f.rule_id == "async_missing_timeout"]
+        assert timeout_fps == []
+
+    # --- memleak_unclosed_file ---
+
+    def test_open_with_context_manager_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """open() inside with-statement should NOT trigger."""
+        code = '''
+with open("data.txt") as f:
+    content = f.read()
+'''
+        findings = analyzer.scan_code(code, "reader.py")
+        leak_fps = [f for f in findings if f.rule_id == "memleak_unclosed_file"]
+        assert leak_fps == []
+
+    def test_open_with_close_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """open() followed by .close() within 10 lines should NOT trigger."""
+        code = '''
+f = open("data.txt")
+content = f.read()
+f.close()
+'''
+        findings = analyzer.scan_code(code, "reader.py")
+        leak_fps = [f for f in findings if f.rule_id == "memleak_unclosed_file"]
+        assert leak_fps == []
+
+    def test_open_without_close_fires(self, analyzer: StaticAnalyzer) -> None:
+        """open() without context manager or close SHOULD trigger."""
+        code = '''
+f = open("data.txt")
+content = f.read()
+process(content)
+'''
+        findings = analyzer.scan_code(code, "reader.py")
+        leak = [f for f in findings if f.rule_id == "memleak_unclosed_file"]
+        assert len(leak) == 1
+        assert leak[0].suggestion != ""
+
+    # --- go_sql_rows_no_close ---
+
+    def test_go_query_with_defer_close_no_finding(self, analyzer: StaticAnalyzer) -> None:
+        """Go Query() with defer rows.Close() within 5 lines should NOT trigger."""
+        code = '''
+rows, err := db.Query("SELECT * FROM users")
+if err != nil {
+    return err
+}
+defer rows.Close()
+'''
+        findings = analyzer.scan_code(code, "repo.go")
+        close_fps = [f for f in findings if f.rule_id == "go_sql_rows_no_close"]
+        assert close_fps == []
+
+    def test_go_query_without_close_fires(self, analyzer: StaticAnalyzer) -> None:
+        """Go Query() without defer Close() SHOULD trigger BLOCK."""
+        code = '''
+rows, err := db.Query("SELECT * FROM users")
+if err != nil {
+    return err
+}
+for rows.Next() {
+    // process
+}
+'''
+        findings = analyzer.scan_code(code, "repo.go")
+        close_findings = [f for f in findings if f.rule_id == "go_sql_rows_no_close"]
+        assert len(close_findings) == 1
+        assert close_findings[0].severity == Severity.BLOCK
+        assert close_findings[0].suggestion != ""
+
+    def test_go_query_comment_skipped(self, analyzer: StaticAnalyzer) -> None:
+        """Commented-out .Query() should NOT trigger."""
+        code = '''
+// rows, err := db.Query("SELECT * FROM users")
+// defer rows.Close()
+'''
+        findings = analyzer.scan_code(code, "repo.go")
+        close_fps = [f for f in findings if f.rule_id == "go_sql_rows_no_close"]
+        assert close_fps == []

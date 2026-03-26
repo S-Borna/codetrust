@@ -264,16 +264,18 @@ class TestRuleCounts:
         regex_only = [r for r in ANTI_PATTERNS if not r.get("special_handler")]
         assert len(regex_only) >= 337
 
-    def test_eleven_special_handlers(self):
+    def test_fifteen_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
         handlers = [r for r in ANTI_PATTERNS if r.get("special_handler")]
-        assert len(handlers) == 11
+        assert len(handlers) == 15
         expected_ids = {
             "except_swallow", "sleep_no_context", "long_function",
             "connection_no_timeout", "dockerfile_no_healthcheck",
             "docker_root_user", "docker_no_workdir",
             "compose_no_healthcheck", "ci_no_timeout",
             "react_set_state_in_render", "k8s_no_resource_limits",
+            "obs_missing_health_check", "async_missing_timeout",
+            "memleak_unclosed_file", "go_sql_rows_no_close",
         }
         assert {r["id"] for r in handlers} == expected_ids
 

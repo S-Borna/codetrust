@@ -87,6 +87,10 @@ class StaticAnalyzer:
             "check_docker_no_workdir": self._check_docker_no_workdir,
             "check_ci_no_timeout": self._check_ci_no_timeout,
             "check_render_set_state": self._check_render_set_state,
+            "check_obs_health_check": self._check_obs_health_check,
+            "check_async_timeout": self._check_async_timeout,
+            "check_unclosed_file": self._check_unclosed_file,
+            "check_go_sql_close": self._check_go_sql_close,
         }
         fn = handlers.get(handler)
         if fn is not None:
@@ -632,6 +636,171 @@ class StaticAnalyzer:
                             suggestion="Wrap in useEffect, useCallback, or an event handler.",
                         )
                     )
+        return findings
+
+    def _check_obs_health_check(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag app/server init when no health endpoint exists in the file.
+
+        Scans the entire file for /health, /healthz, /readyz, /livez, /ping
+        endpoints before flagging. Only fires if none are found.
+        """
+        full_text = "\n".join(lines)
+        health_pattern = re.compile(
+            r"""(?ix)
+            (?:/health[z]?|/readyz|/livez|/ping)      # URL path
+            | (?:health[_\-]?check|healthz|readyz)     # function/route name
+            """,
+        )
+        if health_pattern.search(full_text):
+            return []
+
+        # Find the app/server init line — require framework constructor call
+        init_pattern = re.compile(
+            r"(?:app|server)\s*=\s*(?:FastAPI|Flask|Express|Starlette|Sanic|Quart|Django)\s*\("
+            r"|(?:express|fastapi|flask|starlette|sanic)\s*\(",
+        )
+        for line_num, line in enumerate(lines, start=1):
+            if init_pattern.search(line):
+                return [Finding(
+                    rule_id="obs_missing_health_check",
+                    severity=Severity.WARN,
+                    message="Application without health check endpoint. Add /health for load balancer monitoring.",
+                    file=filename,
+                    line=line_num,
+                    suggestion="Add a health check endpoint: @app.get('/health') or app.get('/healthz', handler).",
+                )]
+        return []
+
+    def _check_async_timeout(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag async HTTP calls without timeout in a 5-line forward window.
+
+        Checks the current line plus 4 lines ahead for timeout= parameter.
+        Only matches HTTP client calls (client.get, http.post, etc.),
+        not ORM/cache calls (session.get, redis.delete, cache.get).
+        """
+        findings: list[Finding] = []
+        # Match HTTP-like client calls, require "client/http/session()" context
+        call_pattern = re.compile(
+            r"await\s+(?:(?:http_?)?client|session\(\)|\brequests\b|aiohttp|httpx|urllib)"
+            r"\.\s*(?:get|post|put|delete|patch|head|options|request|fetch)\s*\(",
+        )
+        timeout_kw_pattern = re.compile(r"\btimeout\s*=")
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            if call_pattern.search(line):
+                window_end = min(len(lines), line_num + 4)
+                window = "\n".join(lines[line_num - 1:window_end])
+                if timeout_kw_pattern.search(window):
+                    continue
+                findings.append(Finding(
+                    rule_id="async_missing_timeout",
+                    severity=Severity.WARN,
+                    message="Async HTTP call without timeout. Add explicit timeout to prevent hanging.",
+                    file=filename,
+                    line=line_num,
+                    suggestion="Add timeout= parameter: await client.get(url, timeout=30).",
+                ))
+        return findings
+
+    def _check_unclosed_file(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag open() calls not inside with-statement and without .close() within 10 lines."""
+        findings: list[Finding] = []
+        open_pattern = re.compile(r"^\s*(\w+)\s*=\s*open\s*\(")
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            match = open_pattern.search(line)
+            if not match:
+                continue
+            var_name = match.group(1)
+
+            # Check if this line is inside a with-statement
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            # Look at the preceding line for 'with' at same or lower indent
+            if line_num >= 2:
+                prev_line = lines[line_num - 2]
+                prev_stripped = prev_line.lstrip()
+                prev_indent = len(prev_line) - len(prev_stripped)
+                if (
+                    prev_indent <= indent
+                    and not prev_stripped.startswith("#")
+                    and re.match(r"^with\s+.*\bopen\s*\(", prev_stripped)
+                ):
+                    continue
+            # Also check if 'with' is on the same line
+            if stripped.startswith("with "):
+                continue
+
+            # Look ahead 10 lines for .close(), including the current line
+            window_end = min(len(lines), line_num + 10)
+            close_pattern = re.compile(
+                rf"{re.escape(var_name)}\.close\s*\(",
+            )
+            found_close = False
+            for ahead_line in lines[line_num - 1:window_end]:
+                if close_pattern.search(ahead_line):
+                    found_close = True
+                    break
+            if found_close:
+                continue
+
+            findings.append(Finding(
+                rule_id="memleak_unclosed_file",
+                severity=Severity.WARN,
+                message="File opened without context manager. Use 'with open(...) as f:' instead.",
+                file=filename,
+                line=line_num,
+                suggestion="Use a context manager: with open(path) as f: ...",
+            ))
+        return findings
+
+    def _check_go_sql_close(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag .Query() calls without defer rows.Close() within 5 lines.
+
+        Excludes URL/Request query getters like r.URL.Query() which take no SQL args.
+        Matches other .Query( calls (excluding .QueryRow) regardless of argument type.
+        """
+        findings: list[Finding] = []
+        # Match .Query( with a string or variable arg, not .Query().Get() (URL getter)
+        query_pattern = re.compile(r"\.Query\s*\(")
+        url_query_pattern = re.compile(r"\.(?:URL|Request)\.Query\s*\(\s*\)")
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("//") or "noqa" in line:
+                continue
+            if not query_pattern.search(line):
+                continue
+            # Skip URL query getters: r.URL.Query(), req.URL.Query()
+            if url_query_pattern.search(line):
+                continue
+            # Skip QueryRow (different method, has its own rule)
+            if ".QueryRow" in line:
+                continue
+
+            # Look ahead 5 lines (including current line) for defer ... .Close()
+            window_end = min(len(lines), line_num + 5)
+            window = "\n".join(lines[line_num - 1:window_end])
+            if re.search(r"defer\s+\w+\.Close\s*\(", window):
+                continue
+
+            findings.append(Finding(
+                rule_id="go_sql_rows_no_close",
+                severity=Severity.BLOCK,
+                message="SQL Rows not closed. Add 'defer rows.Close()' to prevent connection pool exhaustion.",
+                file=filename,
+                line=line_num,
+                suggestion="Add 'defer rows.Close()' immediately after error check.",
+            ))
         return findings
 
     def check_repo_structure(self, root: str) -> list[Finding]:

@@ -1531,6 +1531,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)autoindex\s+on",
         "message": "autoindex on enables directory listing, exposing file structure. Disable it.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Disable directory listing: set 'autoindex off;' in the nginx location block. Directory listings expose internal file structure to attackers."
+            ),
         "file_types": [".conf"],
     },
     {
@@ -1538,6 +1541,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)ssl_protocols\s+.*(?:SSLv2|SSLv3|TLSv1(?:\s|;))",
         "message": "Insecure SSL/TLS protocol version. Use TLSv1.2 and TLSv1.3 only.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove SSLv3 from ssl_protocols directive. Use 'ssl_protocols TLSv1.2 TLSv1.3;' only. SSLv3 is vulnerable to POODLE attack."
+            ),
         "file_types": [".conf"],
     },
     {
@@ -1569,6 +1575,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'(?:Action|Resource):\s*["\']?\*["\']?',
         "message": "CloudFormation IAM wildcard grants excessive permissions. Scope to specific actions/resources.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace Action: '*' with specific IAM actions needed. Use least-privilege: list exact actions like 's3:GetObject', 's3:PutObject'."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1576,6 +1585,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:PublicRead|PublicReadWrite|public-read)",
         "message": "S3 bucket with public access in CloudFormation template. Enforce BlockPublicAccess.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set AccessControl to 'Private' and add a bucket policy that restricts access. Use CloudFront with OAI for public content delivery instead of public S3."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1621,6 +1633,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)param\s+\w*(?:password|secret|key|token)\w*\s+string(?!.*@secure\(\))",
         "message": "Sensitive Bicep parameter without @secure() decorator. Secrets must use @secure().",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Add @secure() decorator to parameters containing secrets: @secure() param adminPassword string. This prevents the value from being logged."
+            ),
         "file_types": [".bicep"],
     },
     {
@@ -1628,6 +1643,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)httpsOnly:\s*false",
         "message": "Azure resource allowing HTTP. Set httpsOnly: true to enforce HTTPS.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set httpsOnly: true on the web app resource. All HTTP traffic should be redirected to HTTPS."
+            ),
         "file_types": [".bicep"],
     },
     {
@@ -1642,6 +1660,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'"actions":\s*\[\s*"\*"\s*\]',
         "message": "Wildcard RBAC action in ARM template. Scope to specific resource provider actions.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace '*' actions with specific role permissions. Use built-in roles like 'Reader', 'Contributor' or create custom roles with exact permissions."
+            ),
         "file_types": [".json", ".yml", ".yaml"],
     },
     {
@@ -1666,6 +1687,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"^\s*protected-mode\s+no",
         "message": "Redis protected mode disabled. Enable protected-mode to reject external connections without auth.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set 'protected-mode yes' in redis.conf. Without protected mode, Redis accepts connections from any interface."
+            ),
         "file_types": [".conf"],
     },
     {
@@ -1673,6 +1697,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)^\s*requirepass\s+(?:redis|password|admin|test|default|changeme|1234|pass|foobared)\s*$",
         "message": "Weak or default Redis password. Use a strong, randomly generated password.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use a strong password (32+ random characters) with 'requirepass'. Generate with: openssl rand -hex 32. Store in environment variable, not config file."
+            ),
         "file_types": [".conf"],
     },
     {
@@ -1704,6 +1731,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'(?i)tls_disable\s*=\s*(?:1|true|"true")',
         "message": "Vault TLS disabled. Always enable TLS in production to encrypt client-server communication.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Enable TLS in Vault listener config: tls_disable = 0, and provide tls_cert_file + tls_key_file. Vault without TLS exposes all secrets in transit."
+            ),
         "file_types": [".hcl"],
     },
     {
@@ -1756,6 +1786,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)GF_AUTH_ANONYMOUS_ENABLED\s*=\s*true",
         "message": "Grafana anonymous access enabled. Require authentication for dashboard access in production.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set [auth.anonymous] enabled = false in grafana.ini. Anonymous access lets anyone view dashboards without authentication."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1763,6 +1796,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)GF_SECURITY_ADMIN_PASSWORD\s*=\s*(?:admin|password|grafana|test|changeme|default)",
         "message": "Weak or default Grafana admin password. Use a strong, unique password.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Change the default admin password immediately: grafana-cli admin reset-admin-password <new-password>. Store the password in a secret manager, not in config files."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1860,6 +1896,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)^\s+pull_request_target:",
         "message": "pull_request_target runs with write permissions on fork PRs. Use pull_request + workflow_run pattern instead.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use 'pull_request' trigger instead of 'pull_request_target'. pull_request_target runs with write permissions on the base repo, enabling secret exfiltration from forks."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1867,6 +1906,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)^\s+permissions:\s*write-all",
         "message": "write-all grants excessive CI permissions. Scope to specific permissions (contents: write, etc).",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace 'permissions: write-all' with specific permissions: permissions: { contents: read, pull-requests: write }. Follow least-privilege."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1874,6 +1916,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)curl\s+.*\|\s*(?:ba)?sh",
         "message": "Piping curl to shell in CI is unsafe. Download, verify checksum, then execute.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Download the script first, verify its checksum, then execute: curl -o script.sh URL && sha256sum -c expected.sha256 && bash script.sh. Never pipe untrusted URLs directly to shell."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -1902,6 +1947,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:ssl[_-]?verify|verify[_-]?ssl|tls[_-]?verify)\s*[:=]\s*(?:false|0|no|off)\b",
         "message": "SSL/TLS certificate verification disabled. This enables man-in-the-middle attacks.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove verify=False / SSL_VERIFY=false. If using self-signed certs in dev, add the CA cert to the trust store instead: REQUESTS_CA_BUNDLE=/path/to/ca.pem."
+            ),
         "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg"],
     },
     {
@@ -1930,6 +1978,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"-----BEGIN\s+(?:RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE\s+KEY-----",
         "message": "Private key embedded in config file. Store keys in secure vaults or separate key files with restricted permissions.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Move the private key to a file and reference it by path. Never embed private keys in config files. Use: KEY_FILE=/path/to/key.pem."
+            ),
         "file_types": [".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg", ".hcl"],
     },
 
@@ -1944,6 +1995,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"yaml\.load\s*\([^,)]+\)",
         "message": "yaml.load() without Loader is unsafe — use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader)",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace yaml.load() with yaml.safe_load(). yaml.load() can execute arbitrary Python code from untrusted YAML."
+            ),
         "file_types": [".py"],
     },
     {
@@ -1951,6 +2005,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"marshal\.loads?\s*\(",
         "message": "marshal.load/loads executes arbitrary code — avoid deserializing untrusted data with marshal",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace marshal.loads() with json.loads() or msgpack. marshal is not safe for untrusted data — use JSON for data exchange."
+            ),
         "file_types": [".py"],
     },
     {
@@ -1979,6 +2036,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"subprocess\.(run|call|Popen|check_output)\s*\(f['\"]",
         "message": "f-string in subprocess call is vulnerable to command injection — use list form with validated args",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use subprocess.run([cmd, arg1, arg2], shell=False) with a list of arguments. Never interpolate user input into shell strings. For complex commands, use shlex.split() on a validated template."
+            ),
         "file_types": [".py"],
     },
     {
@@ -3127,6 +3187,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.(raw|raw_query|execute_sql)\s*\(\s*f['\"]|\.raw\s*\(\s*['\"].*%s",
         "message": "Raw ORM query with string interpolation — use parameterized raw() or ORM query builder",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use the ORM's query builder with parameterized values: Model.objects.filter(name=user_input) for Django, session.query(Model).filter_by(name=user_input) for SQLAlchemy."
+            ),
         "file_types": [".py"],
     },
     {
@@ -3141,6 +3204,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(postgres|mysql|mongodb|mssql)://[^@\s]+:[^@\s]+@",
         "message": "Database connection string with credentials — store in environment variable",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Move the connection string to an environment variable: DATABASE_URL=os.environ['DATABASE_URL']. Add the variable name to .env.example with a placeholder."
+            ),
     },
     {
         "id": "db_migration_drop_column",
@@ -3163,6 +3229,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(log|logger|logging)\.(info|debug|warning|error)\s*\(.*\b(password|secret|token|api_key|secret_key|private_key|credit_card|ssn|cvv)\b",
         "message": "Sensitive data in log statement — redact secrets before logging",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Redact sensitive fields before logging: log_data = {k: '***' if k in SENSITIVE_KEYS else v for k, v in data.items()}. Define SENSITIVE_KEYS as a constant with password, token, secret, etc."
+            ),
     },
     {
         "id": "log_user_input_raw",
@@ -3182,6 +3251,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"traceback\.print_exc\s*\(\s*\)|traceback\.format_exc\s*\(\s*\).*response",
         "message": "Stack trace exposed to user response — log internally and return generic error message",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Return a generic error message to the user and log the full stack trace server-side: logger.exception('Request failed', request_id=rid); return {'error': 'Internal server error'}."
+            ),
         "file_types": [".py"],
     },
 
@@ -3233,6 +3305,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"acl\s*=\s*['\"]public-read|BlockPublicAcls\s*=\s*false|IgnorePublicAcls\s*=\s*false",
         "message": "S3 bucket with public ACL — use bucket policies with explicit grants instead",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set acl = 'private' and use aws_s3_bucket_public_access_block to enforce: block_public_acls = true, block_public_policy = true, ignore_public_acls = true."
+            ),
         "file_types": [".tf", ".hcl", ".json", ".yaml", ".yml"],
     },
     {
@@ -3240,6 +3315,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'"Action"\s*:\s*"\*"|action\s*=\s*\["\*"\]',
         "message": "IAM policy with wildcard Action (*) — specify minimum required permissions",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace Action = ['*'] with specific actions: Action = ['s3:GetObject', 's3:ListBucket']. Use AWS IAM Access Analyzer to determine minimum required permissions."
+            ),
         "file_types": [".tf", ".hcl", ".json"],
     },
     {
@@ -3261,6 +3339,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"encrypted\s*=\s*false|storage_encrypted\s*=\s*false",
         "message": "Storage encryption disabled — enable encryption at rest for compliance and security",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Enable server-side encryption: for S3 use server_side_encryption_configuration with AES256 or aws:kms, for RDS use storage_encrypted = true, for EBS use encrypted = true."
+            ),
         "file_types": [".tf", ".hcl"],
     },
     {
@@ -3291,6 +3372,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"Log\.(d|i|w|e)\s*\(.*\b(password|token|key|secret)\b",
         "message": "Sensitive data in Android Log — Android logs are readable by apps with READ_LOGS permission",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Redact sensitive data before logging. Use a sanitizer: fun redact(data: Map<String, Any>) = data.mapValues { if (it.key in SENSITIVE) '***' else it.value }."
+            ),
         "file_types": [".kt", ".java"],
     },
     {
@@ -3298,6 +3382,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"rawQuery\s*\(\s*\".*\$|rawQuery\s*\(\s*\".*\+",
         "message": "rawQuery with string interpolation — use selection args parameter for parameterized queries",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use parameterized queries: connection.prepareStatement('SELECT * FROM users WHERE id = ?').apply { setInt(1, userId) }. Never concatenate user input into SQL strings."
+            ),
         "file_types": [".kt", ".java"],
     },
     {
@@ -3305,6 +3392,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"MODE_WORLD_READABLE|MODE_WORLD_WRITEABLE",
         "message": "SharedPreferences with world-readable/writable mode — deprecated since API 17, use MODE_PRIVATE",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use MODE_PRIVATE instead of MODE_WORLD_READABLE/WRITABLE: getSharedPreferences('prefs', Context.MODE_PRIVATE). For sensitive data, use EncryptedSharedPreferences from AndroidX Security."
+            ),
         "file_types": [".kt", ".java"],
     },
 
@@ -3345,6 +3435,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\bas\s+any\b",
         "message": "'as any' cast bypasses type safety entirely. Use a proper type assertion or fix the type.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace 'as any' with a proper type assertion or type guard: if (isUser(data)) { data.name } or define an interface and use 'as User' after validation."
+            ),
         "file_types": [".ts", ".tsx"],
         "skip_comments": True,
     },
@@ -3361,6 +3454,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"@ts-ig" + r"nore",
         "message": "@ts-ignore suppresses type errors. Fix the underlying type issue instead.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove @ts-ignore and fix the underlying type error. If the types are from a library, use declaration merging or file a types issue. @ts-ignore silently disables type checking for the next line."
+            ),
         "file_types": [".ts", ".tsx"],
     },
     {
@@ -3407,6 +3503,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:=>|return)\s+\w+\s+as\s+any\b",
         "message": "Function returns 'as any', erasing type safety for all callers. Use a proper return type.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Add an explicit return type annotation to the function instead of returning any. If the return type is dynamic, use a discriminated union or generic type parameter."
+            ),
         "file_types": [".ts", ".tsx"],
         "skip_comments": True,
     },
@@ -3612,6 +3711,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'SSLContext\.getInstance\s*\(\s*"(?:SSL|TLSv1(?:\.0)?)"',
         "message": "Weak SSL/TLS context. Use TLSv1.2 or TLSv1.3 for secure communications.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use SSLContext.getInstance('TLSv1.3') or 'TLSv1.2' minimum. Never use 'SSL', 'SSLv3', or 'TLSv1.0' — these have known vulnerabilities."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -3620,6 +3722,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:session|entityManager)\.create(?:Native|SQL)Query\s*\(\s*[\"'].*\+",
         "message": "Native SQL query with string concatenation. Use parameterized queries to prevent SQL injection.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Hibernate Criteria API or JPQL with named parameters: session.createQuery('FROM User WHERE name = :name').setParameter('name', input). Never concatenate user input into native SQL."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -3632,6 +3737,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\btodo!\s*\(",
         "message": "todo!() macro will panic at runtime. Implement the logic or return a proper error.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace todo!() with a proper implementation or return an error: return Err(AppError::NotImplemented('feature_name')). todo!() panics at runtime — never ship it to production."
+            ),
         "file_types": [".rs"],
         "skip_comments": True,
     },
@@ -3688,6 +3796,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"Arc<Mutex<.*>>\s*.*\.lock\(\).*\.await",
         "message": "Mutex lock held across .await point can cause deadlocks. Use tokio::sync::Mutex for async contexts.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Handle the lock result explicitly: let guard = mutex.lock().map_err(|e| AppError::LockPoisoned(e.to_string()))?; Unwrapping a poisoned lock can propagate panics."
+            ),
         "file_types": [".rs"],
         "skip_comments": True,
     },
@@ -3847,6 +3958,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"send_file\s*\(\s*(?:request\.\w+|f[\"']|.*\+)",
         "message": "send_file() with user-controlled path enables path traversal. Use safe_join() and validate the path.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Validate the file path against an allowlist or use safe_join: from werkzeug.utils import safe_join; path = safe_join(UPLOAD_DIR, filename). Never pass user input directly to send_file()."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3869,6 +3983,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.raw\s*\(\s*(?:f[\"']|[^)]*\.format\s*\(|[^)]*%\s*\()",
         "message": "Django raw SQL with string interpolation is SQL injection risk. Use parameterized raw().",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Django ORM parameterized queries: Model.objects.raw('SELECT * FROM t WHERE id = %s', [user_id]) or Model.objects.filter(id=user_id). Never use f-strings in raw()."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3885,6 +4002,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"redirect\s*\(\s*request\.(GET|POST|META)\b",
         "message": "Redirect using user input enables open redirect attacks. Validate the URL against an allowlist.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Validate redirect URLs against an allowlist of allowed hosts: from django.utils.http import url_has_allowed_host_and_scheme. Never redirect to user-supplied URLs without validation."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3917,6 +4037,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.filter\s*\(\s*\*\*request\.",
         "message": "Passing user input directly to filter() allows ORM injection. Validate and whitelist filter fields.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Django's form validation or serializer to validate input before passing to filter(): form = FilterForm(request.GET); if form.is_valid(): Model.objects.filter(**form.cleaned_data)."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3934,6 +4057,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"Jinja2\s*\(\s*(?!.*autoescape)",
         "message": "Jinja2 environment without autoescape enables XSS. Set autoescape=True.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Enable autoescaping: Environment(autoescape=select_autoescape(['html', 'xml'])). Without autoescape, template variables render as raw HTML enabling XSS."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3942,6 +4068,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"Markup\s*\(\s*(?:f[\"']|[^)]*\.format\s*\(|[^)]*%\s)",
         "message": "Markup() with string interpolation bypasses Jinja2 escaping. Use Markup.escape() for user input.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Markup.escape() on user input before wrapping in Markup(): Markup(f'<b>{Markup.escape(user_input)}</b>'). Raw Markup() on user input enables XSS."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -3975,6 +4104,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"allow_origins\s*=\s*\[\s*[\"']\*[\"']\s*\]",
         "message": "CORS allow_origins=['*'] permits any origin. Restrict to specific trusted domains.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace allow_origins=['*'] with specific origins: allow_origins=['https://app.example.com']. Wildcard CORS with credentials exposes the API to any website."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -4057,6 +4189,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"subprocess\.\w+\s*\([^)]*shell\s*=\s*True",
         "message": "subprocess with shell=True is command injection risk. Use shell=False with argument list.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use subprocess.run([cmd, arg], shell=False) with a list. If shell features are needed, validate input with shlex.quote(): subprocess.run(f'cmd {shlex.quote(arg)}', shell=True)."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -4065,6 +4200,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"yaml\.load\s*\([^)]*\)\s*$",
         "message": "yaml.load() without Loader parameter uses unsafe loader. Use yaml.safe_load().",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace yaml.load(data, Loader=yaml.Loader) with yaml.safe_load(data). The Loader parameter with FullLoader/Loader allows arbitrary code execution."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -4266,6 +4404,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"localStorage\.setItem\s*\(\s*[\"'](?:token|jwt|access_token|auth_token|session)[\"']",
         "message": "Storing auth tokens in localStorage is XSS-vulnerable. Use httpOnly cookies instead.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Store tokens in HttpOnly cookies instead of localStorage. localStorage is accessible to any JavaScript on the page, including XSS payloads. Set cookie with: HttpOnly, Secure, SameSite=Strict flags."
+            ),
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
         "skip_comments": True,
     },
@@ -4282,6 +4423,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.innerHTML\s*=\s*(?!.*(?:DOMPurify|sanitize))",
         "message": "innerHTML assignment without sanitization enables XSS. Use textContent or sanitize with DOMPurify.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use textContent for text, or DOMPurify.sanitize() for HTML: element.textContent = userInput; or element.innerHTML = DOMPurify.sanitize(htmlContent)."
+            ),
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
         "skip_comments": True,
     },
@@ -4298,6 +4442,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"new\s+RegExp\s*\(\s*(?:req\.|input|user|data|param)",
         "message": "User-controlled regex enables ReDoS attacks. Sanitize input or use a safe regex library.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Simplify the regex to avoid catastrophic backtracking. Use re2 or safe-regex library to validate patterns. Add a timeout/input length limit before regex execution."
+            ),
         "file_types": [".js", ".ts"],
         "skip_comments": True,
     },
@@ -4306,6 +4453,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:window\.location|location\.href)\s*=\s*(?:req\.|params|query|searchParams)",
         "message": "Redirect using user input enables open redirect. Validate against an allowlist.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Validate redirect URLs: const url = new URL(input, window.location.origin); if (url.origin !== window.location.origin) throw new Error('Invalid redirect'). Only allow same-origin redirects."
+            ),
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
         "skip_comments": True,
     },
@@ -4400,6 +4550,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"http\.(?:Get|Post|Do)\s*\([^)]+\)(?!.*defer\s+\w+\.Body\.Close)",
         "message": "HTTP response body not closed. Add 'defer resp.Body.Close()' to prevent resource leak.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Always close response bodies: defer resp.Body.Close(). Call it immediately after error check: resp, err := http.Get(url); if err != nil { return err }; defer resp.Body.Close()."
+            ),
         "file_types": [".go"],
         "skip_comments": True,
     },
@@ -4419,6 +4572,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.Begin\s*\(\s*\)(?!.*defer)",
         "message": "Transaction started without deferred Rollback. Add 'defer tx.Rollback()' for safety.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Always defer rollback on transaction start: tx, err := db.Begin(); if err != nil { return err }; defer tx.Rollback(); Rollback is no-op after Commit(), so it's safe to always defer."
+            ),
         "file_types": [".go"],
         "skip_comments": True,
     },
@@ -4427,6 +4583,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:db|tx)\.(?:Query|Exec)\s*\(\s*(?:\"|`)[^\"`)]*\+",
         "message": "SQL query with string concatenation. Use parameterized queries with $1, $2 placeholders.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use parameterized queries: db.Query('SELECT * FROM users WHERE id = $1', userID). Never concatenate user input into SQL strings."
+            ),
         "file_types": [".go"],
         "skip_comments": True,
     },
@@ -4444,6 +4603,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:bytes\.Equal|==)\s*.*(?:hmac|mac|signature|hash)",
         "message": "Non-constant-time comparison for HMAC/hash. Use hmac.Equal() to prevent timing attacks.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use hmac.Equal() for constant-time comparison: if !hmac.Equal(receivedMAC, expectedMAC) { return ErrInvalidMAC }. Regular == comparison leaks timing information."
+            ),
         "file_types": [".go"],
         "skip_comments": True,
     },
@@ -4489,6 +4651,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"@CrossOrigin\s*(?:\(\s*\)|\(\s*origins\s*=\s*[\"']\*[\"'])",
         "message": "@CrossOrigin with wildcard allows any origin. Specify allowed origins explicitly.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace @CrossOrigin('*') with specific origins: @CrossOrigin(origins = {'https://app.example.com'}). Wildcard CORS allows any website to make authenticated requests."
+            ),
         "file_types": [".java", ".kt"],
         "skip_comments": True,
     },
@@ -4497,6 +4662,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"@Query\s*\(\s*[\"'].*\+\s*\w+",
         "message": "String concatenation in @Query enables SQL injection. Use :paramName with @Param.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use JPA named parameters: @Query('SELECT u FROM User u WHERE u.name = :name') or Spring JdbcTemplate with ?: jdbcTemplate.query(sql, new Object[]{param}, mapper)."
+            ),
         "file_types": [".java", ".kt"],
         "skip_comments": True,
     },
@@ -4514,6 +4682,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"DriverManager\.getConnection\s*\([^)]+\)(?!.*try|.*finally)",
         "message": "JDBC connection without try-with-resources. Connection leak will exhaust pool.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use try-with-resources for JDBC connections: try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) { ... }. Or use Spring JdbcTemplate which manages connections automatically."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -4522,6 +4693,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:Statement|createStatement)\s*\(\s*\).*\.execute\w*\s*\(\s*[\"'].*\+",
         "message": "Statement with string concatenation. Use PreparedStatement with ? placeholders.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use PreparedStatement with placeholders: PreparedStatement ps = conn.prepareStatement('SELECT * FROM t WHERE id = ?'); ps.setInt(1, id). Never concatenate user input into Statement.execute()."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -4590,6 +4764,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"android:exported\s*=\s*[\"']true[\"'](?!.*android:permission)",
         "message": "Exported component without permission. Any app can interact with it. Add android:permission.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Add android:permission attribute to exported components: android:permission='com.app.permission.ACCESS_SERVICE'. Or set android:exported='false' if external access is not needed."
+            ),
         "file_types": [".xml"],
     },
     {
@@ -4597,6 +4774,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"android:usesCleartextTraffic\s*=\s*[\"']true[\"']",
         "message": "Cleartext traffic enabled. Use HTTPS and set usesCleartextTraffic=false.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set android:usesCleartextTraffic='false' in AndroidManifest.xml. Use HTTPS for all network communication. For dev servers, use network_security_config with domain-specific exceptions."
+            ),
         "file_types": [".xml"],
     },
     {
@@ -4612,6 +4792,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"getSharedPreferences\s*\([^)]+\).*(?:put(?:String|Int)\s*\(\s*[\"'](?:token|password|key|secret))",
         "message": "Storing sensitive data in SharedPreferences. Use EncryptedSharedPreferences.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use EncryptedSharedPreferences from AndroidX Security: EncryptedSharedPreferences.create('prefs', masterKey, context, ...). Never store tokens/passwords in plain SharedPreferences."
+            ),
         "file_types": [".java", ".kt"],
         "skip_comments": True,
     },
@@ -4620,6 +4803,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"ObjectInputStream\s*\(\s*(?:new\s+)?(?:Socket|URL|File|InputStream)",
         "message": "Java deserialization from untrusted source enables RCE. Use JSON/protobuf instead.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Replace ObjectInputStream with JSON deserialization (Jackson/Gson) with explicit type mapping. If Java serialization is required, use a ValidatingObjectInputStream with an allowlist of permitted classes."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -4628,6 +4814,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.stop\s*\(\s*\)|\.suspend\s*\(\s*\)|\.resume\s*\(\s*\)",
         "message": "Thread.stop/suspend/resume are deprecated and unsafe. Use interrupt() and cooperative shutdown.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Thread.interrupt() and check Thread.isInterrupted() in the thread's run loop. Thread.stop() is deprecated — it can leave objects in inconsistent states."
+            ),
         "file_types": [".java"],
         "skip_comments": True,
     },
@@ -4656,6 +4845,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"acl\s*=\s*[\"'](?:public-read|public-read-write)[\"']",
         "message": "S3 bucket with public ACL. Use bucket policies with explicit access grants.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Add aws_s3_bucket_public_access_block with all four settings set to true. Remove any acl = 'public-read' or 'public-read-write' settings."
+            ),
         "file_types": [".tf"],
     },
     {
@@ -4670,6 +4862,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:access_key|secret_key)\s*=\s*[\"'][^\"']+[\"']",
         "message": "Hardcoded AWS credentials in Terraform. Use environment variables or IAM roles.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use environment variables or AWS credential chain: provider 'aws' { region = var.region } without access_key/secret_key. AWS SDK automatically reads from env, ~/.aws/credentials, or IAM role."
+            ),
         "file_types": [".tf", ".tfvars"],
     },
     {
@@ -4685,6 +4880,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"hostPath\s*:\s*\n\s*path\s*:",
         "message": "hostPath volume mount exposes host filesystem. Use emptyDir, PVC, or ConfigMap instead.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use PersistentVolumeClaim instead of hostPath. If hostPath is required, limit to a specific subdirectory with readOnly: true."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -4706,6 +4904,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"privileged\s*:\s*true",
         "message": "Privileged container has full host access. Remove privileged flag or use specific capabilities.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove privileged: true from securityContext. If specific capabilities are needed, use capabilities.add with only the required caps."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -4720,6 +4921,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"runAsUser\s*:\s*0",
         "message": "Container running as root (UID 0). Set runAsNonRoot: true or use a non-root UID.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set runAsNonRoot: true and runAsUser: 1000 (or any non-zero UID) in securityContext. Running as root in a container is a container escape risk."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -4778,6 +4982,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"on\s*:\s*(?:\[.*)?pull_request_target",
         "message": "pull_request_target runs with write access on forked PRs. Use pull_request with explicit checkout.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use 'pull_request' trigger instead of 'pull_request_target'. If you need write access, use a separate workflow triggered by workflow_run."
+            ),
         "file_types": [".yml", ".yaml"],
     },
     {
@@ -4799,6 +5006,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"permissions\s*:\s*write-all",
         "message": "Workflow with write-all permissions. Apply least privilege with specific permission scopes.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Set granular permissions at the job level: permissions: { contents: read, pull-requests: write }. Never use permissions: write-all."
+            ),
         "file_types": [".yml", ".yaml"],
     },
 
@@ -4812,6 +5022,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:open|read|write|send_file|serve)\s*\(\s*(?:.*\+\s*)?(?:request\.|req\.|params|input|user)",
         "message": "File operation with user-controlled path enables path traversal. Validate and sandbox the path.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Validate paths with os.path.realpath() and check they start with the allowed base directory: real = os.path.realpath(user_path); assert real.startswith(BASE_DIR). Never pass user input directly to file operations."
+            ),
         "file_types": [".py", ".js", ".ts", ".go", ".java", ".rb"],
         "skip_comments": True,
     },
@@ -4837,6 +5050,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:ldap|LDAP).*(?:search|bind)\s*\([^)]*(?:f[\"']|\+|\.format)",
         "message": "LDAP query with string interpolation. Use parameterized LDAP queries.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use LDAP filter escaping: ldap3.utils.conv.escape_filter_chars(user_input). Never concatenate user input into LDAP filter strings."
+            ),
         "file_types": [".py", ".java", ".js"],
         "skip_comments": True,
     },
@@ -4845,6 +5061,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.xpath\s*\(\s*(?:f[\"']|.*\+|.*\.format)",
         "message": "XPath query with string interpolation enables XPath injection. Use parameterized queries.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use parameterized XPath queries or escape special characters: Replace quotes, brackets, and operators in user input before XPath evaluation."
+            ),
         "file_types": [".py", ".java", ".js", ".ts"],
         "skip_comments": True,
     },
@@ -4861,6 +5080,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:render_template_string|Template)\s*\(\s*(?:request\.|req\.|user_input|f[\"'])",
         "message": "Template rendered from user input enables SSTI. Use parameterized templates only.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Never pass user input as a template string. Use template variables instead: template.render(user_var=user_input) not Template(user_input).render()."
+            ),
         "file_types": [".py", ".js"],
         "skip_comments": True,
     },
@@ -4869,6 +5091,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:XMLParser|etree\.parse|parseString)\s*\([^)]*\)(?!.*resolve_entities\s*=\s*False)",
         "message": "XML parsing without disabling external entities (XXE). Set resolve_entities=False.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Disable external entity resolution: parser = etree.XMLParser(resolve_entities=False, no_network=True). For defusedxml: use defusedxml.ElementTree.parse() which is safe by default."
+            ),
         "file_types": [".py", ".java"],
         "skip_comments": True,
     },
@@ -4886,6 +5111,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:admin|root|default).*(?:password|pass|pwd)\s*[:=]\s*[\"'][^\"']+[\"']",
         "message": "Default admin password detected. Force password change on first login.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Generate a random admin password on first deployment and require immediate change. Use secrets.token_urlsafe(32) for Python. Never ship default passwords."
+            ),
         "skip_comments": True,
     },
     {
@@ -4901,6 +5129,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:==|!=)\s*(?:\w*(?:hmac|hash|digest|signature|token|mac)\w*)",
         "message": "Non-constant-time comparison for cryptographic value. Use hmac.compare_digest() or equivalent.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use hmac.compare_digest(a, b) for constant-time string comparison. Regular == leaks information about which characters match through timing."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -4909,6 +5140,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:nonce|iv)\s*=\s*(?:b[\"'][^\"']+[\"']|[\"'][^\"']+[\"']|\d+)",
         "message": "Static/deterministic nonce or IV. Use os.urandom() or secrets.token_bytes() for each operation.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use os.urandom(16) or secrets.token_bytes(16) for nonces. Never use predictable values (timestamps, counters) as cryptographic nonces."
+            ),
         "skip_comments": True,
     },
     {
@@ -4916,6 +5150,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)\b(?:DES|RC4|Blowfish|ARC4|RC2)(?:\s*\(|\.new|\.encrypt|\.decrypt|_cbc|_ecb|_cfb|_ofb)",
         "message": "Weak cipher algorithm. Use AES-256-GCM or ChaCha20-Poly1305.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use AES-256-GCM for encryption: from cryptography.hazmat.primitives.ciphers.aead import AESGCM. Never use DES, 3DES, RC4, or Blowfish — they have known weaknesses."
+            ),
         "skip_comments": True,
     },
     {
@@ -4923,6 +5160,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:ECB|MODE_ECB)",
         "message": "ECB mode reveals patterns in ciphertext. Use GCM, CBC with HMAC, or authenticated encryption.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use CBC with random IV or preferably GCM mode: AES.new(key, AES.MODE_GCM). ECB mode produces identical ciphertext for identical plaintext blocks."
+            ),
         "skip_comments": True,
     },
     {
@@ -4930,6 +5170,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"generate.*(?:key_size|bits)\s*=\s*(?:512|1024)\b",
         "message": "RSA key size too small. Use at least 2048 bits, preferably 4096.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use RSA key size of 2048 bits minimum, 4096 recommended: rsa.generate_private_key(public_exponent=65537, key_size=4096). Keys below 2048 bits can be factored."
+            ),
         "skip_comments": True,
     },
     # --- Auth ---
@@ -4938,6 +5181,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"localStorage\.setItem\s*\(\s*[\"']jwt[\"']",
         "message": "JWT in localStorage is vulnerable to XSS. Use httpOnly secure cookies.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Store JWTs in HttpOnly cookies, not localStorage. localStorage is accessible to any JavaScript on the page including XSS payloads. Set cookie flags: HttpOnly, Secure, SameSite=Strict."
+            ),
         "file_types": [".js", ".ts", ".jsx", ".tsx"],
         "skip_comments": True,
     },
@@ -4962,6 +5208,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:algorithm|alg)\s*[:=]\s*[\"'](?:none|None|NONE)[\"']",
         "message": "JWT with 'none' algorithm accepts unsigned tokens. Always require a signing algorithm.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Explicitly verify the JWT algorithm matches expectations: jwt.decode(token, key, algorithms=['HS256']). Never accept 'none' algorithm — it disables signature verification."
+            ),
         "skip_comments": True,
     },
     {
@@ -4969,6 +5218,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:log|logger|logging)\.\w+\s*\([^)]*(?:password|secret|api_key)\s*=(?!.*(?:mask|redact|\*+|error))",
         "message": "Sensitive value being logged. Mask or redact credentials before logging.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove password/secret fields from log output. Use a sanitizer: {k: '***' if 'password' in k.lower() else v for k, v in data.items()}."
+            ),
         "skip_comments": True,
     },
     # --- Headers ---
@@ -5285,6 +5537,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:Access-Control-Allow-Credentials|credentials)\s*[:=]\s*(?:true|True).*(?:Access-Control-Allow-Origin|origin)\s*[:=]\s*[\"']\*",
         "message": "CORS credentials with wildcard origin. Browsers reject this but it indicates misconfigured CORS.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Never combine Access-Control-Allow-Credentials: true with Allow-Origin: *. Specify exact allowed origins when credentials are enabled."
+            ),
         "skip_comments": True,
     },
     {
@@ -5292,6 +5547,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:requests\.get|httpx\.get|fetch|http\.Get)\s*\(\s*(?:request\.|req\.|params|user_input|url_param)",
         "message": "HTTP request with user-controlled URL enables SSRF. Validate against an allowlist of hosts.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Validate URLs against an allowlist of permitted hosts/schemes. Block internal IPs (127.0.0.1, 10.x, 172.16.x, 192.168.x, 169.254.x). Use urllib.parse.urlparse() to extract and validate the hostname."
+            ),
         "skip_comments": True,
     },
     {
@@ -5299,6 +5557,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:hashlib\.(?:md5|sha1|sha256)|MessageDigest\.getInstance\s*\(\s*[\"'](?:MD5|SHA-1|SHA1)[\"'])\s*\(.*(?:password|passwd|pwd)",
         "message": "Weak hash for password storage. Use bcrypt, argon2, or scrypt with proper cost factors.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use bcrypt, argon2, or scrypt for password hashing: from passlib.hash import argon2; hash = argon2.hash(password). Never use MD5, SHA1, or SHA256 for passwords — they lack salt and work factor."
+            ),
         "skip_comments": True,
     },
     {
@@ -5313,6 +5574,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----",
         "message": "Private key embedded in source code. Store in secrets manager or environment variable.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Move private keys to files and reference by path: KEY_PATH = os.environ['PRIVATE_KEY_PATH']. Never embed private keys in source code."
+            ),
         "skip_comments": True,
     },
     {
@@ -5342,6 +5606,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.create\s*\(\s*\*\*(?:request\.\w+|req\.body|data)",
         "message": "Mass assignment from user input. Whitelist allowed fields explicitly.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Explicitly list allowed fields instead of using **kwargs or request.json directly: allowed = {'name', 'email'}; data = {k: v for k, v in input.items() if k in allowed}."
+            ),
         "file_types": [".py"],
         "skip_comments": True,
     },
@@ -5376,6 +5643,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.send\s*\(\s*(?:params|request|user_input)",
         "message": "Object#send with user input allows arbitrary method invocation. Validate method names.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use a whitelist of allowed methods: ALLOWED = %w[name email]; obj.send(method) if ALLOWED.include?(method). Never pass user input to send/public_send without validation."
+            ),
         "file_types": [".rb"],
         "skip_comments": True,
     },
@@ -5401,6 +5671,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:mysql_query|mysqli_query)\s*\(\s*.*\$_(?:GET|POST|REQUEST)",
         "message": "SQL query with direct user input. Use prepared statements with parameterized queries.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use PDO prepared statements: $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?'); $stmt->execute([$id]). Never interpolate user input into SQL."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -5409,6 +5682,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\beval\s*\(\s*\$",
         "message": "eval() with variable input is remote code execution. Never use eval with user data.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove eval() entirely. For dynamic dispatch, use a function map: $handlers = ['action1' => fn() => handle1()]; $handlers[$input]();. eval() enables arbitrary code execution."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -5429,6 +5705,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"skip_before_action\s+:verify_authenticity_token",
         "message": "CSRF protection disabled. This exposes the endpoint to cross-site request forgery.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Remove skip_before_action :verify_authenticity_token. For API endpoints, use token-based auth with protect_from_forgery with: :null_session."
+            ),
         "file_types": [".rb"],
         "skip_comments": True,
     },
@@ -5445,6 +5724,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"render\s+(?:inline|text|html)\s*:\s*params\[",
         "message": "Rendering user input directly leads to XSS. Sanitize or use templates.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Sanitize user input before rendering: render html: sanitize(user_input). Or use ERB templates with automatic escaping (<%= user_input %>)."
+            ),
         "file_types": [".rb"],
         "skip_comments": True,
     },
@@ -5453,6 +5735,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.permit!\s*$",
         "message": "permit! allows all parameters (mass assignment). Whitelist specific attributes with permit(:attr).",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use strong parameters with explicit permit: params.require(:user).permit(:name, :email). Never use permit! or permit(:all) — it allows mass assignment attacks."
+            ),
         "file_types": [".rb"],
         "skip_comments": True,
     },
@@ -5625,6 +5910,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"DB::(?:raw|select|statement)\s*\(\s*[\"'].*\$",
         "message": "Raw DB query with variable interpolation. Use parameter binding: DB::select('...?', [$val]).",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use Eloquent query builder with bindings: DB::select('select * from users where id = ?', [$id]). Never interpolate user input into DB::raw()."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -5633,6 +5921,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"protected\s+\$guarded\s*=\s*\[\s*\]",
         "message": "Empty $guarded array allows mass assignment of all fields. Use $fillable with explicit fields.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Define $fillable in the model with allowed fields: protected $fillable = ['name', 'email']; Never use $guarded = [] — it allows mass assignment on all fields."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -5681,6 +5972,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:include|require)(?:_once)?\s*\(\s*\$_(?:GET|POST|REQUEST)",
         "message": "File inclusion with user input enables remote code execution. Never include user-controlled paths.",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use a whitelist of allowed files: $allowed = ['page1.php', 'page2.php']; if (in_array($input, $allowed)) include $input; Never pass user input directly to include/require."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -5697,6 +5991,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\b(?:system|passthru|shell_exec|popen|proc_open)\s*\(\s*\$",
         "message": "Shell execution with variable input. Use escapeshellarg() and escapeshellcmd().",
         "severity": Severity.BLOCK,
+            "suggestion": (
+                "Use escapeshellarg() on each argument: system('cmd ' . escapeshellarg($arg)). Better: avoid shell execution entirely — use PHP built-in functions instead."
+            ),
         "file_types": [".php"],
         "skip_comments": True,
     },
@@ -20877,6 +21174,97 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r'\"install\"\s*:.*&&\s*(curl|wget|nc|bash|sh)\s+',
         "message": "Install script chaining network tools with shell execution is a supply chain attack pattern",
         "severity": Severity.BLOCK,
+    },
+
+    # ═══════════════════════════════════════════════════════════════
+    #  GOVERNANCE WEAKENING DETECTION
+    #  Detects attempts to weaken or bypass governance enforcement.
+    #  These rules protect the integrity of the governance system itself.
+    # ═══════════════════════════════════════════════════════════════
+    {
+        "id": "gov_expand_skip_list",
+        "pattern": (
+            r"(?i)(skip_path|exclude_path|ignore_path|skip_dir|exclude_dir|"
+            r"skip_file|exclude_file|SKIP_PATH_PREFIXES|INFRA_CONFIG_SKIP|"
+            r"RULE_DEFINITION_FILES|skip_list|exclude_list|ignore_list)"
+            r"\s*[\.\+]?=\s*.*\b(src|tests|lib|app|pkg|internal)\b"
+        ),
+        "message": (
+            "Governance weakening: adding production paths to skip/exclude/ignore lists "
+            "disables scanning for those directories. This was exploited in a real incident "
+            "where src/rules/ and tests/ were added to the pre-commit skip list."
+        ),
+        "severity": Severity.BLOCK,
+        "file_types": [".py", ".toml", ".yaml", ".yml", ".json", ".cfg", ".ini"],
+        "suggestion": (
+            "Do NOT add production source directories to skip lists. "
+            "If a rule produces false positives on specific files, fix the rule pattern "
+            "or add a targeted file_types/exclude_path_contains scope to that rule instead. "
+            "Broad skip-list entries silently disable governance for entire directories."
+        ),
+    },
+    {
+        "id": "gov_severity_downgrade",
+        "pattern": (
+            r"(?i)severity\s*[:=]\s*[\"']?"
+            r"(Severity\.)?(WARN|INFO|SKIP|OFF|DISABLED|NONE)"
+            r"[\"']?\s*[,#].*\b(was|from|previously|changed)\b.*\bBLOCK\b"
+        ),
+        "message": (
+            "Governance weakening: severity downgrade from BLOCK detected. "
+            "Changing BLOCK rules to WARN/INFO means violations are no longer enforced, "
+            "only reported. This silently degrades the security posture."
+        ),
+        "severity": Severity.BLOCK,
+        "file_types": [".py", ".toml", ".yaml", ".yml", ".json"],
+        "suggestion": (
+            "Do NOT downgrade BLOCK severity to WARN or INFO. "
+            "If the rule produces false positives, fix the detection pattern "
+            "or add file_types/exclude_path_contains scoping. "
+            "If the rule is genuinely wrong, delete it and document why in the commit message."
+        ),
+    },
+    {
+        "id": "gov_disable_scan",
+        "pattern": (
+            r"(?i)(scan_before_write|verify_before_install|"
+            r"audit_enabled|enforce|pre_commit_scan|"
+            r"gateway_enabled|intercept_enabled|scan_enabled)"
+            r"\s*[:=]\s*[\"']?(false|off|disabled|0|no)[\"']?"
+        ),
+        "message": (
+            "Governance weakening: scan/enforcement feature disabled. "
+            "Disabling scan_before_write, verify_before_install, or audit_enabled "
+            "removes governance protection for the affected action category."
+        ),
+        "severity": Severity.BLOCK,
+        "file_types": [".py", ".toml", ".yaml", ".yml", ".json", ".cfg", ".ini", ".env"],
+        "suggestion": (
+            "Do NOT disable governance enforcement features. "
+            "If scans are too slow, optimize the scan rules or add caching. "
+            "If scans block legitimate work, fix the false-positive rule patterns. "
+            "Disabling enforcement is never the correct fix for a noisy rule."
+        ),
+    },
+    {
+        "id": "gov_noqa_governance",
+        "pattern": (
+            r"#\s*noqa\b.*\b(gov_|gateway_|codetrust_|governance|"
+            r"audit|enforce|intercept|pre_commit)"
+        ),
+        "message": (
+            "Governance weakening: noqa suppression on governance rule. "
+            "Using # noqa to silence governance rules defeats the purpose of enforcement. "
+            "Every noqa on a governance rule is a potential bypass vector."
+        ),
+        "severity": Severity.BLOCK,
+        "file_types": [".py"],
+        "suggestion": (
+            "Do NOT use # noqa to suppress governance rules. "
+            "If the finding is a false positive, fix the rule pattern in anti_patterns.py. "
+            "If the finding is legitimate, fix the code. "
+            "noqa on governance rules is never acceptable — it creates unaudited blind spots."
+        ),
     },
 ]
 

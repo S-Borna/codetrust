@@ -11077,7 +11077,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "async_missing_timeout",
-        "pattern": r"await\s+(?:(?:http_?)?client|session\(\)|requests?|aiohttp|httpx|urllib)\.\s*(?:get|post|put|delete|patch|head|options|request|fetch)\s*\(",
+        "pattern": r"await\s+(?:(?:http_?)?client|session\(\)|\brequests\b|aiohttp|httpx|urllib)\.\s*(?:get|post|put|delete|patch|head|options|request|fetch)\s*\(",
         "special_handler": "check_async_timeout",
         "message": "Async HTTP call without timeout. Add explicit timeout to prevent hanging.",
         "severity": Severity.WARN,

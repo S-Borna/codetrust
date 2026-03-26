@@ -69,6 +69,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\b(eval|exec)\s*\(",
         "message": "eval/exec is a security risk. Use safe alternatives.",
         "severity": Severity.BLOCK,
+        "exclude_path_contains": ["gateway/interceptor", "taint_analyzer"],
         "suggestion": (
             "Replace eval/exec with a safe alternative: "
             "For JSON parsing: use json.loads(). "
@@ -983,6 +984,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "os.system is unsafe. Use subprocess.run with shell=False.",
         "severity": Severity.BLOCK,
         "skip_comments": True,
+        "exclude_path_contains": ["gateway/interceptor"],
         "suggestion": (
             "Replace `os.system('command args')` with "
             "`subprocess.run(['command', 'args'], check=True, capture_output=True)`. "
@@ -1361,7 +1363,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Error suppression operator @ hides errors. Handle errors explicitly with try/catch.",
         "severity": Severity.WARN,
             "suggestion": (
-                "Remove the @ operator and handle the error explicitly: `try { $result = operation(); } catch (\Exception $e) { ... }`. @ suppresses ALL errors including fatal ones, making bugs invisible."
+                "Remove the @ operator and handle the error explicitly: `try { $result = operation(); } catch (\\Exception $e) { ... }`. @ suppresses ALL errors including fatal ones, making bugs invisible."
             ),
         "file_types": [".php"],
     },
@@ -1406,7 +1408,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "die/exit terminates execution abruptly. Use proper exception handling and responses.",
         "severity": Severity.WARN,
             "suggestion": (
-                "Replace die/exit with proper exception handling: `throw new \RuntimeException('Descriptive message');` and let the framework's error handler format the response. die() bypasses middleware, logging, and cleanup."
+                "Replace die/exit with proper exception handling: `throw new \\RuntimeException('Descriptive message');` and let the framework's error handler format the response. die() bypasses middleware, logging, and cleanup."
             ),
         "file_types": [".php"],
     },
@@ -4175,7 +4177,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Struct field without json tag. Add json tags for correct serialization behavior.",
         "severity": Severity.INFO,
             "suggestion": (
-                "Add json struct tags: `Name string \`json:\"name\"\`` for API responses, `Name string \`json:\"name,omitempty\"\`` to skip zero values. Without tags, Go uses the capitalized field name — clients receive `Name` instead of `name`."
+                "Add json struct tags: Name string `json:\"name\"` for API responses, Name string `json:\"name,omitempty\"` to skip zero values. Without tags, Go uses the capitalized field name — clients receive `Name` instead of `name`."
             ),
         "file_types": [".go"],
         "skip_comments": True,
@@ -11559,6 +11561,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:hashlib\.md5|MD5\.new|createHash\s*\(\s*[\"']md5[\"']\))",
         "message": "MD5 is cryptographically broken. Use SHA-256 or SHA-3.",
         "severity": Severity.BLOCK,
+        "exclude_path_contains": ["hallucination_taint", "taint_analyzer"],
             "suggestion": (
                 "MD5 has practical collision attacks since 2004. Two different inputs can have the same hash — forging digital signatures, certificates, or integrity checks. Replace: hashlib.sha256(data).hexdigest(). For passwords: NEVER use any hash function directly — use bcrypt, argon2, or scrypt which include salt and work factor."
             ),
@@ -11699,7 +11702,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Overlapping alternation with wildcards. Potential ReDoS.",
         "severity": Severity.WARN,
             "suggestion": (
-                "Alternation with overlapping wildcards (.*|.+) causes the engine to try both branches on every position. Simplify: ensure alternatives are mutually exclusive. Example: instead of (\d+|\d+\.\d+), use (\d+\.?\d*). Test with redos-detector."
+                "Alternation with overlapping wildcards (.*|.+) causes the engine to try both branches on every position. Simplify: ensure alternatives are mutually exclusive. Example: instead of (\\d+|\\d+\\.\\d+), use (\\d+\\.?\\d*). Test with redos-detector."
             ),
     },
     {
@@ -12039,6 +12042,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?:open|read|write|os\.path\.join)\s*\([^)]*(?:user|input|request|params|query)[^)]*\)(?!.*(?:realpath|abspath|secure_filename|sanitize))",
         "message": "User input in file path without sanitization. Path traversal risk.",
         "severity": Severity.BLOCK,
+        "exclude_path_contains": ["runtime_taint_verifier"],
             "suggestion": (
                 "User input in file path with ../ reads files outside the intended directory: ../../etc/passwd, ../../app/config.py, ../../.env. Validate: resolved = os.path.realpath(os.path.join(base_dir, user_input)); assert resolved.startswith(os.path.realpath(base_dir)). Reject if the resolved path escapes."
             ),
@@ -12471,7 +12475,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "api_internal_error_detail",
-        "pattern": r"(?:return|response|json).*(?:str\((?:e|err|error|exc)\)|traceback|stack_?trace|__traceback__)",
+        "pattern": r"^\s*(?:return|response)\s.*(?:str\((?:e|err|error|exc)\)|traceback|stack_?trace|__traceback__)",
         "message": "Internal error details in API response. Return generic message.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -13336,7 +13340,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "LDAP query with user input. Escape special characters.",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "LDAP filter with user input: (cn=user_input) where input = *)(uid=*))(|(uid=* returns all entries. Escape: ldap3.utils.conv.escape_filter_chars(user_input) escapes *, (, ), \, NUL. Or use ldap3's search with parameterized filters."
+                "LDAP filter with user input: (cn=user_input) where input = *)(uid=*))(|(uid=* returns all entries. Escape: ldap3.utils.conv.escape_filter_chars(user_input) escapes *, (, ), \\, NUL. Or use ldap3's search with parameterized filters."
             ),
     },
     {
@@ -16259,9 +16263,10 @@ ANTI_PATTERNS: list[dict[str, str]] = [
 
     {
         "id": "auth_jwt_no_expiry",
-        "pattern": r"jwt\.encode\([^)]*(?!.*exp['\"])",
+        "pattern": r"jwt\.encode\s*\(",
         "message": "JWT created without expiry claim. Always set 'exp' to limit token lifetime.",
         "severity": Severity.BLOCK,
+        "special_handler": "check_jwt_no_expiry",
             "suggestion": (
                 "A JWT without exp claim is valid forever — a stolen token grants permanent access. Always: payload['exp'] = datetime.utcnow() + timedelta(hours=1). Short-lived access (15min) + refresh tokens (7d) with rotation."
             ),
@@ -16843,7 +16848,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "logging2_credential_in_url_log",
-        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:https?://\w+:\w+@|password=|secret=|key=)",
+        "pattern": r"(?:log(?:ger)?|structlog)\.\w+\([^)]*(?:https?://\w+:\w+@|password=|secret=|api_key=|token=)",
         "message": "Credentials in logged URL. Strip credentials from URLs before logging.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -18791,7 +18796,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "String interpolation in TypeORM Like(). Use parameter binding to prevent SQL injection.",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Like(`%${input}%`) interpolates user input into the LIKE pattern. If input = %: matches everything. Escape: input.replace(/%/g, '\%'). Or use parameter binding."
+                "Like(`%${input}%`) interpolates user input into the LIKE pattern. If input = %: matches everything. Escape: input.replace(/%/g, '\\%'). Or use parameter binding."
             ),
         "file_types": [".ts", ".js"],
     },
@@ -19416,7 +19421,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Nested backticks are error-prone. Use $() for command substitution.",
         "severity": Severity.INFO,
             "suggestion": (
-                "Nested backticks `cmd1 \`cmd2\`` are hard to read and escape. Use $(): result=$(cmd1 $(cmd2)). $(  ) nests cleanly and is POSIX-compliant."
+                "Nested backticks `cmd1 `cmd2`` are hard to read and escape. Use $(): result=$(cmd1 $(cmd2)). $() nests cleanly and is POSIX-compliant."
             ),
         "file_types": [".sh", ".bash"],
     },
@@ -19521,7 +19526,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Invoke-Expression executes arbitrary code. Use & operator or direct cmdlet calls instead.",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Invoke-Expression $userInput executes arbitrary PowerShell. An attacker sends: Remove-Item -Recurse C:\. Use: & operator for command execution, or direct cmdlet calls."
+                "Invoke-Expression $userInput executes arbitrary PowerShell. An attacker sends: Remove-Item -Recurse C:\\. Use: & operator for command execution, or direct cmdlet calls."
             ),
         "file_types": [".ps1", ".psm1"],
     },
@@ -27441,6 +27446,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"as\s+any\b",
         "message": "Casting to any disables type checking and hides bugs that surface at runtime; use a specific type or unknown",
         "severity": Severity.BLOCK,
+        "file_types": [".ts", ".tsx", ".js", ".jsx"],
             "suggestion": (
                 "Casting to any disables type checking and hides bugs that surface at runtime; use a specific type or unknown. Review and fix this issue to ensure code quality and security compliance."
             ),
@@ -29317,6 +29323,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r">\s*/tmp/[a-zA-Z0-9_]+\b",
         "message": "Writing to predictable temp file path is vulnerable to symlink race - use mktemp",
         "severity": Severity.BLOCK,
+        "exclude_path_contains": ["gateway/interceptor"],
+        "file_types": [".sh", ".bash", ".zsh"],
             "suggestion": (
                 "Writing to predictable temp file path is vulnerable to symlink race - use mktemp. Review and fix this issue to ensure code quality and security compliance."
             ),

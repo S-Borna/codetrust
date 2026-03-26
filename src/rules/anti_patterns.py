@@ -27015,7 +27015,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Calling run_until_complete on the running loop blocks the event loop and causes deadlocks; use await instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "loop.run_until_complete(coro) inside an already-running loop (e.g., inside an async function) causes RuntimeError in Python 3.10+. Use: result = await coro. If calling from sync code: use asyncio.run() at the top level only. nest_asyncio is a hack, not a fix."
             ),
     },
     {
@@ -27024,7 +27024,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using time.sleep in async code blocks the entire event loop; use asyncio.sleep instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "time.sleep(n) in async code blocks the ENTIRE event loop — all concurrent coroutines freeze. Use: await asyncio.sleep(n). For CPU-bound work: await loop.run_in_executor(None, blocking_function). time.sleep has no place in async code."
             ),
     },
     {
@@ -27033,7 +27033,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passing lambda to run_in_executor is unpicklable and prevents proper cancellation; use a named function",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "run_in_executor(None, lambda: ...) is unpicklable (breaks multiprocessing) and uncancellable. Define a named function: async def fetch(): return await loop.run_in_executor(None, named_function, arg). Named functions are cancellable and debuggable."
             ),
     },
     {
@@ -27042,7 +27042,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "asyncio.gather with return_exceptions=False cancels remaining tasks on first failure; set return_exceptions=True or handle explicitly",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "asyncio.gather(coro1, coro2) cancels remaining tasks when one fails, losing results. Use: results = await asyncio.gather(coro1, coro2, return_exceptions=True); errors = [r for r in results if isinstance(r, Exception)]. Or use TaskGroup (3.11+) for structured concurrency."
             ),
     },
     {
@@ -27051,7 +27051,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Daemon threads are killed abruptly at interpreter shutdown without cleanup; use non-daemon threads with proper join",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Daemon threads are killed without cleanup when the main thread exits — file writes, DB transactions, and network calls are interrupted mid-operation. Use non-daemon threads with thread.join(timeout=30) in a shutdown handler. Or use concurrent.futures.ThreadPoolExecutor with shutdown(wait=True)."
             ),
     },
     {
@@ -27060,7 +27060,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Loading C libraries via ctypes without error handling can cause segfaults; wrap in try/except OSError",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "ctypes.CDLL('lib.so') segfaults if the library is missing or ABI-incompatible. Wrap: try: lib = ctypes.CDLL('lib.so') except OSError as e: logger.error('Failed to load lib: %s', e). Verify function signatures with argtypes/restype to prevent memory corruption."
             ),
     },
     {
@@ -27069,7 +27069,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Custom metaclass without __init_subclass__ creates fragile inheritance chains; prefer __init_subclass__ for most use cases",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Custom metaclass without __init_subclass__ creates fragile inheritance chains; prefer __init_subclass__ for most use cases. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Custom metaclasses create inheritance complexity — subclassing two classes with different metaclasses fails with TypeError. Use __init_subclass__ (PEP 487): class Base: def __init_subclass__(cls, **kwargs): super().__init_subclass__(**kwargs). Covers 90% of metaclass use cases."
             ),
     },
     {
@@ -27078,7 +27078,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Relying on __del__ for resource cleanup is unreliable due to GC non-determinism; use context managers or weakref.finalize",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Relying on __del__ for resource cleanup is unreliable due to GC non-determinism; use context managers or weakref.finalize. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "__del__ runs at GC time which is nondeterministic — the object may be collected immediately or never. Use context managers: def __enter__(self)/def __exit__(self, ...) with 'with' statement. Or weakref.finalize(self, cleanup_function, args) which is more reliable than __del__."
             ),
     },
     {
@@ -27087,7 +27087,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Yielding an open resource from a generator risks leak if the generator is not fully consumed; use contextlib.contextmanager",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "def gen(): f = open(path); yield f.read() leaks the file if the generator is abandoned (not fully consumed). Use contextlib.contextmanager: @contextmanager def gen(): with open(path) as f: yield f.read(). The with-block ensures cleanup even if the generator is abandoned."
             ),
     },
     {
@@ -27096,7 +27096,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mutable global state shared across async tasks or threads causes race conditions; use contextvars or thread-local storage",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "Global mutable state (global_dict[key] = value) shared across async tasks creates race conditions — two tasks read-modify-write the same key simultaneously. Use contextvars.ContextVar for per-task state, or asyncio.Lock for shared mutable state."
             ),
     },
     {
@@ -27105,7 +27105,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Subclass missing __slots__ negates memory savings of parent __slots__; define __slots__ in all subclasses",
         "severity": Severity.INFO,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Parent defines __slots__ = ('x', 'y') but subclass omits __slots__ — the subclass gets a __dict__ anyway, negating memory savings. Add __slots__ = () to subclasses that add no new attributes, or list new attributes only: __slots__ = ('z',)."
             ),
     },
     {
@@ -27114,7 +27114,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Async function that never awaits is unnecessary overhead; remove async keyword or add proper await",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Async function that never awaits is unnecessary overhead; remove async keyword or add proper await. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "async def process(): return compute() — the async keyword adds coroutine overhead but no concurrency benefit. Remove async if there is no await inside. If the function will add awaits later, keep async but add # TODO: will await X."
             ),
     },
     {
@@ -27123,7 +27123,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating multiprocessing.Pool without close/terminate leaks child processes; use as context manager",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Resource leak — opened resources (files, connections, sockets) not closed on all code paths. Use context managers: with open(path) as f: (Python), try-with-resources (Java), defer conn.Close() (Go). For async: use async with and ensure cleanup in finally blocks. Resources must be closed even when exceptions occur."
+                "Creating multiprocessing.Pool without close/terminate leaks child processes. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27132,7 +27132,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Signal handlers can only run in the main thread; registering from async or worker threads raises RuntimeError",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "signal.signal(SIGTERM, handler) from a non-main thread raises ValueError. Register signals in the main thread only. In async code: loop.add_signal_handler(signal.SIGTERM, handler). In worker threads: use threading.Event for shutdown signaling instead of signals."
             ),
     },
     {
@@ -27141,7 +27141,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Increasing recursion limit beyond 10000 risks segfault from stack overflow; refactor to iterative approach",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "sys.setrecursionlimit(100000) risks C stack overflow — Python's stack frames consume ~1KB each, so 100K frames = ~100MB stack. Refactor to iterative: use an explicit stack (list) or collections.deque. For tree traversal: use itertools-based approaches."
             ),
     },
     {
@@ -27150,7 +27150,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Swallowing attribute errors in __getattr__ silently breaks hasattr checks and IDE introspection",
         "severity": Severity.WARN,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "def __getattr__(self, name): try: ... except AttributeError: pass — this makes hasattr() always return True and breaks IDE completion. Only catch specific attributes: if name in self._known_dynamic: return self._resolve(name). Raise AttributeError for unknown names."
             ),
     },
     {
@@ -27159,7 +27159,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fire-and-forget asyncio.create_task loses exceptions silently; store the task reference and handle results",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "task = asyncio.create_task(coro()) without storing the reference means exceptions are silently lost (logged as 'Task exception was never retrieved'). Store: tasks.add(task); task.add_done_callback(tasks.discard). Check task.exception() in the callback."
             ),
     },
     {
@@ -27168,7 +27168,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Manually constructing Future objects bypasses executor lifecycle management; use executor.submit instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Manually constructing Future objects bypasses executor lifecycle management. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27177,7 +27177,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "PEP 563 deferred annotations break isinstance checks on string-form type hints at runtime; use typing.get_type_hints",
         "severity": Severity.INFO,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "from __future__ import annotations makes all annotations strings. isinstance(x, MyType) still works but typing.get_type_hints(func) is needed to resolve string annotations at runtime. Pydantic v2 handles this; older frameworks may break. Test runtime type checking after enabling."
             ),
     },
     {
@@ -27186,7 +27186,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Built-in immutable types do not support weak references; weakref.ref will raise TypeError",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "weakref.ref(42) or weakref.ref('str') raises TypeError — int, str, tuple, and other immutables cannot be weak-referenced. Wrap in a class: class Box: __slots__ = ('value',); then weakref.ref(Box(42)). Or use a dict with explicit cleanup."
             ),
     },
     {
@@ -27195,7 +27195,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Forking a multithreaded or async process creates deadlock-prone children; use multiprocessing.spawn start method",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "os.fork() in a multithreaded process copies only the calling thread — all locks held by other threads remain locked forever in the child, causing deadlocks. Use multiprocessing with start_method='spawn': mp.set_start_method('spawn'). Spawn creates a fresh process."
             ),
     },
     {
@@ -27204,7 +27204,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Property performing network I/O violates caller expectations of fast attribute access; use an explicit method",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "@property that does HTTP calls or DB queries violates the expectation that attribute access is fast. Callers write 'user.profile' expecting nanoseconds, not seconds. Use an explicit method: user.fetch_profile() signals that I/O is involved."
             ),
     },
     {
@@ -27213,7 +27213,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "logging.basicConfig overwrites root logger config and silently drops structured handlers; configure handlers explicitly",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "logging.basicConfig overwrites root logger config and silently drops structured handlers. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27222,7 +27222,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unbounded itertools.count without termination condition creates infinite loop risk; use islice or takewhile",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Unbounded itertools.count without termination condition creates infinite loop risk; use islice or takewhile. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "for i in itertools.count(): ... creates an infinite loop that only stops via break. Use itertools.islice(count(), max_iterations) to enforce a hard limit. Or use range(max_value) if the upper bound is known. Unbounded loops are a production crash waiting to happen."
             ),
     },
     {
@@ -27231,7 +27231,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Mutable instance attribute initialized in __init__ may mask class-level shared mutable default; verify no class-level list exists",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Mutable instance attribute initialized in __init__ may mask class-level shared mutable default; verify no class-level list exists. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "class Foo: items = [] — all instances share the same list. def __init__(self): self.items = [] creates per-instance lists. Verify: if a class attribute is a list/dict/set, it MUST be reassigned in __init__ to avoid cross-instance contamination."
             ),
     },
     {
@@ -27240,7 +27240,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "asyncio.timeout(0) raises TimeoutError immediately without giving the coroutine a chance to run; use a positive value",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "async with asyncio.timeout(0) raises TimeoutError immediately before the coroutine executes any code. Use a small positive value: async with asyncio.timeout(0.001) for tight deadlines, or remove the timeout if you want immediate execution without deadline."
             ),
     },
     {
@@ -27249,7 +27249,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using asyncio.sleep(0) as explicit yield point is fragile; restructure for natural cooperative scheduling",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Using asyncio.sleep(0) as explicit yield point is fragile; restructure for natural cooperative scheduling. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "await asyncio.sleep(0) yields to the event loop, but relying on it for scheduling creates fragile timing dependencies. If you need to yield: restructure as explicit task coordination with asyncio.Event or asyncio.Queue. sleep(0) is acceptable only in rare busy-wait scenarios."
             ),
     },
     {
@@ -27258,7 +27258,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic import from user-controlled input enables arbitrary module loading; validate against an allowlist",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "importlib.import_module(user_input) loads arbitrary Python modules — an attacker imports os, subprocess, or any installed package. Validate against an allowlist: ALLOWED = {'json', 'csv', 'xml'}; if module_name not in ALLOWED: raise ValueError. Never import from user input."
             ),
     },
     {
@@ -27267,7 +27267,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "lru_cache on methods holds strong reference to self, preventing garbage collection; use weakref or per-instance cache",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: lru_cache on methods holds strong reference to self, preventing garbage collection; use weakref or per-instance cache. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "@lru_cache on instance methods holds a strong reference to self in the cache key, preventing garbage collection of the instance. Use: @functools.cached_property for simple cases, or implement a per-instance cache in __init__ with a WeakValueDictionary."
             ),
     },
     {
@@ -27276,7 +27276,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Object.assign from untrusted input enables prototype pollution; validate and sanitize input properties first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Object.assign from untrusted input enables prototype pollution. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27285,7 +27285,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic property assignment from user input enables prototype pollution via __proto__; use Map or validate keys",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "obj[userKey] = value where userKey = '__proto__' modifies the prototype chain for ALL objects. Use Map instead of plain objects for dynamic keys: const store = new Map(); store.set(userKey, value). Map keys don't affect prototypes."
             ),
     },
     {
@@ -27294,7 +27294,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Parsing untrusted JSON without schema validation can cause prototype pollution via __proto__ keys; use a schema validator",
         "severity": Severity.WARN,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Parsing untrusted JSON without schema validation can cause prototype pollution via __proto__ keys. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27303,7 +27303,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous crypto or file I/O in a loop blocks the event loop for all concurrent requests; use async variants",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "crypto.randomBytes(size) or fs.readFileSync() in a loop blocks the event loop — all concurrent requests wait. Use async variants: await crypto.randomBytes(size) with util.promisify, or fs.promises.readFile(). Or offload to a worker thread."
             ),
     },
     {
@@ -27312,7 +27312,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Allocating arrays with millions of elements blocks the event loop and risks heap exhaustion; use streams or chunked processing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "new Array(10_000_000) allocates ~80MB in one shot, potentially triggering OOM. Use streaming: for await (const chunk of stream) or process in batches: for (let i = 0; i < total; i += BATCH_SIZE). V8 has a ~1GB heap limit in default configuration."
             ),
     },
     {
@@ -27321,7 +27321,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WeakRef to an inline-created object is immediately eligible for GC; store a strong reference first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: WeakRef to an inline-created object is immediately eligible for GC; store a strong reference first. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "WeakRef to an inline-created object is immediately eligible for GC. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27330,7 +27330,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "FinalizationRegistry without unregister logic can cause callbacks on already-cleaned-up resources",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "FinalizationRegistry without unregister logic can cause callbacks on already-cleaned-up resources. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27339,7 +27339,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SharedArrayBuffer without Atomics operations causes data races between workers; use Atomics for synchronization",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Race condition — concurrent access to shared state without synchronization can cause data corruption, double-spending, or privilege escalation. Use: database transactions with appropriate isolation level (SERIALIZABLE for critical operations), optimistic locking (version column + compare-and-swap), or mutex/lock for in-memory state."
+                "SharedArrayBuffer without Atomics operations causes data races between workers. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27348,7 +27348,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Atomics.wait blocks the calling thread; never use on the main thread as it freezes the UI or event loop",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Atomics.wait blocks the calling thread. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27357,7 +27357,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Catching uncaughtException without exiting leaves process in undefined state; log and exit with process.exit(1)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Catching uncaughtException without exiting leaves process in undefined state. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27366,7 +27366,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Async callback in setInterval can stack overlapping executions if one takes longer than the interval; use recursive setTimeout",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Async callback in setInterval can stack overlapping executions if one takes longer than the interval. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27375,7 +27375,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Nested Promise constructors indicate a misunderstanding of promise chaining; flatten with async/await or .then chains",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Nested Promise constructors indicate a misunderstanding of promise chaining; flatten with async/await or .then chains. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Nested Promise constructors indicate a misunderstanding of promise chaining. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27384,7 +27384,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "eval with template literals or string interpolation enables code injection; use Function constructor or a parser",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: eval with template literals or string interpolation enables code injection; use Function constructor or a parser. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "eval(`calculate(${userInput})`) enables code injection. For math: use mathjs library (math.evaluate(expr, scope)). For templates: use template literals with validated variables only. eval is never safe with any user input."
             ),
     },
     {
@@ -27393,7 +27393,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic Function constructor from user input is equivalent to eval and enables code injection",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Dynamic Function constructor from user input is equivalent to eval and enables code injection. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27402,7 +27402,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Setting innerHTML with dynamic content enables XSS; use textContent or a sanitization library",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Direct HTML injection creates XSS. Use textContent instead of innerHTML for text. If HTML rendering is required: sanitize with DOMPurify.sanitize(userInput) before insertion. In React: avoid dangerouslySetInnerHTML entirely — use a markdown renderer like react-markdown which escapes by default."
+                "Setting innerHTML with dynamic content enables XSS. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27411,7 +27411,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Polluting global scope creates naming collisions and untraceable dependencies; use modules or closures",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Implicit globals (missing var/let/const) and window.x = y create naming collisions and untraceable dependencies across scripts. Use ES modules: export/import. In legacy code: use IIFE: (function() { var private = 1; })(); or 'use strict' which prevents implicit globals."
             ),
     },
     {
@@ -27420,7 +27420,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty .then() and .catch() silently swallow both results and errors; handle or propagate explicitly",
         "severity": Severity.WARN,
             "suggestion": (
-                "Swallowed exception hides bugs. At minimum: log the error with context. Pattern: except SpecificError as exc: logger.warning('operation_failed', error=str(exc)). If recovery is possible: implement it. If not: re-raise or convert to an appropriate error type."
+                "promise.then().catch() with empty handlers silently swallows the result and any error. Handle: promise.then(result => process(result)).catch(error => logger.error('Failed:', error)). If the promise is background work: add .catch(err => logger.error(err)) at minimum."
             ),
     },
     {
@@ -27429,7 +27429,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating revocable Proxy without storing or using the revoke function defeats its purpose; capture and call revoke",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Creating revocable Proxy without storing or using the revoke function defeats its purpose; capture and call revoke. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Creating revocable Proxy without storing or using the revoke function defeats its purpose. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27438,7 +27438,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "structuredClone throws on non-cloneable values like functions or DOM nodes; wrap in try/catch",
         "severity": Severity.WARN,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "structuredClone throws on non-cloneable values like functions or DOM nodes. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27448,7 +27448,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "severity": Severity.BLOCK,
         "file_types": [".ts", ".tsx", ".js", ".jsx"],
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Casting to 'any' (x as any, <any>x) disables TypeScript's type checker for that expression — bugs surface at runtime instead of compile time. Use 'unknown' for truly unknown types: (x as unknown as TargetType) forces you to add a type guard. Or use type narrowing with typeof/instanceof."
             ),
     },
     {
@@ -27457,7 +27457,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Index signature with any value type defeats TypeScript's type safety; use a specific type or unknown",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "[key: string]: any defeats TypeScript's type safety on every property access. Use a specific type: [key: string]: string | number, or use Record<string, SpecificType>. For truly dynamic objects: use Map<string, unknown> which requires explicit type checks on access."
             ),
     },
     {
@@ -27466,7 +27466,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Non-null assertion operator (!) masks potential null/undefined bugs; use optional chaining or explicit null checks",
         "severity": Severity.WARN,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "user!.name asserts user is non-null without checking — if user IS null, it crashes at runtime. Use optional chaining: user?.name (returns undefined if null) or explicit check: if (user) { user.name }. Non-null assertion should only be used when you provably know the value exists."
             ),
         "file_types": [".ts", ".tsx"],
     },
@@ -27476,7 +27476,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic require from user-controlled input enables arbitrary module loading; validate against an allowlist",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Dependency security issue. Pin versions in requirements.txt/package.json (no * or latest). Audit with: pip-audit (Python), npm audit (JS), govulncheck (Go). Enable Dependabot or Renovate for automated updates. Verify package names — typosquatting is common."
+                "require(userInput) loads arbitrary Node.js modules — an attacker sends 'child_process' to gain shell access. Validate: const ALLOWED = new Set(['json', 'csv']); if (!ALLOWED.has(input)) throw new Error('Invalid module'). Use a map of pre-imported modules instead."
             ),
     },
     {
@@ -27485,7 +27485,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Buffer.from without encoding defaults to UTF-8 which silently corrupts binary data; specify the encoding explicitly",
         "severity": Severity.WARN,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "Buffer.from without encoding defaults to UTF-8 which silently corrupts binary data. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27494,7 +27494,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Dynamic RegExp from user input enables ReDoS attacks; validate input length and complexity or use a static pattern",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Regex denial of service (ReDoS) — catastrophic backtracking on crafted input can freeze the process. Avoid nested quantifiers: (a+)+ or (a|a)*. Use atomic groups or possessive quantifiers. Set a timeout: re.search(pattern, input, timeout=1.0) in Python 3.12+. Test with: redos-detector or rxxr2."
+                "Dynamic RegExp from user input enables ReDoS attacks. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27503,7 +27503,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Modifying Array prototype affects all arrays globally and breaks third-party code; use utility functions or subclassing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Type safety violation. Avoid type coercion (== in JS, implicit casts), use strict comparison (=== in JS, isinstance() in Python). Add type annotations and validate at boundaries with Pydantic (Python), Zod (TypeScript), or similar validation libraries."
+                "Modifying Array prototype affects all arrays globally and breaks third-party code. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27512,7 +27512,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "postMessage with wildcard origin exposes data to any window; specify the exact target origin",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: postMessage with wildcard origin exposes data to any window; specify the exact target origin. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "postMessage with wildcard origin exposes data to any window. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27521,7 +27521,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating Web Worker from user-controlled input enables arbitrary code execution in worker context",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Creating Web Worker from user-controlled input enables arbitrary code execution in worker context. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27530,7 +27530,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Query inside a loop creates N+1 query problem; use a single bulk query with IN clause or eager loading",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "Query inside a loop executes N+1 queries — 1 to fetch parents, N to fetch children. Use bulk fetch: SELECT * FROM children WHERE parent_id IN (ids). In ORMs: use eager loading (include/prefetch_related/preload). N+1 is the #1 cause of slow API endpoints."
             ),
     },
     {
@@ -27539,7 +27539,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database query inside forEach creates N+1 problem; use bulk fetch or include/eager loading",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "users.forEach(async user => { const posts = await db.find({userId: user.id}) }) runs N queries. Use: const posts = await db.find({userId: {$in: userIds}}). Group by userId in application code. ORMs call this 'eager loading': User.findAll({ include: Post })."
             ),
     },
     {
@@ -27548,7 +27548,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database query inside a Go loop creates N+1 problem; use a single query with IN clause",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "String concatenation in SQL queries allows injection. An input of ' OR 1=1-- returns all rows. Use parameter binding: db.execute('SELECT * FROM t WHERE col = ?', [value]). Never build SQL with + or string joining. ORMs have safe query builders — use them."
+                "for _, user := range users { posts, _ := db.Query('SELECT * FROM posts WHERE user_id = ?', user.ID) } runs N queries. Use: db.Query('SELECT * FROM posts WHERE user_id IN (?)', userIDs). Or use sqlx.In() for dynamic IN clause expansion."
             ),
     },
     {
@@ -27557,7 +27557,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SELECT * without WHERE or LIMIT fetches entire table into memory; specify columns and add filtering",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "SELECT * FROM large_table loads every row and column into application memory. Add WHERE clause to filter rows, specify only needed columns (SELECT id, name FROM ...), and add LIMIT for pagination. For counting: use SELECT COUNT(*) instead of fetching all rows."
             ),
     },
     {
@@ -27566,7 +27566,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Table created without any index or primary key; define at least a primary key for query performance",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Tables without indexes force full table scans on every query. Create at minimum: a PRIMARY KEY (auto-generated ID or natural key), and indexes on columns used in WHERE, JOIN, and ORDER BY clauses. Use EXPLAIN ANALYZE to verify index usage."
             ),
     },
     {
@@ -27575,7 +27575,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Connection pool size over 500 exhausts database server connections; use smaller pools with proper queuing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Connection pool size over 500 exhausts database server connections; use smaller pools with proper queuing. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Connection pool of 500+ exhausts database max_connections (PostgreSQL default: 100). Use pool_size = 5-20 per application instance. For high concurrency: use PgBouncer or ProxySQL as connection multiplexer. Formula: pool_size = ((2 * CPU cores) + disk_spindles)."
             ),
     },
     {
@@ -27584,7 +27584,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database connection without connection pooling creates a new connection per request; configure pool_size and max_overflow",
         "severity": Severity.WARN,
             "suggestion": (
-                "Buffer overflow risk — writing beyond allocated bounds enables code execution. Use bounds-checked functions: strncpy instead of strcpy, snprintf instead of sprintf. In modern languages: use slices with length checks, avoid unsafe pointer arithmetic. Enable compiler protections: -fstack-protector-strong, ASLR, and DEP."
+                "Creating a new database connection per request takes 20-50ms (TCP + TLS + auth). Use connection pooling: SQLAlchemy pool_size=5, max_overflow=10. For Django: CONN_MAX_AGE=600. For Node: pg pool max:20. Connections are reused across requests."
             ),
     },
     {
@@ -27593,7 +27593,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "READ UNCOMMITTED allows dirty reads of uncommitted data; use READ COMMITTED or higher for data integrity",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: READ UNCOMMITTED allows dirty reads of uncommitted data; use READ COMMITTED or higher for data integrity. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "READ UNCOMMITTED sees data from uncommitted transactions — a rollback leaves your query with phantom data that never existed. Use READ COMMITTED (PostgreSQL default) or REPEATABLE READ. READ UNCOMMITTED is only acceptable for approximate analytics queries."
             ),
     },
     {
@@ -27602,7 +27602,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Exclusive table lock blocks all concurrent access; use row-level locking or advisory locks instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "LOCK TABLE t IN EXCLUSIVE MODE blocks ALL concurrent reads and writes. Use SELECT ... FOR UPDATE to lock specific rows. For advisory locks: pg_advisory_lock(key) which doesn't block reads. Table-level locks should be a last resort for schema changes only."
             ),
     },
     {
@@ -27611,7 +27611,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Autocommit mode makes each statement its own transaction; multi-step operations lose atomicity guarantees",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Autocommit makes each statement its own transaction — a multi-step operation (debit + credit) has no atomicity. Wrap: BEGIN; UPDATE accounts SET balance = balance - 100 WHERE id = 1; UPDATE accounts SET balance = balance + 100 WHERE id = 2; COMMIT;. Use ORM transaction blocks."
             ),
     },
     {
@@ -27620,7 +27620,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Raw SQL query with string interpolation enables SQL injection; use parameterized queries",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Template literal interpolation in SQL passes user input directly into the query string. Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). For Knex: .whereRaw('col = ?', [value]). For Sequelize: use model methods or Sequelize.literal() with validated input, never template strings."
+                "Raw SQL with f-string/format/% interpolation injects user input as SQL code. Use parameterized queries: cursor.execute('SELECT * FROM t WHERE id = %s', (user_id,)). The placeholder syntax varies by driver (%s, ?, $1) but the principle is universal."
             ),
     },
     {
@@ -27629,7 +27629,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "SQL execute with string formatting enables injection; use parameterized queries with placeholders",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "execute('... %s' % val) or execute(f'... {val}') uses Python string formatting BEFORE the database sees the query. Use execute('... WHERE id = %s', (val,)) — the tuple is the second argument, making %s a DB-API parameter placeholder, not Python formatting."
             ),
     },
     {
@@ -27638,7 +27638,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Lazy loading triggers individual queries on attribute access causing N+1; use eager loading for known access patterns",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "ORM lazy loading (lazy='select', FetchType.LAZY) fires a query for EACH related object on first access: accessing user.posts for 100 users = 101 queries. Switch to eager: SQLAlchemy joinedload(User.posts), Django prefetch_related('posts'), Hibernate @Fetch(FetchMode.JOIN)."
             ),
     },
     {
@@ -27647,7 +27647,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Leading wildcard in LIKE query prevents index usage and causes full table scan; use full-text search index",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "LIKE '%search%' with leading wildcard cannot use a B-tree index — the database scans every row. Use full-text search: PostgreSQL tsvector/tsquery, MySQL FULLTEXT index, or Elasticsearch. For prefix search: LIKE 'search%' CAN use an index."
             ),
     },
     {
@@ -27656,7 +27656,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DELETE without WHERE clause removes all rows from the table; add a WHERE clause or use TRUNCATE intentionally",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: DELETE without WHERE clause removes all rows from the table; add a WHERE clause or use TRUNCATE intentionally. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "DELETE FROM table without WHERE removes ALL rows — there is no undo outside a transaction. Always add WHERE: DELETE FROM orders WHERE status = 'cancelled' AND created_at < '2024-01-01'. Use TRUNCATE TABLE for intentional full deletion (faster, auto-commits)."
             ),
     },
     {
@@ -27665,7 +27665,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "UPDATE without WHERE clause modifies all rows in the table; add a WHERE clause to target specific rows",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: UPDATE without WHERE clause modifies all rows in the table; add a WHERE clause to target specific rows. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "UPDATE table SET status = 'inactive' without WHERE modifies EVERY row. Always add WHERE: UPDATE users SET status = 'inactive' WHERE last_login < '2023-01-01'. Run SELECT with the same WHERE first to verify affected rows before UPDATE."
             ),
     },
     {
@@ -27674,7 +27674,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "DROP TABLE without IF EXISTS fails if table does not exist; use IF EXISTS for idempotent migrations",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: DROP TABLE without IF EXISTS fails if table does not exist; use IF EXISTS for idempotent migrations. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "DROP TABLE t fails with 'table does not exist' error if already dropped. Use: DROP TABLE IF EXISTS t; for idempotent migrations. In migration systems: check table existence before drop, or use the framework's migration state tracking."
             ),
     },
     {
@@ -27683,7 +27683,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Adding NOT NULL column without DEFAULT fails on existing rows; provide a DEFAULT value or make nullable first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Adding NOT NULL column without DEFAULT fails on existing rows; provide a DEFAULT value or make nullable first. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "ALTER TABLE t ADD COLUMN c NOT NULL fails on tables with existing rows (no value for existing rows). Two-step: ADD COLUMN c DEFAULT 'value' (backfills existing rows), then optionally ALTER COLUMN c DROP DEFAULT. Or: add as nullable, backfill, then set NOT NULL."
             ),
     },
     {
@@ -27692,7 +27692,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Database cursor opened without context manager or explicit close leaks connections; use with statement",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "cursor = conn.cursor(); cursor.execute(...) without cursor.close() leaks the cursor. Use: with conn.cursor() as cur: cur.execute(...). The context manager calls close() on exit. In psycopg2: with conn: with conn.cursor() as cur: handles both connection and cursor."
             ),
     },
     {
@@ -27701,7 +27701,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Long-running transaction over 20+ statements holds locks excessively; split into smaller transactions",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Transactions holding locks for 20+ statements prevent concurrent access and can cause deadlocks. Split into smaller transactions: process in batches of 100-1000 rows per transaction. Use SELECT ... FOR UPDATE SKIP LOCKED for concurrent batch processing."
             ),
     },
     {
@@ -27710,7 +27710,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "ORDER BY RANDOM performs full table scan and sort; use alternative random selection strategies for large tables",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "ORDER BY RANDOM() scans the entire table, generates a random value per row, then sorts — O(n log n). Alternatives: SELECT * FROM t TABLESAMPLE BERNOULLI(1) (PostgreSQL), or: SELECT * FROM t WHERE id >= (random() * max_id) LIMIT 1 for approximately uniform random."
             ),
     },
     {
@@ -27719,7 +27719,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Large OFFSET values cause database to scan and discard rows; use cursor-based pagination (keyset pagination) instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "OFFSET 100000 makes the database scan 100,000 rows before returning results. Use keyset pagination: WHERE id > last_seen_id ORDER BY id LIMIT 20. This uses the index directly regardless of page depth. Store the last ID in the client or a cursor token."
             ),
     },
     {
@@ -27728,7 +27728,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "VARCHAR(MAX) prevents inline storage and index creation; use a reasonable max length based on domain constraints",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: VARCHAR(MAX) prevents inline storage and index creation; use a reasonable max length based on domain constraints. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "VARCHAR(MAX)/TEXT prevents inline storage (row is stored with a pointer to overflow pages) and cannot be indexed. Use VARCHAR(255) for names, VARCHAR(2048) for URLs, TEXT only for unbounded content. Add a CHECK constraint for maximum length validation."
             ),
     },
     {
@@ -27737,7 +27737,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Floating-point type for monetary values causes rounding errors; use DECIMAL/NUMERIC with explicit precision",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "FLOAT/DOUBLE stores 0.1 as 0.10000000000000001 — a $19.99 charge becomes $19.990000000000002. Use DECIMAL(19,4) for financial data: exact decimal arithmetic, no floating-point surprises. In Python: use decimal.Decimal, not float."
             ),
     },
     {
@@ -27746,7 +27746,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Multiple ORM save calls without transaction wrapper lose atomicity; wrap in a transaction block",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Multiple user.save() calls without a transaction wrapper: if the second save fails, the first is already committed — data is inconsistent. Wrap: with db.session.begin(): user.save(); order.save(). Both succeed or both roll back."
             ),
     },
     {
@@ -27755,7 +27755,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "COUNT(*) without WHERE on large tables is slow; use approximate counts or cached counters",
         "severity": Severity.INFO,
             "suggestion": (
-                "Performance issue. Measure before optimizing — use profiling tools to identify the actual bottleneck. Common fixes: add database indexes for slow queries, batch N+1 queries with eager loading, use connection pooling, and cache expensive computations with appropriate TTL."
+                "COUNT(*) on a large table (millions of rows) takes seconds because it scans every row. Use approximate counts: PostgreSQL: SELECT reltuples FROM pg_class WHERE relname = 'table'. Or maintain a cached counter that's updated on insert/delete."
             ),
     },
     {
@@ -27764,7 +27764,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Granting ALL PRIVILEGES on all databases violates least privilege; grant specific permissions on specific databases",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Granting ALL PRIVILEGES on all databases violates least privilege. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27773,7 +27773,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Zero or no connection timeout causes indefinite hangs when database is unreachable; set a reasonable timeout",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "connect_timeout=0 or no timeout means the application hangs indefinitely if the database is unreachable. Set: connect_timeout=5 (seconds) in connection string. Add: statement_timeout=30000 (ms) in PostgreSQL to kill long queries. Both are essential for resilience."
             ),
     },
     {
@@ -27782,7 +27782,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Massive single INSERT statement can exceed max packet size and lock the table; use batch inserts with COPY or bulk API",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "INSERT INTO t VALUES (1,'a'), (2,'b'), ... (1000000,'z') can exceed max_allowed_packet and lock the table for the entire duration. Use COPY (PostgreSQL) or LOAD DATA INFILE (MySQL) for bulk loads. Or batch: INSERT 1000 rows per statement in a transaction."
             ),
     },
     {
@@ -27791,7 +27791,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Multiple non-unique indexes on the same collection inflate storage and slow writes; consolidate compound indexes",
         "severity": Severity.INFO,
             "suggestion": (
-                "Performance issue. Measure before optimizing — use profiling tools to identify the actual bottleneck. Common fixes: add database indexes for slow queries, batch N+1 queries with eager loading, use connection pooling, and cache expensive computations with appropriate TTL."
+                "Multiple separate indexes on (a), (b), (c) when queries use WHERE a=1 AND b=2 — the database can only use ONE index per scan. Create a compound index: CREATE INDEX idx ON t(a, b, c). Order columns by selectivity (most selective first). Drop redundant single-column indexes."
             ),
     },
     {
@@ -27800,7 +27800,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging sensitive data (passwords, SSN) violates privacy regulations and creates breach risk; redact PII before logging",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Credentials in log output are stored in log files, shipped to log aggregators, and visible to anyone with log access. Redact before logging: re.sub(r'://[^@]+@', '://***@', url). For structured logging: never include fields named password, secret, token, or api_key. Use a logging filter that strips sensitive field names automatically."
+                "Logging sensitive data (passwords, SSN) violates privacy regulations and creates breach risk. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27809,7 +27809,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging PII (email, phone, address) may violate GDPR/CCPA; hash or mask PII in log output",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Logging PII (email, phone, address) may violate GDPR/CCPA. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27818,7 +27818,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging entire request body may contain PII or sensitive data; log only specific safe fields",
         "severity": Severity.WARN,
             "suggestion": (
-                "Sensitive data in logs (passwords, tokens, PII) violates privacy regulations and enables credential theft via log access. Use structured logging with a sensitive-field filter. Redact: logger.info('auth', user=user_id, password='[REDACTED]'). Never log request bodies that may contain credentials."
+                "Logging entire request body may contain PII or sensitive data. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27827,7 +27827,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging raw user input enables log injection via newline characters; sanitize input or use structured logging",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Logging raw user input enables log injection via newline characters. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27836,7 +27836,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using console.log for errors loses severity metadata; use console.error or a structured logging library",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Using console.log for errors loses severity metadata. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27845,7 +27845,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Log statement without correlation ID makes distributed tracing impossible; include request_id or trace_id",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Log statement without correlation ID makes distributed tracing impossible. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27854,7 +27854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Debug logging inside a loop generates excessive log volume and I/O overhead; log summary outside the loop",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Debug logging inside a loop generates excessive log volume and I/O overhead. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27863,7 +27863,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "High-cardinality metric labels (user_id, email, URL) cause metric storage explosion; use bounded label values",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: High-cardinality metric labels (user_id, email, URL) cause metric storage explosion; use bounded label values. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "High-cardinality metric labels (user_id, email, URL) cause metric storage explosion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27872,7 +27872,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using request-specific values as metric labels creates unbounded cardinality; aggregate to fixed categories",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Using request-specific values as metric labels creates unbounded cardinality; aggregate to fixed categories. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Using request-specific values as metric labels creates unbounded cardinality. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27881,7 +27881,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Debug/trace log level in production generates excessive I/O and may expose sensitive data; use INFO or higher",
         "severity": Severity.WARN,
             "suggestion": (
-                "Sensitive data in logs (passwords, tokens, PII) violates privacy regulations and enables credential theft via log access. Use structured logging with a sensitive-field filter. Redact: logger.info('auth', user=user_id, password='[REDACTED]'). Never log request bodies that may contain credentials."
+                "Debug/trace log level in production generates excessive I/O and may expose sensitive data. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27890,7 +27890,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging and re-raising the same exception creates duplicate log entries up the call stack; log at the handler or re-raise, not both",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Logging and re-raising the same exception creates duplicate log entries up the call stack. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27899,7 +27899,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging only error message or stack separately loses structured context; log the full error object with structured fields",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Logging only error message or stack separately loses structured context. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27908,7 +27908,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sending to error tracker and logging the same error creates duplicate noise; use one or the other with proper integration",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Sending to error tracker and logging the same error creates duplicate noise. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27917,7 +27917,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Entry/exit log messages without timing data are noise; use structured spans or middleware-level timing instead",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Entry/exit log messages without timing data are noise. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27926,7 +27926,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Creating tracing spans without attributes or events provides no diagnostic value; add relevant attributes",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Creating tracing spans without attributes or events provides no diagnostic value; add relevant attributes. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Creating tracing spans without attributes or events provides no diagnostic value. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27935,7 +27935,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Metrics without description or unit make dashboards uninterpretable; always specify unit and description",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Metrics without description or unit make dashboards uninterpretable. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27944,7 +27944,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Periodic logging from timers creates noise and can mask timer leak; use metrics counters for recurring measurements",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Periodic logging from timers creates noise and can mask timer leak. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27953,7 +27953,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Swallowing errors with console.log in catch loses error context; use proper error handler or structured logging",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Swallowing errors with console.log in catch loses error context. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27962,7 +27962,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "String formatting in log calls evaluates even when log level is disabled; use lazy formatting with log parameters",
         "severity": Severity.INFO,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "String formatting in log calls evaluates even when log level is disabled. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27971,7 +27971,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging every health check response floods logs at high frequency; log only failures or use a separate transport",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Logging every health check response floods logs at high frequency. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27980,7 +27980,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "100% trace sampling rate in production generates massive data volume and cost; use adaptive or probabilistic sampling",
         "severity": Severity.WARN,
             "suggestion": (
-                "Debug logging in production exposes internal state, file paths, and potentially sensitive data. Use environment-based log levels: structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)). Remove console.log/print statements before merge. Use a linter rule to catch them."
+                "100% trace sampling rate in production generates massive data volume and cost. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27989,7 +27989,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Literal newline sequences in log output enable log injection and forgery; sanitize or use structured logging format",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "Literal newline sequences in log output enable log injection and forgery. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -27998,7 +27998,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "File logging without rotation fills disk space; configure RotatingFileHandler with maxBytes and backupCount",
         "severity": Severity.WARN,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "File logging without rotation fills disk space. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28007,7 +28007,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Pretty-printed JSON logs waste bandwidth and break log parsers; use compact JSON (no indentation) in production",
         "severity": Severity.INFO,
             "suggestion": (
-                "Debug logging in production exposes internal state, file paths, and potentially sensitive data. Use environment-based log levels: structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)). Remove console.log/print statements before merge. Use a linter rule to catch them."
+                "Pretty-printed JSON logs waste bandwidth and break log parsers. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28016,7 +28016,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Re-registering Prometheus metrics with the same name causes CollectorRegistry errors; define metrics at module level",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "Re-registering Prometheus metrics with the same name causes CollectorRegistry errors. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28025,7 +28025,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Alerting on single-point thresholds causes flapping; use averaging windows or burn rate alerts instead",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Alerting on single-point thresholds causes flapping; use averaging windows or burn rate alerts instead. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Alerting on single-point thresholds causes flapping. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28034,7 +28034,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Setting high log level on root logger suppresses library warnings; configure per-logger levels instead",
         "severity": Severity.INFO,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Setting high log level on root logger suppresses library warnings. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28043,7 +28043,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Logging entire response objects can expose headers, cookies, and auth tokens; log specific safe fields only",
         "severity": Severity.WARN,
             "suggestion": (
-                "Credentials in log output are stored in log files, shipped to log aggregators, and visible to anyone with log access. Redact before logging: re.sub(r'://[^@]+@', '://***@', url). For structured logging: never include fields named password, secret, token, or api_key. Use a logging filter that strips sensitive field names automatically."
+                "Logging entire response objects can expose headers, cookies, and auth tokens. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28052,7 +28052,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty catch block silently swallows errors making debugging impossible; log the error or rethrow",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Empty catch block silently swallows errors making debugging impossible. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28061,7 +28061,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Bare except-pass silently swallows all exceptions including KeyboardInterrupt; handle or log specific exceptions",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Bare except-pass silently swallows all exceptions including KeyboardInterrupt. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28070,7 +28070,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Retry count above 4 without backoff creates retry storms that amplify outages; use exponential backoff with jitter",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Retry count above 4 without backoff creates retry storms that amplify outages. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28079,7 +28079,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Fixed short retry delay amplifies thundering herd during outages; implement exponential backoff with jitter",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Error handling issue. Catch specific exceptions, log with context (operation, input, error), and either recover or propagate. Never return None/null to signal errors — use exceptions or Result types. Ensure error messages don't leak internal details to end users."
+                "Fixed short retry delay amplifies thundering herd during outages. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28088,7 +28088,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "HTTP call to external service without timeout or circuit breaker risks cascading failure; add timeout and circuit breaker",
         "severity": Severity.INFO,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "HTTP call to external service without timeout or circuit breaker risks cascading failure. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
         "file_types": [".py", ".js", ".ts", ".go", ".java", ".rb"],
     },
@@ -28098,7 +28098,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "gRPC call without deadline propagation causes unbounded resource consumption on server failures",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "gRPC call without deadline propagation causes unbounded resource consumption on server failures. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28107,7 +28107,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Incomplete saga compensation logic leaves distributed state inconsistent on partial failure; implement all compensating actions",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Excessive or insecure logging practice detected. Use structured logging with appropriate levels: ERROR for failures, WARNING for recoverable issues, INFO for business events, DEBUG for development only. Never log: passwords, tokens, credit cards, or full request/response bodies."
+                "Incomplete saga compensation logic leaves distributed state inconsistent on partial failure. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28116,7 +28116,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Message publish without dead letter queue configuration loses messages on processing failure; configure DLQ",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security-sensitive configuration must not be hardcoded. Use environment variables for secrets, configuration files for non-sensitive settings, and a secrets manager for production. Validate all configuration at startup — fail fast with a clear error, not silently at runtime."
+                "Message publish without dead letter queue configuration loses messages on processing failure. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28125,7 +28125,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Auto-acknowledge before processing completes loses messages on crash; use manual acknowledgment after processing",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Auto-acknowledge before processing completes loses messages on crash; use manual acknowledgment after processing. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Auto-acknowledge before processing completes loses messages on crash. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28134,7 +28134,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded localhost service URL fails in containerized and multi-host deployments; use service discovery or config",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Hardcoded localhost service URL fails in containerized and multi-host deployments. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28143,7 +28143,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Blindly trusting X-Forwarded-For header enables IP spoofing; validate against known proxy IPs",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Blindly trusting X-Forwarded-For header enables IP spoofing. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28152,7 +28152,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling idempotency on mutation endpoints causes duplicate processing on retries; implement idempotency keys",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Disabling idempotency on mutation endpoints causes duplicate processing on retries; implement idempotency keys. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Disabling idempotency on mutation endpoints causes duplicate processing on retries. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28161,7 +28161,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Missing or excessive concurrency limit allows single downstream to exhaust all threads; configure bulkhead pattern",
         "severity": Severity.WARN,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Missing or excessive concurrency limit allows single downstream to exhaust all threads. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28170,7 +28170,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabled DNS caching causes DNS lookup on every request adding latency and DNS server load; enable reasonable TTL",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Disabled DNS caching causes DNS lookup on every request adding latency and DNS server load; enable reasonable TTL. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Disabled DNS caching causes DNS lookup on every request adding latency and DNS server load. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28179,7 +28179,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Using 'latest' API version in service calls breaks when provider updates; pin to a specific version",
         "severity": Severity.WARN,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "Using 'latest' API version in service calls breaks when provider updates. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28188,7 +28188,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Distributed lock without TTL causes permanent deadlock if holder crashes; always set expiration",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Distributed lock without TTL causes permanent deadlock if holder crashes. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28197,7 +28197,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Missing or extremely high rate limit exposes service to abuse and resource exhaustion; set reasonable limits",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Missing or extremely high rate limit exposes service to abuse and resource exhaustion; set reasonable limits. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Missing or extremely high rate limit exposes service to abuse and resource exhaustion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28206,7 +28206,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Health probe that always returns OK defeats its purpose; check actual dependencies (DB, cache, downstream)",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Health probe that always returns OK defeats its purpose; check actual dependencies (DB, cache, downstream). Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Health probe that always returns OK defeats its purpose. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28215,7 +28215,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Immediate exit on shutdown signal drops in-flight requests; drain connections and finish processing first",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Immediate exit on shutdown signal drops in-flight requests; drain connections and finish processing first. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Immediate exit on shutdown signal drops in-flight requests. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28224,7 +28224,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling mTLS in service mesh allows unencrypted traffic between services; enforce STRICT mode",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Disabling mTLS in service mesh allows unencrypted traffic between services. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28233,7 +28233,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Publishing messages without correlation ID breaks distributed tracing; include correlation ID in message headers",
         "severity": Severity.INFO,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Publishing messages without correlation ID breaks distributed tracing. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28242,7 +28242,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cache entry without TTL grows unboundedly and causes memory exhaustion; always set expiration",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Cache entry without TTL grows unboundedly and causes memory exhaustion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28251,7 +28251,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Synchronous blocking call inside async handler blocks the event loop for all concurrent requests",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Concurrency issue — unsynchronized access to shared mutable state. For databases: use transactions. For in-memory: use threading.Lock() (Python), sync.Mutex (Go), or synchronized/ReentrantLock (Java). For distributed systems: use Redis SETNX or database advisory locks for distributed locking."
+                "Synchronous blocking call inside async handler blocks the event loop for all concurrent requests. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28260,7 +28260,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unbounded fanout without throttling creates message storms during high load; implement backpressure",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Unbounded fanout without throttling creates message storms during high load. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28269,7 +28269,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded service URL prevents environment-specific configuration; use environment variables or config service",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Hardcoded service URL prevents environment-specific configuration. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28278,7 +28278,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Two-phase commit across services creates tight coupling and availability issues; use saga pattern with compensating actions",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Two-phase commit across services creates tight coupling and availability issues; use saga pattern with compensating actions. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Two-phase commit across services creates tight coupling and availability issues. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28287,7 +28287,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Shared database between microservices creates tight coupling; each service should own its data store",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Shared database between microservices creates tight coupling; each service should own its data store. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Shared database between microservices creates tight coupling. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28296,7 +28296,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabling JWT verification in service-to-service communication allows unauthorized access; always verify tokens",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Disabling JWT verification in service-to-service communication allows unauthorized access. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28305,7 +28305,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Round-robin load balancing ignores server health and capacity; use least-connections or weighted algorithms with health checks",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: Round-robin load balancing ignores server health and capacity; use least-connections or weighted algorithms with health checks. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Round-robin load balancing ignores server health and capacity. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28314,7 +28314,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty security array in OpenAPI spec means the endpoint has no authentication; add appropriate security scheme",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Empty security array in OpenAPI spec means the endpoint has no authentication. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28323,7 +28323,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty ingress/egress rules in NetworkPolicy allow all traffic; define explicit allow rules",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Empty ingress/egress rules in NetworkPolicy allow all traffic; define explicit allow rules. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Empty ingress/egress rules in NetworkPolicy allow all traffic. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28332,7 +28332,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sidecar proxy without resource limits can consume unbounded CPU/memory and starve the application container",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Sidecar proxy without resource limits can consume unbounded CPU/memory and starve the application container. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28341,7 +28341,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Hardcoded secret in CI/CD configuration; use secret management (GitHub Secrets, Vault) with variable references",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Hardcoded secret in CI/CD configuration. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28350,7 +28350,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unpinned GitHub Action uses mutable tag vulnerable to supply chain attacks; pin to a full SHA hash",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Unpinned GitHub Action uses mutable tag vulnerable to supply chain attacks. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28359,7 +28359,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Self-hosted runners on public repos enable arbitrary code execution by forked PRs; use environment protection rules",
         "severity": Severity.WARN,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Self-hosted runners on public repos enable arbitrary code execution by forked PRs. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28368,7 +28368,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Checking out PR head in pull_request_target runs untrusted code with write permissions; use pull_request event instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Checking out PR head in pull_request_target runs untrusted code with write permissions. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28377,7 +28377,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Interpolating user-controlled event data in workflow enables command injection; use environment variable intermediary",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Interpolating user-controlled event data in workflow enables command injection. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28386,7 +28386,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Excessive workflow permissions violate least privilege; request only the minimum permissions needed",
         "severity": Severity.WARN,
             "suggestion": (
-                "Follow the principle of least privilege: grant only the minimum permissions required for the operation. Validate authorization on every request, not just authentication. Use role-based access control (RBAC) with specific permissions per role."
+                "Excessive workflow permissions violate least privilege. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28395,7 +28395,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Uploading entire workspace or root as artifact may include secrets and build cache; specify explicit paths",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "File upload without validation allows arbitrary file types and path manipulation. Validate: file extension against an allowlist, MIME type (check magic bytes, not just header), file size limit. Store with generated filenames (uuid4), never user-provided names. Serve uploaded files from a separate domain/CDN to prevent XSS."
+                "Uploading entire workspace or root as artifact may include secrets and build cache. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28404,7 +28404,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Executing content from downloaded artifacts without verification enables artifact poisoning; hash-verify first",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Executing content from downloaded artifacts without verification enables artifact poisoning. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28413,7 +28413,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Package publish with inline token exposes credentials in CI logs; use masked secret variable",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Credentials in log output are stored in log files, shipped to log aggregators, and visible to anyone with log access. Redact before logging: re.sub(r'://[^@]+@', '://***@', url). For structured logging: never include fields named password, secret, token, or api_key. Use a logging filter that strips sensitive field names automatically."
+                "Package publish with inline token exposes credentials in CI logs. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28422,7 +28422,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Passing secrets as Docker build-arg embeds them in image layers; use BuildKit --secret mount instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Passing secrets as Docker build-arg embeds them in image layers. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28431,7 +28431,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Piping downloaded scripts to shell executes unverified code; download, verify checksum, then execute",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Piping downloaded scripts to shell executes unverified code. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28440,7 +28440,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Docker image without SHA256 digest is mutable and vulnerable to tag poisoning; pin with @sha256 digest",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Docker image without SHA256 digest is mutable and vulnerable to tag poisoning. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28449,7 +28449,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "COPY/ADD without --chown runs files as root by default; specify --chown for non-root ownership",
         "severity": Severity.INFO,
             "suggestion": (
-                "Security or quality issue: COPY/ADD without --chown runs files as root by default; specify --chown for non-root ownership. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "COPY/ADD without --chown runs files as root by default. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28458,7 +28458,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Container running as root enables privilege escalation if compromised; use a non-root USER",
         "severity": Severity.WARN,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Container running as root enables privilege escalation if compromised. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28467,7 +28467,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Exposing GITHUB_TOKEN to all steps enables token extraction; limit token scope to specific steps",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Exposing GITHUB_TOKEN to all steps enables token extraction. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28476,7 +28476,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Deploying on always() condition deploys even on failed tests; use success() as condition for deployment steps",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Testing quality issue. Tests should: assert specific behavior (not just 'no exception'), use realistic data, mock external dependencies (not internal logic), and cover both happy path and error cases. Each test should verify one behavior."
+                "Deploying on always() condition deploys even on failed tests. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28485,7 +28485,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cache key without hashFiles allows stale cache poisoning; include hashFiles of lockfile in cache key",
         "severity": Severity.WARN,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "Cache key without hashFiles allows stale cache poisoning. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28494,7 +28494,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Cron schedule running every minute wastes runner resources and may hit rate limits; use appropriate interval",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Cron schedule running every minute wastes runner resources and may hit rate limits; use appropriate interval. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Cron schedule running every minute wastes runner resources and may hit rate limits. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28503,7 +28503,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Auto-approve on terraform apply/destroy skips plan review; require manual approval in production pipelines",
         "severity": Severity.WARN,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Auto-approve on terraform apply/destroy skips plan review. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28512,7 +28512,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unencrypted Terraform state may contain secrets; enable encryption at rest for state backend",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Unencrypted Terraform state may contain secrets. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28521,7 +28521,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "AWS credentials hardcoded in CI config; use IAM roles, OIDC federation, or secret manager",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "AWS credentials hardcoded in CI config. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28530,7 +28530,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Privileged container has full host access; remove privileged mode and use specific capabilities instead",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Privileged container has full host access. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28539,7 +28539,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Allowing privilege escalation in container enables root access from non-root; set allowPrivilegeEscalation: false",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "Allowing privilege escalation in container enables root access from non-root. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28548,7 +28548,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "hostNetwork shares the host network namespace; pods can sniff all host traffic and bind to privileged ports",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "hostNetwork shares the host network namespace. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28557,7 +28557,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "hostPID/hostIPC shares host process or IPC namespace; container can inspect or signal host processes",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Container security issue. Follow: run as non-root user, drop all capabilities and add only needed ones, use read-only root filesystem, pin image versions (never :latest), set resource limits, and scan images for vulnerabilities with Trivy or Grype before deployment."
+                "hostPID/hostIPC shares host process or IPC namespace. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28566,7 +28566,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebSocket connection without authentication handshake allows unauthorized access; verify auth in upgrade request",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "WebSocket connection without authentication handshake allows unauthorized access. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28575,7 +28575,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Parsing WebSocket message without validation or error handling crashes on malformed input; validate message schema",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "SQL injection risk. User input in query strings is interpreted as SQL code. Use parameterized queries with your driver's placeholder syntax: %s (Python), ? (JS/Go), $1 (PostgreSQL). The fix is always the same: separate data from code by using bound parameters."
+                "Parsing WebSocket message without validation or error handling crashes on malformed input. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28584,7 +28584,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "No WebSocket message size limit allows memory exhaustion via large messages; set a reasonable maximum (e.g., 1MB)",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "No WebSocket message size limit allows memory exhaustion via large messages. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28593,7 +28593,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Broadcasting WebSocket messages without room or permission filtering leaks data to unauthorized clients",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Broadcasting WebSocket messages without room or permission filtering leaks data to unauthorized clients. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28602,7 +28602,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sending user-specific data over WebSocket without verifying recipient authorization; check permissions per message",
         "severity": Severity.WARN,
             "suggestion": (
-                "Authentication or authorization vulnerability. Verify: authentication checks on every protected endpoint, authorization checks for resource access (not just authentication), secure token storage, and proper session invalidation on logout."
+                "Sending user-specific data over WebSocket without verifying recipient authorization. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28611,7 +28611,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebSocket without rate limiting allows message flooding and resource exhaustion; implement per-client rate limits",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: WebSocket without rate limiting allows message flooding and resource exhaustion; implement per-client rate limits. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "WebSocket without rate limiting allows message flooding and resource exhaustion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28620,7 +28620,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Empty WebSocket close/error handler leaks resources; clean up subscriptions, timers, and state on disconnect",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Empty WebSocket close/error handler leaks resources. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28629,7 +28629,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Executing system commands from WebSocket messages enables remote code execution; validate and sandbox all operations",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Command injection via unsanitized input in shell execution. Never construct shell commands from user input. Use: subprocess.run() with argument list (Python), execFile() (Node.js), exec.Command() with separate args (Go). If shell is unavoidable: use shlex.quote() (Python) or shell-escape library to sanitize each argument."
+                "Executing system commands from WebSocket messages enables remote code execution. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28638,7 +28638,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabled WebSocket heartbeat fails to detect dead connections; enable ping/pong with reasonable interval",
         "severity": Severity.WARN,
             "suggestion": (
-                "Security or quality issue: Disabled WebSocket heartbeat fails to detect dead connections; enable ping/pong with reasonable interval. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Disabled WebSocket heartbeat fails to detect dead connections. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28647,7 +28647,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unlimited WebSocket reconnection attempts during outage create thundering herd; use exponential backoff with max retries",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "Unlimited WebSocket reconnection attempts during outage create thundering herd. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28656,7 +28656,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Socket.IO server without CORS configuration accepts connections from any origin; configure allowed origins",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing or misconfigured security header. Essential headers: Content-Security-Policy (XSS prevention), Strict-Transport-Security (HTTPS enforcement), X-Content-Type-Options: nosniff (MIME sniffing prevention), X-Frame-Options: DENY (clickjacking). Set headers on every response, including error responses."
+                "Socket.IO server without CORS configuration accepts connections from any origin. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28665,7 +28665,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Wildcard WebSocket origin allows cross-site WebSocket hijacking; restrict to specific trusted origins",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Wildcard WebSocket origin allows cross-site WebSocket hijacking; restrict to specific trusted origins. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Wildcard WebSocket origin allows cross-site WebSocket hijacking. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28674,7 +28674,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Server-Sent Events without authentication exposes real-time data stream; require auth token or credentials",
         "severity": Severity.WARN,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "Server-Sent Events without authentication exposes real-time data stream. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28683,7 +28683,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Channel subscription without authorization check allows access to restricted real-time data; verify permissions on join",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Channel subscription without authorization check allows access to restricted real-time data. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28692,7 +28692,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Custom WebSocket subprotocol without validation allows protocol confusion attacks; validate negotiated protocol",
         "severity": Severity.INFO,
             "suggestion": (
-                "Input validation must happen at system boundaries. Validate: type (is it a string/number?), format (does it match expected pattern?), range (is it within bounds?), and length. Use allowlists over denylists. Validate on the server — client validation is for UX only."
+                "Custom WebSocket subprotocol without validation allows protocol confusion attacks. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28701,7 +28701,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Broadcasting presence information without privacy controls exposes user online status to unauthorized viewers",
         "severity": Severity.INFO,
             "suggestion": (
-                "SQL injection via string interpolation. The database driver sees the user's input as SQL code, not data. Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). The %s placeholder is never interpreted as SQL — the driver sends it as a bound parameter. This applies to all SQL variants: %s (psycopg2), ? (sqlite3), $1 (asyncpg)."
+                "Broadcasting presence information without privacy controls exposes user online status to unauthorized viewers. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28710,7 +28710,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sending raw error objects over WebSocket exposes internal stack traces and system paths to clients; sanitize errors",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Sending raw error objects over WebSocket exposes internal stack traces and system paths to clients. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28719,7 +28719,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unlimited WebSocket connections enables connection exhaustion DoS; set a per-server and per-IP connection limit",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Security or quality issue: Unlimited WebSocket connections enables connection exhaustion DoS; set a per-server and per-IP connection limit. Review the flagged code pattern and apply the appropriate fix for your language and framework. Consult OWASP guidelines and your framework's security documentation for the recommended approach."
+                "Unlimited WebSocket connections enables connection exhaustion DoS. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28728,7 +28728,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebSocket compression enables BREACH-like attacks on encrypted connections; disable for sensitive data or use per-message masking",
         "severity": Severity.INFO,
             "suggestion": (
-                "Weak or misconfigured cryptography. Use modern algorithms: AES-256-GCM for symmetric encryption, RSA-2048+ or Ed25519 for asymmetric, SHA-256+ for hashing. Use established libraries (cryptography for Python, crypto for Node.js) — never implement crypto yourself."
+                "WebSocket compression enables BREACH-like attacks on encrypted connections. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28737,7 +28737,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Wildcard pattern subscription receives all messages including internal channels; subscribe to specific channels",
         "severity": Severity.WARN,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Wildcard pattern subscription receives all messages including internal channels. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28746,7 +28746,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Unlimited room/channel subscriptions per client enables resource exhaustion; cap subscriptions per connection",
         "severity": Severity.INFO,
             "suggestion": (
-                "Cross-site scripting (XSS) via unsanitized user input in HTML context. Sanitize output based on context: HTML body: escape <>&\'' characters. HTML attributes: quote and escape. JavaScript: JSON.stringify(). URL: encodeURIComponent(). Use DOMPurify for HTML, or framework auto-escaping (React JSX, Vue templates)."
+                "Unlimited room/channel subscriptions per client enables resource exhaustion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28755,7 +28755,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Sending binary data over WebSocket without size validation risks memory exhaustion; validate payload size",
         "severity": Severity.WARN,
             "suggestion": (
-                "Memory safety issue. Ensure: all allocations have corresponding frees, all pointers are checked for null before dereference, all arrays have bounds checks, and all resources are released in error paths. Use static analysis tools (Valgrind, AddressSanitizer) to detect."
+                "Sending binary data over WebSocket without size validation risks memory exhaustion. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28764,7 +28764,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "WebSocket admin/debug interface exposed without additional authentication; require elevated credentials or disable in production",
         "severity": Severity.BLOCK,
             "suggestion": (
-                "Hardcoded secrets in source code are visible to anyone with repository access and persist in git history forever. Use environment variables: os.environ['API_KEY']. For production: use a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager). If committed: rotate the secret immediately — git history cannot be reliably purged."
+                "WebSocket admin/debug interface exposed without additional authentication. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {
@@ -28773,7 +28773,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Disabled idle timeout for WebSocket connections keeps dead connections open indefinitely; set reasonable idle timeout",
         "severity": Severity.WARN,
             "suggestion": (
-                "Missing resilience pattern for external calls. Add: connection timeout (5s), read timeout (30s), retries with exponential backoff (max 3 attempts, 1s/2s/4s delays), and circuit breaker for repeated failures. Without these, a slow dependency cascades into your service's outage."
+                "Disabled idle timeout for WebSocket connections keeps dead connections open indefinitely. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),
     },
     {

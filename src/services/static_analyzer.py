@@ -91,6 +91,7 @@ class StaticAnalyzer:
             "check_async_timeout": self._check_async_timeout,
             "check_unclosed_file": self._check_unclosed_file,
             "check_go_sql_close": self._check_go_sql_close,
+            "check_jwt_no_expiry": self._check_jwt_no_expiry,
         }
         fn = handlers.get(handler)
         if fn is not None:
@@ -800,6 +801,40 @@ class StaticAnalyzer:
                 file=filename,
                 line=line_num,
                 suggestion="Add 'defer rows.Close()' immediately after error check.",
+            ))
+        return findings
+
+    def _check_jwt_no_expiry(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag jwt.encode() calls only when no 'exp' claim is set nearby.
+
+        Looks back 5 lines for 'exp' key or timedelta usage which indicates
+        the JWT has an expiry configured in the payload dict above.
+        """
+        findings: list[Finding] = []
+        jwt_encode_re = re.compile(r"jwt\.encode\s*\(")
+        exp_indicators = re.compile(r"""["']exp["']|timedelta""")
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            if not jwt_encode_re.search(line):
+                continue
+            # Look back 5 lines for exp/timedelta
+            window_start = max(0, line_num - 6)
+            window = "\n".join(lines[window_start:line_num])
+            if exp_indicators.search(window):
+                continue
+            findings.append(Finding(
+                rule_id="auth_jwt_no_expiry",
+                severity=Severity.BLOCK,
+                message="JWT created without expiry claim. Always set 'exp'.",
+                file=filename,
+                line=line_num,
+                suggestion=(
+                    "A JWT without an 'exp' claim is valid indefinitely. Always set a "
+                    "numeric UTC expiry: payload['exp'] = int(datetime.now(timezone.utc).timestamp()) + 3600."
+                ),
             ))
         return findings
 

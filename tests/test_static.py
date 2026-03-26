@@ -590,3 +590,55 @@ class TestPhase1SecurityRules:
         findings = analyzer.scan_code(code, "schema.py")
         matched = [f for f in findings if f.rule_id == "graphql_introspection_enabled"]
         assert len(matched) >= 1
+
+
+# ---------------------------------------------------------------------------
+# JWT no-expiry handler tests (Copilot review fix 7)
+# ---------------------------------------------------------------------------
+
+
+class TestJwtNoExpiry:
+    """Test check_jwt_no_expiry special handler."""
+
+    @pytest.fixture()
+    def analyzer(self) -> StaticAnalyzer:
+        return StaticAnalyzer()
+
+    def test_jwt_encode_without_exp_blocks(self, analyzer: StaticAnalyzer) -> None:
+        """jwt.encode() with no exp in nearby lines should BLOCK."""
+        code = "payload = {'sub': user_id, 'iat': now}\ntoken = jwt.encode(payload, secret)"
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "auth_jwt_no_expiry"]
+        assert len(matched) >= 1
+        assert matched[0].severity == Severity.BLOCK
+
+    def test_jwt_encode_with_exp_allowed(self, analyzer: StaticAnalyzer) -> None:
+        """jwt.encode() with 'exp' in payload should NOT trigger."""
+        code = (
+            "payload = {\n"
+            "    'sub': user_id,\n"
+            "    'exp': now + timedelta(hours=1),\n"
+            "}\n"
+            "token = jwt.encode(payload, secret)\n"
+        )
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "auth_jwt_no_expiry"]
+        assert len(matched) == 0
+
+    def test_jwt_encode_with_timedelta_nearby_allowed(self, analyzer: StaticAnalyzer) -> None:
+        """jwt.encode() with timedelta in nearby lines should NOT trigger."""
+        code = (
+            "expiry = datetime.utcnow() + timedelta(minutes=15)\n"
+            "payload = {'sub': user_id, 'exp': expiry}\n"
+            "token = jwt.encode(payload, secret)\n"
+        )
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "auth_jwt_no_expiry"]
+        assert len(matched) == 0
+
+    def test_jwt_encode_with_noqa_skipped(self, analyzer: StaticAnalyzer) -> None:
+        """jwt.encode() with noqa should not trigger."""
+        code = "token = jwt.encode(payload, secret)  # noqa"
+        findings = analyzer.scan_code(code, "auth.py")
+        matched = [f for f in findings if f.rule_id == "auth_jwt_no_expiry"]
+        assert len(matched) == 0

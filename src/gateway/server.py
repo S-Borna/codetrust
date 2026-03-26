@@ -34,6 +34,7 @@ import os
 import sys
 import time
 from dataclasses import asdict
+from pathlib import Path
 
 import structlog
 from mcp.server.fastmcp import FastMCP
@@ -45,6 +46,7 @@ from src.gateway.interceptor import CommandInterceptor, InterceptResult, Verdict
 from src.gateway.policies import GovernancePolicy, PolicyEngine
 from src.gateway.policy_integrity import (
     PolicyIntegrityResult,
+    build_current_hashes,
     get_policy_manifest_hash,
     verify_policy_integrity,
 )
@@ -946,9 +948,11 @@ async def proxy_replace_string_in_file(
     if integrity_block is not None:
         return json.dumps(integrity_block, indent=2)
 
-    # Validate the incoming new content as a file write
-    combined_content = f"{old_string}\n---replaced-by---\n{new_string}"
-    result = _interceptor.check_file_write(path, combined_content)
+    # Delta-only validation: scan only new_string (what the agent writes),
+    # not old_string (what already exists in the file). This prevents
+    # IDE freezing on large files — a 1-line edit in a 30K-line file
+    # validates in milliseconds instead of seconds.
+    result = _interceptor.check_file_write(path, new_string)
     return _proxy_result(
         result,
         allow_reason=allow_reason,
@@ -1458,6 +1462,53 @@ async def simulate_policy(
 async def governance_posture() -> str:
     """Return machine-readable governance posture snapshot."""
     return json.dumps(_attach_attestation_payload(_build_governance_posture_payload()), indent=2)
+
+
+@gateway.tool(name="codetrust_governance_integrity")
+async def governance_integrity(workspace: str | None = None) -> str:
+    """Verify SHA-256 integrity of all governance files against signed manifest.
+
+    Computes current hashes of governance-critical files (.codetrust.toml,
+    CLAUDE.md, .cursorrules, .windsurfrules, etc.) and compares them against
+    the signed policy-integrity manifest, flagging any files that have changed
+    since the last manifest signing. Hash mismatches are treated as BLOCK-level
+    findings by the underlying integrity engine.
+
+    Args:
+        workspace: Optional workspace path override. Defaults to gateway workspace.
+
+    Returns:
+        JSON report with per-file hash comparison and overall verdict.
+    """
+    target_workspace = workspace or _workspace
+    sign_key = _resolve_policy_sign_key()
+
+    integrity_result = verify_policy_integrity(target_workspace, sign_key=sign_key)
+    _audit_policy_integrity(integrity_result, action="governance_integrity_check")
+
+    current_hashes = build_current_hashes(Path(target_workspace))
+
+    report: dict[str, object] = {
+        "verdict": integrity_result.verdict,
+        "rule_id": integrity_result.rule_id,
+        "message": integrity_result.message,
+        "suggestion": integrity_result.suggestion,
+        "workspace": target_workspace,
+        "file_hashes": {
+            rel_path: file_hash
+            for rel_path, file_hash in current_hashes.items()
+        },
+        "metadata": integrity_result.metadata,
+    }
+
+    logger.info(
+        "governance_integrity_check",
+        verdict=integrity_result.verdict,
+        files_checked=len(current_hashes),
+        workspace=target_workspace,
+    )
+
+    return json.dumps(_attach_attestation_payload(report), indent=2)
 
 
 # ═══════════════════════════════════════════════════════════════

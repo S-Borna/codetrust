@@ -100,6 +100,63 @@ def _heredoc_suggestion(command: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  Interpreter -c/-e inner-string validation
+# ═══════════════════════════════════════════════════════════════
+
+_INTERPRETER_FLAG_RE = re.compile(
+    r"""(?:python(?:\d+(?:\.\d+)*)?|node|ruby|perl)\s+-[ce]\s+(.+)""",
+    re.DOTALL,
+)
+
+_DANGEROUS_INNER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\brm\s+-"), "rm command"),
+    (re.compile(r"\brm\b.*-r"), "recursive delete"),
+    (re.compile(r"os\.system\s*\("), "os.system() call"),
+    (re.compile(r"subprocess\.\w+\s*\("), "subprocess call"),
+    (re.compile(r"child_process"), "child_process module"),
+    (re.compile(r"execSync\s*\("), "execSync() call"),
+    (re.compile(r"\.exec\s*\("), "exec() call"),
+    (re.compile(r"\bsystem\s*\("), "system() call"),
+    (re.compile(r"\beval\s*\("), "eval() call"),
+    (re.compile(r"\bexec\s*\("), "exec() call"),
+    (re.compile(r"__import__\s*\("), "__import__() call"),
+    (re.compile(r"\bchr\s*\(\s*\d"), "chr() obfuscation"),
+    (re.compile(r"\bchmod\s+777"), "chmod 777"),
+    (re.compile(r"curl.*\|\s*(?:ba)?sh"), "curl pipe to shell"),
+    (re.compile(r"git\s+push"), "git push"),
+    (re.compile(r"dd\s+.*of="), "dd write"),
+]
+
+
+def _check_interpreter_inner_string(
+    command: str,
+) -> tuple[str, str, str] | None:
+    """Extract and validate string argument from interpreter -c/-e flags.
+
+    Detects dangerous commands embedded inside python3 -c "...",
+    node -e "...", ruby -e "...", perl -e "..." wrappers.
+
+    Returns:
+        (rule_id, message, suggestion) if dangerous, None if safe.
+    """
+    match = _INTERPRETER_FLAG_RE.search(command)
+    if not match:
+        return None
+
+    inner = match.group(1)
+    for pattern, description in _DANGEROUS_INNER_PATTERNS:
+        if pattern.search(inner):
+            return (
+                "gateway_interpreter_inner_dangerous",
+                f"Dangerous {description} embedded in interpreter -c/-e argument.",
+                "Write the code to a file with the Write tool, then run: "
+                "python3 /tmp/script.py. Dangerous commands inside -c/-e "
+                "bypass outer validation.",
+            )
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
 #  Terminal command patterns — deterministic regex matching
 # ═══════════════════════════════════════════════════════════════
 
@@ -928,6 +985,21 @@ class CommandInterceptor:
                 message="Heredoc (<<) is permanently prohibited. Zero exceptions.",
                 suggestion=suggestion,
                 root_cause="Heredoc corrupts files via shell escaping and bypasses safe file-write tools.",
+                safe_fix=suggestion,
+            )
+
+        # Interpreter -c/-e inner string validation (catches python3 -c "os.system('rm -rf /')")
+        inner_result = _check_interpreter_inner_string(command)
+        if inner_result is not None:
+            rule_id, message, suggestion = inner_result
+            return InterceptResult(
+                verdict=Verdict.BLOCK,
+                action_type=ActionType.TERMINAL_COMMAND,
+                original_action=command,
+                rule_id=rule_id,
+                message=message,
+                suggestion=suggestion,
+                root_cause="Dangerous command embedded inside interpreter -c/-e string argument.",
                 safe_fix=suggestion,
             )
 

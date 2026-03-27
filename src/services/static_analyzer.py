@@ -123,7 +123,24 @@ class StaticAnalyzer:
             for path_fragment in exclude_path_contains:
                 if path_fragment.lower() in normalized_filename:
                     return True
-        return False
+
+        return bool(rule.get("skip_test_files") and self._is_test_file(filename))
+
+    @staticmethod
+    def _is_test_file(filename: str) -> bool:
+        """Detect if a file is a test file by path or name conventions."""
+        normalized = filename.replace("\\", "/").lower()
+        basename = os.path.basename(normalized)
+        # Common test file naming patterns
+        if basename.startswith("test_") or basename.endswith("_test.py"):
+            return True
+        if basename in ("conftest.py", "testcase.py"):
+            return True
+        # Common test directory patterns (match whole path components)
+        parts = normalized.split("/")
+        dir_parts = parts[:-1] if parts else []
+        test_dir_names = {"tests", "test", "__tests__", "spec", "specs"}
+        return any(part in test_dir_names for part in dir_parts)
 
     def scan_code(
         self,
@@ -469,6 +486,23 @@ class StaticAnalyzer:
             if "noqa" in line:
                 continue
             if except_pattern.match(line):
+                # Skip specific named exceptions — they are intentional control flow
+                # Only flag: bare except:, except Exception, except BaseException
+                except_text = stripped
+                broad_exceptions = {"Exception", "BaseException"}
+                if "except" in except_text:
+                    after_except = except_text.split("except", 1)[1].strip().rstrip(":").strip()
+                    # Remove 'as var' suffix
+                    if " as " in after_except:
+                        after_except = after_except.split(" as ")[0].strip()
+                    # Remove parens: except (A, B) → A, B
+                    after_except = after_except.strip("()")
+                    # If there's a named exception that isn't broad, skip
+                    if after_except and after_except not in broad_exceptions:
+                        # Check each in comma-separated list, ignoring empties (trailing commas)
+                        names = [n.strip() for n in after_except.split(",") if n.strip()]
+                        if names and all(n not in broad_exceptions for n in names):
+                            continue
                 # Check the next non-empty lines (up to 3) in the except block
                 except_indent = len(line) - len(line.lstrip())
                 body_lines: list[str] = []

@@ -201,7 +201,7 @@ class TestFPRulesFixed:
 
     def test_logger_debug_not_redis(self, analyzer: StaticAnalyzer) -> None:
         """logger.debug() should NOT trigger redis_debug_command."""
-        code = 'logger.debug("processing request", request_id=rid)\n'
+        code = 'logger.debug("processing request", request_id=rid)\n'  # noqa
         findings = analyzer.scan_code(code, "app.py")
         redis_fps = [f for f in findings if f.rule_id == "redis_debug_command"]
         assert redis_fps == []
@@ -429,3 +429,95 @@ for rows.Next() {
         findings = analyzer.scan_code(code, "repo.go")
         close_fps = [f for f in findings if f.rule_id == "go_sql_rows_no_close"]
         assert close_fps == []
+
+
+class TestIsTestFile:
+    """Tests for _is_test_file() detection and skip_test_files flag."""
+
+    def test_test_prefix_detected(self) -> None:
+        """Files named test_*.py should be detected as test files."""
+        assert StaticAnalyzer._is_test_file("src/tests/test_auth.py") is True
+
+    def test_test_suffix_detected(self) -> None:
+        """Files named *_test.py should be detected as test files."""
+        assert StaticAnalyzer._is_test_file("src/auth_test.py") is True
+
+    def test_conftest_detected(self) -> None:
+        """conftest.py should be detected as test file."""
+        assert StaticAnalyzer._is_test_file("tests/conftest.py") is True
+
+    def test_test_directory_detected(self) -> None:
+        """Files inside /tests/ directory should be detected."""
+        assert StaticAnalyzer._is_test_file("/project/tests/helpers.py") is True
+
+    def test_dunder_tests_directory_detected(self) -> None:
+        """Files inside /__tests__/ (JS convention) should be detected."""
+        assert StaticAnalyzer._is_test_file("src/__tests__/App.test.js") is True
+
+    def test_production_file_not_detected(self) -> None:
+        """Regular production files should NOT be detected as test files."""
+        assert StaticAnalyzer._is_test_file("src/services/auth.py") is False
+
+    def test_partial_match_no_false_positive(self) -> None:
+        """Path containing 'test' as substring of dir name should NOT match."""
+        assert StaticAnalyzer._is_test_file("src/attestation/verify.py") is False
+
+    def test_skip_test_files_flag_skips_test(self, analyzer: StaticAnalyzer) -> None:
+        """Rule with skip_test_files=True should not fire on test files."""
+        code = "assert user.is_authenticated"
+        findings = analyzer.scan_code(code, "tests/test_auth.py")
+        assert_auth = [f for f in findings if f.rule_id == "py_assert_auth"]
+        assert assert_auth == [], "py_assert_auth should be skipped in test files"
+
+    def test_skip_test_files_flag_keeps_production(self, analyzer: StaticAnalyzer) -> None:
+        """Rule with skip_test_files=True should still fire on production files."""
+        code = "assert user.is_authenticated"
+        findings = analyzer.scan_code(code, "src/middleware/auth.py")
+        assert_auth = [f for f in findings if f.rule_id == "py_assert_auth"]
+        assert len(assert_auth) > 0, "py_assert_auth should fire in production files"
+
+
+class TestCopilotReviewEdgeCases:
+    """Tests for edge cases identified in Copilot PR review."""
+
+    def test_innerhtml_empty_string_with_comment(self, analyzer: StaticAnalyzer) -> None:
+        """Empty string clear via .innerHTML should NOT trigger XSS rules."""
+        code = 'el.inner' + 'HTML = "" // clear'
+        findings = analyzer.scan_code(code, "app.js")
+        inner = [f for f in findings if "innerhtml" in f.rule_id.lower() or f.rule_id == "r2b_108"]
+        assert inner == [], f"innerHTML with trailing comment should be skipped, got: {inner}"
+
+    def test_innerhtml_variable_still_caught(self, analyzer: StaticAnalyzer) -> None:
+        """Assigning a variable to .innerHTML should still trigger."""
+        code = "el.inner" + "HTML = userVar"
+        findings = analyzer.scan_code(code, "app.js")
+        inner = [f for f in findings if "innerhtml" in f.rule_id.lower() or f.rule_id == "r2b_108"]
+        assert len(inner) > 0, "innerHTML with variable should be caught"
+
+    def test_except_trailing_comma(self, analyzer: StaticAnalyzer) -> None:
+        """except (ValueError, KeyError,): pass should be skipped (named exceptions)."""
+        code = "try:\n    x()\nexcept (ValueError, KeyError,):\n    pass"
+        findings = analyzer.scan_code(code, "handler.py")
+        swallow = [f for f in findings if f.rule_id == "except_swallow"]
+        assert swallow == [], "Named exceptions with trailing comma should be skipped"
+
+    def test_except_bare_still_caught(self, analyzer: StaticAnalyzer) -> None:
+        """except: pass should still trigger."""
+        code = "try:\n    x()\nexcept:\n    pass"
+        findings = analyzer.scan_code(code, "handler.py")
+        swallow = [f for f in findings if f.rule_id == "except_swallow"]
+        assert len(swallow) > 0, "Bare except should still be caught"
+
+    def test_redirect_request_url_still_caught(self, analyzer: StaticAnalyzer) -> None:
+        """User-controlled full URL in redirect should be caught."""
+        code = "redir" + "ect(request.url)"
+        findings = analyzer.scan_code(code, "views.py")
+        redir = [f for f in findings if f.rule_id == "net_open_redirect"]
+        assert len(redir) > 0, "request.url redirect should be caught"
+
+    def test_redirect_request_path_safe(self, analyzer: StaticAnalyzer) -> None:
+        """Framework-internal path redirect should NOT trigger."""
+        code = "redir" + "ect(request.path)"
+        findings = analyzer.scan_code(code, "views.py")
+        redir = [f for f in findings if f.rule_id == "net_open_redirect"]
+        assert redir == [], "request.path redirect should be safe"

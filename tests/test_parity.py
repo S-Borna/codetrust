@@ -264,7 +264,7 @@ class TestRuleCounts:
         regex_only = [r for r in ANTI_PATTERNS if not r.get("special_handler")]
         assert len(regex_only) >= 337
 
-    def test_fifteen_special_handlers(self):
+    def test_special_handlers(self):
         from src.rules.anti_patterns import ANTI_PATTERNS
         handlers = [r for r in ANTI_PATTERNS if r.get("special_handler")]
         assert len(handlers) == 16

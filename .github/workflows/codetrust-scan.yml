@@ -31,7 +31,7 @@ jobs:
 
       - name: Upload SARIF to GitHub Security
         if: always() && steps.scan.outputs.sarif-file
-        uses: github/codeql-action/upload-sarif@cdcdbb579706841c47f7063dda365e292e5cad7a  # v3.26.13
+        uses: github/codeql-action/upload-sarif@b8d3b6e8af63cde30bdc382c0bc28114f4346c88  # v3.26.13
         with:
           sarif_file: codetrust-results.sarif
           category: codetrust

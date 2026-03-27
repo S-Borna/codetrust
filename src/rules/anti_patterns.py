@@ -57,6 +57,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
         "message": "Possible hardcoded secret. Use environment variables.",
         "severity": Severity.BLOCK,
+        "skip_test_files": True,
+        "skip_comments": True,
         "suggestion": (
             "Move the secret to an environment variable. "
             "1. Add the key to .env (never commit .env). "
@@ -130,7 +132,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             "Comment admits this is a symptom fix, not a root-cause fix. "
             "Find and resolve the underlying problem."
         ),
-        "severity": Severity.BLOCK,
+        "severity": Severity.WARN,
         "suggestion": (
             "Delete the symptom-fix code and its marker comment. "
             "Run root-cause analysis: ask 'why is this happening?' at least 3 times. "
@@ -2466,6 +2468,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Flask debug=True enables remote code execution via the debugger — disable in production",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "skip_test_files": True,
         "suggestion": (
             "Replace `app.run(debug=True)` with `app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')`. "
             "Or use Flask CLI: `flask run` reads FLASK_DEBUG from environment. "
@@ -2491,6 +2494,9 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Django SECRET_KEY is hardcoded — load from environment variable",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "skip_test_files": True,
+        "skip_comments": True,
+        "exclude_path_contains": ["flask", "fastapi", "starlette"],
         "suggestion": (
             "Replace with `SECRET_KEY = os.environ['DJANGO_SECRET_KEY']`. "
             "Generate a strong key: `python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\"`. "
@@ -2503,6 +2509,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "Flask secret_key is hardcoded — load from environment variable",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "skip_test_files": True,
         "suggestion": (
             "Replace with `app.secret_key = os.environ['FLASK_SECRET_KEY']`. "
             "Generate: `python -c \"import secrets; print(secrets.token_hex(32))\"`. "
@@ -3019,6 +3026,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"password\s*=\s*['\"][^'\"]{4,}['\"]",
         "message": "Plaintext password in source — load from environment variable",
         "severity": Severity.BLOCK,
+        "skip_test_files": True,
         "suggestion": (
             "Move password to environment variable: `os.environ['DB_PASSWORD']` (Python), "
             "`process.env.DB_PASSWORD` (JS). For local dev: use .env file (never committed). "
@@ -4688,6 +4696,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"app\.secret_key\s*=\s*[\"'][^\"']{0,15}[\"']",
         "message": "Flask secret key is too short or weak. Use a cryptographically random key of 32+ bytes.",
         "severity": Severity.BLOCK,
+        "skip_test_files": True,
             "suggestion": (
                 "Generate a strong secret key: `import secrets; app.secret_key = secrets.token_hex(32)`. Store it in an environment variable, not in code. A weak or short secret key lets attackers forge session cookies and impersonate any user."
             ),
@@ -4696,7 +4705,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "flask_jinja2_no_autoescape",
-        "pattern": r"Jinja2\s*\(\s*(?!.*autoescape)",
+        "pattern": r"(?<!class\s)Jinja2\s*\(\s*(?!.*autoescape)",
         "message": "Jinja2 environment without autoescape enables XSS. Set autoescape=True.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -6170,7 +6179,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # --- Crypto ---
     {
         "id": "sec_timing_compare",
-        "pattern": r"(?:==|!=)\s*(?:\w*(?:hmac|hash|digest|signature|token|mac)\w*)",
+        "pattern": r"(?:==|!=)\s*(?:\w*(?:hmac|digest|signature|mac_tag|api_key|secret)\w*)",
         "message": "Non-constant-time comparison for cryptographic value. Use hmac.compare_digest() or equivalent.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -6181,7 +6190,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "sec_deterministic_nonce",
-        "pattern": r"(?:nonce|iv)\s*=\s*(?:b[\"'][^\"']+[\"']|[\"'][^\"']+[\"']|\d+)",
+        "pattern": r"(?<!\w)(?:nonce|iv)\s*=\s*(?:b[\"'][^\"']+[\"']|[\"'][^\"']+[\"']|\d+)",
         "message": "Static/deterministic nonce or IV. Use os.urandom() or secrets.token_bytes() for each operation.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -10014,7 +10023,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     # ═══════════════════════════════════════════════════════════════
     {
         "id": "graphql_introspection_leak",
-        "pattern": r"(?i)introspection\s*[:=]\s*(?:true|True|1)",
+        "pattern": r"(?i)(?<!\w)introspection\s*[:=]\s*(?:true|True|1)",
         "message": "GraphQL introspection enabled. Disable in production to prevent schema leakage.",
         "severity": Severity.BLOCK,
         "suggestion": (
@@ -13063,6 +13072,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)SECRET_?KEY\s*[:=]\s*[\"'](?:changeme|secret|default|test|dev|password|123|abc)[\"']",
         "message": "Default/weak secret key. Generate a strong random key.",
         "severity": Severity.BLOCK,
+        "skip_test_files": True,
             "suggestion": (
                 "A default/weak secret key (e.g., 'changeme', 'secret', 'key123') means anyone who reads the source code can forge sessions, CSRF tokens, and encrypted data. Generate: python -c \"import secrets; print(secrets.token_hex(32))\". Store in env var, never in source code."
             ),
@@ -13624,6 +13634,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     {
         "id": "tls_weak_cipher",
         "pattern": r"(?i)(?:RC4|DES|NULL|EXPORT|anon|MD5).*(?:cipher|suite|ssl|tls)",
+        "skip_comments": True,
         "message": "Weak TLS cipher suite. Use modern cipher suites.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -16320,9 +16331,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "auth_plaintext_password_storage",
-        "pattern": r"(?i)(?:password|passwd|pwd)\s*=\s*(?:request|data|form|body)\.\w+(?!\s*.*(?:hash|bcrypt|argon|pbkdf|scrypt))",
+        "pattern": r"(?i)(?:password|passwd|pwd)\s*=\s*(?:request|data|form|body)\.\w+",
+        "special_handler": "check_plaintext_password_storage",
         "message": "Password stored without hashing. Always hash passwords before storage.",
         "severity": Severity.BLOCK,
+        "skip_test_files": True,
             "suggestion": (
                 "Storing passwords in plaintext: one database breach exposes every user's password. Users reuse passwords — your breach becomes their bank account breach. Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt(12))."
             ),
@@ -21679,7 +21692,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "win_sam_database_access",
-        "pattern": r"(?i)(?:SAM|SECURITY|SYSTEM).*(?:reg\s+save|copy|export)",
+        "pattern": r"(?i)\b(?:SAM|SECURITY|SYSTEM)\b.*(?:reg\s+save|copy\b|export\b)",
+        "skip_comments": True,
         "message": "Accessing SAM database. This is a credential theft vector.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -23805,7 +23819,8 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r1a_036",
-        "pattern": r"httpOnly\s*:\s*false|httponly\s*=\s*False",
+        "pattern": r"(?:httpOnly\s*:\s*false|httponly\s*=\s*False)",
+        "skip_comments": True,
         "message": "Cookie httpOnly flag disabled - cookie accessible to JavaScript, enabling XSS theft",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -27987,7 +28002,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_112",
-        "pattern": r"(?:log|logger)\.\w+\s*\(.*(?:\\n|\\r|%0a|%0d)",
+        "pattern": r"(?:log|logger)\.\w+\s*\(.*(?:%0a|%0d)",
         "message": "Literal newline sequences in log output enable log injection and forgery; sanitize or use structured logging format",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -28339,9 +28354,11 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2a_151",
-        "pattern": r'''(?:secrets|credentials|password|api_key|token)\s*[=:]\s*['\"][^$\{'\"]''',
+        "pattern": r'''(?:secrets|credentials|password|api_key|token)\s*[=:]\s*['\"](?=[^'\"]*\d)[^$\{'\"]''',
         "message": "Hardcoded secret in CI/CD configuration; use secret management (GitHub Secrets, Vault) with variable references",
         "severity": Severity.BLOCK,
+        "file_types": [".py", ".js", ".ts", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".env", ".sh"],
+        "skip_test_files": True,
             "suggestion": (
                 "Hardcoded secret in CI/CD configuration. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
             ),

@@ -854,7 +854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "react_innerhtml_string",
-        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*//.*|\s*$))",
         "message": "Direct innerHTML assignment bypasses sanitization. Use React's rendering or a sanitizer.",
         "severity": Severity.BLOCK,
         "file_types": [".jsx", ".tsx", ".js", ".ts"],
@@ -2577,7 +2577,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "js_innerhtml_xss",
-        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*//.*|\s*$))",
         "message": "innerHTML assignment is vulnerable to XSS — use textContent or DOMPurify.sanitize()",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx", ".html"],
@@ -5212,7 +5212,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "browser_innerhtml_assign",
-        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))(?!.*(?:DOMPurify|sanitize))",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*//.*|\s*$))(?!.*(?:DOMPurify|sanitize))",
         "message": "innerHTML assignment without sanitization enables XSS. Use textContent or sanitize with DOMPurify.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -16918,7 +16918,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "net_open_redirect",
-        "pattern": r"(?:redirect|RedirectResponse|HttpResponseRedirect)\(\s*(?:request\.(?!get_full_path|get_absolute_uri|build_absolute_uri|path\b|url\b|META)\w+|(?:params|args)\.\w+)",
+        "pattern": r"(?:redirect|RedirectResponse|HttpResponseRedirect)\(\s*(?:request\.(?!get_full_path|get_absolute_uri|build_absolute_uri|path\b)\w+|(?:params|args)\.\w+)",
         "message": "Open redirect vulnerability. Validate redirect URL against allowlist.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -29705,7 +29705,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2b_108",
-        "pattern": r"innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
+        "pattern": r"innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*//.*|\s*$))",
         "message": "Direct innerHTML assignment with unsanitized input creates XSS vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (

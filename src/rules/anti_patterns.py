@@ -854,7 +854,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "react_innerhtml_string",
-        "pattern": r"\.innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
         "message": "Direct innerHTML assignment bypasses sanitization. Use React's rendering or a sanitizer.",
         "severity": Severity.BLOCK,
         "file_types": [".jsx", ".tsx", ".js", ".ts"],
@@ -2527,6 +2527,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "message": "assert is stripped by Python -O flag — never use assert for authentication checks",
         "severity": Severity.BLOCK,
         "file_types": [".py"],
+        "skip_test_files": True,
         "suggestion": (
             "Replace `assert user.is_admin` with an explicit check: "
             "`if not user.is_admin: raise PermissionError('Admin access required')`. "
@@ -2576,7 +2577,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "js_innerhtml_xss",
-        "pattern": r"\.innerHTML\s*=\s*(?!['\"]\s*['\"])",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
         "message": "innerHTML assignment is vulnerable to XSS — use textContent or DOMPurify.sanitize()",
         "severity": Severity.BLOCK,
         "file_types": [".js", ".ts", ".jsx", ".tsx", ".html"],
@@ -5211,7 +5212,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "browser_innerhtml_assign",
-        "pattern": r"\.innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)(?!.*(?:DOMPurify|sanitize))",
+        "pattern": r"\.innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))(?!.*(?:DOMPurify|sanitize))",
         "message": "innerHTML assignment without sanitization enables XSS. Use textContent or sanitize with DOMPurify.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -11340,6 +11341,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"(?i)(?:base_?url|api_?url|endpoint)\s*[:=]\s*[\"']http://(?!localhost|127\.0\.0\.1)",
         "message": "Hardcoded HTTP URL in mobile app. Use HTTPS and configuration.",
         "severity": Severity.BLOCK,
+        "file_types": [".swift", ".kt", ".java", ".m", ".dart", ".tsx", ".jsx"],
             "suggestion": (
                 "A hardcoded http:// URL in a mobile app means all API traffic is unencrypted. On public WiFi, an attacker sees every request and response. Mobile apps are extracted and decompiled trivially — the URL is visible. Use https:// and load the base URL from configuration: let baseURL = Bundle.main.infoDictionary?['API_BASE_URL']. Set per build configuration."
             ),
@@ -16916,7 +16918,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "net_open_redirect",
-        "pattern": r"(?:redirect|RedirectResponse|HttpResponseRedirect)\(\s*(?:request|params|args)\.\w+",
+        "pattern": r"(?:redirect|RedirectResponse|HttpResponseRedirect)\(\s*(?:request\.(?!get_full_path|get_absolute_uri|build_absolute_uri|path\b|url\b|META)\w+|(?:params|args)\.\w+)",
         "message": "Open redirect vulnerability. Validate redirect URL against allowlist.",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -24857,7 +24859,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r1a_155",
-        "pattern": r"eval\s*\(\s*(?:this\.)?\$?\w+(?:\.value|\.text|\.input)",
+        "pattern": r"(?<!literal_)eval\s*\(\s*(?:this\.)?\$?\w+(?:\.value|\.text|\.input)",
         "message": "eval() with user-controlled input - code injection vulnerability, use safe alternatives",
         "severity": Severity.BLOCK,
             "suggestion": (
@@ -28898,6 +28900,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         "pattern": r"\.get\s*\(\s*\)\s*$",
         "message": "Calling .get on Option/Try/Future throws on empty - use getOrElse, fold, or pattern match",
         "severity": Severity.BLOCK,
+        "file_types": [".scala", ".sc"],
             "suggestion": (
                 "option.get throws NoSuchElementException on None, future.get blocks, try.get throws the exception. Use: option.getOrElse(default), future.map(process), try.fold(handleError, handleSuccess). Or pattern match: option match { case Some(v) => v; case None => default }."
             ),
@@ -29702,7 +29705,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "r2b_108",
-        "pattern": r"innerHTML\s*=\s*(?!['\"]['\"]|['\"\s]*;)",
+        "pattern": r"innerHTML\s*=\s*(?!\s*['\"][^'\"]*['\"](?:\s*;|\s*$))",
         "message": "Direct innerHTML assignment with unsanitized input creates XSS vulnerability",
         "severity": Severity.BLOCK,
             "suggestion": (

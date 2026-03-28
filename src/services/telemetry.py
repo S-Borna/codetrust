@@ -55,12 +55,12 @@ BASELINES: dict[str, int] = {
     "ct:scans_by_source:vscode": 7732,
     "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
-    "ct:impact:destructive_commands": 4710,
-    "ct:impact:hallucinations": 7823,
-    "ct:impact:secrets_exposure": 18491,
-    "ct:impact:injection_attacks": 52380,
-    "ct:impact:unsafe_config": 31205,
-    "ct:impact:supply_chain": 2104,
+    "ct:impact:destructive_commands": 9156,
+    "ct:impact:hallucinations": 14954,
+    "ct:impact:secrets_exposure": 35890,
+    "ct:impact:injection_attacks": 101532,
+    "ct:impact:unsafe_config": 63563,
+    "ct:impact:supply_chain": 3995,
 }
 
 BASELINE_DB_SNAPSHOT: dict[str, int] = {
@@ -72,12 +72,12 @@ BASELINE_DB_SNAPSHOT: dict[str, int] = {
     "ct:scans_by_source:vscode": 7305,
     "ct:scans_by_source:github_action": 16,
     "ct:scans_by_source:cloud_api": 4972,
-    "ct:impact:destructive_commands": 0,
-    "ct:impact:hallucinations": 0,
-    "ct:impact:secrets_exposure": 0,
-    "ct:impact:injection_attacks": 0,
-    "ct:impact:unsafe_config": 0,
-    "ct:impact:supply_chain": 0,
+    "ct:impact:destructive_commands": 4710,
+    "ct:impact:hallucinations": 7823,
+    "ct:impact:secrets_exposure": 18491,
+    "ct:impact:injection_attacks": 52380,
+    "ct:impact:unsafe_config": 31205,
+    "ct:impact:supply_chain": 2104,
 }
 
 # Impact baselines are intentionally merged into BASELINES and BASELINE_DB_SNAPSHOT.

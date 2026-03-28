@@ -2862,16 +2862,127 @@ def _init_policy_integrity_manifest(project_dir: Path) -> list[str]:
     return installed
 
 
+def _init_pretooluse_hooks() -> tuple[int, list[str]]:
+    """Install PreToolUse hooks for real-time agent interception.
+
+    Copies gateway and file-write hook scripts to ~/.claude/hooks/
+    and registers them in ~/.claude/settings.json.
+
+    Returns:
+        (hooks_installed, messages) — count of hooks installed and status messages.
+    """
+    hooks_dir = Path.home() / ".claude" / "hooks"
+    settings_path = Path.home() / ".claude" / "settings.json"
+    messages: list[str] = []
+    installed = 0
+
+    # Step 1: Create hooks directory
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Step 2: Copy hook templates
+    hook_files = [
+        ("pretooluse_gateway_hook.py", "codetrust_gateway_hook.py"),
+        ("pretooluse_file_write_hook.py", "codetrust_file_write_hook.py"),
+    ]
+    for template_name, target_name in hook_files:
+        target = hooks_dir / target_name
+        content = _load_template(template_name)
+        if target.exists():
+            existing = target.read_text(encoding="utf-8")
+            if existing == content:
+                messages.append(f"  {color('✅', GREEN)} {target_name} (already up to date)")
+                installed += 1
+                continue
+        target.write_text(content, encoding="utf-8")
+        target.chmod(0o755)
+        messages.append(f"  {color('✅', GREEN)} {target_name} installed")
+        installed += 1
+
+    # Step 3: Register hooks in ~/.claude/settings.json
+    gateway_hook_path = str(hooks_dir / "codetrust_gateway_hook.py")
+    file_write_hook_path = str(hooks_dir / "codetrust_file_write_hook.py")
+
+    desired_hooks = [
+        {
+            "matcher": "Bash",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": f"python3 {gateway_hook_path}",
+                    "timeout": 5,
+                },
+            ],
+        },
+        {
+            "matcher": "Write|Edit|MultiEdit",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": f"python3 {file_write_hook_path}",
+                    "timeout": 5,
+                },
+            ],
+        },
+    ]
+
+    # Read existing settings or create new
+    settings: dict = {}
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            settings = {}
+
+    # Merge hooks — don't duplicate, don't overwrite non-hook settings
+    existing_hooks = settings.get("hooks", {})
+    pre_tool_use = existing_hooks.get("PreToolUse", [])
+
+    existing_matchers = {
+        h.get("matcher", ""): i for i, h in enumerate(pre_tool_use)
+    }
+
+    hooks_modified = False
+    for desired in desired_hooks:
+        matcher = desired["matcher"]
+        if matcher in existing_matchers:
+            idx = existing_matchers[matcher]
+            inner_hooks = pre_tool_use[idx].get("hooks", [])
+            hook_cmd = desired["hooks"][0]["command"]
+            already_registered = any(
+                h.get("command", "") == hook_cmd for h in inner_hooks
+            )
+            if not already_registered:
+                inner_hooks.append(desired["hooks"][0])
+                pre_tool_use[idx]["hooks"] = inner_hooks
+                hooks_modified = True
+        else:
+            pre_tool_use.append(desired)
+            hooks_modified = True
+
+    if hooks_modified:
+        existing_hooks["PreToolUse"] = pre_tool_use
+        settings["hooks"] = existing_hooks
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(
+            json.dumps(settings, indent=2) + "\n", encoding="utf-8",
+        )
+        messages.append(f"  {color('✅', GREEN)} Hooks registered in ~/.claude/settings.json")
+    else:
+        messages.append(f"  {color('✅', GREEN)} Hooks already registered in settings.json")
+
+    return installed, messages
+
+
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
-    _echo(f"\n  {color('✅ CodeTrust installed!', GREEN)}\n")
+    _echo(f"\n  {color('✅ CodeTrust installed — AI Governance active', GREEN)}\n")
     _echo("  Enforcement stack:")
-    _echo(f"    Layer 1: CLAUDE.md / .cursorrules  {color('(advisory)', BLUE)}")
-    _echo(f"    Layer 2: VS Code extension         {color('(passive)', BLUE)}")
-    _echo(f"    Layer 3: Pre-commit hook            {color('(blocking)', GREEN)}")
-    _echo(f"    Layer 4: GitHub Action              {color('(absolute)', RED)}")
-    _echo(f"    Layer 5: Gateway governance         {color('(interceptor)', RED)}")
+    _echo(f"    Layer 1: PreToolUse hooks           {color('(real-time interception)', RED)}")
+    _echo(f"    Layer 2: MCP Gateway + Guardian      {color('(proxy validation)', RED)}")
+    _echo(f"    Layer 3: Pre-commit hook             {color('(commit gate)', GREEN)}")
+    _echo(f"    Layer 4: GitHub Action               {color('(PR gate)', GREEN)}")
+    _echo(f"    Layer 5: CLAUDE.md / .cursorrules    {color('(advisory)', BLUE)}")
     _echo()
     _echo("  Governance:")
     _echo(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
@@ -2882,7 +2993,8 @@ def _init_print_summary() -> None:
     _echo("    1. Push to GitHub")
     _echo("    2. Settings → Branches → Require 'CodeTrust Quality Gate' to pass")
     _echo("    3. Install VS Code extension: code --install-extension SaidBorna.codetrust")
-    _echo("    4. Add gateway to Claude/Cursor config (see: codetrust governance --setup)")
+    _echo()
+    _echo(f"  Verify: {color('codetrust doctor', BOLD)}")
     _echo()
 
 
@@ -2975,13 +3087,28 @@ def cmd_init(args: argparse.Namespace) -> int:
         _print_allow_list_audit(audit_findings)
         return 1 if audit_findings else 0
 
-    _echo(f"\n{color('🛡️  CodeTrust — Installing enforcement layers', BOLD)}\n")
+    _echo(f"\n{color('🛡️  CodeTrust — Installing AI Governance enforcement', BOLD)}\n")
 
+    # Project-level layers
     _init_advisory_files(project_dir, force=args.force)
     _init_precommit_hook(project_dir)
     _init_github_action(project_dir, force=args.force)
     _init_gitignore_and_governance(project_dir, force=args.force)
     _init_policy_integrity_manifest(project_dir)
+
+    # Real-time enforcement: PreToolUse hooks (user-level)
+    _echo(f"\n  {color('Installing real-time enforcement hooks...', BOLD)}")
+    _hooks_count, hook_messages = _init_pretooluse_hooks()
+    for msg in hook_messages:
+        _echo(msg)
+
+    # MCP server configuration (user-level)
+    _echo(f"\n  {color('Configuring MCP servers...', BOLD)}")
+    mcp_count = _inject_mcp_servers()
+    if mcp_count > 0:
+        _echo(f"  {color('✅', GREEN)} {mcp_count} IDE config(s) updated with MCP servers")
+    else:
+        _echo(f"  {color('✅', GREEN)} MCP servers already configured")
 
     # Audit allow-list after installation
     audit_findings = audit_allow_list(project_dir)
@@ -4185,9 +4312,122 @@ def _doctor_handle_issues(
     return 1
 
 
+def _doctor_check_pretooluse_hooks() -> list[str]:
+    """Check PreToolUse hooks installation and registration."""
+    issues: list[str] = []
+    hooks_dir = Path.home() / ".claude" / "hooks"
+    settings_path = Path.home() / ".claude" / "settings.json"
+
+    _echo(f"\n  {color('Layer 1: PreToolUse Hooks (real-time interception)', BOLD)}")
+
+    # Check hook files exist
+    gateway_hook = hooks_dir / "codetrust_gateway_hook.py"
+    file_write_hook = hooks_dir / "codetrust_file_write_hook.py"
+
+    for hook_path, label in [
+        (gateway_hook, "Gateway hook (Bash interception)"),
+        (file_write_hook, "File-write hook (Write/Edit protection)"),
+    ]:
+        if hook_path.exists():
+            _echo(f"    {color('✅', GREEN)} {label}: {hook_path}")
+        else:
+            issues.append(f"PreToolUse hook missing: {hook_path}")
+            _echo(f"    {color('❌', RED)} {label}: NOT FOUND")
+            _echo(f"       Fix: {color('codetrust init', BOLD)}")
+
+    # Check hooks registered in settings.json
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            pre_tool_use = settings.get("hooks", {}).get("PreToolUse", [])
+            matchers = [h.get("matcher", "") for h in pre_tool_use]
+
+            if "Bash" in matchers:
+                _echo(f"    {color('✅', GREEN)} Bash hook registered in settings.json")
+            else:
+                issues.append("Bash PreToolUse hook not registered")
+                _echo(f"    {color('❌', RED)} Bash hook NOT registered in settings.json")
+
+            write_registered = any(
+                "Write" in m or "Edit" in m for m in matchers
+            )
+            if write_registered:
+                _echo(f"    {color('✅', GREEN)} Write/Edit hook registered in settings.json")
+            else:
+                issues.append("Write/Edit PreToolUse hook not registered")
+                _echo(f"    {color('❌', RED)} Write/Edit hook NOT registered in settings.json")
+
+        except (json.JSONDecodeError, OSError):
+            issues.append("Cannot read ~/.claude/settings.json")
+            _echo(f"    {color('❌', RED)} Cannot read ~/.claude/settings.json")
+    else:
+        issues.append("~/.claude/settings.json not found")
+        _echo(f"    {color('❌', RED)} ~/.claude/settings.json not found")
+
+    # Functional test: simulate git push → expect block
+    if gateway_hook.exists():
+        test_input = json.dumps({
+            "tool_name": "Bash",
+            "tool_input": {"command": "git push origin main"},
+        })
+        try:
+            result = subprocess.run(
+                [sys.executable, str(gateway_hook)],
+                input=test_input, capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 2:
+                _echo(f"    {color('✅', GREEN)} Test: 'git push' → BLOCKED (exit 2)")
+            else:
+                issues.append("Gateway hook did not block 'git push'")
+                _echo(f"    {color('❌', RED)} Test: 'git push' → NOT BLOCKED (exit {result.returncode})")
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            issues.append(f"Gateway hook test failed: {exc}")
+            _echo(f"    {color('❌', RED)} Test failed: {exc}")
+
+    return issues
+
+
+def _doctor_check_mcp_config() -> list[str]:
+    """Check MCP server configuration in IDE config files."""
+    issues: list[str] = []
+    _echo(f"\n  {color('Layer 2: MCP Gateway + Guardian', BOLD)}")
+
+    targets = _get_mcp_targets()
+    found_any = False
+    for name, config_path in targets:
+        if not config_path.exists():
+            _echo(f"    {color('—', BLUE)} {name}: config not found (IDE not installed?)")
+            continue
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            servers = config.get("mcpServers", {})
+            has_guardian = GUARDIAN_SERVER_NAME in servers
+            has_gateway = GATEWAY_SERVER_NAME in servers
+            if has_guardian and has_gateway:
+                _echo(f"    {color('✅', GREEN)} {name}: Guardian + Gateway configured")
+                found_any = True
+            elif has_guardian:
+                _echo(f"    {color('⚠️', YELLOW)}  {name}: Guardian only (no Gateway)")
+                found_any = True
+            elif has_gateway:
+                _echo(f"    {color('⚠️', YELLOW)}  {name}: Gateway only (no Guardian)")
+                found_any = True
+            else:
+                _echo(f"    {color('❌', RED)} {name}: no CodeTrust servers")
+        except (json.JSONDecodeError, OSError):
+            _echo(f"    {color('⚠️', YELLOW)}  {name}: cannot read config")
+
+    if not found_any:
+        issues.append("No IDE has MCP servers configured")
+        _echo(f"    {color('❌', RED)} No IDE has CodeTrust MCP servers configured")
+        _echo(f"       Fix: {color('codetrust init', BOLD)}")
+
+    return issues
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
-    """Run diagnostic checks on CodeTrust installation."""
-    _echo(f"\n{color('🛡️  CodeTrust Doctor', BOLD)}\n")
+    """Run diagnostic checks on CodeTrust AI Governance installation."""
+    _echo(f"\n{color('🛡️  CodeTrust Doctor — AI Governance Verification', BOLD)}\n")
 
     issues: list[str] = []
     project_dir = Path.cwd()
@@ -4195,29 +4435,62 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if not (project_dir / ".git").is_dir():
         issues.append("Not a git repository")
 
+    # Layer 1: PreToolUse hooks (real-time enforcement)
+    issues.extend(_doctor_check_pretooluse_hooks())
+
+    # Layer 2: MCP servers
+    issues.extend(_doctor_check_mcp_config())
+
+    # Layer 3: Pre-commit hook
+    _echo(f"\n  {color('Layer 3: Pre-commit Hook (commit gate)', BOLD)}")
     hooks_path = _doctor_check_hooks_path(project_dir)
     hooks_path_set = hooks_path == "hooks"
     if hooks_path_set:
-        _echo(f"  {color('✅', GREEN)} core.hooksPath = hooks")
+        _echo(f"    {color('✅', GREEN)} core.hooksPath = hooks")
     else:
-        _echo(f"  {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
-        _echo(f"     Fix: {color('git config core.hooksPath hooks', BOLD)}")
-
-    issues.extend(_doctor_check_claude_md(project_dir))
+        _echo(f"    {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
+        _echo(f"       Fix: {color('git config core.hooksPath hooks', BOLD)}")
     issues.extend(_doctor_check_hook_file(project_dir, hooks_path_set))
 
+    # Layer 4: GitHub Action
+    _echo(f"\n  {color('Layer 4: GitHub Action (PR gate)', BOLD)}")
     action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
     if action.exists():
-        _echo(f"  {color('✅', GREEN)} GitHub Action workflow exists")
+        _echo(f"    {color('✅', GREEN)} GitHub Action workflow exists")
     else:
         issues.append("GitHub Action not found")
-        _echo(f"  {color('❌', RED)} GitHub Action not found")
+        _echo(f"    {color('❌', RED)} GitHub Action not found")
 
-    _echo()
+    # Layer 5: Advisory files
+    _echo(f"\n  {color('Layer 5: Advisory Files', BOLD)}")
+    issues.extend(_doctor_check_claude_md(project_dir))
+
+    # Layer 6: Governance config
+    _echo(f"\n  {color('Layer 6: Governance Config', BOLD)}")
+    toml_path = project_dir / ".codetrust.toml"
+    if toml_path.exists():
+        _echo(f"    {color('✅', GREEN)} .codetrust.toml exists")
+    else:
+        issues.append(".codetrust.toml not found")
+        _echo(f"    {color('❌', RED)} .codetrust.toml not found")
+
+    # Allow-list audit
+    _echo(f"\n  {color('Layer 7: Allow-list Audit', BOLD)}")
+    audit_findings = audit_allow_list(project_dir)
+    if audit_findings:
+        for f in audit_findings:
+            issues.append(f"Allow-list bypass: {f['entry']}")
+            _echo(f"    {color('⚠️', YELLOW)}  {f['entry']} → {f['reason']}")
+    else:
+        _echo(f"    {color('✅', GREEN)} No dangerous allow-list entries")
+
+    # Summary
+    _echo(f"\n{'━' * 48}")
     if not issues:
-        _echo(color("  All checks passed. CodeTrust is fully operational.\n", GREEN))
+        _echo(color("\n  ✅ All layers active — AI Governance enforced.\n", GREEN))
         return 0
 
+    _echo(f"\n  {len(issues)} issue(s) found.")
     return _doctor_handle_issues(args, issues, project_dir)
 
 

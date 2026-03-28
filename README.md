@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>Current: v3.0.0</code> &middot; <code>2,391+ tests</code> &middot; <code>2,942 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v4.0.0</code> &middot; <code>2,509 tests</code> &middot; <code>3,006 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 ## What CodeTrust Is
 
-**AI Governance Enforcement Platform** — 2,942 rules across 10 enforcement layers, 18 MCP tools (Guardian + Gateway), 66 API endpoints. Enterprise services: CVE/vulnerability scanning, license compliance, cross-language taint analysis, hallucination detection, and team management with RBAC. 10 AST-based deep checks (complexity, unused variables, unreachable code, deep nesting, missing timeouts, missing resource limits, broad exception handlers, silent exception swallow, unbounded loop growth, module-level mutable state). 280 taint definitions across 5 languages. 2,391+ tests.
+**AI Governance Enforcement Platform** — 3,006 rules, 7 enforcement layers auto-installed by `codetrust init`, 39 MCP tools (21 Guardian + 18 Gateway), 70 API endpoints. Real-time PreToolUse interception blocks dangerous commands BEFORE execution. 2,924 individually crafted guided remediation suggestions. Cross-language taint analysis: 7 languages, 323 definitions. 10 AST deep checks. Hallucination detection. AI attribution and observability. 2,509 tests.
 
 CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
 
@@ -60,22 +60,27 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v3.0.0`
-- **Release highlights:** Reliability hardening release for MCP startup, governance enforcement continuity, and cross-IDE consistency.
+- **Current release:** `v4.0.0`
+- **Release highlights:** The AI Governance release. `codetrust init` now installs real-time PreToolUse hooks automatically. 2,924 rules with individual Grade A guided remediation. Scanner FP 80% → 0%. 7 enforcement layers verified by `codetrust doctor`.
 
-### What's New in v3.0.0
+### What's New in v4.0.0
 
-- Claude Desktop MCP startup resilience: gateway/scan startup no longer crashes on unreadable workspace policy/audit paths.
-- Protocol-safe stdio behavior: server logs routed to stderr to keep JSON-RPC stdout clean.
-- Portable MCP runtime resolution for global targets to avoid workspace-bound `.venv` assumptions.
-- Extension startup hardening: non-actionable no-workspace warnings reduced and governance disruption detection made less noisy.
-- Formal user intake: structured bug-report and feature-request forms now available.
+- **Real-time enforcement:** `codetrust init` installs PreToolUse hooks to `~/.claude/hooks/` — gateway (45+ blocked Bash patterns) and file-write (13 protected paths, 6 secret patterns). Zero manual configuration.
+- **MCP auto-configuration:** Claude Code, Cursor, and Claude Desktop MCP configs injected automatically during init.
+- **`codetrust doctor`:** Verifies all 7 enforcement layers with functional tests. `git push → BLOCKED (exit 2)` verified live.
+- **2,924 guided remediation suggestions:** Every rule has individually crafted, Grade A suggestion with root cause, exact fix, and CVE references.
+- **Scanner quality:** FP rate 80% → 0% (own code), Flask 0%, Django 8.6%. 40+ FP root causes fixed. 17 special handlers.
+- **Scanner performance:** 27s → 2ms worst case. Test suite 150s → 87s. Pre-index by extension, pre-compile regex.
+- **Cross-language taint:** 7 languages (Python, JS/TS, Go, Java, C#, Kotlin, Rust). 323 definitions (57 sources, 169 sinks, 97 sanitizers).
+- **AST analysis:** 10 tree-sitter checks (was 4). AST/regex dedup eliminates duplicate findings.
+- **AI Observability:** 8 features — IDE model enumeration, AI attribution, MCP audit, shadow AI detection, developer risk scoring, LLM benchmarking, commit policy, pre-commit attribution.
+- **Security:** 3 bugs fixed in own code. Gateway bypass fix (interpreter -c/-e). Claude Code allow-list bypass reported to Anthropic.
 
 ### What's Coming Next
 
 - Compliance policy packs (SOC 2 / ISO 27001 / PCI-DSS presets).
-- Org-level governance alerting for drift and repeat BLOCK events.
-- Exception lifecycle hardening with expiration and escalation ownership.
+- Completion Hallucination Detection (agent claim verification).
+- Universal rule file_types scoping (1,680 rules without extension filtering).
 
 ---
 
@@ -185,7 +190,7 @@ CodeTrust combines pre-execution interception, live registry verification, quant
 
 CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
 
-**1,202 scan rules + 82 gateway rules = 1,284 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
+**2,924 scan rules + 82 gateway rules = 3,006 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
 
 ---
 
@@ -255,7 +260,7 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v3.0.0` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `uses: S-Borna/codetrust@v4.0.0` | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 54 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -357,7 +362,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: S-Borna/codetrust@v3.0.0
+      - uses: S-Borna/codetrust@v4.0.0
         with:
           fail-on: block          # block | warn | info
           scan-type: static       # static | deep
@@ -682,7 +687,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v3.0.0` |
+| **GitHub Action** | `uses: S-Borna/codetrust@v4.0.0` |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

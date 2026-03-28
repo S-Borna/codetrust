@@ -13633,7 +13633,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "tls_weak_cipher",
-        "pattern": r"(?i)(?:RC4|DES|NULL|EXPORT|anon|MD5).*(?:cipher|suite|ssl|tls)",
+        "pattern": r"(?i)\b(?:RC4|DES|NULL|EXPORT|anon|MD5)\b.*(?:cipher|suite|ssl|tls)",
         "skip_comments": True,
         "message": "Weak TLS cipher suite. Use modern cipher suites.",
         "severity": Severity.BLOCK,

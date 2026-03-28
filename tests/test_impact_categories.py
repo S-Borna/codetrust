@@ -22,9 +22,12 @@ def test_spec_rule_examples_are_mapped_to_expected_categories() -> None:
     assert get_rule_category("cve_detected") == "supply_chain"
 
 
-def test_unknown_rule_falls_back_to_other() -> None:
-    """Unknown rule ids must safely fall back to 'other'."""
-    assert get_rule_category("__unknown_rule__") == IMPACT_CATEGORY_OTHER
+def test_unknown_rule_falls_back_to_visible_category() -> None:
+    """Unknown rule ids must fall back to a visible category, not 'other'."""
+    category = get_rule_category("__unknown_rule__")
+    assert category in PUBLIC_IMPACT_CATEGORIES, (
+        f"Unknown rules must map to a visible category, got '{category}'"
+    )
 
 
 def test_public_categories_exclude_fallback_other() -> None:

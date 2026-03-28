@@ -190,7 +190,8 @@ class TestWarmUpRedisCounters:
     @pytest.mark.asyncio()
     async def test_warmup_restores_impact_counters(self, fake_redis: fakeredis.aioredis.FakeRedis) -> None:
         """Impact counters are included in Redis warmup coverage."""
-        db = self._make_db({"ct:impact:injection_attacks": 7})
+        snapshot_val = int(BASELINE_DB_SNAPSHOT.get("ct:impact:injection_attacks", 0))
+        db = self._make_db({"ct:impact:injection_attacks": snapshot_val + 7})
         await warm_up_redis_counters(r=fake_redis, db=db)
         assert int(await fake_redis.get("ct:impact:injection_attacks")) == BASELINES["ct:impact:injection_attacks"] + 7
         assert await fake_redis.get("ct:impact:other") is None

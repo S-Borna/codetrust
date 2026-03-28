@@ -92,6 +92,7 @@ class StaticAnalyzer:
             "check_unclosed_file": self._check_unclosed_file,
             "check_go_sql_close": self._check_go_sql_close,
             "check_jwt_no_expiry": self._check_jwt_no_expiry,
+            "check_plaintext_password_storage": self._check_plaintext_password_storage,
         }
         fn = handlers.get(handler)
         if fn is not None:
@@ -868,6 +869,49 @@ class StaticAnalyzer:
                 suggestion=(
                     "A JWT without an 'exp' claim is valid indefinitely. Always set a "
                     "numeric UTC expiry: payload['exp'] = int(datetime.now(timezone.utc).timestamp()) + 3600."
+                ),
+            ))
+        return findings
+
+    def _check_plaintext_password_storage(
+        self, lines: list[str], filename: str,
+    ) -> list[Finding]:
+        """Flag pwd reads only when storage context exists nearby.
+
+        Matches pwd assignment from request but only triggers
+        if write-ops (.save, INSERT, .create, .commit) appear within 5 lines.
+        """
+        findings: list[Finding] = []
+        pwd_read_re = re.compile(
+            r"(?i)(?:password|passwd|pwd)\s*=\s*(?:request|data|form|body)\.\w+"
+        )
+        hash_re = re.compile(r"(?i)(?:hash|bcrypt|argon|pbkdf|scrypt)")
+        storage_re = re.compile(
+            r"(?i)(?:\.save\b|\.create\b|\.add\b|\.put\b|\.commit\b"
+            r"|\.update\b|\.insert\b|INSERT\s+INTO|UPDATE\s+\w+\s+SET)"
+        )
+        for line_num, line in enumerate(lines, start=1):
+            if "noqa" in line:
+                continue
+            if not pwd_read_re.search(line):
+                continue
+            # Check 5 lines around for storage and hashing context
+            window_start = max(0, line_num - 3)
+            window_end = min(len(lines), line_num + 5)
+            window = "\n".join(lines[window_start:window_end])
+            if hash_re.search(window):
+                continue
+            if not storage_re.search(window):
+                continue
+            findings.append(Finding(
+                rule_id="auth_plaintext_password_storage",
+                severity=Severity.BLOCK,
+                message="Password stored without hashing. Always hash before storage.",
+                file=filename,
+                line=line_num,
+                suggestion=(
+                    "Hash the password before storing: "
+                    "bcrypt.hashpw(password.encode(), bcrypt.gensalt(12))."
                 ),
             ))
         return findings

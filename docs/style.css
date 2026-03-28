@@ -716,3 +716,255 @@ footer a:hover { color: var(--text-2); }
     .bg-animation { display: none; }
     .reveal { opacity: 1; transform: none; }
 }
+
+/* ====================== v4.0.2: INIT STEPS ====================== */
+.init-steps {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.init-step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.4rem;
+    border-left: 2px solid var(--border);
+    position: relative;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.init-step.init-step-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+.init-step:last-child {
+    border-left-color: transparent;
+}
+.init-step-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    transition: all 0.5s ease;
+}
+.init-step-visible .init-step-icon.init-step-done {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+}
+.init-step-content {
+    flex: 1;
+    min-width: 0;
+}
+.init-step-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--white);
+    margin-bottom: 0.15rem;
+}
+.init-step-desc {
+    font-size: 0.78rem;
+    color: var(--text-3);
+    line-height: 1.55;
+}
+.init-step-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.init-badge-red {
+    background: var(--red-dim);
+    color: var(--red);
+}
+.init-badge-green {
+    background: var(--green-dim);
+    color: var(--green);
+}
+.init-badge-amber {
+    background: var(--amber-dim);
+    color: var(--amber);
+}
+.init-badge-indigo {
+    background: var(--indigo-dim);
+    color: var(--indigo);
+}
+.init-badge-cyan {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+/* ====================== v4.0.2: FIVE CARDS GRID ====================== */
+.five-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+.five-cards .demo-card:nth-child(4),
+.five-cards .demo-card:nth-child(5) {
+    /* Center the bottom two cards */
+}
+
+/* Card badges */
+.card-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.card-badge-red { background: var(--red-dim); color: var(--red); }
+.card-badge-amber { background: var(--amber-dim); color: var(--amber); }
+.card-badge-indigo { background: var(--indigo-dim); color: var(--indigo); }
+.card-badge-green { background: var(--green-dim); color: var(--green); }
+.card-badge-cyan { background: var(--cyan-dim); color: var(--cyan); }
+
+.demo-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.t-cyan { color: var(--cyan); }
+
+/* ====================== v4.0.2: DOCTOR TERMINAL ====================== */
+.doctor-terminal {
+    max-width: 700px;
+    width: 100%;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px var(--glow-green);
+}
+.doctor-terminal-body {
+    padding: 1.5rem 1.8rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 2.2;
+}
+.doctor-line {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.doctor-check {
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.doctor-summary {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+/* ====================== v4.0.2: INSTALL HERO ====================== */
+.install-hero {
+    max-width: 560px;
+    margin: 0 auto 3rem;
+}
+.install-hero-terminal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.4), 0 0 30px var(--glow-green);
+}
+.install-terminal-body {
+    padding: 1.2rem 1.6rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 2;
+}
+.install-line {
+    white-space: nowrap;
+}
+
+/* Install surfaces (VS Code, GH Action, Chrome) */
+.install-surfaces {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto 3rem;
+}
+.install-surface-card {
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.install-surface-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 0 20px -5px var(--glow), 0 15px 30px rgba(0,0,0,0.2);
+}
+.install-surface-icon {
+    margin-bottom: 0.8rem;
+}
+.install-surface-card h3 {
+    font-size: 0.92rem; font-weight: 700;
+    color: var(--white); margin-bottom: 0.6rem;
+}
+.install-surface-card code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem; color: var(--green);
+    background: var(--green-dim);
+    padding: 0.5rem 0.8rem; border-radius: 6px;
+    display: block; text-align: center;
+    margin-bottom: 0.6rem;
+}
+.install-surface-desc {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    line-height: 1.5;
+}
+
+/* ====================== v4.0.2: PULSE ANIMATION ====================== */
+@keyframes dash-pulse-anim {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+.dash-pulse {
+    animation: dash-pulse-anim 0.6s ease-out;
+}
+
+/* ====================== v4.0.2: RESPONSIVE ADDITIONS ====================== */
+@media (max-width: 850px) {
+    .five-cards { grid-template-columns: 1fr; }
+    .init-step-badge { display: none; }
+    .install-surfaces { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
+}
+@media (max-width: 640px) {
+    .init-step { padding: 0.8rem 1rem; gap: 0.7rem; }
+    .init-step-label { font-size: 0.85rem; }
+    .init-step-desc { font-size: 0.72rem; }
+    .doctor-terminal-body { padding: 1rem; font-size: 0.72rem; }
+    .doctor-line { gap: 0.4rem; flex-wrap: wrap; }
+    .install-terminal-body { padding: 1rem; font-size: 0.72rem; }
+    .card-badge { display: none; }
+}

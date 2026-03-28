@@ -895,12 +895,12 @@ class StaticAnalyzer:
                 continue
             if not pwd_read_re.search(line):
                 continue
-            if hash_re.search(line):
-                continue
-            # Check 5 lines around for storage context
+            # Check 5 lines around for storage and hashing context
             window_start = max(0, line_num - 3)
             window_end = min(len(lines), line_num + 5)
             window = "\n".join(lines[window_start:window_end])
+            if hash_re.search(window):
+                continue
             if not storage_re.search(window):
                 continue
             findings.append(Finding(

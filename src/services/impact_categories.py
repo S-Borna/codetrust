@@ -2,8 +2,9 @@
 # Proprietary — see LICENSE for terms.
 """Rule-to-category mapping for impact telemetry.
 
-Every BLOCK finding must map to exactly one of 6 impact categories.
-The sum of all category counters must equal total_blocks.
+Every BLOCK finding must map to exactly one of 6 public impact categories.
+The sum of all public category counters must equal total_blocks.
+An internal/legacy 'other' bucket exists but is not used for new findings.
 """
 
 from __future__ import annotations

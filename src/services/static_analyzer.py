@@ -31,6 +31,10 @@ logger = structlog.get_logger()
 class StaticAnalyzer:
     """Regex-based anti-pattern detection. Runs locally, no network calls."""
 
+    # Minimum line count to skip a file by basename alone (without path check).
+    # Prevents suppressing a user's small file that happens to share a name.
+    MIN_LINES_FOR_RULE_FILE_SKIP: int = 5000
+
     # Files that contain rule definitions — scanning them is circular and slow.
     RULE_DEFINITION_FILES: frozenset[str] = frozenset({
         "anti_patterns.py",
@@ -189,12 +193,26 @@ class StaticAnalyzer:
         """
         findings: list[Finding] = []
 
-        # Fix 1: Skip CodeTrust's own rule definition files — scanning them is circular
+        # Fix 1: Skip CodeTrust's own rule definition files — scanning them
+        # is circular and causes 27s freezes on 30K-line files.
+        # Accept basename alone (MCP callers may omit path prefix).
+        # Safety net: only skip large files (>5000 lines) to avoid
+        # suppressing a user's small file that shares the name.
         basename = os.path.basename(filename).lower() if filename else ""
         if basename in self.RULE_DEFINITION_FILES:
+            line_count = code.count("\n") + 1
             normalized = filename.replace("\\", "/").lower()
-            if "/src/rules/" in normalized or normalized.startswith("src/rules/"):
-                logger.info("skip_rule_definition_file", filename=filename)
+            in_rules_dir = (
+                "/src/rules/" in normalized
+                or normalized.startswith("src/rules/")
+            )
+            if in_rules_dir or line_count > self.MIN_LINES_FOR_RULE_FILE_SKIP:
+                logger.info(
+                    "skip_rule_definition_file",
+                    filename=filename,
+                    line_count=line_count,
+                    reason="in_rules_dir" if in_rules_dir else "large_file",
+                )
                 return []
 
         lines = code.splitlines()

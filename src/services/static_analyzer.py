@@ -187,11 +187,13 @@ class StaticAnalyzer:
         """
         findings: list[Finding] = []
 
-        # Fix 1: Skip rule definition files — scanning them is circular
+        # Fix 1: Skip CodeTrust's own rule definition files — scanning them is circular
         basename = os.path.basename(filename).lower() if filename else ""
         if basename in self.RULE_DEFINITION_FILES:
-            logger.info("skip_rule_definition_file", filename=filename)
-            return []
+            normalized = filename.replace("\\", "/").lower()
+            if "/src/rules/" in normalized or normalized.startswith("src/rules/"):
+                logger.info("skip_rule_definition_file", filename=filename)
+                return []
 
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""

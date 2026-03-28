@@ -2886,9 +2886,94 @@ def _init_print_summary() -> None:
     _echo()
 
 
+def audit_allow_list(project_dir: Path) -> list[dict[str, str]]:
+    """Scan Claude Code settings for allow-list entries that bypass hooks.
+
+    PreToolUse hooks do NOT run for commands in permissions.allow.
+    This means any allow-listed command bypasses CodeTrust Gateway entirely.
+
+    Returns:
+        List of findings, each with 'file', 'line', 'entry', 'reason'.
+    """
+    # Patterns that bypass critical Gateway protections
+    dangerous_patterns: list[tuple[re.Pattern[str], str]] = [
+        (re.compile(r"git\s+push"), "bypasses git push blockering"),
+        (re.compile(r"rm\s+-[rR]f"), "bypasses destructive file deletion blockering"),
+        (re.compile(r"\beval\b"), "bypasses eval blockering"),
+        (re.compile(r"curl.*\|\s*(?:ba)?sh"), "bypasses remote code execution blockering"),
+        (re.compile(r"\bsudo\s+su\b"), "bypasses privilege escalation blockering"),
+        (re.compile(r"\bchmod\s+777\b"), "bypasses permission weakening blockering"),
+        (re.compile(r"\bdd\s+.*of="), "bypasses disk write blockering"),
+        (re.compile(r"\bmkfs\b"), "bypasses filesystem format blockering"),
+        (re.compile(r"docker\s+run.*--privileged"), "bypasses privileged container blockering"),
+    ]
+
+    findings: list[dict[str, str]] = []
+    settings_paths = [
+        Path.home() / ".claude" / "settings.json",
+        project_dir / ".claude" / "settings.json",
+    ]
+
+    for settings_path in settings_paths:
+        if not settings_path.is_file():
+            continue
+        try:
+            raw = settings_path.read_text(encoding="utf-8")
+            data = json.loads(raw)
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        allow_list = data.get("permissions", {}).get("allow", [])
+        if not isinstance(allow_list, list):
+            continue
+
+        lines = raw.splitlines()
+        for entry in allow_list:
+            if not isinstance(entry, str):
+                continue
+            for pattern, reason in dangerous_patterns:
+                if pattern.search(entry):
+                    # Find line number
+                    line_num = 0
+                    for i, line in enumerate(lines, start=1):
+                        if entry in line:
+                            line_num = i
+                            break
+                    findings.append({
+                        "file": str(settings_path),
+                        "line": str(line_num),
+                        "entry": entry,
+                        "reason": reason,
+                    })
+                    break  # One finding per entry
+
+    return findings
+
+
+def _print_allow_list_audit(findings: list[dict[str, str]]) -> None:
+    """Print allow-list audit warnings."""
+    if not findings:
+        _echo(f"  {color('✅ Allow-list clean', GREEN)} — no Gateway bypasses found")
+        return
+
+    _echo(f"\n  {color('⚠️  WARNING: Allow-list entries bypass PreToolUse hooks', YELLOW)}")
+    _echo(f"  {color('These commands will NOT be validated by CodeTrust Gateway:', YELLOW)}\n")
+    for f in findings:
+        _echo(f"    {f['file']}:{f['line']}  {color(f['entry'], RED)}")
+        _echo(f"      → {f['reason']}")
+    _echo(f"\n  {color('Fix:', BOLD)} Remove these entries. PreToolUse hooks do not run")
+    _echo("  for allow-listed commands (Claude Code architecture limitation).\n")
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """Install CodeTrust enforcement layers into current project."""
     project_dir = Path.cwd()
+
+    if getattr(args, "check", False):
+        _echo(f"\n{color('🛡️  CodeTrust — Installation check', BOLD)}\n")
+        audit_findings = audit_allow_list(project_dir)
+        _print_allow_list_audit(audit_findings)
+        return 1 if audit_findings else 0
 
     _echo(f"\n{color('🛡️  CodeTrust — Installing enforcement layers', BOLD)}\n")
 
@@ -2897,6 +2982,11 @@ def cmd_init(args: argparse.Namespace) -> int:
     _init_github_action(project_dir, force=args.force)
     _init_gitignore_and_governance(project_dir, force=args.force)
     _init_policy_integrity_manifest(project_dir)
+
+    # Audit allow-list after installation
+    audit_findings = audit_allow_list(project_dir)
+    _print_allow_list_audit(audit_findings)
+
     _init_print_summary()
 
     return 0
@@ -4713,6 +4803,7 @@ def _add_init_and_add_subparsers(
     """Register 'init', 'add', and 'setup' subcommands."""
     init_parser = subparsers.add_parser("init", help="Install enforcement layers")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    init_parser.add_argument("--check", action="store_true", help="Audit installation without modifying files")
 
     setup_parser = subparsers.add_parser(
         "setup",

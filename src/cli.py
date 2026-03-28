@@ -2973,16 +2973,132 @@ def _init_pretooluse_hooks() -> tuple[int, list[str]]:
     return installed, messages
 
 
+# --- BASH_ENV Guard (universal enforcement for VS Code extension) ---
+
+_BASH_ENV_GUARD_FILENAME = "bash_env_guard.sh"
+_BASH_ENV_LINE = 'export BASH_ENV="$HOME/.codetrust/shield/bash_env_guard.sh"  # CodeTrust'
+_BASH_ENV_MARKER = "# CodeTrust"
+
+
+def _init_bash_env_guard() -> list[str]:
+    """Install BASH_ENV guard for universal command interception.
+
+    PreToolUse hooks only fire in Claude Code CLI, NOT in VS Code extension.
+    BASH_ENV is sourced by bash before every non-interactive -c command,
+    which is how ALL Claude Code variants (CLI and extension) spawn bash.
+
+    This provides real-time enforcement that works everywhere.
+
+    Returns:
+        List of status messages.
+    """
+    messages: list[str] = []
+    shield_dir = Path.home() / ".codetrust" / "shield"
+    guard_target = shield_dir / _BASH_ENV_GUARD_FILENAME
+
+    # Step 1: Copy guard script to ~/.codetrust/shield/
+    shield_dir.mkdir(parents=True, exist_ok=True)
+    guard_source = Path(__file__).parent / "templates" / _BASH_ENV_GUARD_FILENAME
+    if not guard_source.exists():
+        messages.append(f"  {color('⚠️', YELLOW)} bash_env_guard.sh template not found")
+        return messages
+
+    content = guard_source.read_text(encoding="utf-8")
+    if guard_target.exists():
+        existing = guard_target.read_text(encoding="utf-8")
+        if existing == content:
+            messages.append(
+                f"  {color('✅', GREEN)} bash_env_guard.sh (already up to date)",
+            )
+        else:
+            guard_target.write_text(content, encoding="utf-8")
+            guard_target.chmod(0o755)
+            messages.append(f"  {color('✅', GREEN)} bash_env_guard.sh updated")
+    else:
+        guard_target.write_text(content, encoding="utf-8")
+        guard_target.chmod(0o755)
+        messages.append(f"  {color('✅', GREEN)} bash_env_guard.sh installed")
+
+    # Step 2: Add BASH_ENV export to shell profile
+    profile_path = _find_shell_profile()
+    if profile_path is None:
+        messages.append(
+            f"  {color('⚠️', YELLOW)} No shell profile found — add manually: "
+            f"{_BASH_ENV_LINE}",
+        )
+        return messages
+
+    profile_content = profile_path.read_text(encoding="utf-8")
+    if _BASH_ENV_MARKER in profile_content:
+        messages.append(
+            f"  {color('✅', GREEN)} BASH_ENV already configured in {profile_path.name}",
+        )
+    else:
+        separator = "" if profile_content.endswith("\n") else "\n"
+        profile_path.write_text(
+            profile_content + separator
+            + "\n# CodeTrust BASH_ENV guard — real-time command validation\n"
+            + _BASH_ENV_LINE + "\n",
+            encoding="utf-8",
+        )
+        messages.append(
+            f"  {color('✅', GREEN)} BASH_ENV configured in {profile_path.name}",
+        )
+
+    # Step 3: Set BASH_ENV for current session via launchctl (macOS)
+    import platform
+
+    if platform.system() == "Darwin":
+        import subprocess
+
+        try:
+            subprocess.run(
+                ["launchctl", "setenv", "BASH_ENV", str(guard_target)],
+                check=True,
+                capture_output=True,
+                timeout=5,
+            )
+            messages.append(
+                f"  {color('✅', GREEN)} BASH_ENV set for current session (launchctl)",
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            messages.append(
+                f"  {color('⚠️', YELLOW)} launchctl setenv failed — restart terminal",
+            )
+
+    return messages
+
+
+def _find_shell_profile() -> Path | None:
+    """Find the user's active shell profile file."""
+    import os
+
+    shell = os.environ.get("SHELL", "/bin/bash")
+    home = Path.home()
+
+    if "zsh" in shell:
+        candidates = [home / ".zshrc", home / ".zprofile"]
+    else:
+        candidates = [home / ".bash_profile", home / ".bashrc", home / ".profile"]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
     _echo(f"\n  {color('✅ CodeTrust installed — AI Governance active', GREEN)}\n")
     _echo("  Enforcement stack:")
-    _echo(f"    Layer 1: PreToolUse hooks           {color('(real-time interception)', RED)}")
-    _echo(f"    Layer 2: MCP Gateway + Guardian      {color('(proxy validation)', RED)}")
-    _echo(f"    Layer 3: Pre-commit hook             {color('(commit gate)', GREEN)}")
-    _echo(f"    Layer 4: GitHub Action               {color('(PR gate)', GREEN)}")
-    _echo(f"    Layer 5: CLAUDE.md / .cursorrules    {color('(advisory)', BLUE)}")
+    _echo(f"    Layer 1: BASH_ENV guard              {color('(universal real-time)', RED)}")
+    _echo(f"    Layer 2: PreToolUse hooks            {color('(CLI real-time)', RED)}")
+    _echo(f"    Layer 3: MCP Gateway + Guardian      {color('(proxy validation)', RED)}")
+    _echo(f"    Layer 4: Pre-commit hook             {color('(commit gate)', GREEN)}")
+    _echo(f"    Layer 5: GitHub Action               {color('(PR gate)', GREEN)}")
+    _echo(f"    Layer 6: CLAUDE.md / .cursorrules    {color('(advisory)', BLUE)}")
     _echo()
     _echo("  Governance:")
     _echo(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
@@ -3100,6 +3216,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     _echo(f"\n  {color('Installing real-time enforcement hooks...', BOLD)}")
     _hooks_count, hook_messages = _init_pretooluse_hooks()
     for msg in hook_messages:
+        _echo(msg)
+
+    # BASH_ENV guard (universal enforcement — works in VS Code extension)
+    _echo(f"\n  {color('Installing BASH_ENV command guard...', BOLD)}")
+    _bash_env_messages = _init_bash_env_guard()
+    for msg in _bash_env_messages:
         _echo(msg)
 
     # MCP server configuration (user-level)

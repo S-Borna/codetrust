@@ -397,7 +397,7 @@
 
         <div class="five-cards">
             <!-- CARD 1: Hallucination Detection -->
-            <div class="demo-card reveal">
+            <div class="demo-card demo-card-half reveal">
                 <div class="demo-card-header">
                     <h3>Catches code that doesn't exist</h3>
                     <span class="card-badge card-badge-red">Hallucination Detection</span>
@@ -415,8 +415,38 @@
                 </div>
             </div>
 
-            <!-- CARD 2: Gateway -->
-            <div class="demo-card reveal">
+            <!-- CARD 2: Taint Analysis -->
+            <div class="demo-card demo-card-half reveal">
+                <div class="demo-card-header">
+                    <h3>Traces tainted data to dangerous sinks</h3>
+                    <span class="card-badge card-badge-indigo">Cross-Language Taint</span>
+                </div>
+                <div class="demo-card-body">
+                    <div class="mini-terminal">
+                        <div class="taint-flow">
+                            <div class="taint-line taint-source">
+                                <span class="t-white">user_id = request.args.get('id')</span>
+                                <span class="taint-tag taint-tag-source">SOURCE</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-through">
+                                <span class="t-dim">query = f"SELECT * FROM users WHERE id = {user_id}"</span>
+                            </div>
+                            <div class="taint-arrow">&darr;</div>
+                            <div class="taint-line taint-sink">
+                                <span class="t-white">cursor.execute(query)</span>
+                                <span class="taint-tag taint-tag-sink">SINK: SQL injection</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card-sub">
+                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 323 taint definitions across 7 languages.
+                </div>
+            </div>
+
+            <!-- CARD 3: Gateway (full width) -->
+            <div class="demo-card demo-card-full reveal">
                 <div class="demo-card-header">
                     <h3>Blocks commands before they execute</h3>
                     <span class="card-badge card-badge-amber">AI Governance Gateway</span>
@@ -455,38 +485,8 @@
                 </div>
             </div>
 
-            <!-- CARD 3: Taint Analysis -->
-            <div class="demo-card reveal">
-                <div class="demo-card-header">
-                    <h3>Traces tainted data to dangerous sinks</h3>
-                    <span class="card-badge card-badge-indigo">Cross-Language Taint</span>
-                </div>
-                <div class="demo-card-body">
-                    <div class="mini-terminal">
-                        <div class="taint-flow">
-                            <div class="taint-line taint-source">
-                                <span class="t-white">user_id = request.args.get('id')</span>
-                                <span class="taint-tag taint-tag-source">SOURCE</span>
-                            </div>
-                            <div class="taint-arrow">&darr;</div>
-                            <div class="taint-line taint-through">
-                                <span class="t-dim">query = f"SELECT * FROM users WHERE id = {user_id}"</span>
-                            </div>
-                            <div class="taint-arrow">&darr;</div>
-                            <div class="taint-line taint-sink">
-                                <span class="t-white">cursor.execute(query)</span>
-                                <span class="taint-tag taint-tag-sink">SINK: SQL injection</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="demo-card-sub">
-                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 323 taint definitions across 7 languages.
-                </div>
-            </div>
-
             <!-- CARD 4: Guided Remediation -->
-            <div class="demo-card reveal">
+            <div class="demo-card demo-card-half reveal">
                 <div class="demo-card-header">
                     <h3>Every BLOCK tells you exactly how to fix it</h3>
                     <span class="card-badge card-badge-green">Guided Remediation</span>
@@ -507,7 +507,7 @@
             </div>
 
             <!-- CARD 5: AI Observability -->
-            <div class="demo-card reveal">
+            <div class="demo-card demo-card-half reveal">
                 <div class="demo-card-header">
                     <h3>Which AI model wrote which line</h3>
                     <span class="card-badge card-badge-cyan">AI Observability</span>

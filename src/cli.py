@@ -4434,13 +4434,87 @@ def _doctor_handle_issues(
     return 1
 
 
+def _doctor_check_bash_env_guard() -> list[str]:
+    """Check BASH_ENV guard installation and functionality."""
+    issues: list[str] = []
+    guard_path = Path.home() / ".codetrust" / "shield" / "bash_env_guard.sh"
+
+    _echo(f"\n  {color('Layer 1: BASH_ENV Guard (universal real-time)', BOLD)}")
+
+    # Check guard script exists
+    if guard_path.exists():
+        _echo(f"    {color('✅', GREEN)} bash_env_guard.sh installed")
+    else:
+        issues.append("BASH_ENV guard not installed")
+        _echo(f"    {color('❌', RED)} bash_env_guard.sh NOT FOUND")
+        _echo(f"       Fix: {color('codetrust init', BOLD)}")
+        return issues
+
+    # Check BASH_ENV is set in environment
+    bash_env_val = os.environ.get("BASH_ENV", "")
+    if "bash_env_guard" in bash_env_val:
+        _echo(f"    {color('✅', GREEN)} BASH_ENV active in environment")
+    else:
+        issues.append("BASH_ENV not set — guard inactive until shell restart")
+        _echo(f"    {color('⚠️', YELLOW)}  BASH_ENV not set in current environment")
+        _echo(f"       Fix: restart terminal or run: export BASH_ENV=\"{guard_path}\"")
+
+    # Check shell profile has BASH_ENV export
+    profile = _find_shell_profile()
+    if profile is not None:
+        try:
+            content = profile.read_text(encoding="utf-8")
+            if _BASH_ENV_MARKER in content:
+                _echo(f"    {color('✅', GREEN)} BASH_ENV configured in {profile.name}")
+            else:
+                issues.append(f"BASH_ENV not in {profile.name}")
+                _echo(f"    {color('❌', RED)} BASH_ENV not configured in {profile.name}")
+                _echo(f"       Fix: {color('codetrust init', BOLD)}")
+        except OSError:
+            pass
+
+    # Functional test: heredoc → expect block
+    try:
+        result = subprocess.run(
+            ["/bin/bash", "-c", "echo test"],
+            env={**os.environ, "BASH_ENV": str(guard_path)},
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            _echo(f"    {color('✅', GREEN)} Test: normal command → PASS")
+        else:
+            issues.append("BASH_ENV guard blocks normal commands")
+            _echo(f"    {color('❌', RED)} Test: normal command → FAILED (exit {result.returncode})")
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        issues.append(f"BASH_ENV guard test failed: {exc}")
+
+    # Verify guard script contains heredoc detection rule
+    try:
+        guard_content = guard_path.read_text(encoding="utf-8")
+        heredoc_marker = "<" + "<"  # Split to avoid self-detection
+        if heredoc_marker in guard_content and "guard_heredoc" in guard_content:
+            _echo(f"    {color('✅', GREEN)} Guard contains heredoc detection rule")
+        else:
+            issues.append("BASH_ENV guard missing heredoc rule")
+            _echo(f"    {color('❌', RED)} Guard missing heredoc detection rule")
+    except OSError as exc:
+        issues.append(f"Cannot read guard script: {exc}")
+
+    # Detect VS Code extension environment
+    if os.environ.get("CLAUDECODE") == "1" and "vscode" in os.environ.get("CLAUDE_CODE_ENTRYPOINT", ""):
+        _echo(f"    {color('⚠️', YELLOW)}  Running in VS Code extension — PreToolUse hooks INACTIVE")
+        _echo(f"       BASH_ENV guard is your primary enforcement layer here")
+
+    return issues
+
+
 def _doctor_check_pretooluse_hooks() -> list[str]:
     """Check PreToolUse hooks installation and registration."""
     issues: list[str] = []
     hooks_dir = Path.home() / ".claude" / "hooks"
     settings_path = Path.home() / ".claude" / "settings.json"
 
-    _echo(f"\n  {color('Layer 1: PreToolUse Hooks (real-time interception)', BOLD)}")
+    _echo(f"\n  {color('Layer 2: PreToolUse Hooks (CLI real-time)', BOLD)}")
 
     # Check hook files exist
     gateway_hook = hooks_dir / "codetrust_gateway_hook.py"
@@ -4512,7 +4586,7 @@ def _doctor_check_pretooluse_hooks() -> list[str]:
 def _doctor_check_mcp_config() -> list[str]:
     """Check MCP server configuration in IDE config files."""
     issues: list[str] = []
-    _echo(f"\n  {color('Layer 2: MCP Gateway + Guardian', BOLD)}")
+    _echo(f"\n  {color('Layer 3: MCP Gateway + Guardian', BOLD)}")
 
     targets = _get_mcp_targets()
     found_any = False
@@ -4557,14 +4631,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if not (project_dir / ".git").is_dir():
         issues.append("Not a git repository")
 
-    # Layer 1: PreToolUse hooks (real-time enforcement)
+    # Layer 1: BASH_ENV guard (universal real-time enforcement)
+    issues.extend(_doctor_check_bash_env_guard())
+
+    # Layer 2: PreToolUse hooks (CLI real-time enforcement)
     issues.extend(_doctor_check_pretooluse_hooks())
 
-    # Layer 2: MCP servers
+    # Layer 3: MCP servers
     issues.extend(_doctor_check_mcp_config())
 
-    # Layer 3: Pre-commit hook
-    _echo(f"\n  {color('Layer 3: Pre-commit Hook (commit gate)', BOLD)}")
+    # Layer 4: Pre-commit hook
+    _echo(f"\n  {color('Layer 4: Pre-commit Hook (commit gate)', BOLD)}")
     hooks_path = _doctor_check_hooks_path(project_dir)
     hooks_path_set = hooks_path == "hooks"
     if hooks_path_set:
@@ -4574,8 +4651,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         _echo(f"       Fix: {color('git config core.hooksPath hooks', BOLD)}")
     issues.extend(_doctor_check_hook_file(project_dir, hooks_path_set))
 
-    # Layer 4: GitHub Action
-    _echo(f"\n  {color('Layer 4: GitHub Action (PR gate)', BOLD)}")
+    # Layer 5: GitHub Action
+    _echo(f"\n  {color('Layer 5: GitHub Action (PR gate)', BOLD)}")
     action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
     if action.exists():
         _echo(f"    {color('✅', GREEN)} GitHub Action workflow exists")
@@ -4583,12 +4660,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         issues.append("GitHub Action not found")
         _echo(f"    {color('❌', RED)} GitHub Action not found")
 
-    # Layer 5: Advisory files
-    _echo(f"\n  {color('Layer 5: Advisory Files', BOLD)}")
+    # Layer 6: Advisory files
+    _echo(f"\n  {color('Layer 6: Advisory Files', BOLD)}")
     issues.extend(_doctor_check_claude_md(project_dir))
 
-    # Layer 6: Governance config
-    _echo(f"\n  {color('Layer 6: Governance Config', BOLD)}")
+    # Layer 7: Governance config
+    _echo(f"\n  {color('Layer 7: Governance Config', BOLD)}")
     toml_path = project_dir / ".codetrust.toml"
     if toml_path.exists():
         _echo(f"    {color('✅', GREEN)} .codetrust.toml exists")
@@ -4597,7 +4674,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         _echo(f"    {color('❌', RED)} .codetrust.toml not found")
 
     # Allow-list audit
-    _echo(f"\n  {color('Layer 7: Allow-list Audit', BOLD)}")
+    _echo(f"\n  {color('Layer 8: Allow-list Audit', BOLD)}")
     audit_findings = audit_allow_list(project_dir)
     if audit_findings:
         for f in audit_findings:

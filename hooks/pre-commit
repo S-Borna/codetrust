@@ -220,12 +220,48 @@ def main() -> int:
     return 0
 
 
-def _check_bypass_attempt() -> None:
-    """Warn if someone tries to bypass the hook via --no-verify."""
-    # This runs as a safeguard — the hook itself is bypassed by --no-verify,
-    # but the GitHub Action provides a second mandatory gate.
-    pass
+def _check_bash_env_guard() -> None:
+    """Verify BASH_ENV guard is active — warn if not."""
+    bash_env = os.environ.get("BASH_ENV", "")
+    if "bash_env_guard" not in bash_env:
+        print(
+            "\n\u26a0\ufe0f  CodeTrust: BASH_ENV guard not active."
+            "\n   Real-time agent enforcement may be inactive."
+            "\n   Fix: codetrust init\n",
+        )
+
+
+def _audit_commit(verdict: str, blocks: int, warnings: int) -> None:
+    """Log commit event to Shield audit trail."""
+    import json
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    audit_dir = Path.home() / ".codetrust" / "shield"
+    audit_file = audit_dir / "audit.jsonl"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+
+    entry = {
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "source": "pre_commit_hook",
+        "command": "git commit",
+        "verdict": verdict,
+        "rule_id": "pre_commit_gate",
+        "message": f"blocks={blocks}, warnings={warnings}",
+    }
+    try:
+        with open(audit_file, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _check_bash_env_guard()
+    exit_code = main()
+    _audit_commit(
+        verdict="BLOCK" if exit_code != 0 else "ALLOW",
+        blocks=exit_code,
+        warnings=0,
+    )
+    sys.exit(exit_code)

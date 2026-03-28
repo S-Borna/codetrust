@@ -31,6 +31,14 @@ logger = structlog.get_logger()
 class StaticAnalyzer:
     """Regex-based anti-pattern detection. Runs locally, no network calls."""
 
+    # Files that contain rule definitions — scanning them is circular and slow.
+    RULE_DEFINITION_FILES: frozenset[str] = frozenset({
+        "anti_patterns.py",
+        "enterprise.py",
+        "taint_rules.py",
+        "signatures.py",
+    })
+
     def __init__(self, premium_rules: list[dict[str, object]] | None = None) -> None:
         """Initialize with optional premium rules from server-side delivery.
 
@@ -43,9 +51,7 @@ class StaticAnalyzer:
         from src.services.rule_delivery import FREE_TIER_RULE_IDS, merge_rules
 
         if premium_rules is not None:
-            # Client-side: merge free-tier + server-delivered premium rules
             free_only = [r for r in ANTI_PATTERNS if r.get("id") in FREE_TIER_RULE_IDS]
-            # Deserialize severity strings back to enum for premium rules
             deserialized: list[dict[str, object]] = []
             for rule in premium_rules:
                 entry = dict(rule)
@@ -54,10 +60,33 @@ class StaticAnalyzer:
                 deserialized.append(entry)
             self._rules: list[dict[str, object]] = merge_rules(free_only, deserialized)
         else:
-            # Server-side or local dev: use all bundled rules
             self._rules = list(ANTI_PATTERNS)
 
-        logger.info("static_analyzer_initialized", rule_count=len(self._rules))
+        # Fix 3: Pre-compile all regex patterns into separate map (avoid mutating shared dicts)
+        self._compiled: dict[str, re.Pattern[str]] = {}
+        for rule in self._rules:
+            rule_id = str(rule.get("id", ""))
+            pat = rule.get("pattern")
+            if pat and isinstance(pat, str) and rule_id:
+                self._compiled[rule_id] = re.compile(pat)
+
+        # Fix 2: Pre-index rules by file extension for O(1) lookup
+        self._rules_by_ext: dict[str, list[dict[str, object]]] = {}
+        self._universal_rules: list[dict[str, object]] = []
+        for rule in self._rules:
+            file_types = rule.get("file_types")
+            if file_types:
+                for ext in file_types:
+                    self._rules_by_ext.setdefault(ext, []).append(rule)
+            else:
+                self._universal_rules.append(rule)
+
+        logger.info(
+            "static_analyzer_initialized",
+            rule_count=len(self._rules),
+            extensions_indexed=len(self._rules_by_ext),
+            universal_rules=len(self._universal_rules),
+        )
 
     @property
     def active_rule_count(self) -> int:
@@ -159,12 +188,37 @@ class StaticAnalyzer:
                           for this scan invocation only.
         """
         findings: list[Finding] = []
+
+        # Fix 1: Skip CodeTrust's own rule definition files — scanning them is circular
+        basename = os.path.basename(filename).lower() if filename else ""
+        if basename in self.RULE_DEFINITION_FILES:
+            normalized = filename.replace("\\", "/").lower()
+            if "/src/rules/" in normalized or normalized.startswith("src/rules/"):
+                logger.info("skip_rule_definition_file", filename=filename)
+                return []
+
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
-        active_rules = self._rules
+        # Fix 2: Use pre-indexed rules for this extension.
+        # DevOps files get aggregated DevOps rules (deduped) in addition to ext rules.
+        ext_rules: list[dict[str, object]] = list(self._universal_rules)
+
+        if ext and ext in self._rules_by_ext:
+            ext_rules = self._rules_by_ext[ext] + ext_rules
+
+        if self._is_devops_file(filename, ext):
+            seen_ids: set[str] = {str(r.get("id", "")) for r in ext_rules}
+            for devops_ext in DEVOPS_EXTENSIONS:
+                for rule in self._rules_by_ext.get(devops_ext, []):
+                    rid = str(rule.get("id", ""))
+                    if rid and rid not in seen_ids:
+                        seen_ids.add(rid)
+                        ext_rules.append(rule)
+
+        active_rules = ext_rules
         if custom_rules:
-            active_rules = list(self._rules) + list(custom_rules)
+            active_rules = list(ext_rules) + list(custom_rules)
 
         for rule in active_rules:
             if self._should_skip_rule(rule, ext, filename):
@@ -227,7 +281,8 @@ class StaticAnalyzer:
     ) -> list[Finding]:
         """Apply a single regex rule to all lines of code."""
         findings: list[Finding] = []
-        pattern = re.compile(rule["pattern"])
+        rule_id = str(rule.get("id", ""))
+        pattern = self._compiled.get(rule_id) or re.compile(rule["pattern"])
         skip_comments = bool(rule.get("skip_comments"))
         in_docstring = False
 
@@ -262,7 +317,8 @@ class StaticAnalyzer:
         MUST contain a certain pattern. If the pattern is absent, a
         finding is emitted on line 1.
         """
-        pattern = re.compile(str(rule["pattern"]))
+        negate_id = str(rule.get("id", ""))
+        pattern = self._compiled.get(negate_id) or re.compile(str(rule["pattern"]))
         for line in lines:
             if pattern.search(line):
                 return []

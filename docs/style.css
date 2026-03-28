@@ -157,6 +157,40 @@ a { color: inherit; text-decoration: none; }
     color: var(--text-2); cursor: pointer; padding: 0.5rem;
 }
 
+/* SECTION TAB NAV */
+.section-tabs {
+    position: sticky;
+    top: 56px;
+    z-index: 98;
+    display: flex;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.6rem 1rem;
+    background: rgba(5, 5, 7, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+}
+.tab-link {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-3);
+    padding: 0.35rem 0.8rem;
+    border-radius: 4px;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    transition: all 0.25s ease;
+}
+.tab-link:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+}
+.tab-link.active {
+    color: var(--green);
+    background: var(--green-dim);
+}
+
 /* BUTTONS */
 .btn {
     display: inline-flex; align-items: center; gap: 0.5rem;
@@ -681,6 +715,7 @@ footer a:hover { color: var(--text-2); }
         display: flex; min-width: 44px; min-height: 44px;
         align-items: center; justify-content: center;
     }
+    .section-tabs { display: none; }
     .hero-welcome { font-size: 1.3rem; }
     .hero-intro { font-size: 0.78rem; }
     .hero { padding: 5.5rem 1.2rem 3rem; min-height: auto; }

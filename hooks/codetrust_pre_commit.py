@@ -43,6 +43,7 @@ INFRA_CONFIG_SKIP: frozenset[str] = frozenset({
 # Not a security bypass — these files are reviewed in PRs.
 RULE_DEFINITION_FILES: frozenset[str] = frozenset({
     "anti_patterns.py", "enterprise.py", "taint_rules.py",
+    "pretooluse_gateway_hook.py", "pretooluse_file_write_hook.py",
 })
 
 # Directories containing CI/CD workflows — skip scanning to avoid

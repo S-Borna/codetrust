@@ -11,7 +11,7 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="keywords"
         content="CodeTrust, AI code safety, AI governance, AI code security, hallucination detection, AI agent enforcement, code scanning, AI governance gateway, trust score, AI code review, MCP server, Claude Code, Cursor, GitHub Copilot, pre-execution enforcement, AI-generated code safety, supply chain security, CVE scanning, license compliance, SAST, code quality, DevSecOps, AI DevOps">
-    <meta name="generator" content="CodeTrust v4.0.0">
+    <meta name="generator" content="CodeTrust v4.0.2">
     <link rel="canonical" href="https://codetrust.ai">
 
     <!-- Open Graph -->
@@ -76,7 +76,7 @@
             "name": "CodeTrust",
             "url": "https://codetrust.ai"
         },
-        "softwareVersion": "4.0.0",
+        "softwareVersion": "4.0.2",
         "downloadUrl": "https://pypi.org/project/codetrust/",
         "installUrl": "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
         "screenshot": "https://codetrust.ai/logo.png",
@@ -121,7 +121,7 @@
             "https://github.com/S-Borna/codetrust",
             "https://pypi.org/project/codetrust/",
             "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
-            "https://github.com/marketplace/actions/codetrust-scan",
+            "https://pypi.org/project/codetrust/",
             "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety"
         ]
     }
@@ -147,7 +147,7 @@
             "@type": "Person",
             "name": "Said Borna"
         },
-        "softwareVersion": "4.0.0",
+        "softwareVersion": "4.0.2",
         "downloadUrl": "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety",
         "featureList": [
             "Scan code blocks on GitHub, GitLab, Stack Overflow",
@@ -235,7 +235,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) Chrome extension from Chrome Web Store, (4) GitHub Action using S-Borna/codetrust@v4.0.0, and (5) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) Chrome extension from Chrome Web Store, (4) GitHub Action via pip install codetrust in CI workflow, and (5) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
                 }
             }
         ]
@@ -258,7 +258,7 @@
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=4.0.0">
+    <link rel="stylesheet" href="style.css?v=4.0.2">
 </head>
 <body>
     <div class="scroll-progress" id="scroll-progress"></div>
@@ -310,7 +310,7 @@
                 <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
                 <a href="#capabilities" class="btn btn-ghost">See what we catch &rarr;</a>
             </div>
-            <p class="hero-meta">v4.0.0 &middot; 3,006 rules &middot; 2,509 tests &middot; Free</p>
+            <p class="hero-meta">v4.0.2 &middot; 3,006 rules &middot; 2,509 tests &middot; Free</p>
         </div>
     </section>
 
@@ -557,7 +557,7 @@
             </div>
             <div class="install-card">
                 <h3>GitHub Action</h3>
-                <code>uses: S-Borna/codetrust@v4.0.0</code>
+                <code>pip install codetrust</code> in CI workflow
             </div>
         </div>
 
@@ -969,7 +969,7 @@
         if (typeof navigator !== 'undefined') {
             navigator.modelContext = {
                 name: 'CodeTrust',
-                version: '4.0.0',
+                version: '4.0.2',
                 description: 'AI governance enforcement platform — scan code, verify imports, detect hallucinated packages, enforce trust scores',
                 endpoint: 'https://api.codetrust.ai/v1',
                 transport: 'http',
@@ -1064,8 +1064,8 @@
 
         <h3>Distribution</h3>
         <p>Available as: CLI (pip install codetrust), VS Code extension (marketplace.visualstudio.com), GitHub Action
-            (github.com/marketplace/actions/codetrust-scan), and MCP server for Claude Code and Cursor integration. 60
-            REST API endpoints. 27 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
+            (pip install codetrust in CI workflow), and MCP server for Claude Code and Cursor integration. 70
+            REST API endpoints. 39 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
             Shell/Bash, Terraform/HCL, HTML, SQL, and YAML.</p>
 
         <h3>How CodeTrust Differs From Other Tools</h3>

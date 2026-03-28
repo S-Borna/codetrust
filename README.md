@@ -7,13 +7,13 @@
 </p>
 
 <p align="center">
-  <code>Current: v4.0.0</code> &middot; <code>2,509 tests</code> &middot; <code>3,006 rules</code> &middot; <code>10 layers</code>
+  <code>Current: v4.0.2</code> &middot; <code>2,509 tests</code> &middot; <code>3,006 rules</code> &middot; <code>10 layers</code>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/pypi/v/codetrust?style=flat-square&color=38d8fd" alt="PyPI"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
-  <a href="https://github.com/marketplace/actions/codetrust-scan"><img src="https://img.shields.io/badge/GitHub_Action-available-333?style=flat-square" alt="GitHub Action"></a>
+  <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/badge/CI%2FCD-pip%20install%20codetrust-333?style=flat-square" alt="CI/CD"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
   <a href="https://globaldex.ai/domain/codetrust.ai"><img src="https://globaldex.ai/api/v1/badge?domain=codetrust.ai" alt="GlobalDex Score" height="20"></a>
 </p>
@@ -23,7 +23,7 @@
   <a href="https://api.codetrust.ai/docs">API Docs</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
-  <a href="https://github.com/marketplace/actions/codetrust-scan">GitHub Action</a> &middot;
+  <a href="https://pypi.org/project/codetrust/">CI/CD Integration</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -60,10 +60,10 @@ CodeTrust is not a linter. It is not a formatter. It is a **governance enforceme
 
 ### Release Snapshot
 
-- **Current release:** `v4.0.0`
+- **Current release:** `v4.0.2`
 - **Release highlights:** The AI Governance release. `codetrust init` now installs real-time PreToolUse hooks automatically. 2,924 rules with individual Grade A guided remediation. Scanner FP 80% → 0%. 7 enforcement layers verified by `codetrust doctor`.
 
-### What's New in v4.0.0
+### What's New in v4.0.2
 
 - **Real-time enforcement:** `codetrust init` installs PreToolUse hooks to `~/.claude/hooks/` — gateway (45+ blocked Bash patterns) and file-write (13 protected paths, 6 secret patterns). Zero manual configuration.
 - **MCP auto-configuration:** Claude Code, Cursor, and Claude Desktop MCP configs injected automatically during init.
@@ -260,7 +260,7 @@ codetrust scan .
 | **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
 | **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
 | **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `uses: S-Borna/codetrust@v4.0.0` | PR checks with SARIF upload to Security tab |
+| **GitHub Action** | `pip install codetrust` in CI | PR checks with SARIF upload to Security tab |
 | **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
 | **REST API** | 54 endpoints with rate limiting | Integrate into any pipeline or platform |
 
@@ -337,7 +337,7 @@ Self-hosting: set `codetrust.apiUrl` to your own API base URL.
 
 ## GitHub Action
 
-Add CodeTrust to any GitHub Actions workflow. BLOCK findings fail the status check. Hallucinated packages appear as inline PR annotations via SARIF.
+Add CodeTrust to any GitHub Actions workflow. BLOCK findings fail the status check. `codetrust init` generates the workflow file automatically.
 
 <details>
 <summary><strong>Complete workflow file</strong> — copy to <code>.github/workflows/codetrust.yml</code></summary>
@@ -347,44 +347,43 @@ name: CodeTrust Scan
 
 on:
   pull_request:
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
-  actions: read
   contents: read
   pull-requests: write
-  security-events: write
 
 jobs:
   codetrust:
+    name: CodeTrust Quality Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: S-Borna/codetrust@v4.0.0
         with:
-          fail-on: block          # block | warn | info
-          scan-type: static       # static | deep
-          sarif: true             # upload to GitHub Security tab
-          # api-key: ${{ secrets.CODETRUST_API_KEY }}  # optional
+          fetch-depth: 0
 
-      - uses: github/codeql-action/upload-sarif@v4
-        if: always()
+      - uses: actions/setup-python@v5
         with:
-          sarif_file: codetrust-results.sarif
+          python-version: '3.12'
+
+      - name: Install CodeTrust
+        run: pip install codetrust
+
+      - name: Scan changed files
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\.(py|js|ts|go|rs)$' || true)
+          if [ -n "$FILES" ]; then
+            echo "$FILES" | xargs codetrust scan
+          else
+            echo "No source files changed."
+          fi
 ```
 
 </details>
 
-**Inputs:**
-
-| Input | Default | Description |
-|-------|---------|-------------|
-| `fail-on` | `block` | Minimum severity to fail the check |
-| `scan-type` | `static` | `static` or `deep` |
-| `sarif` | `true` | Generate SARIF for GitHub Security tab |
-| `api-key` | — | Optional API key (from `secrets.CODETRUST_API_KEY`) |
+`codetrust init` creates this workflow automatically. No API key required for static scanning.
 
 ---
 
@@ -687,7 +686,7 @@ Organizations, team memberships, and role-based access control. Enforce org-wide
 | **PyPI** | `pip install codetrust` |
 | **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
 | **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `uses: S-Borna/codetrust@v4.0.0` |
+| **GitHub Action** | `pip install codetrust` in CI workflow |
 | **Cloud API** | Available at `api.codetrust.ai` |
 | **MCP Server** | Included in the package |
 | **Website** | [codetrust.ai](https://codetrust.ai) |

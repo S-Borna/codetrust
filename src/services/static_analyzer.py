@@ -62,11 +62,13 @@ class StaticAnalyzer:
         else:
             self._rules = list(ANTI_PATTERNS)
 
-        # Fix 3: Pre-compile all regex patterns once at init
+        # Fix 3: Pre-compile all regex patterns into separate map (avoid mutating shared dicts)
+        self._compiled: dict[str, re.Pattern[str]] = {}
         for rule in self._rules:
+            rule_id = str(rule.get("id", ""))
             pat = rule.get("pattern")
-            if pat and isinstance(pat, str):
-                rule["_compiled"] = re.compile(pat)
+            if pat and isinstance(pat, str) and rule_id:
+                self._compiled[rule_id] = re.compile(pat)
 
         # Fix 2: Pre-index rules by file extension for O(1) lookup
         self._rules_by_ext: dict[str, list[dict[str, object]]] = {}
@@ -198,17 +200,21 @@ class StaticAnalyzer:
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""
 
-        # Fix 2: Use pre-indexed rules for this extension
+        # Fix 2: Use pre-indexed rules for this extension.
+        # DevOps files get aggregated DevOps rules (deduped) in addition to ext rules.
+        ext_rules: list[dict[str, object]] = list(self._universal_rules)
+
         if ext and ext in self._rules_by_ext:
-            ext_rules = self._rules_by_ext[ext] + self._universal_rules
-        elif self._is_devops_file(filename, ext):
-            # DevOps files (Dockerfile, docker-compose.yml) need DevOps-extension rules
-            devops_rules: list[dict[str, object]] = []
+            ext_rules = self._rules_by_ext[ext] + ext_rules
+
+        if self._is_devops_file(filename, ext):
+            seen_ids: set[str] = {str(r.get("id", "")) for r in ext_rules}
             for devops_ext in DEVOPS_EXTENSIONS:
-                devops_rules.extend(self._rules_by_ext.get(devops_ext, []))
-            ext_rules = devops_rules + self._universal_rules
-        else:
-            ext_rules = self._universal_rules
+                for rule in self._rules_by_ext.get(devops_ext, []):
+                    rid = str(rule.get("id", ""))
+                    if rid and rid not in seen_ids:
+                        seen_ids.add(rid)
+                        ext_rules.append(rule)
 
         active_rules = ext_rules
         if custom_rules:
@@ -275,7 +281,8 @@ class StaticAnalyzer:
     ) -> list[Finding]:
         """Apply a single regex rule to all lines of code."""
         findings: list[Finding] = []
-        pattern = rule.get("_compiled") or re.compile(rule["pattern"])
+        rule_id = str(rule.get("id", ""))
+        pattern = self._compiled.get(rule_id) or re.compile(rule["pattern"])
         skip_comments = bool(rule.get("skip_comments"))
         in_docstring = False
 
@@ -310,7 +317,8 @@ class StaticAnalyzer:
         MUST contain a certain pattern. If the pattern is absent, a
         finding is emitted on line 1.
         """
-        pattern = rule.get("_compiled") or re.compile(str(rule["pattern"]))
+        negate_id = str(rule.get("id", ""))
+        pattern = self._compiled.get(negate_id) or re.compile(str(rule["pattern"]))
         for line in lines:
             if pattern.search(line):
                 return []

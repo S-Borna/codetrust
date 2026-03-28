@@ -286,24 +286,21 @@
             <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install VS Code</a>
         </div>
     </nav>
+        <div class="section-tabs" id="section-tabs">
+            <a href="#telemetry" class="tab-link">Live Data</a>
+            <a href="#layers" class="tab-link">Enforcement</a>
+            <a href="#capabilities" class="tab-link">Capabilities</a>
+            <a href="#who" class="tab-link">For You</a>
+            <a href="#compare" class="tab-link">Compare</a>
+            <a href="#install" class="tab-link">Get Started</a>
+        </div>
+
 
     <!-- ==================== SCREEN 1: HERO ==================== -->
     <section class="hero" id="hero">
         <p class="hero-welcome">Code<span class="hw-trust">Trust</span> &mdash; <span class="hw-gov">AI Governance</span> Enforcement Platform</p>
         <h1 class="hero-headline">Your AI agent just ran <span class="hero-hl-blue">git push --force</span>.<br>Nobody stopped it.<br><span class="hero-hl-green">Until now.</span></h1>
         <p class="hero-intro">7 enforcement layers. 3,006 rules. Real-time interception.<br><span class="mono" style="color:var(--green)">pip install codetrust && codetrust init</span> &mdash; governance active in 30 seconds.</p>
-        <div class="hero-terminal" id="hero-terminal">
-            <div class="hero-terminal-bar">
-                <div class="hero-terminal-dot" style="background:#ff5f57"></div>
-                <div class="hero-terminal-dot" style="background:#febc2e"></div>
-                <div class="hero-terminal-dot" style="background:#28c840"></div>
-                <span class="hero-terminal-title">terminal &mdash; codetrust enforcement</span>
-            </div>
-            <div class="hero-terminal-body">
-                <div id="typewriter-output"></div>
-                <span class="cursor-blink" id="cursor"></span>
-            </div>
-        </div>
 
         <div class="hero-below" id="hero-below">
             <div class="hero-actions">
@@ -314,34 +311,54 @@
         </div>
     </section>
 
-    <!-- ==================== SCREEN 1.5: WHO ARE YOU ==================== -->
-    <section class="container" id="who">
-        <div class="persona-grid reveal">
-            <a href="#persona-founder" class="persona-card persona-founder">
-                <div class="persona-emoji">&#x1F3E2;</div>
-                <h3>I'm a founder</h3>
-                <p>Who's writing my code &mdash; my team or their AI? I need visibility and control.</p>
-                <span class="persona-feature">AI Attribution &middot; Model tracking &middot; Policy engine</span>
-            </a>
-            <a href="#persona-dev" class="persona-card persona-dev">
-                <div class="persona-emoji">&#x1F6E0;&#xFE0F;</div>
-                <h3>I'm a developer</h3>
-                <p>2,924 rules that tell me exactly what's wrong and how to fix it. Not noise &mdash; signal.</p>
-                <span class="persona-feature">Guided remediation &middot; Taint analysis &middot; Zero FP</span>
-            </a>
-            <a href="#persona-teach" class="persona-card persona-teach">
-                <div class="persona-emoji">&#x1F393;</div>
-                <h3>I teach</h3>
-                <p>Which students used AI? Which model? Which lines? Proof, not suspicion.</p>
-                <span class="persona-feature">Attribution trails &middot; Shadow AI detection &middot; Per-line proof</span>
-            </a>
-            <a href="#persona-vibe" class="persona-card persona-vibe">
-                <div class="persona-emoji">&#x26A1;</div>
-                <h3>I vibe code</h3>
-                <p>My AI just tried to install a package that doesn't exist. CodeTrust caught it before it shipped.</p>
-                <span class="persona-feature">Hallucination detection &middot; One command setup &middot; Free</span>
-            </a>
+    <!-- ==================== SCREEN 5: LIVE TELEMETRY ==================== -->
+    <section class="container" id="telemetry">
+        <div class="reveal">
+            <h2><span class="live-dot"></span> Live from production. Not a demo.</h2>
+            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production infrastructure. These numbers update in real time.</p>
         </div>
+
+        <div class="dash-grid reveal">
+            <div class="dash-card">
+                <div class="dash-card-header">Findings</div>
+                <div class="dash-hero-num dash-amber" data-key="total_findings">0</div>
+                <div class="dash-hero-label">issues detected</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
+                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
+                </div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header">Blocks</div>
+                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
+                <div class="dash-hero-label">critical issues blocked</div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header">Distribution</div>
+                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
+                <div class="dash-hero-label">PyPI downloads</div>
+                <div class="dash-detail-row">
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
+                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
+                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dash-source-bar reveal">
+            <span class="dash-source-label">Scans by source:</span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
+        </div>
+
+        <div class="impact-threats reveal">
+            <div id="impact-grid" class="impact-grid"></div>
+        </div>
+
+        <p class="telemetry-context reveal">Impact categories track high-severity threats prevented. Total findings includes all severity levels across every scan.</p>
+        <p class="telemetry-note reveal" id="live-updated-at">live</p>
     </section>
 
     <!-- ==================== SCREEN 2: WHAT codetrust init INSTALLS ==================== -->
@@ -414,6 +431,35 @@
                 <h3>codetrust doctor</h3>
                 <p>Verification. Tests every layer. <code>git push</code> &rarr; BLOCKED (exit 2). Green = enforced.</p>
                 <span class="layer-tag layer-tag-green">7/7 verified</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 4: DOCTOR OUTPUT ==================== -->
+    <section class="container" id="doctor">
+        <div class="reveal">
+            <h2><span class="mono" style="color:var(--green)">codetrust doctor</span> &mdash; proof it works</h2>
+            <p class="section-sub">Run it after init. Every layer verified. Green means enforced.</p>
+        </div>
+
+        <div class="doctor-terminal reveal">
+            <div class="hero-terminal-bar">
+                <div class="hero-terminal-dot" style="background:#ff5f57"></div>
+                <div class="hero-terminal-dot" style="background:#febc2e"></div>
+                <div class="hero-terminal-dot" style="background:#28c840"></div>
+                <span class="hero-terminal-title">terminal &mdash; codetrust doctor</span>
+            </div>
+            <div class="doctor-terminal-body">
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in ~/.claude/settings.json</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Pre-commit hook</span> <span class="t-dim">&mdash; .git/hooks/pre-commit installed</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">GitHub Action</span> <span class="t-dim">&mdash; .github/workflows/codetrust.yml present</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">CLAUDE.md governance</span> <span class="t-dim">&mdash; agent instructions injected</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Governance config</span> <span class="t-dim">&mdash; .codetrust.toml enforce mode</span></div>
+                <div class="doctor-summary">
+                    <span class="t-green">7/7 layers active</span> <span class="t-dim">&mdash;</span> <span class="t-white">governance fully enforced</span>
+                </div>
             </div>
         </div>
     </section>
@@ -557,6 +603,36 @@
                     Shadow AI detection. Developer risk scoring. 26 models discovered live. Know exactly which AI touched your codebase and what it changed.
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ==================== SCREEN 1.5: WHO ARE YOU ==================== -->
+    <section class="container" id="who">
+        <div class="persona-grid reveal">
+            <a href="#persona-founder" class="persona-card persona-founder">
+                <div class="persona-emoji">&#x1F3E2;</div>
+                <h3>I'm a founder</h3>
+                <p>Who's writing my code &mdash; my team or their AI? I need visibility and control.</p>
+                <span class="persona-feature">AI Attribution &middot; Model tracking &middot; Policy engine</span>
+            </a>
+            <a href="#persona-dev" class="persona-card persona-dev">
+                <div class="persona-emoji">&#x1F6E0;&#xFE0F;</div>
+                <h3>I'm a developer</h3>
+                <p>2,924 rules that tell me exactly what's wrong and how to fix it. Not noise &mdash; signal.</p>
+                <span class="persona-feature">Guided remediation &middot; Taint analysis &middot; Zero FP</span>
+            </a>
+            <a href="#persona-teach" class="persona-card persona-teach">
+                <div class="persona-emoji">&#x1F393;</div>
+                <h3>I teach</h3>
+                <p>Which students used AI? Which model? Which lines? Proof, not suspicion.</p>
+                <span class="persona-feature">Attribution trails &middot; Shadow AI detection &middot; Per-line proof</span>
+            </a>
+            <a href="#persona-vibe" class="persona-card persona-vibe">
+                <div class="persona-emoji">&#x26A1;</div>
+                <h3>I vibe code</h3>
+                <p>My AI just tried to install a package that doesn't exist. CodeTrust caught it before it shipped.</p>
+                <span class="persona-feature">Hallucination detection &middot; One command setup &middot; Free</span>
+            </a>
         </div>
     </section>
 
@@ -747,84 +823,6 @@
         </div>
     </section>
 
-    <!-- ==================== SCREEN 4: DOCTOR OUTPUT ==================== -->
-    <section class="container" id="doctor">
-        <div class="reveal">
-            <h2><span class="mono" style="color:var(--green)">codetrust doctor</span> &mdash; proof it works</h2>
-            <p class="section-sub">Run it after init. Every layer verified. Green means enforced.</p>
-        </div>
-
-        <div class="doctor-terminal reveal">
-            <div class="hero-terminal-bar">
-                <div class="hero-terminal-dot" style="background:#ff5f57"></div>
-                <div class="hero-terminal-dot" style="background:#febc2e"></div>
-                <div class="hero-terminal-dot" style="background:#28c840"></div>
-                <span class="hero-terminal-title">terminal &mdash; codetrust doctor</span>
-            </div>
-            <div class="doctor-terminal-body">
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in ~/.claude/settings.json</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules active</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Pre-commit hook</span> <span class="t-dim">&mdash; .git/hooks/pre-commit installed</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">GitHub Action</span> <span class="t-dim">&mdash; .github/workflows/codetrust.yml present</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">CLAUDE.md governance</span> <span class="t-dim">&mdash; agent instructions injected</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Governance config</span> <span class="t-dim">&mdash; .codetrust.toml enforce mode</span></div>
-                <div class="doctor-summary">
-                    <span class="t-green">7/7 layers active</span> <span class="t-dim">&mdash;</span> <span class="t-white">governance fully enforced</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ==================== SCREEN 5: LIVE TELEMETRY ==================== -->
-    <section class="container" id="telemetry">
-        <div class="reveal">
-            <h2><span class="live-dot"></span> Live from production. Not a demo.</h2>
-            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production infrastructure. These numbers update in real time.</p>
-        </div>
-
-        <div class="dash-grid reveal">
-            <div class="dash-card">
-                <div class="dash-card-header">Findings</div>
-                <div class="dash-hero-num dash-amber" data-key="total_findings">0</div>
-                <div class="dash-hero-label">issues detected</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong data-key="files_scanned">0</strong> files</span>
-                    <span class="dash-detail"><strong data-key="total_scans">0</strong> scans</span>
-                </div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-header">Blocks</div>
-                <div class="dash-hero-num dash-red" data-key="blocks_found">0</div>
-                <div class="dash-hero-label">critical issues blocked</div>
-            </div>
-            <div class="dash-card">
-                <div class="dash-card-header">Distribution</div>
-                <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
-                <div class="dash-hero-label">PyPI downloads</div>
-                <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
-                    <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
-                    <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="dash-source-bar reveal">
-            <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
-        </div>
-
-        <div class="impact-threats reveal">
-            <div id="impact-grid" class="impact-grid"></div>
-        </div>
-
-        <p class="telemetry-context reveal">Impact categories track high-severity threats prevented. Total findings includes all severity levels across every scan.</p>
-        <p class="telemetry-note reveal" id="live-updated-at">live</p>
-    </section>
 
     <!-- ==================== SCREEN 6: COMPETITIVE ==================== -->
     <section class="container" id="compare">
@@ -1024,6 +1022,7 @@
         </div>
     </section>
 
+
     <!-- FOOTER -->
     <footer>
         <span>&copy; 2026 Said Borna</span>
@@ -1087,83 +1086,32 @@
         });
 
         // ============================================================
-        // TYPEWRITER — Hero enforcement story
+        // TAB NAV — highlight active section on scroll
         // ============================================================
         (function() {
-            var output = document.getElementById('typewriter-output');
-            var cursor = document.getElementById('cursor');
-            var lines = [
-                { text: '$ claude "deploy the hotfix to production"\n', cls: 't-green', delay: 35 },
-                { pause: 600 },
-                { text: '\n', cls: '', delay: 0 },
-                { text: 'Agent: running git push --force origin main\n', cls: 't-dim', delay: 25 },
-                { pause: 400 },
-                { text: '\n', cls: '', delay: 0 },
-                { text: 'BLOCKED', cls: 't-red', delay: 0 },
-                { text: '  git push is prohibited by governance policy\n', cls: 't-red', delay: 30 },
-                { text: '  Rule: gateway_no_push (PreToolUse hook)\n', cls: 't-dim', delay: 25 },
-                { text: '  Suggestion: create a PR instead of force pushing\n', cls: 't-amber', delay: 25 },
-                { pause: 1200 },
-                { text: '\n', cls: '', delay: 0 },
-                { text: 'CodeTrust intercepted this before it executed.\n', cls: 't-green', delay: 35 },
-                { text: '7 enforcement layers. Zero damage.\n', cls: 't-green', delay: 35 },
-            ];
-
-            var lineIndex = 0;
-            var charIndex = 0;
-
-            function processLine() {
-                if (lineIndex >= lines.length) {
-                    cursor.style.display = 'none';
-                    return;
-                }
-                var line = lines[lineIndex];
-
-                if (line.pause) {
-                    lineIndex++;
-                    setTimeout(processLine, line.pause);
-                    return;
-                }
-
-                if (line.clear) {
-                    output.innerHTML = '';
-                    lineIndex++;
-                    charIndex = 0;
-                    processLine();
-                    return;
-                }
-
-                if (line.delay === 0) {
-                    var span = document.createElement('span');
-                    if (line.cls) span.className = line.cls;
-                    span.textContent = line.text;
-                    output.appendChild(span);
-                    lineIndex++;
-                    charIndex = 0;
-                    processLine();
-                    return;
-                }
-
-                if (charIndex === 0) {
-                    var span = document.createElement('span');
-                    if (line.cls) span.className = line.cls;
-                    span.dataset.lineIdx = lineIndex;
-                    output.appendChild(span);
-                }
-
-                var currentSpan = output.querySelector('[data-line-idx="' + lineIndex + '"]');
-                if (charIndex < line.text.length) {
-                    currentSpan.textContent += line.text[charIndex];
-                    charIndex++;
-                    setTimeout(processLine, line.delay);
-                } else {
-                    lineIndex++;
-                    charIndex = 0;
-                    processLine();
-                }
-            }
-
-            setTimeout(processLine, 800);
+            var tabs = document.querySelectorAll('.tab-link');
+            var sectionIds = [];
+            tabs.forEach(function(tab) {
+                sectionIds.push(tab.getAttribute('href').substring(1));
+            });
+            var tabObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        var id = entry.target.id;
+                        tabs.forEach(function(tab) {
+                            if (tab.getAttribute('href') === '#' + id) {
+                                tab.classList.add('active');
+                            } else {
+                                tab.classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            }, { threshold: 0.15, rootMargin: '-80px 0px -60% 0px' });
+            sectionIds.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) tabObserver.observe(el);
+            });
         })();
 
         // ============================================================

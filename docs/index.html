@@ -318,79 +318,72 @@
     <section class="container" id="layers">
         <div class="reveal">
             <h2>What happens when you run <span class="mono" style="color:var(--green)">codetrust init</span></h2>
-            <p class="section-sub">One command installs 7 enforcement layers. Every layer is verified with <span class="mono" style="color:var(--green)">codetrust doctor</span>.</p>
+            <p class="section-sub">One command. Seven enforcement layers. Thirty seconds.</p>
         </div>
 
-        <div class="init-steps reveal">
-            <div class="init-step" data-step="1">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="layers-grid reveal">
+            <div class="layer-card layer-card-hero" style="--glow-color: var(--red)">
+                <div class="layer-number">01</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">PreToolUse Hooks</div>
-                    <div class="init-step-desc">Real-time command interception. Every terminal command your AI agent runs passes through CodeTrust first.</div>
-                </div>
-                <div class="init-step-badge init-badge-red">intercepts before execution</div>
+                <h3>PreToolUse Hooks</h3>
+                <p>Intercepts <strong>every</strong> terminal command before execution. <code>git push</code> &rarr; BLOCKED. <code>rm -rf /</code> &rarr; BLOCKED. The agent cannot proceed.</p>
+                <span class="layer-tag layer-tag-red">real-time &middot; 45+ patterns</span>
             </div>
-            <div class="init-step" data-step="2">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card" style="--glow-color: var(--indigo)">
+                <div class="layer-number">02</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">MCP Server Configuration</div>
-                    <div class="init-step-desc">Claude Code, Cursor, and Claude Desktop configured automatically. Gateway + Guardian servers registered.</div>
-                </div>
-                <div class="init-step-badge init-badge-indigo">auto-configured</div>
+                <h3>MCP Servers</h3>
+                <p>Claude Code, Cursor, Claude Desktop &mdash; all configured. Gateway + Guardian registered in every IDE automatically.</p>
+                <span class="layer-tag layer-tag-indigo">39 MCP tools</span>
             </div>
-            <div class="init-step" data-step="3">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card" style="--glow-color: var(--amber)">
+                <div class="layer-number">03</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">Pre-commit Hook</div>
-                    <div class="init-step-desc">Commit gate. No code passes without a clean scan. Blocks BLOCK-severity findings at commit time.</div>
-                </div>
-                <div class="init-step-badge init-badge-amber">commit gate</div>
+                <h3>Pre-commit Hook</h3>
+                <p>Commit gate. Every staged file scanned. BLOCK findings = rejected commit. No exceptions.</p>
+                <span class="layer-tag layer-tag-amber">commit gate</span>
             </div>
-            <div class="init-step" data-step="4">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card" style="--glow-color: var(--indigo)">
+                <div class="layer-number">04</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">GitHub Action</div>
-                    <div class="init-step-desc">PR gate. Runs full scan on every pull request. Fails the check if critical findings exist.</div>
-                </div>
-                <div class="init-step-badge init-badge-indigo">PR gate</div>
+                <h3>GitHub Action</h3>
+                <p>PR gate. Full scan on every pull request. SARIF upload. Fails the check on BLOCK findings.</p>
+                <span class="layer-tag layer-tag-indigo">PR gate</span>
             </div>
-            <div class="init-step" data-step="5">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card" style="--glow-color: var(--cyan)">
+                <div class="layer-number">05</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">CLAUDE.md Agent Instructions</div>
-                    <div class="init-step-desc">Injects governance rules into the AI agent's context. The agent is instructed to call CodeTrust before every action.</div>
-                </div>
-                <div class="init-step-badge init-badge-cyan">agent-aware</div>
+                <h3>Agent Instructions</h3>
+                <p>CLAUDE.md and .cursorrules injected. The agent is told to call CodeTrust before every action.</p>
+                <span class="layer-tag layer-tag-cyan">agent-aware</span>
             </div>
-            <div class="init-step" data-step="6">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card" style="--glow-color: var(--amber)">
+                <div class="layer-number">06</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">Governance Config</div>
-                    <div class="init-step-desc"><span class="mono">.codetrust.toml</span> with enforce mode, audit logging, and all 82 gateway rules active.</div>
-                </div>
-                <div class="init-step-badge init-badge-amber">enforce mode</div>
+                <h3>Governance Config</h3>
+                <p><code>.codetrust.toml</code> &mdash; enforce mode, audit logging, 82 gateway rules, protected paths.</p>
+                <span class="layer-tag layer-tag-amber">enforce mode</span>
             </div>
-            <div class="init-step" data-step="7">
-                <div class="init-step-icon init-step-done">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="layer-card layer-card-final" style="--glow-color: var(--green)">
+                <div class="layer-number" style="color: var(--green)">07</div>
+                <div class="layer-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
-                <div class="init-step-content">
-                    <div class="init-step-label">codetrust doctor</div>
-                    <div class="init-step-desc">Verification. All 7 layers checked. Green means enforced. Red means exposed.</div>
-                </div>
-                <div class="init-step-badge init-badge-green">7/7 verified</div>
+                <h3>codetrust doctor</h3>
+                <p>Verification. Tests every layer. <code>git push</code> &rarr; BLOCKED (exit 2). Green = enforced.</p>
+                <span class="layer-tag layer-tag-green">7/7 verified</span>
             </div>
         </div>
     </section>
@@ -488,7 +481,7 @@
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 280 taint definitions across 4 languages.
+                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 323 taint definitions across 7 languages.
                 </div>
             </div>
 
@@ -623,25 +616,40 @@
             <p class="section-sub">SAST tools were built for human-written code. AI agents don't just write code &mdash;<br>they execute commands, install packages, and modify files.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
         </div>
 
-        <div class="compare-split reveal">
-            <div class="compare-side compare-side-old">
-                <h3>What your SAST tool catches</h3>
-                <div class="compare-item"><span class="compare-item-dot dim"></span> Lint errors</div>
-                <div class="compare-item"><span class="compare-item-dot dim"></span> Unused variables</div>
-                <div class="compare-item"><span class="compare-item-dot dim"></span> Code style violations</div>
-                <div class="compare-item"><span class="compare-item-dot dim"></span> Basic type mismatches</div>
-                <div class="compare-item"><span class="compare-item-dot dim"></span> Known CVEs in lockfile</div>
+        <div class="compare-battle reveal">
+            <div class="battle-side battle-old">
+                <div class="battle-header">
+                    <span class="battle-era">2020</span>
+                    <h3>Your SAST tool</h3>
+                    <span class="battle-verdict-tag battle-verdict-outdated">post-hoc only</span>
+                </div>
+                <div class="battle-items">
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Lint errors</div>
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Unused variables</div>
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Code style</div>
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Type mismatches</div>
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Known CVEs</div>
+                </div>
+                <div class="battle-footnote">Scans code <em>after</em> it's written. Human reviews findings. Maybe.</div>
             </div>
-            <div class="compare-side compare-side-new">
-                <h3>What CodeTrust catches that they don't</h3>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Hallucinated packages from AI</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Destructive AI agent commands</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Tainted data flows to dangerous sinks</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Ghost Docker images &amp; tags</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Pre-execution command interception</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> AI governance gateway enforcement</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Shadow AI detection &amp; model attribution</div>
-                <div class="compare-item"><span class="compare-item-dot bright"></span> Guided remediation with root cause</div>
+            <div class="battle-vs">vs</div>
+            <div class="battle-side battle-new">
+                <div class="battle-header">
+                    <span class="battle-era" style="color:var(--green)">2026</span>
+                    <h3>CodeTrust</h3>
+                    <span class="battle-verdict-tag battle-verdict-live">real-time governance</span>
+                </div>
+                <div class="battle-items">
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Hallucinated packages blocked</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Destructive commands intercepted</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Tainted data flows traced</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Ghost Docker images caught</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Pre-execution interception</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> 2,924 guided fix suggestions</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Shadow AI detection</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Model attribution per line</div>
+                </div>
+                <div class="battle-footnote">Intercepts the agent <em>before</em> damage occurs. Automatic. Zero config.</div>
             </div>
         </div>
 

@@ -9,11 +9,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### What's Coming
 
-- Inter-procedural taint analysis (cross-function and cross-file tracking)
+- Completion Hallucination Detection (agent claim verification)
 - Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets
 - Org-level governance alerting for drift and repeat BLOCK events
-- Additional language support (Ruby, PHP expansion)
-- Expanded CVE intelligence (GitHub Advisory Database direct integration)
+- Universal rule file_types scoping (performance optimization)
+
+## [4.0.0] - 2026-03-28
+
+### The AI Governance Release
+
+CodeTrust 4.0.0 transforms from a code scanner into an AI Governance
+Enforcement Platform. `pip install codetrust && codetrust init` now delivers
+real-time agent interception — no manual configuration required.
+
+### Real-Time Enforcement (NEW — the headline feature)
+
+- **PreToolUse hook auto-installation:** `codetrust init` installs gateway
+  and file-write hooks to `~/.claude/hooks/` automatically. Every Bash command
+  is intercepted BEFORE execution. `git push` → BLOCKED. `rm -rf /` → BLOCKED.
+  Heredoc → BLOCKED. 45+ dangerous patterns caught in real-time.
+- **File-write governance protection:** AI agents cannot modify their own
+  governance configuration (CLAUDE.md, .codetrust.toml, hooks, audit logs,
+  SSH/AWS/kube credentials). 13 protected path patterns.
+- **MCP server auto-configuration:** Claude Code, Cursor, and Claude Desktop
+  MCP configs injected automatically. Gateway + Guardian servers ready to use.
+- **`codetrust doctor`:** Verifies all 7 enforcement layers with functional
+  tests. `git push → BLOCKED (exit 2)` verified live.
+- **Allow-list bypass detection:** Warns when Claude Code permission entries
+  would bypass PreToolUse hooks.
+
+### Guided Remediation — 2,924 Individual Suggestions
+
+- Every rule now has an individually crafted, Grade A suggestion
+- WHY the pattern is dangerous (root cause, not symptom)
+- EXACT fix with working code (language-specific, library-specific)
+- Senior developer tone with CVE/incident references
+- Zero templates, zero message-echo, zero duplicates
+
+### Scanner Quality Overhaul
+
+- **False positive rate:** 0% on own code, Flask 0%, Django 8.6%
+- **40+ FP root causes fixed** across 3 batches with 17 special handlers
+- **Scanner performance:** 27s → 2ms worst case (rule definition file skip),
+  test suite 150s → 87s (pre-index by extension, pre-compile regex)
+- **2,924 scan rules** across 23 languages (was 402 in 3.0.0)
+
+### Security
+
+- **Gateway bypass fix:** `python3 -c "import os; os.system('rm -rf /')"` now
+  BLOCKED — interpreter -c/-e inner string validation with 16 danger patterns
+- **3 security bugs fixed in own code** (details in commit history)
+- **Governance weakening detection:** 4 scan rules detect attempts to expand
+  skip lists, downgrade severities, disable scanning, or suppress governance
+- **Claude Code PreToolUse hook bypass discovered and reported to Anthropic**
+  — allow-list silently skips hooks (disclosure@anthropic.com + HackerOne)
+
+### Taint Analysis Expansion
+
+- **323 taint definitions** (was ~87): 57 sources, 169 sinks, 97 sanitizers
+- **7 languages:** Python, JavaScript/TypeScript, Go, Java, C#, Kotlin, Rust
+- **Java:** 13 sources, 31 sinks, 17 sanitizers
+- **C#:** 43 definitions (ASP.NET MVC, Entity Framework, System.IO)
+
+### AST Analysis
+
+- **10 tree-sitter checks** (was 4): missing timeout, resource limits, broad
+  exception, silent swallow, unbounded loop growth, module-level mutable state
+- **AST/regex dedup:** 25 regex rules superseded by AST equivalents
+
+### AI Observability & Attribution
+
+- **8 new features:** IDE model enumeration (26 models discovered live via
+  vscode.lm API), AI attribution, MCP server audit, shadow AI detection,
+  developer risk scoring, LLM benchmarking, commit policy engine,
+  pre-commit attribution pipeline
+- **5 new MCP Guardian tools** (21 total)
+
+### Infrastructure
+
+- **Production verified:** Railway live (30,695+ scans), Stripe E2E, GitHub
+  Action SHA-pinned with SARIF + PR comments, Branch Protection active
+- **Dashboard:** 60 Vitest tests, 70 API endpoints verified
+- **2,509 tests** (was 2,058), ruff clean, 0 failures
+
+### Breaking Changes
+
+- Scan behavior changed: FP fixes alter which patterns trigger/don't trigger
+- API response: `suggestion` field populated on all 2,924 rules
+- Gateway: interpreter -c/-e inner validation adds new BLOCK behavior
+- Scanner: rule definition files skipped (behavioral change)
+- AST/regex dedup changes findings output
+- 62 duplicate rules removed (rule_ids no longer exist)
+
+### Known Limitations
+
+- Claude Code allow-list can bypass PreToolUse hooks (Anthropic platform issue,
+  reported). `codetrust doctor` warns about dangerous allow-list entries.
+- Cursor/Windsurf/Copilot: governance is advisory (no PreToolUse equivalent)
+- VS Code extension scan path lacks rule-definition-file skip logic
 
 ## [3.0.0] - 2026-03-20
 

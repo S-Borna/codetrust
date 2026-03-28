@@ -268,6 +268,7 @@ body.loaded .hero-terminal {
 .t-dim { color: var(--text-3); }
 .t-white { color: var(--white); }
 .t-amber { color: var(--amber); }
+.t-cyan { color: var(--cyan); }
 .cursor-blink {
     display: inline-block; width: 8px; height: 1.1em;
     background: var(--green); vertical-align: text-bottom;
@@ -821,8 +822,8 @@ footer a:hover { color: var(--text-2); }
     display: flex;
     flex-direction: column;
     padding: 1.8rem 1.4rem 1.4rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
     border-radius: 14px;
     text-decoration: none;
     color: inherit;
@@ -836,7 +837,7 @@ footer a:hover { color: var(--text-2); }
     position: absolute;
     inset: 0;
     border-radius: 14px;
-    opacity: 0;
+    opacity: 0.5;
     transition: opacity 0.4s;
     pointer-events: none;
 }
@@ -913,8 +914,8 @@ footer a:hover { color: var(--text-2); }
     max-width: 1000px;
 }
 .persona-demo-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
     border-radius: 12px;
     padding: 1.4rem;
     transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -932,8 +933,13 @@ footer a:hover { color: var(--text-2); }
     letter-spacing: 0.01em;
 }
 .persona-demo-card .mini-terminal {
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
     line-height: 1.7;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
 }
 
 /* ====================== v4.0.2: BATTLE COMPARISON ====================== */
@@ -1092,7 +1098,6 @@ footer a:hover { color: var(--text-2); }
     gap: 0.5rem;
 }
 
-.t-cyan { color: var(--cyan); }
 
 /* ====================== v4.0.2: DOCTOR TERMINAL ====================== */
 .doctor-terminal {

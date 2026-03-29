@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>v4.0.5</code> &middot; <code>3,006 rules</code> &middot; <code>8 enforcement layers</code> &middot; <code>2,509 tests</code>
+  <code>v4.0.6</code> &middot; <code>3,006 rules</code> &middot; <code>8 enforcement layers</code> &middot; <code>2,509 tests</code>
 </p>
 
 <p align="center">
@@ -234,7 +234,7 @@ codetrust scan .        # Scan your code
 
 ---
 
-## What's New in v4.0.5
+## What's New in v4.0.6
 
 - **BASH_ENV guard** — universal real-time enforcement across all IDEs and agents
 - **8 enforcement layers** — all verified by `codetrust doctor`

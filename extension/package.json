@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI Governance Enforcement Platform — real-time BASH_ENV guard + PreToolUse interception, 3,006 rules, 8 enforcement layers, guided remediation. Intercepts AI agent commands BEFORE execution. Cross-language taint (7 languages), hallucination detection, AI attribution.",
-    "version": "4.0.5",
+    "version": "4.0.6",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

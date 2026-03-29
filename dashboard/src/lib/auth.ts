@@ -3,7 +3,11 @@ import GithubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.codetrust.ai";
+/** Server-side API URL: prefer internal Railway networking to avoid Cloudflare loop. */
+const SERVER_API_URL =
+    process.env.CODETRUST_INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://api.codetrust.ai";
 
 interface BootstrapApiKeyResponse {
     user_id: string;
@@ -20,11 +24,13 @@ async function bootstrapDashboardApiKey(params: {
 }): Promise<BootstrapApiKeyResponse | null> {
     const masterKey = process.env.CODETRUST_API_KEY || "";
     if (!masterKey) {
+        console.error("[bootstrap] CODETRUST_API_KEY is not set");
         return null;
     }
 
+    const url = `${SERVER_API_URL}/v1/admin/dashboard/bootstrap-api-key`;
     try {
-        const response = await fetch(`${API_URL}/v1/admin/dashboard/bootstrap-api-key`, {
+        const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -40,10 +46,13 @@ async function bootstrapDashboardApiKey(params: {
             cache: "no-store",
         });
         if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            console.error(`[bootstrap] ${response.status} from ${url}: ${body}`);
             return null;
         }
         return await response.json() as BootstrapApiKeyResponse;
-    } catch {
+    } catch (err) {
+        console.error(`[bootstrap] fetch failed for ${url}:`, err);
         return null;
     }
 }

@@ -131,7 +131,7 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                         </p>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             {plan === "free"
-                                ? "100 scans/day included"
+                                ? "25 scans/day included"
                                 : plan === "pro"
                                     ? "10,000 scans/day included"
                                     : "100,000 scans/day included"}

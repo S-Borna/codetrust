@@ -2,40 +2,40 @@ import Link from "next/link";
 
 const FEATURES = [
     {
-        title: "Static Analysis",
+        title: "Real-Time Agent Interception",
         description:
-            "35+ anti-pattern rules catch hallucinated code, security issues, and quality problems.",
+            "BASH_ENV guard + PreToolUse hooks block destructive commands before execution. git push, rm -rf, heredoc — all caught before damage.",
+        icon: "🛡️",
+    },
+    {
+        title: "AI Attribution",
+        description:
+            "Per-line model tracking. GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 — know which AI wrote which line. Shadow AI flagged.",
         icon: "🔍",
     },
     {
-        title: "Registry Verification",
+        title: "Hallucination Detection",
         description:
-            "Verify packages exist on PyPI, npm, crates.io, Go Proxy, Maven, NuGet, RubyGems, and Packagist before deploying.",
+            "Live verification against PyPI, npm, crates.io, Go Proxy, Maven, NuGet, RubyGems, and Packagist. Hallucinated packages blocked instantly.",
         icon: "📦",
     },
     {
-        title: "Docker Verification",
+        title: "AI Policy Engine",
         description:
-            "Confirm Docker base images and tags exist on Docker Hub and GHCR.",
-        icon: "🐳",
-    },
-    {
-        title: "AST Deep Analysis",
-        description:
-            "Tree-sitter powered complexity analysis, unused variables, and unreachable code detection.",
-        icon: "🌳",
-    },
-    {
-        title: "Sandbox Execution",
-        description:
-            "Run code in isolated Docker containers to catch runtime errors static analysis misses.",
-        icon: "🏗️",
-    },
-    {
-        title: "GitHub Action",
-        description:
-            "One-line CI integration with SARIF output for the GitHub Security tab.",
+            "Model allowlist/blocklist. Max AI ratio per commit. Attribution requirements. The CTO decides, CodeTrust enforces.",
         icon: "⚙️",
+    },
+    {
+        title: "Commit & Repo Guards",
+        description:
+            "Pre-commit hook scans 2,924 rules. BLOCK = rejected. Governance files protected — agents cannot change their own rules.",
+        icon: "🔒",
+    },
+    {
+        title: "8 Enforcement Layers",
+        description:
+            "BASH_ENV, PreToolUse hooks, MCP Gateway, pre-commit, GitHub Action, advisory files, governance config, allow-list audit. All verified by codetrust doctor.",
+        icon: "📊",
     },
 ];
 
@@ -46,20 +46,22 @@ export default function HomePage() {
             <section className="relative overflow-hidden bg-white dark:bg-gray-950">
                 <div className="mx-auto max-w-6xl px-6 py-24 text-center">
                     <h1 className="text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
-                        Trust every line of
-                        <span className="text-brand-600"> AI-generated code</span>
+                        Your AI agent just ran
+                        <span className="text-brand-600"> git push --force</span>.
+                        <br />
+                        <span className="text-emerald-500">CodeTrust stopped it before it executed.</span>
                     </h1>
                     <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-                        CodeTrust catches hallucinated packages, broken configs, and code
-                        anti-patterns before they reach production. MCP server + Cloud API +
-                        GitHub Action.
+                        AI governance enforcement platform. 3,006 rules, 8 enforcement layers,
+                        39 MCP tools. Blocks destructive commands, catches hallucinated packages,
+                        tracks which AI model wrote every line — before damage happens.
                     </p>
                     <div className="mt-10 flex items-center justify-center gap-4">
                         <Link
                             href="/login"
                             className="rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white shadow-sm hover:bg-brand-700 transition"
                         >
-                            Get started free
+                            See what your AI would break
                         </Link>
                         <Link
                             href="/pricing"
@@ -75,8 +77,11 @@ export default function HomePage() {
             <section className="bg-gray-50 dark:bg-gray-900 py-20">
                 <div className="mx-auto max-w-6xl px-6">
                     <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-white">
-                        Everything you need to verify AI code
+                        What no other tool does
                     </h2>
+                    <p className="mx-auto mt-4 max-w-2xl text-center text-gray-600 dark:text-gray-400">
+                        SonarQube checks quality. Snyk checks CVEs. Nobody checks what the AI agent itself is doing.
+                    </p>
                     <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                         {FEATURES.map((f) => (
                             <div
@@ -100,10 +105,10 @@ export default function HomePage() {
             <section className="bg-brand-600 py-16">
                 <div className="mx-auto max-w-4xl px-6 text-center">
                     <h2 className="text-3xl font-bold text-white">
-                        Start verifying code in under 2 minutes
+                        Governance active in 30 seconds
                     </h2>
                     <p className="mt-4 text-lg text-brand-100">
-                        Free tier includes 100 scans/day. No credit card required.
+                        Free tier: 100 scans/day. Full enforcement stack. No credit card.
                     </p>
                     <Link
                         href="/login"

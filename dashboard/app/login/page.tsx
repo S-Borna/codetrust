@@ -1,17 +1,26 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import Link from "next/link";
+
+const BENEFITS = [
+    "100 scans/day on free tier",
+    "8 enforcement layers auto-installed",
+    "Hallucination detection against 8 registries",
+    "AI attribution — know which model wrote what",
+    "GitHub Action support for PR gates",
+];
 
 export default function LoginPage() {
     return (
         <main className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-            <div className="mx-auto w-full max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 shadow-lg">
+            <div className="mx-auto w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 shadow-lg">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        Sign in to CodeTrust
+                        Govern your AI agents
                     </h1>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Use your GitHub account to get started
+                        Block destructive commands, catch hallucinated packages, and track which AI model wrote every line — before damage happens.
                     </p>
                 </div>
 
@@ -25,8 +34,37 @@ export default function LoginPage() {
                     Continue with GitHub
                 </button>
 
+                <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+                        What you get immediately
+                    </p>
+                    <ul className="space-y-2">
+                        {BENEFITS.map((b) => (
+                            <li
+                                key={b}
+                                className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400"
+                            >
+                                <span className="text-emerald-500 font-bold mt-0.5">✓</span>
+                                {b}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                <div className="mt-6 text-center">
+                    <Link
+                        href="/pricing"
+                        className="text-sm text-brand-600 hover:text-brand-700 transition"
+                    >
+                        Compare plans →
+                    </Link>
+                </div>
+
                 <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-                    By signing in, you agree to our Terms of Service and Privacy Policy.
+                    By signing in, you agree to our{" "}
+                    <a href="https://codetrust.ai/tos" className="underline">Terms of Service</a>{" "}
+                    and{" "}
+                    <a href="https://codetrust.ai/privacy.html" className="underline">Privacy Policy</a>.
                 </p>
             </div>
         </main>

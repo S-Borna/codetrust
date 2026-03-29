@@ -63,7 +63,7 @@ class ApiKeyRecord(Base):
         String(32), ForeignKey("users.id", ondelete="CASCADE"), index=True,
     )
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    prefix: Mapped[str] = mapped_column(String(12), default="")
+    prefix: Mapped[str] = mapped_column(String(20), default="")
     name: Mapped[str] = mapped_column(String(100), default="Default")
     is_revoked: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(

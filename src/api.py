@@ -2144,7 +2144,7 @@ async def static_scan(
     request: Request,
     req: StaticScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
-    auth: AuthContext = Depends(get_auth_context),
+    auth: AuthContext = Depends(get_optional_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> StaticScanResponse:
     """Run static anti-pattern analysis on code."""

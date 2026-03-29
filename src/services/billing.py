@@ -12,7 +12,13 @@ logger = structlog.get_logger()
 
 PLAN_PRICE_MAP: dict[str, str] = {
     PlanTier.PRO: "stripe_price_pro",
+    PlanTier.TEAM: "stripe_price_team",
     PlanTier.ENTERPRISE: "stripe_price_enterprise",
+}
+
+# Plans that include a free trial period
+TRIAL_DAYS: dict[str, int] = {
+    PlanTier.PRO: 14,
 }
 
 PLAN_LIMITS: dict[str, int] = {
@@ -101,6 +107,11 @@ class BillingService:
                 "cancel_url": cancel_url or f"{settings.dashboard_url}/pricing",
                 "metadata": {"plan": plan},
             }
+            trial_days = TRIAL_DAYS.get(plan, 0)
+            if trial_days > 0:
+                session_kwargs["subscription_data"] = {
+                    "trial_period_days": trial_days,
+                }
             if customer_id:
                 session_kwargs["customer"] = customer_id
             session = stripe_lib.checkout.Session.create(**session_kwargs)

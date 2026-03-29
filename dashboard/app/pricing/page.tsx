@@ -51,7 +51,7 @@ const PLANS = [
             "Multi-repo enforcement",
             "Basic RBAC",
         ],
-        cta: "Start Team trial",
+        cta: "Start Team",
         href: "/login?plan=team",
         highlight: false,
     },

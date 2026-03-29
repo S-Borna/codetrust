@@ -657,10 +657,21 @@ def write_step_summary(
     mode = "PR-mode (new findings only)" if pr_mode_active else "Full scan"
 
     top = findings[:10]
+
+    if blocks > 0:
+        header = "## ✖ CodeTrust Quality Gate FAILED"
+        status_line = f"**{blocks} BLOCK finding(s) — merge blocked until resolved.**"
+    elif warns > 0:
+        header = "## ⚠️ CodeTrust Scan Results"
+        status_line = f"**Status:** PASS ({warns} warnings detected)"
+    else:
+        header = "## ✅ CodeTrust"
+        status_line = "**Status:** PASS — no issues found"
+
     lines = [
-        "## 🛡️ CodeTrust",
+        header,
         "",
-        f"**Verdict:** `{verdict}`  ",
+        status_line,
         f"**Mode:** {mode}  ",
         f"**Files scanned:** {files_scanned}  ",
         f"**Findings:** BLOCK {blocks} · WARN {warns} · INFO {infos}",
@@ -673,7 +684,8 @@ def write_step_summary(
             file_str = f.file or "unknown"
             line_num = f.line or 1
             msg = f.message.replace("\n", " ")
-            lines.append(f"- `{f.rule_id}` {file_str}:{line_num} — {msg}")
+            icon = "✖" if f.severity == Severity.BLOCK else "⚠️"
+            lines.append(f"- {icon} `{f.rule_id}` {file_str}:{line_num} — {msg}")
         lines.append("")
 
     try:
@@ -717,9 +729,14 @@ def print_summary(
 
     _write_output("")
     _write_output("=" * 50)
-    _write_output(f"CodeTrust Scan — Verdict: {verdict}")
+    if blocks > 0:
+        _write_output(f"✖ CodeTrust Quality Gate FAILED — {blocks} BLOCKED")
+        _write_output("  Merge blocked until resolved.")
+    elif warns > 0:
+        _write_output(f"⚠️ CodeTrust Scan — {warns} warnings detected")
+    else:
+        _write_output("✅ CodeTrust Scan — PASS")
     _write_output(f"Files scanned: {files_scanned}")
-    _write_output(f"Total findings: {len(findings)}")
     _write_output(f"  BLOCK: {blocks}  WARN: {warns}  INFO: {infos}")
     _write_output("=" * 50)
 

@@ -3,17 +3,14 @@ import Link from "next/link";
 const PLANS = [
     {
         name: "Free",
-        who: "Solo experimentation",
+        who: "For local testing. No CI enforcement.",
         price: "$0",
         period: "forever",
         features: [
-            "100 scans / day",
-            "2,924 scan rules + 82 gateway rules",
-            "8 enforcement layers via codetrust init",
-            "BASH_ENV guard (real-time blocking)",
-            "Hallucination detection (8 registries)",
-            "AI attribution (basic)",
+            "25 scans / day",
+            "Static analysis (2,924 rules)",
             "MCP server (local)",
+            "Registry verification (WARN only)",
             "CLI + VS Code extension",
             "Community support",
         ],
@@ -23,20 +20,16 @@ const PLANS = [
     },
     {
         name: "Pro",
-        who: "Developers & freelancers shipping AI-assisted code",
+        who: "Enforce rules in CI. Block unsafe code before merge.",
         price: "$29",
         period: "/month",
         features: [
             "10,000 scans / day",
             "Everything in Free, plus:",
-            "Cloud API access",
+            "Registry verification (BLOCK)",
+            "Docker verification",
+            "Sandbox execution",
             "GitHub Action PR gate (SARIF)",
-            "Cross-language taint analysis",
-            "AST deep analysis (10 checks)",
-            "Docker & infrastructure verification",
-            "CVE scanning (OSV + NVD)",
-            "License compliance",
-            "Auto-fix recipes",
             "API key management",
             "Priority support",
         ],
@@ -46,22 +39,17 @@ const PLANS = [
     },
     {
         name: "Team",
-        who: "Engineering teams governing AI across the org",
+        who: "Govern AI usage across teams and repositories.",
         price: "$149",
         period: "/month",
         features: [
             "100,000 scans / day",
             "Everything in Pro, plus:",
-            "AI Policy Engine (model allowlist/blocklist)",
-            "Full AI attribution & shadow AI detection",
-            "Per-commit AI ratio enforcement",
-            "Team management & RBAC",
-            "Org-wide governance policies",
-            "Audit trail & observability dashboard",
-            "SSO (Azure AD, Okta, Auth0, Google)",
-            "SIEM export (CEF, LEEF, Syslog)",
-            "Custom rules",
-            "Dedicated support",
+            "Shared governance policies",
+            "Team visibility & dashboards",
+            "PR risk & audit logs",
+            "Multi-repo enforcement",
+            "Basic RBAC",
         ],
         cta: "Start Team trial",
         href: "/login?plan=team",
@@ -69,18 +57,18 @@ const PLANS = [
     },
     {
         name: "Enterprise",
-        who: "Regulated industries & large-scale deployments",
+        who: "Full control, compliance, and custom deployment.",
         price: "Custom",
         period: "",
         features: [
             "Unlimited scans",
             "Everything in Team, plus:",
+            "SSO / SAML",
             "Self-hosted deployment option",
-            "SAML SSO",
+            "Custom rules",
+            "Compliance & audit export",
             "SLA guarantee",
-            "Compliance policy packs (SOC 2, ISO 27001)",
-            "Dedicated account manager",
-            "Custom integrations",
+            "Dedicated support",
         ],
         cta: "Contact sales",
         href: "mailto:contact@codetrust.ai",
@@ -158,9 +146,9 @@ export default function PricingPage() {
 
                 <div className="mt-16 text-center">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        All plans include the full 3,006 rule engine, 8 enforcement layers, and BASH_ENV guard.
+                        Free detects locally. Pro enforces in CI. Team governs across repos.
                         <br />
-                        Paid plans add cloud API, team features, and higher scan limits.
+                        All plans use the same 3,006 rule engine.
                     </p>
                     <Link
                         href="https://codetrust.ai"

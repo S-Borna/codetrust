@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 const BENEFITS = [
-    "100 scans/day on free tier",
+    "25 scans/day on free tier (detection only)",
     "8 enforcement layers auto-installed",
     "Hallucination detection against 8 registries",
     "AI attribution — know which model wrote what",

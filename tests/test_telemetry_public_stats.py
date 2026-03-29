@@ -317,7 +317,7 @@ async def test_regression_existing_telemetry_fields_remain_unchanged(
 
     assert usage["total_scans"] == 10
     assert usage["total_findings"] == 50
-    assert usage["findings_by_severity"]["BLOCK"] == 7
+    assert usage["findings_by_severity"]["BLOCK"] == 9  # sum of impact categories
 
     assert impact["gateway_commands_blocked"] == 3
     assert impact["hallucinations_caught"] == 4

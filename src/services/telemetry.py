@@ -875,7 +875,15 @@ def _build_usage_stats(
 ) -> dict[str, object]:
     """Build usage section of stats payload."""
     total_findings = kv.get("ct:total_findings", 0)
-    total_blocks = kv.get("ct:total_blocks", 0)
+    # Blocks = sum of all 6 impact categories (always in sync)
+    total_blocks = (
+        kv.get("ct:impact:destructive_commands", 0)
+        + kv.get("ct:impact:hallucinations", 0)
+        + kv.get("ct:impact:secrets_exposure", 0)
+        + kv.get("ct:impact:injection_attacks", 0)
+        + kv.get("ct:impact:unsafe_config", 0)
+        + kv.get("ct:impact:supply_chain", 0)
+    )
     return {
         "total_scans": kv.get("ct:total_scans", 0),
         "scans_today": kv.get(SCANS_TODAY_KEY, 0),

@@ -4268,27 +4268,85 @@ def _increment_local_usage() -> None:
     )
 
 
+def _validate_scan_quota_remote(auth: dict[str, str]) -> dict[str, str | int] | None:
+    """Validate scan quota against the cloud API.
+
+    Returns None if allowed, or a dict with error info if blocked.
+    Falls back to local tracking if API is unreachable.
+    """
+    api_key = auth.get("api_key", "")
+    if not api_key:
+        return None  # Anonymous — use local limit only
+
+    try:
+        import httpx
+
+        resp = httpx.post(
+            f"{settings.api_url}/v1/scan/static",
+            headers={"X-API-Key": api_key},
+            json={"code": "", "filename": "__quota_check__"},
+            timeout=5,
+        )
+        if resp.status_code == 429:
+            data = resp.json()
+            return {
+                "error": "limit_reached",
+                "limit": data.get("limit", 0),
+                "used": data.get("used", 0),
+                "plan": data.get("plan", auth.get("plan", "free")),
+            }
+        # Update local plan from API response (in case it changed)
+        if resp.status_code == 200:
+            plan_from_api = ""
+            hints = resp.json().get("upgrade_hints", [])
+            if hints:
+                plan_from_api = "free"
+            else:
+                plan_from_api = auth.get("plan", "pro")
+            if plan_from_api and plan_from_api != auth.get("plan"):
+                auth["plan"] = plan_from_api
+                _AUTH_FILE.write_text(json.dumps(auth), encoding="utf-8")
+    except (ImportError, OSError, ValueError):
+        pass  # API unreachable — fall back to local
+    return None
+
+
 def _check_local_scan_gate() -> int:
     """Check auth and usage quota before allowing a local scan.
+
+    Server-validated: if the user has an API key, the quota check
+    hits the cloud API to prevent local file manipulation.
 
     Returns 0 to proceed, 1 to block.
     """
     auth = _load_local_auth()
     plan = auth.get("plan", "anonymous")
+    api_key = auth.get("api_key", "")
+
+    # Server-side validation for authenticated users
+    if api_key:
+        remote_block = _validate_scan_quota_remote(auth)
+        if remote_block is not None:
+            limit = int(remote_block.get("limit", 0))
+            used = int(remote_block.get("used", 0))
+            remote_plan = str(remote_block.get("plan", plan))
+            _echo(color(f"\n  🔒 Daily scan limit reached ({used}/{limit} on {remote_plan} plan)", YELLOW))
+            _echo("     Upgrade for higher limits:")
+            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
+            return 1
+        _increment_local_usage()
+        return 0
+
+    # Local-only validation for anonymous users
     limit = _LOCAL_LIMITS.get(plan, _LOCAL_LIMITS["anonymous"])
     usage = _get_local_usage_today()
 
     if usage >= limit:
-        if plan == "anonymous":
-            _echo(color("\n  🔒 Scan limit reached (5/day without account)", YELLOW))
-            _echo("     Create a free account for 25 scans/day:")
-            _echo(color("     → codetrust login", BOLD))
-            _echo("     Upgrade to Pro for unlimited scans:")
-            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
-        else:
-            _echo(color(f"\n  🔒 Daily scan limit reached ({limit}/day on {plan} plan)", YELLOW))
-            _echo("     Upgrade for higher limits:")
-            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
+        _echo(color("\n  🔒 Scan limit reached (5/day without account)", YELLOW))
+        _echo("     Create a free account for 25 scans/day:")
+        _echo(color("     → codetrust login", BOLD))
+        _echo("     Upgrade to Pro for unlimited scans:")
+        _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
         return 1
 
     _increment_local_usage()

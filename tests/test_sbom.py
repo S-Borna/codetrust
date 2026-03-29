@@ -132,4 +132,4 @@ class TestSbomEndpoint:
         assert response.status_code == 403
         body = response.json()
         assert body["error"] == "upgrade_required"
-        assert body["required_plan"] == "enterprise"
+        assert body["required_plan"] == "pro"

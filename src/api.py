@@ -128,7 +128,14 @@ from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
 from src.services.autofix import AutoFixResult
-from src.services.billing import CI_ENFORCEMENT_PLANS, PLAN_LIMITS, REGISTRY_BLOCK_PLANS, BillingService
+from src.services.billing import (
+    CI_ENFORCEMENT_PLANS,
+    ENTERPRISE_PLANS,
+    PLAN_LIMITS,
+    REGISTRY_BLOCK_PLANS,
+    TEAM_PLANS,
+    BillingService,
+)
 from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
@@ -508,6 +515,34 @@ def _require_paid_plan(plan: str, feature: str) -> None:
             detail={
                 "error": "plan_upgrade_required",
                 "message": f"{feature} requires a Pro or higher plan.",
+                "upgrade_url": "https://app.codetrust.ai/pricing",
+            },
+        )
+
+
+def _require_team_plan(plan: str, feature: str) -> None:
+    """Raise 403 if user is below Team plan for a team-only feature."""
+    if plan not in TEAM_PLANS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "plan_upgrade_required",
+                "message": f"{feature} requires a Team or Enterprise plan.",
+                "required_plan": "team",
+                "upgrade_url": "https://app.codetrust.ai/pricing",
+            },
+        )
+
+
+def _require_enterprise_plan(plan: str, feature: str) -> None:
+    """Raise 403 if user is below Enterprise plan."""
+    if plan not in ENTERPRISE_PLANS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "plan_upgrade_required",
+                "message": f"{feature} requires an Enterprise plan.",
+                "required_plan": "enterprise",
                 "upgrade_url": "https://app.codetrust.ai/pricing",
             },
         )
@@ -926,17 +961,32 @@ def _require_pro_or_enterprise(plan: str) -> JSONResponse | None:
     )
 
 
-def _require_enterprise(plan: str) -> JSONResponse | None:
-    """Return 403 response when endpoint requires Enterprise."""
-    if plan == "enterprise":
+def _require_team_or_above(plan: str) -> JSONResponse | None:
+    """Return 403 when endpoint requires Team or Enterprise plan."""
+    if plan in TEAM_PLANS:
         return None
     return JSONResponse(
         status_code=403,
         content={
             "error": "upgrade_required",
-            "message": "This feature requires a Pro or Enterprise plan.",
+            "message": "This feature requires a Team or Enterprise plan.",
+            "required_plan": "team",
+            "upgrade_url": "https://app.codetrust.ai/pricing",
+        },
+    )
+
+
+def _require_enterprise(plan: str) -> JSONResponse | None:
+    """Return 403 response when endpoint requires Enterprise."""
+    if plan in ENTERPRISE_PLANS:
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": "upgrade_required",
+            "message": "This feature requires an Enterprise plan.",
             "required_plan": "enterprise",
-            "upgrade_url": "https://app.codetrust.ai/settings",
+            "upgrade_url": "https://app.codetrust.ai/pricing",
         },
     )
 
@@ -2879,7 +2929,7 @@ async def sbom_generate(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SbomGenerateResponse:
     """Generate CycloneDX and SPDX SBOM outputs for dependency inventories."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_pro_or_enterprise(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
     req = await _parse_request_model(request, SbomGenerateRequest)
@@ -3117,7 +3167,7 @@ async def autofix_apply(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Apply auto-fix recipes to code. Optionally create a GitHub PR."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_pro_or_enterprise(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3168,7 +3218,7 @@ async def create_org(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Create a new organization."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3194,7 +3244,7 @@ async def list_orgs(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> list[dict[str, object]]:
     """List organizations the authenticated user belongs to."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3220,7 +3270,7 @@ async def get_org(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Get organization details. Requires membership."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3250,7 +3300,7 @@ async def delete_org(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Delete an organization. Only the owner can delete."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3272,7 +3322,7 @@ async def list_members(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> list[dict[str, object]]:
     """List members of an organization. Requires membership."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3302,7 +3352,7 @@ async def add_member(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Add a member to an organization."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3333,7 +3383,7 @@ async def remove_member(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Remove a member from an organization."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3357,7 +3407,7 @@ async def update_role(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Update a member's role in an organization."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3379,7 +3429,7 @@ async def get_policy(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Get organization policy settings. Requires membership."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 
@@ -3413,7 +3463,7 @@ async def update_policy(
     auth: AuthContext = Depends(get_optional_auth_context),
 ) -> dict[str, object]:
     """Update organization policy settings."""
-    enterprise_required = _require_enterprise(auth.plan)
+    enterprise_required = _require_team_or_above(auth.plan)
     if enterprise_required is not None:
         return enterprise_required
 

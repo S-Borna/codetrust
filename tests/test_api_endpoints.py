@@ -673,14 +673,14 @@ class TestTierAndRateLimits:
         assert response.status_code == 403
         assert response.json()["required_plan"] == "pro"
 
-    def test_sbom_requires_enterprise(self, client: TestClient) -> None:
+    def test_sbom_requires_pro(self, client: TestClient) -> None:
+        """SBOM requires Pro plan — free gets 403."""
         response = client.post(
             "/v1/sbom/generate",
             json={"language": "python", "packages": ["fastapi"]},
-            headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.18"},
         )
         assert response.status_code == 403
-        assert response.json()["required_plan"] == "enterprise"
+        assert response.json()["required_plan"] == "pro"
 
     @pytest.mark.parametrize(
         ("path", "payload", "required_plan"),
@@ -688,7 +688,7 @@ class TestTierAndRateLimits:
             ("/v1/vuln/scan", {"packages": [{"name": "requests"}]}, "pro"),
             ("/v1/license/scan", {"packages": [{"name": "requests"}]}, "pro"),
             ("/v1/scan/cross-file", {"files": [{"filename": "a.py", "code": "import b"}]}, "pro"),
-            ("/v1/sbom/generate", {"packages": [{"name": "requests"}]}, "enterprise"),
+            ("/v1/sbom/generate", {"packages": [{"name": "requests"}]}, "pro"),
         ],
     )
     def test_paid_endpoints_gate_before_body_validation(
@@ -704,23 +704,24 @@ class TestTierAndRateLimits:
         assert response.json()["error"] == "upgrade_required"
         assert response.json()["required_plan"] == required_plan
 
-    def test_fix_apply_requires_enterprise(self, client: TestClient) -> None:
+    def test_fix_apply_requires_pro(self, client: TestClient) -> None:
+        """Autofix requires Pro plan — free gets 403."""
         response = client.post(
             "/v1/fix/apply",
             json={"files": {"a.py": "x = 1\n"}},
-            headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.19"},
         )
         assert response.status_code == 403
-        assert response.json()["required_plan"] == "enterprise"
+        assert response.json()["required_plan"] == "pro"
 
-    def test_orgs_require_enterprise(self, client: TestClient) -> None:
+    def test_orgs_require_team(self, client: TestClient) -> None:
+        """Org management requires Team plan — Pro gets 403."""
         response = client.post(
             "/v1/orgs",
             json={"name": "Acme"},
             headers={"X-API-Key": "ct_pro_user", "X-Forwarded-For": "203.0.113.20"},
         )
         assert response.status_code == 403
-        assert response.json()["required_plan"] == "enterprise"
+        assert response.json()["required_plan"] == "team"
 
     def test_version_check_never_blocks(self, client: TestClient) -> None:
         response = client.post(

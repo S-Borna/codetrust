@@ -3,240 +3,188 @@
 </p>
 
 <p align="center">
-  <strong>AI Governance Enforcement Platform — Control what AI agents can do, verify what AI generates, and block unsafe changes before production.</strong>
+  <strong>Your AI agent just wrote 40% of your codebase. Do you know which 40%?</strong>
 </p>
 
 <p align="center">
-  <code>Current: v4.0.2</code> &middot; <code>2,509 tests</code> &middot; <code>3,006 rules</code> &middot; <code>10 layers</code>
+  <code>v4.0.5</code> &middot; <code>3,006 rules</code> &middot; <code>8 enforcement layers</code> &middot; <code>2,509 tests</code>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/pypi/v/codetrust?style=flat-square&color=38d8fd" alt="PyPI"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
-  <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/badge/CI%2FCD-pip%20install%20codetrust-333?style=flat-square" alt="CI/CD"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
   <a href="https://globaldex.ai/domain/codetrust.ai"><img src="https://globaldex.ai/api/v1/badge?domain=codetrust.ai" alt="GlobalDex Score" height="20"></a>
 </p>
 
 <p align="center">
   <a href="https://codetrust.ai">Website</a> &middot;
+  <a href="https://codetrust.ai/demo">Live Demo</a> &middot;
   <a href="https://api.codetrust.ai/docs">API Docs</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
-  <a href="https://pypi.org/project/codetrust/">CI/CD Integration</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 ---
 
-## What CodeTrust Is
+## AI Agents Run Your Codebase. Nobody Governs Them. Until Now.
 
-**AI Governance Enforcement Platform** — 3,006 rules, 7 enforcement layers auto-installed by `codetrust init`, 39 MCP tools (21 Guardian + 18 Gateway), 70 API endpoints. Real-time PreToolUse interception blocks dangerous commands BEFORE execution. 2,924 individually crafted guided remediation suggestions. Cross-language taint analysis: 7 languages, 323 definitions. 10 AST deep checks. Hallucination detection. AI attribution and observability. 2,509 tests.
+GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 — these models write code, run terminal commands, install packages, modify configs, and push to production. They hallucinate packages that don't exist. They run destructive commands without asking. They produce code that drifts in quality silently. And nobody tracks which model wrote which line.
 
-CodeTrust prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces governance across the full lifecycle — before execution, during development, before commit, during CI/CD, and before deployment.
+**CodeTrust is the governance layer that controls what AI agents can do — before they do it.**
 
-CodeTrust is not a linter. It is not a formatter. It is a **governance enforcement platform** purpose-built for the era of AI-generated code, with four capabilities no existing tool provides.
+```bash
+pip install codetrust && codetrust init && codetrust doctor
+# 8/8 layers active — governance enforced. 30 seconds.
+```
 
-### Why teams adopt CodeTrust first
+---
 
-- **Immediate risk reduction**: blocks destructive AI-agent actions before execution.
-- **Reality verification**: confirms imports and Docker tags actually exist.
-- **Pipeline leverage**: enforces in MCP, pre-commit, and CI without replacing existing tools.
-- **Economic wedge**: delivers governance + verification workflows that paid incumbents typically do not provide out of the box.
+## Without CodeTrust
 
-### Enforcement Matrix — Honest Capabilities
+| What happens today | The cost |
+|---|---|
+| AI agent runs `git push --force` and overwrites your colleague's branch | Lost work. Broken trust. Manual recovery. |
+| AI hallucinates `from utils.helpers import validate` — module doesn't exist | Import fails in production. 3AM incident. |
+| 40% of your codebase was written by GPT-5.3. Senior dev quits. Nobody knows which 40%. | Unmaintainable code. No accountability. No audit trail. |
+| AI agent modifies its own CLAUDE.md to remove restrictions | Self-modifying agent. Zero oversight. Governance bypassed. |
+| Junior dev uses an unregistered AI model with training data from a competitor's leaked repo | Legal liability. IP contamination. Compliance violation. |
+| AI-generated code quality degrades 2% per week. Nobody measures it. | Technical debt compounds silently until production breaks. |
+
+**Every one of these scenarios is happening right now, at companies using AI coding assistants without governance.**
+
+---
+
+## With CodeTrust
+
+| Scenario | What CodeTrust does |
+|---|---|
+| Agent tries `git push --force` | **BLOCKED.** BASH_ENV guard intercepts at bash level. Exit code 2. Agent cannot proceed. |
+| Agent imports hallucinated package | **BLOCKED.** Live verification against 8 registries. Package doesn't exist = commit rejected. |
+| CTO asks "which AI wrote this code?" | **AI Attribution.** Per-line model tracking. GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 — 26 models detected. Shadow AI flagged. Full audit trail. |
+| Agent tries to edit its own governance rules | **BLOCKED.** File-write guard protects 13 governance paths. Agent cannot modify its own restrictions. |
+| Unauthorized AI model used in commit | **AI Policy Engine.** Model allowlist/blocklist enforced. Max AI ratio per commit. Violation = commit blocked. |
+| Code quality drifting | **Trust Score.** 0-100 per commit. Baseline comparison. CI fails below threshold. |
+
+---
+
+## What No Other Tool Does
+
+SonarQube has 5,000+ rules. Snyk tracks CVEs. Semgrep does dataflow analysis. Ruff formats code. **None of them do this:**
+
+| Capability | CodeTrust | SonarQube | Snyk | Semgrep | Ruff |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Block AI agent commands before execution | **Yes** | No | No | No | No |
+| Detect hallucinated packages via live registry | **Yes** | No | No | No | No |
+| Per-line AI model attribution | **Yes** | No | No | No | No |
+| AI model allowlist/blocklist policy | **Yes** | No | No | No | No |
+| Prevent agent from editing its own rules | **Yes** | No | No | No | No |
+| Track AI code drift with Trust Score | **Yes** | Quality Gate | No | No | No |
+| Works as MCP server for AI agents | **Yes** | New in 2025 | No | No | No |
+
+**Keep your existing stack. Add CodeTrust as the AI governance control plane.**
+
+Learn more at [codetrust.ai](https://codetrust.ai).
+
+---
+
+## Enforcement Matrix — Honest Capabilities
 
 | IDE / Environment | Enforcement Level | Mechanism | Bypass Possible? |
 |---|---|---|---|
-| **Claude Code** | **Hard block** | PreToolUse hook runs outside agent control | No — hook intercepts before agent acts |
-| **VS Code** | Advisory + scan | Extension on-save scanning, MCP tools | Yes — agent can ignore scan results |
-| **Cursor** | Advisory | CLAUDE.md/`.cursorrules` instructions + MCP tools | Yes — agent compliance is voluntary |
-| **Windsurf** | Advisory | `.windsurfrules` instructions + MCP tools | Yes — agent compliance is voluntary |
-| **GitHub Copilot** | Scan only | MCP tools available, no pre-execution hook | Yes — no interception mechanism |
-| **CI/CD** | Blocking | GitHub Action / pre-commit hook blocks merge | No — pipeline enforces verdicts |
-| **REST API** | Blocking | Server-side enforcement, API key required | No — server controls response |
+| **Claude Code CLI** | **Hard block** | PreToolUse hook + BASH_ENV guard | No |
+| **Claude Code VS Code ext.** | **Hard block** | BASH_ENV guard (PreToolUse hooks inactive in extension) | No |
+| **VS Code (other agents)** | Advisory + scan | Extension on-save scanning, MCP tools | Yes |
+| **Cursor** | Advisory | `.cursorrules` + MCP tools | Yes |
+| **Windsurf** | Advisory | `.windsurfrules` + MCP tools | Yes |
+| **GitHub Copilot** | Scan only | MCP tools, no interception hook | Yes |
+| **CI/CD** | Blocking | Pre-commit hook + GitHub Action | No |
+| **REST API** | Blocking | Server-side enforcement | No |
 
-**What this means:** Full governance enforcement (hard block) is currently available in Claude Code and CI/CD pipelines. For other IDEs, CodeTrust provides advisory scanning and MCP tools — the AI agent is instructed to call them, but there is no technical mechanism to force compliance. This is an inherent limitation of current IDE architectures, not a CodeTrust gap.
-
-### Release Snapshot
-
-- **Current release:** `v4.0.2`
-- **Release highlights:** The AI Governance release. `codetrust init` now installs real-time PreToolUse hooks automatically. 2,924 rules with individual Grade A guided remediation. Scanner FP 80% → 0%. 7 enforcement layers verified by `codetrust doctor`.
-
-### What's New in v4.0.2
-
-- **Real-time enforcement:** `codetrust init` installs PreToolUse hooks to `~/.claude/hooks/` — gateway (45+ blocked Bash patterns) and file-write (13 protected paths, 6 secret patterns). Zero manual configuration.
-- **MCP auto-configuration:** Claude Code, Cursor, and Claude Desktop MCP configs injected automatically during init.
-- **`codetrust doctor`:** Verifies all 7 enforcement layers with functional tests. `git push → BLOCKED (exit 2)` verified live.
-- **2,924 guided remediation suggestions:** Every rule has individually crafted, Grade A suggestion with root cause, exact fix, and CVE references.
-- **Scanner quality:** FP rate 80% → 0% (own code), Flask 0%, Django 8.6%. 40+ FP root causes fixed. 17 special handlers.
-- **Scanner performance:** 27s → 2ms worst case. Test suite 150s → 87s. Pre-index by extension, pre-compile regex.
-- **Cross-language taint:** 7 languages (Python, JS/TS, Go, Java, C#, Kotlin, Rust). 323 definitions (57 sources, 169 sinks, 97 sanitizers).
-- **AST analysis:** 10 tree-sitter checks (was 4). AST/regex dedup eliminates duplicate findings.
-- **AI Observability:** 8 features — IDE model enumeration, AI attribution, MCP audit, shadow AI detection, developer risk scoring, LLM benchmarking, commit policy, pre-commit attribution.
-- **Security:** 3 bugs fixed in own code. Gateway bypass fix (interpreter -c/-e). Claude Code allow-list bypass reported to Anthropic.
-
-### What's Coming Next
-
-- Compliance policy packs (SOC 2 / ISO 27001 / PCI-DSS presets).
-- Completion Hallucination Detection (agent claim verification).
-- Universal rule file_types scoping (1,680 rules without extension filtering).
+The BASH_ENV guard intercepts every `/bin/bash -c` command on the machine — it works for any AI agent that spawns bash locally, regardless of IDE.
 
 ---
 
-## The Four Moats
+## The Six Features That Define CodeTrust
 
-### Moat 1: AI Governance Gateway
+### 1. Real-Time Agent Interception
 
-The Gateway intercepts AI agent actions **before execution** — not scanning files after the fact. Terminal commands, file writes, and package installs are validated against configurable policies in real-time.
+`codetrust init` auto-installs two enforcement layers:
 
-82 interception rules across 11 categories: file destruction, code execution, privilege escalation, git operations, container escape, network exfiltration, secrets exposure, supply chain attacks, AI agent enforcement, resource abuse, and root-cause enforcement — plus content rules for file writes.
+- **BASH_ENV guard** — intercepts every bash command before execution. Works in all IDEs, all agents, cannot be bypassed by the agent. Pure bash, 26ms overhead, zero dependencies.
+- **PreToolUse hooks** — Claude Code CLI-specific interception. 44 blocked patterns, 13 protected paths, 6 secret detection rules.
 
-All rules are configurable. Any rule can be disabled per-project.
+`git push` → BLOCKED. `rm -rf /` → BLOCKED. Heredoc → BLOCKED. `curl | sh` → BLOCKED.
 
-**Real proof:** During development, our own AI agent attempted to create a file using a heredoc pattern. The CodeTrust gateway blocked it in real-time — the product protected itself from its own builder.
+### 2. AI Attribution — Know Who Wrote What
 
-### Moat 2: Hallucination Detection Engine
+Every line of code attributed to its source: human developer, GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3, or any of 26 detected models. Per-commit AI ratio tracking. Shadow AI detection flags unregistered models.
 
-Every scan extracts imports from your source files and verifies them against **live package registries**. Hallucinated packages are flagged with exact file and line number.
+This is the difference between "we use AI" and "we govern AI."
 
-```
-$ codetrust scan app.py
+### 3. AI Policy Engine — The CTO Decides, CodeTrust Enforces
 
-🛡️  CodeTrust Scan
-   Files: 1 | Findings: 2
-   AI Drift Score: 87/100 (B)
+- **Model allowlist/blocklist** — only approved AI models can contribute code
+- **Max AI ratio per commit** — no commit exceeds your threshold
+- **Attribution requirements** — every AI-generated line must be traceable
+- **Editor restrictions** — control which IDEs and extensions are approved
 
-  🚫 BLOCK — must fix:
-     app.py:4 [import_not_found] Package 'flask_magic_utils' not found
-     on pypi — possible AI hallucination.
-```
+No other tool gives engineering leadership this level of control over AI usage.
 
-`flask_magic_utils` does not exist on PyPI. Most traditional tools do not verify imports against live registries at development time.
+### 4. Repo Guard — Agents Cannot Change Their Own Rules
 
-CodeTrust also includes static hallucination rules that detect fabricated methods, config options, CLI flags, API endpoints, environment variables, and placeholder URLs — without network access.
+AI agents are instructed by governance files (CLAUDE.md, .cursorrules, .codetrust.toml). Without protection, the agent can modify these files to remove its own restrictions.
 
-**Signature Validation** goes deeper: a curated database of 50 modules and 405 functions validates call signatures with min/max argument enforcement. When AI writes `os.path.join("a")` (too few args) or `hashlib.sha256("a", "b", "c")` (too many), CodeTrust catches it at scan time.
+CodeTrust's file-write guard protects 13 governance file paths. Any attempt to modify governance files → **BLOCKED**. The agent cannot weaken its own oversight.
 
-### Moat 3: Trust Score & Drift Tracking
+### 5. Commit Guards — Nothing Unsafe Reaches Main
 
-A quantified safety metric that tracks your codebase over time. Not a snapshot — a trend.
+Every commit passes through CodeTrust's pre-commit hook. 2,924 rules scanned against staged files. BLOCK findings reject the commit. Every event logged to an append-only audit trail.
 
-- Baseline your project's safety score
-- Track improvement or regression across commits
-- Grade curve: A+ through F
-- Fail CI when the score drops below your threshold
+The pre-commit hook runs at OS level — it works regardless of which IDE, agent, or terminal triggered the commit. The GitHub Action provides a second gate at PR time.
 
-```
-🛡️  CodeTrust Scan
-   Files: 47 | Findings: 3
-   AI Drift Score: 94/100 (A)
-   Trend: improving (+6 from baseline)
-```
+### 6. Hallucination Detection — Catch What Doesn't Exist
 
-### Moat 4: Universal IDE Injection
+Live import verification against 8 registries (PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist). Signature validation: 50 modules, 405 functions. Static rules catch fabricated methods, phantom configs, fake API keys.
 
-Install once. CodeTrust injects its governance rules into the global configuration of every AI coding IDE on the machine — Claude Code, Cursor, Windsurf, and GitHub Copilot. Every new AI session starts rule-aware, with no manual configuration required.
-
-AI agents that follow their system context — which the vast majority do — will proactively call CodeTrust validation tools. Sessions where AI ignores instructions are caught by Moat 1 (the pre-commit hook), the hard technical backstop that enforces regardless of model behaviour.
-
-| IDE | What gets written |
-|---|---|
-| Claude Code | `~/.claude/CLAUDE.md` |
-| Cursor | `~/.cursor/rules/codetrust.mdc` |
-| Windsurf | `~/.codeium/windsurf/memories/global_rules.md` |
-| GitHub Copilot | VS Code global `codeGeneration.instructions` |
-
-- **Zero configuration** — governance activates on install, not on setup
-- **Every IDE, globally** — rules are in place before the first keystroke in any workspace
-- **Active monitoring** — if an IDE update overwrites the injected rules, or a new IDE is installed after CodeTrust, a warning notification appears immediately with a one-click re-inject action
-- **Complete audit trail** — every gateway action, approved or blocked, written to the append-only audit log
-- **Defense in depth** — instruction injection (proactive) + active monitoring (self-healing) + pre-commit hook (reactive) cover the full lifecycle
+AI agents hallucinate packages and functions that don't exist. CodeTrust catches them before they reach production.
 
 ---
 
-## Why CodeTrust Exists
+## 8 More Capabilities
 
-AI writes code fast. But fast doesn't mean safe. **78% of developers** use AI coding assistants daily (2025). These tools produce failure modes that no existing tool detects:
+### 7. AI Governance Gateway
+82 interception rules. 4 validators (command, file write, file delete, package). 4 proxy tools. Interpreter -c/-e bypass detection. Governance weakening detection.
 
-| Failure Mode | What Happens | Who Catches It |
-|---|---|---|
-| **Hallucinated packages** | `pip install` fails — or worse: typosquatted malware installs | CodeTrust verifies imports against live registries |
-| **Destructive agent commands** | `rm -rf /`, dynamic code execution, `curl\|sh` — data loss, RCE, supply chain compromise | CodeTrust Gateway intercepts before execution |
-| **Ghost Docker images** | AI references images that don't exist — build breaks at 2AM | CodeTrust validates images against Docker Hub |
-| **Invisible code drift** | AI code quality degrades gradually — no one measures it | CodeTrust tracks trust score over time |
+### 8. Guided Remediation — 2,924 Individual Suggestions
+Every BLOCK finding includes root cause, exact fix, CVE references. 17 special handlers. The agent reads the suggestion and self-corrects. Zero templates.
 
-### What existing tools miss
+### 9. Cross-Language Taint Analysis
+323 definitions across 7 languages (Python, JS/TS, Go, Java, C#, Kotlin, Rust). Cross-file + cross-language (HTTP/gRPC boundary) tracking. SQL injection, XSS, SSRF, path traversal, deserialization.
 
-| Tool | What it does | What it doesn't do |
-|---|---|---|
-| **SonarQube** | 5,000+ quality rules | Does not intercept AI agents, verify imports, or track trust scores |
-| **Snyk** | CVEs in known packages | Does not intercept AI agents, detect hallucinated packages, or track trust scores |
-| **Semgrep** | Cross-file dataflow analysis | Does not intercept AI agents, verify imports against registries, or track trust scores |
-| **FOSSA / WhiteSource** | License compliance scanning | Does not intercept AI agents, detect hallucinated packages, or scan code quality |
-| **Ruff / ESLint** | Code style, formatting | Does not intercept AI agents, verify imports, or track trust scores |
+### 10. Static Analysis — 2,924 Rules
+92 file extensions. 23+ languages. Pre-indexed by extension, pre-compiled regex. 2ms worst case.
 
-CodeTrust combines pre-execution interception, live registry verification, quantified safety tracking, CVE scanning, license compliance, cross-file analysis, auto-fix PRs, and team management — all in one platform, all free.
+### 11. AST Deep Analysis
+10 tree-sitter structural checks. 9 languages. Missing timeout, resource limits, broad exception, silent swallow, unbounded loops, mutable state.
 
-### How CodeTrust fits with giants
+### 12. Trust Score & Drift Tracking
+0-100 safety score. Baseline comparison. Grade curve A+ through F. CI fail threshold. `codetrust trust-diff`, `codetrust trend`.
 
-- **Use SonarQube/Semgrep/Snyk for depth in their specialty areas** (deep SAST, taint analysis, mature CVE programs).
-- **Use CodeTrust for the AI-governance gap** they still leave: agent action control, import existence verification, Docker tag reality checks, and governance-native MCP workflows.
-- **Best production pattern**: keep your existing stack, add CodeTrust as the AI governance + verification control plane.
+### 13. Vulnerability & License Scanning
+CVE scanning via OSV + NVD CVSS enrichment. License compliance. SBOM generation (CycloneDX, SPDX).
+
+### 14. Docker & Infrastructure Verification
+Ghost image detection. Root user, missing WORKDIR/healthcheck. Kubernetes resource limits. Terraform/HCL rules.
 
 ---
 
-## 10 Enforcement Layers
+## Scan Coverage — 10 Analysis Categories
 
-CodeTrust scans code across 10 layers covering static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework-specific rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and the real-time AI governance gateway.
+Static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and real-time AI governance gateway.
 
-**2,924 scan rules + 82 gateway rules = 3,006 total.** Every rule produces a BLOCK, WARN, or INFO verdict.
-
----
-
-## Enforcement Model
-
-CodeTrust enforces policies when integrated via MCP, pre-commit hooks, or CI/CD pipelines. Enforcement strength depends on integration point.
-
-**Strong enforcement:**
-
-| Integration | Guarantee |
-|---|---|
-| **Pre-commit hook** | Prevents unsafe commits — commit rejected until fixed |
-| **CI/CD (GitHub Action)** | Prevents unsafe merges — PR fails required status check |
-| **Gateway via MCP** | Prevents unsafe agent actions — command intercepted before execution |
-
-**Advisory enforcement:**
-
-| Integration | Behavior |
-|---|---|
-| **VS Code Extension** | Inline diagnostics — informs, does not block |
-| **CLI scan** | Exit code 1 on BLOCK findings — enforcement depends on pipeline gating |
-
----
-
-## When to Use CodeTrust
-
-- **AI-assisted development** — Claude Code, GitHub Copilot, Cursor, or any AI coding assistant
-- **CI/CD pipelines** requiring governance enforcement before merge
-- **Preventing hallucinated dependencies** from reaching production
-- **Blocking destructive agent actions** before they execute
-- **Enforcing DevOps and infrastructure safety policies** across teams
-- **Tracking code safety trends** to catch regression early
-
----
-
-## Performance
-
-| Operation | Typical Time |
-|-----------|:------------:|
-| Static scan (per file) | < 200ms |
-| Gateway validation (per command) | < 5ms |
-| Deep scan (typical project) | < 2s |
-| Import verification (cached) | < 50ms |
-| Production runtime overhead | Zero |
-
-CodeTrust runs at development time only. Zero runtime overhead in production.
+**2,924 scan rules + 82 gateway rules = 3,006 total.**
 
 ---
 
@@ -245,11 +193,31 @@ CodeTrust runs at development time only. Zero runtime overhead in production.
 ```bash
 pip install codetrust
 cd your-project
-codetrust init
-codetrust scan .
+codetrust init          # Installs 8 enforcement layers
+codetrust doctor        # Verifies all layers active
+codetrust scan .        # Scan your code
 ```
 
-`codetrust init` sets up enforcement layers in your project: pre-commit hook, GitHub Action, AI assistant rules, governance config, and audit directory.
+---
+
+## By the Numbers
+
+| Metric | Value |
+|--------|-------|
+| Scan rules | 2,924 |
+| Gateway rules | 82 |
+| Total rules | 3,006 |
+| Enforcement layers | 8 |
+| Guided remediation suggestions | 2,924 |
+| Taint definitions | 323 across 7 languages |
+| AST checks | 10 |
+| Signature database | 50 modules, 405 functions |
+| Import registries | 8 |
+| File extensions | 92 |
+| MCP tools | 39 (21 scan + 18 gateway) |
+| API endpoints | 65 |
+| CLI commands | 22 |
+| Tests | 2,509 |
 
 ---
 
@@ -257,462 +225,133 @@ codetrust scan .
 
 | Surface | Install | What You Get |
 |---------|---------|--------------|
-| **CLI** | `pip install codetrust` | Full scan from terminal with exit code enforcement |
-| **VS Code** | Install from Marketplace | Scan on save, inline diagnostics, AI governance |
-| **Chrome Extension** | Install from Chrome Web Store | Browser-side quick scans, context menu actions, and import verification workflow |
-| **GitHub Action** | `pip install codetrust` in CI | PR checks with SARIF upload to Security tab |
-| **MCP Server** | 27 tools for AI agents | Claude Code / Cursor / Windsurf get real-time safety feedback |
-| **REST API** | 54 endpoints with rate limiting | Integrate into any pipeline or platform |
+| **CLI** | `pip install codetrust` | Full scan + enforcement |
+| **VS Code** | [Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) | Scan on save, diagnostics, governance |
+| **Chrome** | Chrome Web Store | Browser-side scans on GitHub |
+| **GitHub Action** | `pip install codetrust` in CI | PR gate with SARIF upload |
+| **MCP Server** | 39 tools | Governance for Claude Code / Cursor / Windsurf |
+| **REST API** | [api.codetrust.ai](https://api.codetrust.ai/docs) | 65 endpoints |
 
 ---
 
-## CLI Usage
+## What's New in v4.0.5
+
+- **BASH_ENV guard** — universal real-time enforcement across all IDEs and agents
+- **8 enforcement layers** — all verified by `codetrust doctor`
+- **Pre-commit audit trail** — every commit logged
+- **Quote-aware heredoc detection** — zero false positives
+- **Scanner quality** — FP 80% → 0%, performance 27s → 2ms
+- **Cross-language taint** — 7 languages, 323 definitions
+- **AI Observability** — model enumeration, attribution, shadow AI detection
+
+---
+
+## CLI
 
 ```bash
 codetrust scan app.py              # Scan a file
-codetrust scan src/                # Scan a directory
-codetrust scan . --sarif           # SARIF output for CI
+codetrust scan . --sarif           # SARIF for CI
 codetrust scan . --json            # JSON output
-codetrust scan . --no-verify-imports  # Skip registry checks (offline)
-codetrust scan . --changed-only --dedupe  # Reduce noise in large repos
-codetrust scan . --suppress-lint-noise    # Optional suppression for lint-heavy output
-
-codetrust status                   # Check enforcement status
-codetrust doctor                   # Diagnose installation
-
-codetrust pr-risk                  # Repo-aware PR risk summary (git diff aware)
-codetrust trust-diff               # Compare trust score: HEAD vs working tree
-codetrust trend record             # Record a local snapshot
-codetrust trend show               # Show recorded snapshots
-
-codetrust policy wizard            # Generate governance policy presets + TOML autocomplete
-
-codetrust vuln                     # Scan dependencies for known CVEs (OSV database)
-codetrust license                  # Check dependency license compliance
-codetrust fix                      # Apply auto-fix recipes
-codetrust fix --pr                 # Apply fixes and open a GitHub PR
-
+codetrust doctor                   # Verify 8 layers
+codetrust pr-risk                  # PR risk summary
+codetrust trust-diff               # Trust score diff
+codetrust vuln                     # CVE scan
+codetrust license                  # License compliance
+codetrust fix --pr                 # Auto-fix PR
 codetrust governance --status      # Governance overview
-codetrust governance --mode audit  # Switch to audit mode
-codetrust audit --hours 24         # Review recent actions
+codetrust audit --hours 24         # Audit trail
 ```
-
----
-
-## VS Code Extension
-
-```bash
-code --install-extension SaidBorna.codetrust
-```
-
-- Scans on save (configurable)
-- Scan on type (opt-in, debounced) using the embedded offline scanner
-- Inline diagnostics with severity levels
-- Works fully offline — all scan rules embedded
-- "Scan Workspace" — up to 500 files with progress UI
-- Profile create/apply commands for quick setup
-- Quick Fixes for common findings
-- Health Check command for connectivity and config sanity
-- AI governance controls built in
-- Deep scan mode for full analysis
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `codetrust.apiUrl` | `https://api.codetrust.ai` | API server URL |
-| `codetrust.apiKey` | `""` | Deprecated: stored in VS Code Secret Storage. Use Guided Onboarding to set it |
-| `codetrust.scanOnSave` | `true` | Auto-scan on save |
-| `codetrust.scanOnType` | `false` | Scan while typing (embedded offline scanner) |
-| `codetrust.scanOnTypeDebounceMs` | `600` | Debounce delay for scan while typing |
-| `codetrust.severityThreshold` | `INFO` | Minimum severity to show |
-| `codetrust.enabledLanguages` | `[...]` | Languages to scan |
-| `codetrust.scanType` | `static` | `static` or `deep` |
-| `codetrust.verifyImportsOnSave` | `false` | Verify imports on save (network) |
-| `codetrust.timeout` | `15000` | Request timeout in milliseconds |
-| `codetrust.governance.enabled` | `true` | Enable AI governance |
-| `codetrust.governance.mode` | `enforce` | `enforce` / `audit` / `off` |
-
-Self-hosting: set `codetrust.apiUrl` to your own API base URL.
-
----
-
-## GitHub Action
-
-Add CodeTrust to any GitHub Actions workflow. BLOCK findings fail the status check. `codetrust init` generates the workflow file automatically.
-
-<details>
-<summary><strong>Complete workflow file</strong> — copy to <code>.github/workflows/codetrust.yml</code></summary>
-
-```yaml
-name: CodeTrust Scan
-
-on:
-  pull_request:
-    branches: [main, master]
-  push:
-    branches: [main, master]
-
-permissions:
-  contents: read
-  pull-requests: write
-
-jobs:
-  codetrust:
-    name: CodeTrust Quality Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install CodeTrust
-        run: pip install codetrust
-
-      - name: Scan changed files
-        run: |
-          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\.(py|js|ts|go|rs)$' || true)
-          if [ -n "$FILES" ]; then
-            echo "$FILES" | xargs codetrust scan
-          else
-            echo "No source files changed."
-          fi
-```
-
-</details>
-
-`codetrust init` creates this workflow automatically. No API key required for static scanning.
 
 ---
 
 ## MCP Servers
 
-CodeTrust ships two MCP servers for different purposes:
-
-| Server | Command | Purpose | Tools |
-|--------|---------|---------|-------|
-| **Scan Server** | `codetrust-mcp` | Code scanning, import verification, SARIF export | 10 tools |
-| **Gateway Server** | `codetrust-gateway-mcp` | Real-time AI action interception — blocks destructive commands before execution | 11 tools |
-
-**Use both for full coverage.** The Scan Server gives AI agents code analysis capabilities. The Gateway Server intercepts and validates every command, file write, and package install the agent attempts.
-
-### Scan Server tools
-
-`codetrust_static_scan` · `codetrust_ast_scan` · `codetrust_deep_scan` · `codetrust_verify_imports` · `codetrust_verify_dockerfile` · `codetrust_sandbox_run` · `codetrust_sarif_export` · `codetrust_pre_action` · `codetrust_post_action` · `codetrust_list_rules`
-
-### Gateway Server tools
-
-`mcp_codetrust-gat_codetrust_validate_command` · `mcp_codetrust-gat_codetrust_validate_file_write` · `mcp_codetrust-gat_codetrust_validate_file_delete` · `mcp_codetrust-gat_codetrust_validate_package` · `mcp_codetrust-gat_codetrust_governance_status` · `mcp_codetrust-gat_codetrust_audit_history` · `mcp_codetrust-gat_codetrust_list_gateway_rules` · `mcp_codetrust-gat_codetrust_run_in_terminal` · `mcp_codetrust-gat_codetrust_create_file` · `mcp_codetrust-gat_codetrust_replace_string_in_file` · `mcp_codetrust-gat_codetrust_edit_notebook`
-
-### Setup: Claude Desktop / Claude Code
-
-Add to `~/.claude/claude_desktop_config.json`:
+| Server | Command | Tools |
+|--------|---------|-------|
+| **Scan** | `codetrust-mcp` | 21 — analysis, verification, SARIF |
+| **Gateway** | `codetrust-gateway-mcp` | 18 — real-time interception |
 
 ```json
 {
   "mcpServers": {
-    "codetrust": {
-      "command": "codetrust-mcp"
-    },
-    "codetrust-gateway": {
-      "command": "codetrust-gateway-mcp"
-    }
+    "codetrust": { "command": "codetrust-mcp" },
+    "codetrust-gateway": { "command": "codetrust-gateway-mcp" }
   }
 }
 ```
 
-Recommended for stable Claude Desktop startup:
-
-- Set `CODETRUST_WORKSPACE` to a non-TCC path (for example `~/Projects/your-repo` or `~/codetrust-workspace`).
-- Avoid pointing runtime workspace to macOS-protected folders like Desktop, Documents, or Downloads.
-- Prefer installed binaries from `pip`/`pipx` (`codetrust-mcp`, `codetrust-gateway-mcp`).
-- If using `uvx` fallback, run it in quiet mode to keep stdio clean:
-
-```json
-{
-  "mcpServers": {
-    "codetrust": {
-      "command": "/opt/homebrew/bin/uvx",
-      "args": ["-q", "--no-progress", "--from", "codetrust", "codetrust-mcp"],
-      "env": {
-        "CODETRUST_WORKSPACE": "/Users/you/codetrust-workspace"
-      }
-    },
-    "codetrust-gateway": {
-      "command": "/opt/homebrew/bin/uvx",
-      "args": ["-q", "--no-progress", "--from", "codetrust", "codetrust-gateway-mcp"],
-      "env": {
-        "CODETRUST_WORKSPACE": "/Users/you/codetrust-workspace"
-      }
-    }
-  }
-}
-```
-
-### Setup: Cursor
-
-Add to `.cursor/mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "codetrust": {
-      "command": "codetrust-mcp"
-    },
-    "codetrust-gateway": {
-      "command": "codetrust-gateway-mcp"
-    }
-  }
-}
-```
-
-### Setup: Windsurf
-
-Add to `~/.codeium/windsurf/mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "codetrust": {
-      "command": "codetrust-mcp"
-    },
-    "codetrust-gateway": {
-      "command": "codetrust-gateway-mcp"
-    }
-  }
-}
-```
-
-Requires `pip install codetrust` (or `pipx install codetrust`) so that `codetrust-mcp` and `codetrust-gateway-mcp` are on your PATH.
-
----
-
-## Supported Languages
-
-| Language | Static | AST | Import Verification |
-|----------|:------:|:---:|:-------------------:|
-| Python | ✅ | ✅ | ✅ (PyPI) |
-| JavaScript / TypeScript | ✅ | ✅ | ✅ (npm) |
-| Go | ✅ | ✅ | ✅ (Go proxy) |
-| Rust | ✅ | ✅ | ✅ (crates.io) |
-| Java | ✅ | ✅ | ✅ (Maven) |
-| C# | ✅ | ✅ | ✅ (NuGet) |
-| Ruby | ✅ | ✅ | ✅ (RubyGems) |
-| PHP | ✅ | ✅ | ✅ (Packagist) |
-| C / C++ | ✅ | ✅ | — |
-| Shell / Bash | ✅ | — | — |
-| Terraform / HCL | ✅ | — | — |
-| HTML | ✅ | — | — |
-| SQL | ✅ | — | — |
-| Dockerfile | ✅ | — | ✅ (Docker Hub) |
-| YAML / Kubernetes | ✅ | — | — |
-| PowerShell | ✅ | — | — |
+Works with Claude Code, Claude Desktop, Cursor, Windsurf. Requires `pip install codetrust`.
 
 ---
 
 ## Configuration
 
-CodeTrust is configured via `.codetrust.toml` in your project root, or `[tool.codetrust]` in `pyproject.toml`. Run `codetrust init` to generate a starter config.
+`.codetrust.toml` in project root. `codetrust init` generates it.
 
 <details>
-<summary><strong>Full configuration reference</strong></summary>
+<summary><strong>Full reference</strong></summary>
 
 ```toml
-# .codetrust.toml
-
 [codetrust]
-exclude_paths = ["migrations/", "vendor/", "node_modules/"]
-ignore_rules  = []                    # e.g. ["eval_exec", "hardcoded_secret"]
+exclude_paths = ["migrations/", "vendor/"]
 
 [codetrust.governance]
 enabled = true
-mode    = "enforce"                   # enforce | audit | off
+mode    = "enforce"
 
 [codetrust.governance.terminal]
-block_heredoc     = true              # Block heredoc redirection patterns
-block_eval        = true              # Block eval/exec calls
-block_sudo        = false             # Block sudo commands
-block_rm_rf       = true              # Block rm -rf /
-block_curl_pipe_sh = true             # Block curl|sh piping
-block_git_push    = true              # Block git push from AI agents
-block_chmod_777   = true              # Block chmod 777
+block_heredoc      = true
+block_git_push     = true
+block_rm_rf        = true
+block_curl_pipe_sh = true
 
 [codetrust.governance.files]
-protected_paths    = ["LICENSE", ".env", ".env.production"]
-scan_before_write  = true             # Scan file content before allowing write
+protected_paths   = ["LICENSE", ".env"]
+scan_before_write = true
 
 [codetrust.governance.packages]
-verify_before_install    = true       # Registry lookup before pip/npm install
-block_suspicious_packages = true      # Block known typosquat patterns
+verify_before_install     = true
+block_suspicious_packages = true
 
 [codetrust.governance.audit]
 enabled        = true
-path           = ".codetrust/audit.jsonl"   # Append-only audit log
+path           = ".codetrust/audit.jsonl"
 retention_days = 90
-
-[codetrust.governance.webhooks]
-# url       = "https://hooks.slack.com/services/T.../B.../xxx"
-# provider  = "slack"                 # slack | teams | generic
-# on_block  = true
-# on_warn   = false
 ```
 
 </details>
 
-**Override any setting via environment variable:** `CODETRUST_GOVERNANCE_MODE=audit`
+---
 
-### Custom Rules
+## Supported Languages
 
-Add your own governance rules without modifying CodeTrust source. Define them in `.codetrust/custom_rules.yaml` or under `[codetrust.governance.custom_rules]` in `.codetrust.toml`.
-
-<details>
-<summary><strong>YAML example — <code>.codetrust/custom_rules.yaml</code></strong></summary>
-
-```yaml
-terminal_rules:
-  - id: no_docker_privileged
-    pattern: "docker\\s+run\\s+--privileged"
-    message: "Privileged Docker containers are not allowed"
-    suggestion: "Remove --privileged flag"
-    severity: BLOCK
-
-  - id: no_force_push
-    pattern: "git\\s+push\\s+--force"
-    message: "Force push is blocked by policy"
-    suggestion: "Use --force-with-lease instead"
-    severity: BLOCK
-
-content_rules:
-  - id: no_console_log
-    pattern: "console\\.log\\("
-    message: "console.log found in production code"
-    suggestion: "Use a structured logger"
-    severity: WARN
-```
-
-</details>
-
-**Rules:**
-
-- `id` — unique identifier (auto-prefixed with `custom_` at runtime)
-- `pattern` — Python regex matched against terminal commands or file content
-- `message` — shown when the rule triggers
-- `suggestion` — recommended fix (optional)
-- `severity` — `BLOCK` (hard stop) or `WARN` (flag only)
+Python, JavaScript, TypeScript, Go, Rust, Java, C#, C/C++, Ruby, PHP, Shell, PowerShell, Terraform, HCL, Dockerfile, SQL, YAML, HTML, Kotlin, Swift, Dart, Elixir, Clojure, and 70+ more.
 
 ---
 
 ## Security & Compliance
 
-| Property | Description |
-|----------|-------------|
-| **Audit trail** | Append-only, immutable log of all governance actions |
-| **Agent identification** | Auto-detects Claude, Copilot, Cursor, Windsurf, GitHub Actions |
-| **Secret scanning** | Catches hardcoded secrets, private keys, and credentials |
-| **Rate limiting** | Per-key and IP-based with sliding windows |
-| **SSO** | Azure AD, Okta, Auth0, Google, Keycloak |
-| **GDPR** | Data export (Art. 15) and right to erasure (Art. 17) |
-| **SIEM export** | CEF, LEEF, Syslog, ECS JSON |
-| **SBOM** | CycloneDX generation (planned) |
-| **Signed releases** | Sigstore signing (planned) |
+Append-only audit trail. Agent auto-detection (Claude Opus 4.6, GPT-5.3, Codex 5.3, Gemini 3, Copilot, Cursor, Windsurf). Secret scanning. Rate limiting. SSO (Azure AD, Okta, Auth0, Google). GDPR export and erasure.
 
 ---
 
-## Enterprise Services
+## Enterprise
 
-Five capabilities that match or exceed paid features from Snyk, SonarQube, Semgrep, FOSSA, and WhiteSource — included free.
-
-### CVE / Vulnerability Scanning
-
-Checks dependencies against the [OSV](https://osv.dev) vulnerability database (Google). Supports PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist.
-
-```bash
-codetrust vuln                     # Scan from requirements.txt / package.json
-codetrust vuln --language python   # Explicit language
-codetrust vuln --json              # Machine-readable output
-```
-
-**API:** `POST /v1/vuln/scan` — batch check up to 200 packages in a single request.
-
-### License Compliance
-
-Extracts licenses from package registries (PyPI, npm, RubyGems, Packagist, Maven, NuGet). Classifies as permissive, weak copyleft, strong copyleft, or network copyleft (AGPL). Flags compliance risks.
-
-```bash
-codetrust license                  # Check from dependency files
-codetrust license --json           # Machine-readable output
-```
-
-**API:** `POST /v1/license/scan`
-
-### Cross-File Import Analysis
-
-Builds the import dependency graph for a project. Detects circular dependencies, orphan files, hub files, and propagates findings across import chains.
-
-**API:** `POST /v1/scan/cross-file`
-
-### Auto-Fix PRs
-
-Applies safe, deterministic fix recipes (print→logging, bare except, hardcoded secrets→env vars) and optionally opens a GitHub PR with the fixes.
-
-```bash
-codetrust fix                      # Apply fixes locally
-codetrust fix --pr                 # Create a GitHub PR with fixes
-```
-
-**API:** `POST /v1/fix/apply` — supports optional PR creation via GitHub API.
-
-### Team Management & RBAC
-
-Organizations, team memberships, and role-based access control. Enforce org-wide policies: maximum severity gates, vulnerability thresholds, blocked licenses.
-
-| Role | Permissions |
-|------|------------|
-| **Owner** | Full control, billing, transfer ownership, delete org |
-| **Admin** | Manage members, edit policies, view billing |
-| **Member** | Run scans, create API keys |
-| **Viewer** | View scans and policies |
-
-**API:** 10 endpoints under `/v1/orgs/*` — create/list/delete orgs, manage members, enforce policies.
+CVE scanning (OSV + NVD). License compliance. Cross-file import analysis. Auto-fix PRs. Team RBAC. Org-wide policy enforcement.
 
 ---
-
-## Distribution
 
 | Channel | Install |
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
-| **VS Code Marketplace** | `code --install-extension SaidBorna.codetrust` |
-| **Chrome Web Store** | Search for "CodeTrust — AI Governance" |
-| **GitHub Action** | `pip install codetrust` in CI workflow |
-| **Cloud API** | Available at `api.codetrust.ai` |
-| **MCP Server** | Included in the package |
+| **VS Code** | `code --install-extension SaidBorna.codetrust` |
+| **Chrome** | Chrome Web Store |
+| **GitHub Action** | `pip install codetrust` in CI |
+| **API** | [api.codetrust.ai](https://api.codetrust.ai/docs) |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---
 
-## Support & Feedback
+**Support:** [codetrust.ai/report.html](https://codetrust.ai/report.html) · **Security:** [SECURITY.md](SECURITY.md)
 
-- Report a bug: [CodeTrust Report Form](https://codetrust.ai/report.html)
-- Request a feature: [CodeTrust Request Form](https://codetrust.ai/report.html)
-- Security disclosures: follow [SECURITY.md](SECURITY.md)
-
----
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-pytest                     # 2,391 tests
-ruff check .               # zero warnings
-```
-
-All counts in this README are generated from source and validated in CI.
-
----
-
-## License
-
-Proprietary — Copyright (c) 2026 Said Borna. All rights reserved. See [LICENSE](LICENSE).
+**License** — Proprietary. Copyright (c) 2026 Said Borna. All rights reserved.

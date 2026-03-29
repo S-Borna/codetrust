@@ -2086,7 +2086,7 @@ async def verify_imports(
     request: Request,
     req: VerifyImportsRequest,
     registry: RegistryService = Depends(_get_registry),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyImportsResponse:
     """Verify package imports exist in registries."""
@@ -2116,7 +2116,7 @@ async def verify_dockerfile(
     request: Request,
     req: VerifyDockerRequest,
     docker: DockerVerifyService = Depends(_get_docker),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyDockerResponse:
     """Verify Docker images and tags exist on Docker Hub."""
@@ -2144,7 +2144,7 @@ async def static_scan(
     request: Request,
     req: StaticScanRequest,
     analyzer: StaticAnalyzer = Depends(_get_analyzer),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> StaticScanResponse:
     """Run static anti-pattern analysis on code."""
@@ -2208,7 +2208,7 @@ async def ast_scan(
 async def signature_scan(
     request: Request,
     req: SignatureScanRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SignatureScanResponse:
     """Validate function signatures against curated database.
@@ -2262,7 +2262,7 @@ async def sandbox_run(
     request: Request,
     req: SandboxRequest,
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SandboxResponse:
     """Execute code in an isolated Docker sandbox."""
@@ -2320,7 +2320,7 @@ async def deep_scan_sarif(
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Run deep scan and return results in SARIF format."""
@@ -2351,7 +2351,7 @@ async def deep_scan(
     registry: RegistryService = Depends(_get_registry),
     docker: DockerVerifyService = Depends(_get_docker),
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> DeepScanResponse:
     """Run full deep scan combining all layers."""
@@ -2804,7 +2804,7 @@ def _build_vuln_scan_response(result: VulnScanResponse) -> dict[str, object]:
 @app.post("/v1/vuln/scan")
 async def vuln_scan(
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Scan packages for known vulnerabilities (CVE/GHSA) via OSV database."""
@@ -2882,7 +2882,7 @@ def _build_license_scan_response(result: LicenseScanResponse) -> dict[str, objec
 @app.post("/v1/license/scan")
 async def license_scan(
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Check package licenses for compliance (copyleft detection)."""
@@ -2925,7 +2925,7 @@ async def license_scan(
 @app.post("/v1/sbom/generate", response_model=SbomGenerateResponse)
 async def sbom_generate(
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> SbomGenerateResponse:
     """Generate CycloneDX and SPDX SBOM outputs for dependency inventories."""
@@ -2967,7 +2967,7 @@ async def sbom_generate(
 @app.post("/v1/scan/cross-file")
 async def cross_file_scan(
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Analyze import dependency graph across multiple files."""
@@ -3014,7 +3014,7 @@ async def taint_verified_scan(
     req: TaintVerifiedRequest,
     taint_anal: TaintAnalyzer = Depends(_get_taint_analyzer),
     sandbox_svc: SandboxService = Depends(_get_sandbox),
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> TaintVerifiedResponse:
     """Run taint analysis with runtime exploit verification.
@@ -3163,7 +3163,7 @@ def _build_autofix_response(result: AutoFixResult) -> dict[str, object]:
 async def autofix_apply(
     request: Request,
     req: AutoFixRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Apply auto-fix recipes to code. Optionally create a GitHub PR."""
@@ -3215,7 +3215,7 @@ def _get_team_service(request: Request) -> object:
 async def create_org(
     request: Request,
     req: CreateOrgRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Create a new organization."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3241,7 +3241,7 @@ async def create_org(
 @app.get("/v1/orgs")
 async def list_orgs(
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[dict[str, object]]:
     """List organizations the authenticated user belongs to."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3267,7 +3267,7 @@ async def list_orgs(
 async def get_org(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Get organization details. Requires membership."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3297,7 +3297,7 @@ async def get_org(
 async def delete_org(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Delete an organization. Only the owner can delete."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3319,7 +3319,7 @@ async def delete_org(
 async def list_members(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[dict[str, object]]:
     """List members of an organization. Requires membership."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3349,7 +3349,7 @@ async def add_member(
     org_id: str,
     request: Request,
     req: AddMemberRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Add a member to an organization."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3380,7 +3380,7 @@ async def remove_member(
     org_id: str,
     user_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Remove a member from an organization."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3404,7 +3404,7 @@ async def update_role(
     user_id: str,
     request: Request,
     req: UpdateMemberRoleRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Update a member's role in an organization."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3426,7 +3426,7 @@ async def update_role(
 async def get_policy(
     org_id: str,
     request: Request,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Get organization policy settings. Requires membership."""
     enterprise_required = _require_team_or_above(auth.plan)
@@ -3460,7 +3460,7 @@ async def update_policy(
     org_id: str,
     request: Request,
     req: UpdateOrgPolicyRequest,
-    auth: AuthContext = Depends(get_optional_auth_context),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> dict[str, object]:
     """Update organization policy settings."""
     enterprise_required = _require_team_or_above(auth.plan)

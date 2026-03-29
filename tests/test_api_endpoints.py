@@ -132,10 +132,10 @@ class TestAuth:
         finally:
             settings.api_key = original
 
-    def test_anonymous_scan_allowed_when_api_key_set(
+    def test_anonymous_scan_blocked_when_api_key_set(
         self, client: TestClient
     ) -> None:
-        """Static scan remains available without API key (free tier)."""
+        """Static scan requires auth — anonymous returns 401."""
         original = settings.api_key
         settings.api_key = "k1"
         try:
@@ -143,7 +143,7 @@ class TestAuth:
                 "/v1/scan/static",
                 json={"code": "x = 1", "filename": "test.py"},
             )
-            assert response.status_code == 200
+            assert response.status_code == 401
         finally:
             settings.api_key = original
 

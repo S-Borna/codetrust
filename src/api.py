@@ -1739,9 +1739,8 @@ async def ingest_telemetry(
     event: dict[str, object],
     request: Request,
     background_tasks: BackgroundTasks,
-    auth: AuthContext = Depends(get_auth_context),
 ) -> StatusResponse:
-    """Accept telemetry from authenticated users only.
+    """Accept telemetry from all users (including anonymous extension users).
 
     Returns immediately (202). Processing is best-effort and must never block.
     """

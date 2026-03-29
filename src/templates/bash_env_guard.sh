@@ -39,7 +39,10 @@ _ct_message=""
 _ct_suggestion=""
 
 # Rule 1: Heredoc (<<) — zero tolerance
-if echo "$BASH_EXECUTION_STRING" | grep -qE '<<[-'"'"']?\s*[A-Za-z_"'"'"'"]'; then
+# Quote-aware: strip single-quoted and simple double-quoted strings first,
+# then check for << in unquoted code. Preserves $() subshells.
+_ct_stripped=$(echo "$BASH_EXECUTION_STRING" | sed "s/'[^']*'/'_Q_'/g" | sed 's/"[^"$]*"/"_Q_"/g')
+if echo "$_ct_stripped" | grep -qE '<<[-'"'"']?\s*[A-Za-z_]'; then
     _ct_blocked=1
     _ct_rule_id="guard_heredoc"
     _ct_message="Heredoc (<<) is permanently prohibited. Zero exceptions."

@@ -175,7 +175,7 @@ def main() -> int:
             return True
         # Rules definition files and hook templates — these contain the
         # patterns they detect/block (false positives by design).
-        if path.startswith("src/rules/") or path.startswith("src/templates/pretooluse_"):
+        if path.startswith("src/rules/") or path.startswith("src/templates/"):
             return True
         if path.startswith("src/services/taint") or "taint" in path.split("/")[-1]:
             return True

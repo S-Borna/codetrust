@@ -32,6 +32,16 @@ REGISTRY_BLOCK_PLANS: frozenset[str] = frozenset({
     PlanTier.PRO, PlanTier.TEAM, PlanTier.ENTERPRISE,
 })
 
+# Team+ features: RBAC, shared policies, audit dashboard, multi-repo
+TEAM_PLANS: frozenset[str] = frozenset({
+    PlanTier.TEAM, PlanTier.ENTERPRISE,
+})
+
+# Enterprise-only features: SSO/SAML, self-hosted, custom rules, SIEM
+ENTERPRISE_PLANS: frozenset[str] = frozenset({
+    PlanTier.ENTERPRISE,
+})
+
 
 class BillingService:
     """Stripe-backed billing for subscriptions and usage tracking."""

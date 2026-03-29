@@ -72,10 +72,12 @@ export async function POST(request: Request) {
         }
 
         const baseUrl = process.env.NEXTAUTH_URL || "https://app.codetrust.ai";
+        const TRIAL_DAYS = 14;
         const checkoutSession = await stripe.checkout.sessions.create({
             customer: customerId,
             mode: "subscription",
             line_items: [{ price: priceId, quantity: 1 }],
+            subscription_data: { trial_period_days: TRIAL_DAYS },
             success_url: `${baseUrl}/dashboard/settings?upgraded=true`,
             cancel_url: `${baseUrl}/dashboard/settings`,
             metadata: { plan: String(plan) },

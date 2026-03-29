@@ -111,7 +111,12 @@ class BillingService:
             if trial_days > 0:
                 session_kwargs["subscription_data"] = {
                     "trial_period_days": trial_days,
+                    "trial_settings": {
+                        "end_behavior": {"missing_payment_method": "cancel"},
+                    },
                 }
+                # Require payment method upfront — card registered during trial
+                session_kwargs["payment_method_collection"] = "always"
             if customer_id:
                 session_kwargs["customer"] = customer_id
             session = stripe_lib.checkout.Session.create(**session_kwargs)

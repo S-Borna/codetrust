@@ -101,7 +101,7 @@ Ingen annan tool gör detta. SonarQube, Snyk, Semgrep, Ruff — ingen av dem ver
 | Verifierar att paket existerar | **Ja** — PyPI, npm, crates.io, Go proxy | **Nej** |
 | Typosquatting-skydd | **Ja** — fuzzy matching | **Nej** |
 | Docker image/tag-verifiering | **Ja** — live Docker Hub API | **Nej** |
-| MCP-native (27 tools) | **Ja** | SonarQube (nytt 2025), resten nej |
+| MCP-native (39 tools) | **Ja** | SonarQube (nytt 2025), resten nej |
 | Offline-scanning i editor | **Ja** — 204 embedded rules | Semgrep CLI (delvis) |
 | Sandbox-exekvering | **Ja** — isolerad Docker | **Nej** |
 | Noll konfiguration | **Ja** — `codetrust init` | SonarQube: timmar |
@@ -208,7 +208,7 @@ Under byggandet av CodeTrust användes CodeTrust aktivt för att verifiera sin e
 | **Registry-stöd** | 8 (PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist) |
 | **Docker Hub-verifiering** | Live API med tag-suggestions |
 | **API-endpoints** | 60 REST endpoints |
-| **MCP-verktyg** | 27 tools |
+| **MCP-verktyg** | 39 tools |
 | **SARIF v2.1.0** | GitHub Security tab-kompatibel |
 | **Lint-status** | ruff clean — noll fel |
 | **Build-faser** | 11 (alla avslutade) |
@@ -293,7 +293,7 @@ CodeTrust **ersätter inte** SonarQube/Snyk/Semgrep. Det **kompletterar** dem. D
      │          │          │          │          │
 ┌────▼───┐ ┌───▼────┐ ┌───▼───┐ ┌───▼──────┐ ┌─▼────────┐
 │MCP Srv │ │FastAPI │ │CLI 40+│ │Extension │ │GH Action │
-│27 tools│ │60 endp.│ │komman.│ │Offline   │ │PR-block  │
+│39 tools│ │60 endp.│ │komman.│ │Offline   │ │PR-block  │
 └────┬───┘ └───┬────┘ └───┬───┘ └───┬──────┘ └─┬────────┘
      │         │          │         │           │
      └─────────┼──────────┼─────────┘           │

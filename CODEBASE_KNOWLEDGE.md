@@ -61,8 +61,8 @@
 
 | Server | Entry Point | Tools |
 |--------|-------------|-------|
-| Scanner MCP | `src/server.py` | 10 tools (static_scan, pre_action, post_action, list_rules, verify_imports, verify_dockerfile, ast_scan, sandbox_run, sarif_export, deep_scan) |
-| Gateway MCP | `src/gateway/server.py` | 17 tools (validate_command, validate_file_write, validate_file_delete, validate_package, run_in_terminal, create_file, replace_string_in_file, edit_notebook, governance_status, list_gateway_rules, audit_history, begin_trusted_session, approve_action, list_exceptions, revoke_exception, simulate_policy, governance_posture) |
+| Scanner MCP | `src/server.py` | 21 tools (static_scan, pre_action, post_action, list_rules, verify_imports, verify_dockerfile, ast_scan, sandbox_run, sarif_export, deep_scan, taint_verify, vulnerability_scan, license_check, hallucination_scan, cross_file_taint, cross_language_taint, mcp_audit, shadow_scan, attribute, risk_profile, benchmark) |
+| Gateway MCP | `src/gateway/server.py` | 18 tools (validate_command, validate_file_write, validate_file_delete, validate_package, run_in_terminal, create_file, replace_string_in_file, edit_notebook, governance_status, list_gateway_rules, audit_history, begin_trusted_session, approve_action, list_exceptions, revoke_exception, simulate_policy, governance_posture, governance_integrity) |
 
 ### Key Metrics (v2.8.5)
 
@@ -89,7 +89,7 @@
         ▼                     ▼
 ┌───────────────┐   ┌─────────────────┐
 │ Gateway MCP   │   │  Scanner MCP    │
-│ (11 tools)    │   │  (10 tools)     │
+│ (18 tools)    │   │  (21 tools)     │
 │ BEFORE action │   │  code analysis  │
 └───────┬───────┘   └────────┬────────┘
         │                    │
@@ -277,7 +277,7 @@ Central configuration via `pydantic-settings`. Class `Settings(BaseSettings)`:
 
 #### src/server.py (~1,205 lines)
 
-**MCP Scanner Server** via FastMCP. 10 tools:
+**MCP Scanner Server** via FastMCP. 21 tools:
 
 1. **`static_scan`** — Runs StaticAnalyzer on code content. Params: `code: str`, `language: str`, `filename: str`. Returns findings list.
 2. **`pre_action`** — Validates planned action description against enterprise rules. Params: `description: str`, `repo_root: str`. Returns verdict.

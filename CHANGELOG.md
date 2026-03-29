@@ -14,6 +14,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Org-level governance alerting for drift and repeat BLOCK events
 - Universal rule file_types scoping (performance optimization)
 
+## [4.0.5] - 2026-03-29
+
+### Added
+- **Real-time enforcement** — `codetrust init` auto-installs PreToolUse hooks (44 blocked Bash patterns, 13 protected paths, 6 secret patterns) and BASH_ENV guards
+- **BASH_ENV guard** — OS-level enforcement for VS Code extension. Blocks heredoc and dangerous commands at bash level, 26ms overhead, zero dependencies
+- **Guided remediation** — 2,924 individually crafted suggestions with root cause, exact fix, and CVE references. 17 special handlers for FP elimination
+- **AI attribution & observability** — per-line model attribution, shadow AI detection, developer risk scoring, LLM benchmark, 26 models discovered live
+- **Policy engine** — model allowlist/blocklist, max AI ratio per commit, attribution requirements
+- **`codetrust doctor`** — verifies all 8 enforcement layers with functional tests
+- **Cross-language taint** — 323 definitions across 7 languages, cross-file + cross-language (HTTP/gRPC) tracking
+- **AST deep analysis** — 10 tree-sitter structural checks across 9 languages
+
+### Fixed
+- Scanner FP rate: 0% on own code, Flask 0%, Django 8.6% (40+ root causes fixed)
+- Scanner performance: 27s → 2ms worst case (pre-indexed by extension, pre-compiled regex)
+- Platform sync: all published surfaces (PyPI, Marketplace, OpenVSX, website) now use consistent numbers
+- README updated from "Four Moats" to "14 Capabilities"
+
+### Changed
+- Extension title: "AI Governance Enforcement for VS Code" → "AI Governance Enforcement Platform"
+- 127 commits since 3.0.0
+
 ## [4.0.2] - 2026-03-28
 
 ### Fixed

@@ -21,7 +21,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 | **Typosquatting-skydd** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **Docker image/tag-verifiering** | **✅** | ❌ | ❌ | Delvis¹ | ❌ |
 | **Signaturvalidering** | **✅ 50 moduler, 405 fn** | ❌ | ❌ | ❌ | ❌ |
-| **MCP Server (AI-integration)** | **✅ 27 tools** | ✅ (2025) | ❌ | ❌ | ❌ |
+| **MCP Server (AI-integration)** | **✅ 39 tools** | ✅ (2025) | ❌ | ❌ | ❌ |
 | **Sandbox-exekvering** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **Trust Score & Drift** | **✅** | Quality Gate | ❌ | ❌ | ❌ |
 | **Universal IDE Injection** | **✅ 4 IDEs** | ❌ | ❌ | ❌ | ❌ |
@@ -52,7 +52,7 @@ Praktiskt innebär det: behåll dina nuvarande verktyg för djup SAST/CVE, och l
 |---|---|---|
 | **Styrka** | AI Governance Gateway (82 regler), signaturvalidering, paket/Docker-verifiering | Djupaste regelbiblioteket (5,000+), 35+ språk, taint analysis |
 | **Svaghet** | 1,202 regler (SonarQube har 5,000+) | Ingen AI governance, ingen paket/Docker-verifiering, kräver server |
-| **MCP** | 27 tools (10 scan + 17 gateway) | Tillagt 2025 |
+| **MCP** | 39 tools (21 scan + 18 gateway) | Tillagt 2025 |
 | **Pris** | $0 | $32/mån (10 dev, 100K LOC) |
 | **Bäst för** | AI-kodverifiering + governance | Traditionell kodkvalitet |
 

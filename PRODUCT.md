@@ -51,7 +51,7 @@ Den är byggd för verkligheten där AI (Claude, GPT, Copilot, Cursor) skriver s
 
 ---
 
-## 3. Vad CodeTrust gör — 10 enforcementlager
+## 3. Vad CodeTrust gör — 10 analyskategorier, 8 enforcement-lager
 
 ### Layer 01: Statisk analys (204 scan-regler)
 
@@ -354,7 +354,7 @@ jobs:
        │          │          │          │
 ┌──────▼──┐  ┌────▼───┐  ┌──▼───┐  ┌───▼────────┐
 │MCP Server│  │FastAPI │  │ CLI  │  │VS Code Ext │
-│10 tools  │  │19 endp.│  │4 cmd │  │Offline scan│
+│39 tools  │  │65 endp.│  │4 cmd │  │Offline scan│
 └──────┬───┘  └───┬────┘  └──┬───┘  └───┬────────┘
        │          │          │          │
        └──────────┼──────────┘          │

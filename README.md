@@ -50,7 +50,7 @@ pip install codetrust && codetrust init && codetrust doctor
 | 40% of your codebase was written by GPT-5.3. Senior dev quits. Nobody knows which 40%. | Unmaintainable code. No accountability. No audit trail. |
 | AI agent modifies its own CLAUDE.md to remove restrictions | Self-modifying agent. Zero oversight. Governance bypassed. |
 | Junior dev uses an unregistered AI model with training data from a competitor's leaked repo | Legal liability. IP contamination. Compliance violation. |
-| AI-generated code quality degrades 2% per week. Nobody measures it. | Technical debt compounds silently until production breaks. |
+| AI-generated code quality degrades over time. Nobody measures it. | Technical debt compounds silently until production breaks. |
 
 **Every one of these scenarios is happening right now, at companies using AI coding assistants without governance.**
 

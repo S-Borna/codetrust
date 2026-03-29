@@ -130,6 +130,10 @@ export function TeamDashboard({ apiKey, initialOrgs }: TeamDashboardProps) {
         if (!selectedOrgId) {
             return;
         }
+        if (!ROLE_OPTIONS.includes(role)) {
+            setStatusMessage("Invalid role selected.");
+            return;
+        }
 
         setIsBusy(true);
         setStatusMessage("");

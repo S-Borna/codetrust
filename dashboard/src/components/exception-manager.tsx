@@ -7,6 +7,9 @@ import type {
 } from "@/lib/api";
 import { governanceClient } from "@/lib/api";
 
+const VALID_APPROVAL_ROLES = ["owner", "admin", "security"] as const;
+type ApprovalRole = typeof VALID_APPROVAL_ROLES[number];
+
 function TimeAgo({ timestamp }: { timestamp: number }) {
     const seconds = Math.floor(Date.now() / 1000 - timestamp);
     if (seconds < 60) return <span>{seconds}s ago</span>;
@@ -55,12 +58,13 @@ function ApproveDialog({
 }) {
     const [reason, setReason] = useState("");
     const [approver, setApprover] = useState("");
-    const [role, setRole] = useState("owner");
+    const [role, setRole] = useState<ApprovalRole>("owner");
     const [ttl, setTtl] = useState(60);
     const [submitting, setSubmitting] = useState(false);
 
     async function handleApprove() {
         if (reason.length < 12 || !approver) return;
+        if (!VALID_APPROVAL_ROLES.includes(role)) return;
         setSubmitting(true);
         const result = await governanceClient.approveAction(
             apiKey,
@@ -115,12 +119,17 @@ function ApproveDialog({
                         </label>
                         <select
                             value={role}
-                            onChange={(e) => setRole(e.target.value)}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                if (VALID_APPROVAL_ROLES.includes(value as ApprovalRole)) {
+                                    setRole(value as ApprovalRole);
+                                }
+                            }}
                             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                         >
-                            <option value="owner">Owner</option>
-                            <option value="admin">Admin</option>
-                            <option value="security">Security</option>
+                            {VALID_APPROVAL_ROLES.map((r) => (
+                                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                            ))}
                         </select>
                     </div>
                     <div>

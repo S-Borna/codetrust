@@ -20,7 +20,7 @@ export default async function ApiKeysPage() {
                 </p>
             </div>
 
-            <ApiKeyManager initialKeys={keys} />
+            <ApiKeyManager initialKeys={keys} apiKey={apiKey} />
         </div>
     );
 }

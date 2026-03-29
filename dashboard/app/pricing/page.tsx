@@ -71,7 +71,7 @@ const PLANS = [
             "Dedicated support",
         ],
         cta: "Contact sales",
-        href: "mailto:contact@codetrust.ai",
+        href: "mailto:said@saidborna.com",
         highlight: false,
     },
 ];

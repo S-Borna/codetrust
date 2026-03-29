@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRICE_PRO || "";
+const STRIPE_TEAM_PRICE_ID = process.env.STRIPE_PRICE_TEAM || "";
+const STRIPE_ENTERPRISE_PRICE_ID = process.env.STRIPE_PRICE_ENTERPRISE || "";
 
 function getStripe(): Stripe {
     const key = process.env.STRIPE_SECRET_KEY;
@@ -39,11 +41,17 @@ export async function POST(request: Request) {
         const body = await request.json().catch(() => ({}));
         const plan = (body as Record<string, unknown>).plan || "pro";
 
-        if (plan !== "pro" && plan !== "enterprise") {
+        const VALID_PLANS = ["pro", "team", "enterprise"] as const;
+        if (!VALID_PLANS.includes(plan as typeof VALID_PLANS[number])) {
             return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
         }
 
-        const priceId = plan === "pro" ? STRIPE_PRO_PRICE_ID : process.env.STRIPE_PRICE_ENTERPRISE || "";
+        const priceMap: Record<string, string> = {
+            pro: STRIPE_PRO_PRICE_ID,
+            team: STRIPE_TEAM_PRICE_ID,
+            enterprise: STRIPE_ENTERPRISE_PRICE_ID,
+        };
+        const priceId = priceMap[plan as string] || "";
         if (!priceId) {
             return NextResponse.json(
                 { error: `Price not configured for plan: ${plan}` },

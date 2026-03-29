@@ -197,7 +197,7 @@ export default function DashboardPricingPage() {
                         </ul>
                         {plan.planKey === "enterprise" ? (
                             <a
-                                href="mailto:contact@codetrust.ai"
+                                href="mailto:said@saidborna.com"
                                 className="mt-8 block w-full rounded-lg border border-gray-300 dark:border-gray-600 py-3 text-center font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                             >
                                 Contact sales

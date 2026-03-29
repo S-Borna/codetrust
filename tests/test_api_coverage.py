@@ -244,6 +244,7 @@ class TestAuthContext:
             settings.api_key = original
 
     def test_auth_required_no_header(self, client: TestClient) -> None:
+        """Without API key, scan returns 401."""
         original = settings.api_key
         settings.api_key = "some-" + "key"
         try:
@@ -251,7 +252,7 @@ class TestAuthContext:
                 "/v1/scan/static",
                 json={"code": "x = 1\n", "filename": "test.py"},
             )
-            assert resp.status_code == 200
+            assert resp.status_code == 401
         finally:
             settings.api_key = original
 

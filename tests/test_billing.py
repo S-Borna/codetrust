@@ -239,24 +239,28 @@ class TestPlanLimits:
     """Tests for plan limit lookups."""
 
     def test_free_limit(self, billing_unconfigured: BillingService) -> None:
-        """Free tier has 100 scans/day."""
-        assert billing_unconfigured.get_plan_limit("free") == 100
+        """Free tier has 25 scans/day."""
+        assert billing_unconfigured.get_plan_limit("free") == 25
 
     def test_pro_limit(self, billing_unconfigured: BillingService) -> None:
         """Pro tier has 10,000 scans/day."""
         assert billing_unconfigured.get_plan_limit("pro") == 10_000
 
+    def test_team_limit(self, billing_unconfigured: BillingService) -> None:
+        """Team tier has 100,000 scans/day."""
+        assert billing_unconfigured.get_plan_limit("team") == 100_000
+
     def test_enterprise_limit(
         self, billing_unconfigured: BillingService,
     ) -> None:
-        """Enterprise tier has 100,000 scans/day."""
-        assert billing_unconfigured.get_plan_limit("enterprise") == 100_000
+        """Enterprise tier has 1,000,000 scans/day."""
+        assert billing_unconfigured.get_plan_limit("enterprise") == 1_000_000
 
     def test_unknown_plan_defaults_to_free(
         self, billing_unconfigured: BillingService,
     ) -> None:
         """Unknown plan defaults to free tier limit."""
-        assert billing_unconfigured.get_plan_limit("unknown") == 100
+        assert billing_unconfigured.get_plan_limit("unknown") == 25
 
     def test_plan_limits_map(self) -> None:
         """All plan tiers are in the limits map."""

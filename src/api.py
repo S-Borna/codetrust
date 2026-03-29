@@ -128,7 +128,7 @@ from src.services.ast_analyzer import SUPPORTED_LANGUAGES as AST_LANGUAGES
 from src.services.ast_analyzer import AstAnalyzer
 from src.services.auth import AuthService
 from src.services.autofix import AutoFixResult
-from src.services.billing import PLAN_LIMITS, BillingService
+from src.services.billing import CI_ENFORCEMENT_PLANS, PLAN_LIMITS, REGISTRY_BLOCK_PLANS, BillingService
 from src.services.cache import CacheService
 from src.services.database import DatabaseService
 from src.services.docker_verify import DockerVerifyService
@@ -171,7 +171,7 @@ OIDC_STATE_TTL_SECS: int = 600  # 10 minutes for OIDC flow
 
 MAX_WS_CLIENTS: int = 50
 WS_IDLE_TIMEOUT_SECS: float = 300.0  # 5 minutes
-FREE_DAILY_SCAN_LIMIT: int = 100
+FREE_DAILY_SCAN_LIMIT: int = 25
 SCAN_TELEMETRY_FINDINGS_CAP: int = 50
 
 BASELINES: dict[str, int] = {
@@ -299,9 +299,8 @@ def _resolve_installation_id(request: Request) -> str:
 
 
 def _check_scan_limit(installation_id: str, plan: str) -> dict[str, str | int] | None:
-    """Return 429 payload when a free installation exceeds daily scan quota."""
-    if plan in {"pro", "enterprise"}:
-        return None
+    """Return 429 payload when an installation exceeds daily scan quota for its plan."""
+    plan_limit = PLAN_LIMITS.get(plan, FREE_DAILY_SCAN_LIMIT)
 
     today = _utc_today().isoformat()
     tracker = _scan_limits.get(installation_id)
@@ -311,17 +310,18 @@ def _check_scan_limit(installation_id: str, plan: str) -> dict[str, str | int] |
 
     current = int(tracker.get("count", 0)) + 1
     tracker["count"] = current
-    if current <= FREE_DAILY_SCAN_LIMIT:
+    if current <= plan_limit:
         return None
 
     tomorrow = datetime.combine(_utc_today() + timedelta(days=1), dt_time.min, tzinfo=UTC)
     return {
         "error": "daily_scan_limit_reached",
-        "message": "Free tier limit: 100 scans/day. Upgrade for unlimited scans.",
-        "limit": FREE_DAILY_SCAN_LIMIT,
+        "message": f"{plan.capitalize()} plan limit: {plan_limit} scans/day. Upgrade for higher limits.",
+        "limit": plan_limit,
         "used": current,
+        "plan": plan,
         "resets_at": tomorrow.isoformat(),
-        "upgrade_url": "https://app.codetrust.ai/settings",
+        "upgrade_url": "https://app.codetrust.ai/pricing",
     }
 
 
@@ -475,13 +475,42 @@ def _filter_free_static_response(response: StaticScanResponse) -> StaticScanResp
         response.total_findings = len(filtered)
         response.verdict = "BLOCK" if response.blocks > 0 else ("WARN" if response.warnings > 0 else "PASS")
     response.upgrade_hints = [
-        "Signature validation (405 functions) - available on Pro",
-        "CVE/vulnerability scanning - available on Pro",
-        "License compliance checking - available on Pro",
-        "Trust score trending & history - available on Pro",
-        "Deep scan mode - available on Pro",
+        "Signature validation (405 functions) — available on Pro",
+        "Registry verification with BLOCK enforcement — available on Pro",
+        "GitHub Action PR gate — available on Pro",
+        "Docker & infrastructure verification — available on Pro",
+        "Sandbox execution — available on Pro",
     ]
     return response
+
+
+def _downgrade_registry_blocks_for_free(
+    findings: list[dict[str, str | int]],
+) -> list[dict[str, str | int]]:
+    """Downgrade registry BLOCK findings to WARN for free-tier users.
+
+    Free plan gets WARN on hallucinated packages (detection only).
+    Pro+ plans get BLOCK (enforcement).
+    """
+    for finding in findings:
+        rule_id = str(finding.get("rule_id", ""))
+        if rule_id.startswith("import_") and finding.get("severity") == "BLOCK":
+            finding["severity"] = "WARN"
+            finding["message"] = str(finding.get("message", "")) + " [Upgrade to Pro for BLOCK enforcement]"
+    return findings
+
+
+def _require_paid_plan(plan: str, feature: str) -> None:
+    """Raise 403 if user is on free plan for a paid-only feature."""
+    if plan not in CI_ENFORCEMENT_PLANS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "plan_upgrade_required",
+                "message": f"{feature} requires a Pro or higher plan.",
+                "upgrade_url": "https://app.codetrust.ai/pricing",
+            },
+        )
 
 
 
@@ -883,16 +912,16 @@ UPGRADE_URL_PATH = "/dashboard/settings"
 
 
 def _require_pro_or_enterprise(plan: str) -> JSONResponse | None:
-    """Return 403 response when endpoint requires Pro or Enterprise."""
-    if plan in {"pro", "enterprise"}:
+    """Return 403 response when endpoint requires Pro or higher."""
+    if plan in CI_ENFORCEMENT_PLANS:
         return None
     return JSONResponse(
         status_code=403,
         content={
             "error": "upgrade_required",
-            "message": "This feature requires a Pro or Enterprise plan.",
+            "message": "This feature requires a Pro or higher plan.",
             "required_plan": "pro",
-            "upgrade_url": "https://app.codetrust.ai/settings",
+            "upgrade_url": "https://app.codetrust.ai/pricing",
         },
     )
 
@@ -2018,6 +2047,13 @@ async def verify_imports(
     elapsed_ms = int((time.monotonic() - start) * 1000)
     response = _build_imports_response(results, elapsed_ms)
 
+    # Free plan: downgrade registry BLOCK → WARN (detection only, no enforcement)
+    if auth.plan not in REGISTRY_BLOCK_PLANS:
+        for result in response.results:
+            if result.status == VerifyStatus.NOT_FOUND:
+                result.severity = Severity.WARN
+        response.failed = 0  # No enforcement failures for free
+
     await _log_scan(
         request, auth, "imports", "PASS" if response.failed == 0 else "BLOCK",
         len(response.results), elapsed_ms, str(req.language),
@@ -2034,6 +2070,7 @@ async def verify_dockerfile(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> VerifyDockerResponse:
     """Verify Docker images and tags exist on Docker Hub."""
+    _require_paid_plan(auth.plan, "Docker verification")
     logger.info("api_verify_dockerfile", count=len(req.images))
     start = time.monotonic()
 
@@ -2208,6 +2245,7 @@ async def static_scan_sarif(
     rate_limiter: RateLimiter | None = Depends(_get_rate_limiter),
 ) -> dict[str, object]:
     """Run static analysis and return results in SARIF format."""
+    _require_paid_plan(auth.plan, "SARIF output (GitHub Action)")
     await _enforce_rate_limit(auth, rate_limiter, request)
     logger.info("api_static_sarif", filename=req.filename)
     start = time.monotonic()

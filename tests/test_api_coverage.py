@@ -98,7 +98,8 @@ class TestAstScan:
 
 
 class TestSarifEndpoints:
-    def test_static_sarif(self, client: TestClient) -> None:
+    def test_static_sarif_free_blocked(self, client: TestClient) -> None:
+        """Free plan should not have access to SARIF endpoints."""
         original = settings.api_key
         settings.api_key = ""
         try:
@@ -106,10 +107,8 @@ class TestSarifEndpoints:
                 "code": "import os\n",
                 "filename": "safe.py",
             })
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data["version"] == "2.1.0"
-            assert "$schema" in data
+            assert resp.status_code == 403
+            assert "upgrade_required" in resp.text or "plan_upgrade_required" in resp.text
         finally:
             settings.api_key = original
 

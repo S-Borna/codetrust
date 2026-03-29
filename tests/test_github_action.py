@@ -507,27 +507,21 @@ class TestSarifAPIEndpoints:
 
         return TestClient(app, raise_server_exceptions=False)
 
-    def test_static_sarif_endpoint(self, client: TestClient) -> None:
-        """POST /v1/scan/static/sarif returns SARIF JSON."""
+    def test_static_sarif_free_blocked(self, client: TestClient) -> None:
+        """SARIF requires Pro plan — free gets 403."""
         resp = client.post("/v1/scan/static/sarif", json={
             "code": "result = " + "ev" + "al('1+1')\n",
             "filename": "test.py",
         })
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["version"] == "2.1.0"
-        assert len(data["runs"]) == 1
-        assert len(data["runs"][0]["results"]) > 0
+        assert resp.status_code == 403
 
-    def test_static_sarif_clean_code(self, client: TestClient) -> None:
-        """Clean code returns SARIF with empty results."""
+    def test_static_sarif_clean_code_free_blocked(self, client: TestClient) -> None:
+        """Clean code SARIF also requires Pro plan."""
         resp = client.post("/v1/scan/static/sarif", json={
             "code": "x = 1\ny = 2\n",
             "filename": "clean.py",
         })
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["runs"][0]["results"]) == 0
+        assert resp.status_code == 403
 
     def test_deep_sarif_endpoint(self, client: TestClient) -> None:
         """POST /v1/scan/deep/sarif returns SARIF JSON."""

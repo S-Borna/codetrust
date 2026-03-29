@@ -166,7 +166,8 @@ class TestE2EStaticScan:
         assert len(history) >= 1
         assert history[0].scan_type == "static"
 
-    def test_scan_sarif_output(self, e2e_client: TestClient) -> None:
+    def test_scan_sarif_free_blocked(self, e2e_client: TestClient) -> None:
+        """SARIF endpoints require Pro plan — free gets 403."""
         resp = e2e_client.post(
             "/v1/scan/static/sarif",
             json={
@@ -174,11 +175,7 @@ class TestE2EStaticScan:
                 "filename": "leak.py",
             },
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["$schema"].endswith("sarif-2.1.0.json")
-        assert data["version"] == "2.1.0"
-        assert len(data["runs"]) == 1
+        assert resp.status_code == 403
 
 
 # ---------------------------------------------------------------------------

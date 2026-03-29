@@ -304,10 +304,10 @@ class TestVerifyImports:
         assert data["verified"] == 1
         assert data["failed"] == 0
 
-    def test_verify_imports_not_found(
+    def test_verify_imports_not_found_free_plan(
         self, client: TestClient
     ) -> None:
-        """Import not found returns failed count."""
+        """Free plan: import not found downgraded to WARN (failed=0)."""
         with patch.object(
             RegistryService,
             "verify_packages",
@@ -332,7 +332,8 @@ class TestVerifyImports:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["failed"] == 1
+        # Free plan: NOT_FOUND downgraded to WARN, no enforcement failure
+        assert data["failed"] == 0
 
     def test_verify_imports_empty_list_returns_422(
         self, client: TestClient
@@ -351,64 +352,29 @@ class TestVerifyImports:
 class TestVerifyDockerfile:
     """Tests for POST /v1/verify/dockerfile."""
 
-    def test_verify_dockerfile_valid_request(
+    def test_verify_dockerfile_free_blocked(
         self, client: TestClient
     ) -> None:
-        """Valid Dockerfile verification request."""
-        with patch.object(
-            DockerVerifyService,
-            "verify_images",
-            new_callable=AsyncMock,
-            return_value=[
-                DockerImageResult(
-                    image="python",
-                    tag="3.12-slim",
-                    status=VerifyStatus.VERIFIED,
-                    severity=Severity.INFO,
-                    message="Image 'python:3.12-slim' verified.",
-                ),
-            ],
-        ):
-            response = client.post(
-                "/v1/verify/dockerfile",
-                json={
-                    "images": [{"image": "python", "tag": "3.12-slim"}],
-                },
-            )
+        """Free plan cannot access Docker verification."""
+        response = client.post(
+            "/v1/verify/dockerfile",
+            json={
+                "images": [{"image": "python", "tag": "3.12-slim"}],
+            },
+        )
+        assert response.status_code == 403
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["verified"] == 1
-        assert data["failed"] == 0
-
-    def test_verify_dockerfile_not_found(
+    def test_verify_dockerfile_not_found_free_blocked(
         self, client: TestClient
     ) -> None:
-        """Dockerfile with non-existent tag returns failed count."""
-        with patch.object(
-            DockerVerifyService,
-            "verify_images",
-            new_callable=AsyncMock,
-            return_value=[
-                DockerImageResult(
-                    image="python",
-                    tag="99." + "99",
-                    status=VerifyStatus.NOT_FOUND,
-                    severity=Severity.BLOCK,
-                    message="Tag '99." + "99' not found for 'python'.",
-                ),
-            ],
-        ):
-            response = client.post(
-                "/v1/verify/dockerfile",
-                json={
-                    "images": [{"image": "python", "tag": "99." + "99"}],
-                },
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["failed"] == 1
+        """Free plan: Docker verification returns 403."""
+        response = client.post(
+            "/v1/verify/dockerfile",
+            json={
+                "images": [{"image": "python", "tag": "99." + "99"}],
+            },
+        )
+        assert response.status_code == 403
 
     def test_verify_dockerfile_empty_images_returns_422(
         self, client: TestClient
@@ -581,12 +547,12 @@ class TestTierAndRateLimits:
         assert response.status_code == 200
         assert "findings" in response.json()
 
-    def test_free_tier_100th_scan_succeeds(self, client: TestClient) -> None:
+    def test_free_tier_25th_scan_succeeds(self, client: TestClient) -> None:
         headers = {
-            "X-CodeTrust-Installation-ID": "install-free-100",
+            "X-CodeTrust-Installation-ID": "install-free-25",
             "X-Forwarded-For": "203.0.113.10",
         }
-        for _ in range(100):
+        for _ in range(25):
             response = client.post(
                 "/v1/scan/static",
                 json={"code": "x = 1\n", "filename": "f.py"},
@@ -594,12 +560,12 @@ class TestTierAndRateLimits:
             )
         assert response.status_code == 200
 
-    def test_free_tier_101st_scan_returns_429(self, client: TestClient) -> None:
+    def test_free_tier_26th_scan_returns_429(self, client: TestClient) -> None:
         headers = {
-            "X-CodeTrust-Installation-ID": "install-free-101",
+            "X-CodeTrust-Installation-ID": "install-free-26",
             "X-Forwarded-For": "203.0.113.11",
         }
-        for _ in range(100):
+        for _ in range(25):
             client.post(
                 "/v1/scan/static",
                 json={"code": "x = 1\n", "filename": "f.py"},
@@ -613,9 +579,9 @@ class TestTierAndRateLimits:
         assert response.status_code == 429
         payload = response.json()
         assert payload["error"] == "daily_scan_limit_reached"
-        assert payload["limit"] == 100
-        assert payload["used"] == 101
-        assert payload["upgrade_url"] == "https://app.codetrust.ai/settings"
+        assert payload["limit"] == 25
+        assert payload["used"] == 26
+        assert "pricing" in payload["upgrade_url"]
 
     def test_pro_user_unlimited_scans(self, client: TestClient) -> None:
         headers = {

@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Org-level governance alerting for drift and repeat BLOCK events
 - Universal rule file_types scoping (performance optimization)
 
+## [4.0.6] - 2026-03-29
+
+### Added
+- **Local scan gate** — `codetrust scan` now requires authentication. Without account: 5 scans/day. Free: 25/day. Pro+: unlimited. Retroactive for all installs.
+- **`codetrust login`** — authenticate with API key, validates against cloud, stores plan locally in `~/.codetrust/auth.json`
+- **Plan-tier enforcement in API** — Free gets WARN (detection), Pro+ gets BLOCK (enforcement). Docker, SARIF, vuln, license gated to Pro+. Org management gated to Team+.
+- **Stripe billing** — Pro $29/mo with 14-day trial (card required upfront), Team $149/mo, Enterprise contact sales
+
 ## [4.0.5] - 2026-03-29
 
 ### Added

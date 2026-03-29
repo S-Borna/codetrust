@@ -27,7 +27,7 @@ Learn more at [codetrust.ai](https://codetrust.ai)
 
 ---
 
-## What's New in 4.0.5
+## What's New in 4.0.6
 
 - **BASH_ENV guard** — OS-level enforcement for VS Code extension. Blocks dangerous commands at bash level regardless of IDE hook support. 26ms overhead. Zero dependencies. Cannot be bypassed by the agent.
 - **8 enforcement layers** — BASH_ENV guard, PreToolUse hooks, MCP Gateway, pre-commit hook, GitHub Action, advisory files, governance config, allow-list audit. All verified by `codetrust doctor`.

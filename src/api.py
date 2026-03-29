@@ -3505,9 +3505,11 @@ async def admin_dashboard_bootstrap_api_key(
     if auth.user_id != "system_master_key":
         raise HTTPException(status_code=403, detail="Admin access required")
 
+    github_id = req.github_id or req.user_id
     user = await db.get_user(req.user_id)
     if user is None:
-        github_id = req.github_id or req.user_id
+        user = await db.get_user_by_github_id(github_id)
+    if user is None:
         user = await db.create_user(
             github_id=github_id,
             email=req.email,

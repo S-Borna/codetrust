@@ -94,3 +94,7 @@ smoke_test.sh
 
 # Roadmap drafts (local only)
 src/Roadmap E-Blocks/
+
+# Local workspace artifacts
+.claude-desktop-sync.md
+scripts/pre_publish_gate.py

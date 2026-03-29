@@ -54,16 +54,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - MCP recovery and scan stability hardened.
-- Auto-injected MCP config handling now self-heals malformed entries and deduplicates repeated prompts.
-- MCP health test noise in the output channel reduced to improve signal quality.
+- MCP config injection reliability improved
+- MCP health check output streamlined
 
 ## [2.8.2] - 2026-03-12
 
 ### Fixed
 
-- Secret Storage migration always overwrites stale API keys instead of skipping when existing value is non-empty.
-- Global MCP config excludes `${workspaceFolder}` env for non-workspace targets (prevents crash).
-- Obfuscator no longer breaks extension `activate` export.
+- API key storage reliability improved
+- MCP config stability improvements for non-workspace contexts
+- Extension activation reliability fix
 
 ### Changed
 
@@ -108,7 +108,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **MCP Auto-Injection** — extension activation now registers required MCP servers across supported IDE targets.
 - **Smart Runtime Detection** — improved command/runtime discovery with safe fallback behavior.
-- **Config Resilience** — disruption detection, safe recovery prompts, and malformed-config handling.
+- **Config Resilience** — automatic recovery and safe handling of configuration changes.
 - **Clean Uninstall** — deactivation removes only extension-injected MCP entries.
 
 ### Fixed
@@ -136,7 +136,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Copyright headers** — all 22 TypeScript source files carry proprietary copyright notice
-- **esbuild bundling** — extension now ships as a single minified, identifier-obfuscated file instead of individual compiled `.js` files
+- **esbuild bundling** — extension now ships as a single optimized file
 - **Source maps disabled** — `tsconfig.json` sets `sourceMap: false`; no `.map` files in package
 
 ### Changed

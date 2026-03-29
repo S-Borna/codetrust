@@ -146,6 +146,36 @@ def _run_ast_scan(content: str, filepath: str) -> list[dict[str, object]]:
         return []
 
 
+_FALLBACK_BLOCK_PATTERNS: list[tuple[str, str]] = [
+    (r"\b(eval|exec)\s*\(", "eval/exec is a security risk"),
+    (r"pickle\.loads?\s*\(", "pickle.load is unsafe with untrusted data"),
+    (r"subprocess\.\w+\([^)]*shell\s*=\s*True", "subprocess with shell=True"),
+    (
+        r"""(?i)(api[_-]?key|secret|password|token|credentials)\s*[:=]\s*['"][^'"]{8,}['"]""",
+        "Possible hardcoded secret",
+    ),
+]
+
+
+def _run_fallback_scan(
+    content: str, filepath: str,
+) -> list[dict[str, object]]:
+    """Regex-based fallback when static analyzer is unavailable."""
+    import re
+
+    findings: list[dict[str, object]] = []
+    for i, line in enumerate(content.splitlines(), 1):
+        for pattern, msg in _FALLBACK_BLOCK_PATTERNS:
+            if re.search(pattern, line):
+                findings.append({
+                    "rule_id": "fallback_regex",
+                    "severity": SEVERITY_BLOCK,
+                    "line": i,
+                    "message": msg,
+                })
+    return findings
+
+
 def scan_file(filepath: str) -> list[dict[str, object]]:
     """Run CodeTrust static + AST scan on a single file."""
     try:
@@ -155,6 +185,11 @@ def scan_file(filepath: str) -> list[dict[str, object]]:
 
     findings = _run_static_scan(content, filepath)
     findings.extend(_run_ast_scan(content, filepath))
+
+    # Fallback: if no analyzer was available, use regex patterns
+    if not findings:
+        findings = _run_fallback_scan(content, filepath)
+
     return findings
 
 

@@ -41,6 +41,7 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                         <Link href="/dashboard/team" className={navClass("/dashboard/team")}>Team</Link>
                         <Link href="/dashboard/api-keys" className={navClass("/dashboard/api-keys")}>API Keys</Link>
                         <Link href="/dashboard/governance" className={navClass("/dashboard/governance")}>Governance</Link>
+                        <Link href="/dashboard/pricing" className={navClass("/dashboard/pricing")}>Pricing</Link>
                         <Link href="/dashboard/settings" className={navClass("/dashboard/settings")}>Settings</Link>
                     </nav>
                 </div>

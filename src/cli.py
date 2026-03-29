@@ -3966,12 +3966,21 @@ def _scan_emit_telemetry(
 
 def _scan_output_findings_by_severity(
     blocks: list[dict], warns: list[dict], infos: list[dict],
+    *,
+    is_free_plan: bool = False,
 ) -> None:
     """Print findings grouped by severity for human output."""
-    if blocks:
-        _echo(color("  🚫 BLOCK — must fix:", RED))
+    if blocks and not is_free_plan:
+        _echo(color("  ✖ BLOCKED — execution stopped:", RED))
         for f in blocks:
             _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        _echo()
+    elif blocks and is_free_plan:
+        _echo(color("  ⚠️  WARN — issues detected (Free plan):", YELLOW))
+        for f in blocks:
+            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+        _echo(color("     Execution allowed (Free plan)", YELLOW))
+        _echo(color("     🔒 Upgrade to Pro to block before execution → codetrust upgrade", BLUE))
         _echo()
 
     if warns:
@@ -3995,14 +4004,14 @@ def _scan_output_findings_by_severity(
 
 
 def _scan_output_upgrade_hints(upgrade_hints: list[str]) -> None:
-    """Print one-line Pro upgrade hint summary when available."""
+    """Print upgrade hint when free-tier features are limited."""
     if not upgrade_hints:
         return
     _echo(
-        "  i Pro features available: signature validation, CVE scanning, "
-        "license compliance, trust score trending"
+        "  🔒 Upgrade to Pro: registry BLOCK enforcement, GitHub Action PR gate, "
+        "Docker verification, sandbox execution",
     )
-    _echo("    Upgrade: https://app.codetrust.ai/settings")
+    _echo("     → https://app.codetrust.ai/pricing")
 
 
 def _scan_output_api_error(result: dict) -> bool:
@@ -4056,9 +4065,11 @@ def _scan_output_human(
     blocks = [f for f in findings if f.get("severity") == "BLOCK"]
     warns = [f for f in findings if f.get("severity") == "WARN"]
     infos = [f for f in findings if f.get("severity") == "INFO"]
-    _scan_output_findings_by_severity(blocks, warns, infos)
 
     hints = result.get("upgrade_hints", [])
+    is_free = bool(hints)  # upgrade_hints only present for free tier
+    _scan_output_findings_by_severity(blocks, warns, infos, is_free_plan=is_free)
+
     if isinstance(hints, list):
         _scan_output_upgrade_hints([str(hint) for hint in hints])
 

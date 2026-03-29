@@ -1,64 +1,11 @@
-# .cursorrules — CodeTrust AI Governance for Cursor IDE
-#
-# These rules are enforced by CodeTrust's governance stack:
-# Layer 1: These instructions (advisory — agent compliance expected)
-# Layer 2: VS Code extension on-save scanning (automatic)
-# Layer 3: Pre-commit hook (blocks bad code at commit time)
-# Layer 4: CI/CD GitHub Action (blocks bad code at merge time)
+# .cursorrules — CodeTrust Enforcement for Cursor AI
 
-## MANDATORY: Gateway Proxy Enforcement
+## MANDATORY: Before writing ANY code, call codetrust_pre_action
 
-Before ANY terminal command:
-1. Call mcp_codetrust-gat_codetrust_validate_command with the command
-2. If status is BLOCKED → do NOT run the command, use the safe alternative
-3. If status is APPROVED → proceed
+## After modifying ANY file, call codetrust_static_scan
 
-Before writing ANY file:
-1. Call mcp_codetrust-gat_codetrust_validate_file_write with the file path
-2. If BLOCKED → stop
+## Before committing, call codetrust_post_action
 
-Before installing ANY package:
-1. Call mcp_codetrust-gat_codetrust_validate_package
-2. If BLOCKED → do not install
+## All BLOCK findings must be fixed. Zero tolerance
 
-## MANDATORY: Code Quality Scanning
-
-Before writing ANY code:
-1. Call codetrust_pre_action with a description of what you plan to do
-2. If verdict is BLOCK → stop and fix the plan
-3. If verdict is WARN → acknowledge each warning
-
-After writing or modifying ANY file:
-1. Call codetrust_static_scan on every file you changed
-2. Call codetrust_deep_scan if you created new files or modified imports
-3. Call codetrust_hallucination_scan if you wrote new security-sensitive code
-4. If any finding has severity BLOCK → fix immediately
-5. If any finding has severity WARN → fix or explain
-
-Before committing:
-1. Call codetrust_post_action with repo root and list of changed files
-2. All BLOCK findings must be resolved — zero tolerance
-
-## Absolute Prohibitions
-
-These are enforced by the pre-commit hook regardless of agent compliance:
-
-- No eval() or exec() with user input
-- No hardcoded secrets (use environment variables)
-- No heredocs (use file creation tools)
-- No pickle.load with untrusted data
-- No SQL string formatting (use parameterized queries)
-- No print() — use structlog
-- No wildcard imports
-- No bare except:
-- No Any types
-- No mutable default arguments
-- Never run git push — user pushes manually
-
-## Quality Standards
-
-- Every function has type annotations
-- Every public function has a docstring
-- Max 40 lines per function
-- All external HTTP calls wrapped in try/except with timeout
-- All Pydantic models use strict=True
+## Never skip scans. Never assume code is safe

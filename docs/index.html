@@ -1376,6 +1376,7 @@
             pollTimer = null;
         }
 
+        var wsFailCount = 0;
         function connectWebSocket() {
             stopPolling();
             try {
@@ -1394,10 +1395,16 @@
                     // ignore
                 }
             };
+            ws.onopen = function() {
+                wsFailCount = 0;
+            };
             ws.onclose = function() {
                 ws = null;
                 startPolling();
-                setTimeout(connectWebSocket, 30000);
+                wsFailCount++;
+                if (wsFailCount < 3) {
+                    setTimeout(connectWebSocket, 30000);
+                }
             };
             ws.onerror = function() {
                 try { ws.close(); } catch (e) { }

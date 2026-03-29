@@ -108,7 +108,7 @@ export default function HomePage() {
                         Governance active in 30 seconds
                     </h2>
                     <p className="mt-4 text-lg text-brand-100">
-                        Free tier: 100 scans/day. Full enforcement stack. No credit card.
+                        Free tier: 25 scans/day. Detection only. No credit card.
                     </p>
                     <Link
                         href="/login"

@@ -16,6 +16,11 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+import os
+import smtplib
+import threading
+from email.mime.text import MIMEText
+
 from src.models.database import (
     ApiKeyRecord,
     Base,
@@ -131,6 +136,44 @@ def _build_db_engine(database_url: str, echo: bool) -> AsyncEngine:
     )
 
 
+def _notify_new_user(name: str, email: str, github_id: str) -> None:
+    """Send email notification when a new user registers. Non-blocking."""
+    def _send() -> None:
+        recipient = os.environ.get("CODETRUST_FEEDBACK_RECIPIENT_EMAIL", "")
+        host = os.environ.get("CODETRUST_FEEDBACK_SMTP_HOST", "")
+        username = os.environ.get("CODETRUST_FEEDBACK_SMTP_USERNAME", "")
+        password = os.environ.get("CODETRUST_FEEDBACK_SMTP_PASSWORD", "")
+        from_email = os.environ.get("CODETRUST_FEEDBACK_SMTP_FROM_EMAIL", "") or recipient
+        port = int(os.environ.get("CODETRUST_FEEDBACK_SMTP_PORT", "587"))
+
+        if not all([recipient, host, username, password]):
+            return
+
+        subject = f"CodeTrust: New user — {name or email or github_id}"
+        body = (
+            f"New CodeTrust user registered.\n\n"
+            f"Name: {name or '(not provided)'}\n"
+            f"Email: {email or '(not provided)'}\n"
+            f"GitHub ID: {github_id}\n"
+            f"Plan: free\n"
+        )
+
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = recipient
+
+        try:
+            with smtplib.SMTP(host=host, port=port, timeout=10) as smtp:
+                smtp.starttls()
+                smtp.login(username, password)
+                smtp.send_message(msg)
+        except (smtplib.SMTPException, OSError) as exc:
+            logger.warning("new_user_email_failed", error=str(exc))
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
 class DatabaseService:
     """Async CRUD operations for CodeTrust database."""
 
@@ -173,6 +216,7 @@ class DatabaseService:
             await session.commit()
             await session.refresh(user)
             logger.info("user_created", user_id=user.id, github_id=github_id)
+            _notify_new_user(name=name, email=email, github_id=github_id)
             return user
 
     async def get_user(self, user_id: str) -> User | None:

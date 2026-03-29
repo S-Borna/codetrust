@@ -624,13 +624,8 @@ async def sync_redis_counters_to_snapshots(r: redis.Redis, db: DatabaseService) 
         pipe.get(key)
     values = await pipe.execute()
     counters: dict[str, int] = {key: _safe_int(val) for key, val in zip(_COUNTER_KEYS, values, strict=True)}
-    try:
-        db_counters: dict[str, int] = await db.get_redis_warmup_counters()
-        for key in BASELINES:
-            baseline_value = _additive_baseline_value(key, int(db_counters.get(key, 0)))
-            counters[key] = max(int(counters.get(key, 0)), baseline_value)
-    except Exception as exc:
-        logger.warning("counter_snapshot_db_counters_failed", error=str(exc), error_type=type(exc).__name__)
+    # Write current Redis values to DB as-is. No baseline recalculation.
+    # Baseline logic belongs in warmup only, not in periodic sync.
     await db.insert_counter_snapshots(counters)
     return len(counters)
 

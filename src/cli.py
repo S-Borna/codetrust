@@ -4144,8 +4144,168 @@ def _scan_parse_options(
     return targets, machine_output, baseline_ref, baseline_mode
 
 
+# --- Login command ---
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    """Authenticate with CodeTrust and store credentials locally."""
+    api_key = getattr(args, "api_key", "") or ""
+
+    if not api_key:
+        _echo(f"\n{color('🔑 CodeTrust Login', BOLD)}\n")
+        _echo("  Get your API key at: https://app.codetrust.ai")
+        _echo("  Then run:")
+        _echo(color("    codetrust login --api-key YOUR_KEY\n", BOLD))
+        return 1
+
+    # Validate key against API
+    _echo("  Validating API key...")
+    try:
+        import httpx
+
+        resp = httpx.get(
+            f"{settings.api_url}/v1/profile",
+            headers={"X-API-Key": api_key},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            _echo(color("  ❌ Invalid API key or server error.\n", RED))
+            return 1
+
+        profile = resp.json()
+        plan = str(profile.get("plan", "free"))
+        email = str(profile.get("email", ""))
+    except (httpx.HTTPError, OSError, ValueError) as exc:
+        _echo(color(f"  ❌ Could not reach API: {exc}\n", RED))
+        _echo("  Saving key locally (will validate on next scan).")
+        plan = "free"
+        email = ""
+
+    # Save auth locally
+    auth_dir = Path.home() / ".codetrust"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    auth_file = auth_dir / "auth.json"
+    auth_file.write_text(
+        json.dumps({
+            "api_key": api_key,
+            "plan": plan,
+            "email": email,
+        }),
+        encoding="utf-8",
+    )
+
+    _echo(color(f"  ✅ Logged in ({plan} plan)", GREEN))
+    if email:
+        _echo(f"     Account: {email}")
+    limit = _LOCAL_LIMITS.get(plan, 25)
+    _echo(f"     Scan limit: {limit}/day")
+    if plan == "free":
+        _echo(color("     Upgrade to Pro for unlimited: https://app.codetrust.ai/pricing", BLUE))
+    _echo()
+    return 0
+
+
+# --- Local scan gate (auth + usage quota) ---
+
+_AUTH_FILE = Path.home() / ".codetrust" / "auth.json"
+_USAGE_FILE = Path.home() / ".codetrust" / "usage.json"
+
+_LOCAL_LIMITS: dict[str, int] = {
+    "anonymous": 5,
+    "free": 25,
+    "pro": 1_000_000,
+    "team": 1_000_000,
+    "enterprise": 1_000_000,
+}
+
+
+def _load_local_auth() -> dict[str, str]:
+    """Load local auth from ~/.codetrust/auth.json."""
+    if not _AUTH_FILE.exists():
+        return {}
+    try:
+        return json.loads(_AUTH_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _utc_today_str() -> str:
+    """Return today's date as YYYY-MM-DD string in UTC."""
+    from datetime import UTC as _UTC
+    from datetime import datetime as _dt
+
+    return _dt.now(tz=_UTC).strftime("%Y-%m-%d")
+
+
+def _get_local_usage_today() -> int:
+    """Get today's local scan count from ~/.codetrust/usage.json."""
+    if not _USAGE_FILE.exists():
+        return 0
+    try:
+        data = json.loads(_USAGE_FILE.read_text(encoding="utf-8"))
+        if data.get("date") != _utc_today_str():
+            return 0
+        return int(data.get("count", 0))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return 0
+
+
+def _increment_local_usage() -> None:
+    """Increment today's local scan count."""
+    _USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    today = _utc_today_str()
+    count = 0
+    if _USAGE_FILE.exists():
+        try:
+            data = json.loads(_USAGE_FILE.read_text(encoding="utf-8"))
+            if data.get("date") == today:
+                count = int(data.get("count", 0))
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+    _USAGE_FILE.write_text(
+        json.dumps({"date": today, "count": count + 1}),
+        encoding="utf-8",
+    )
+
+
+def _check_local_scan_gate() -> int:
+    """Check auth and usage quota before allowing a local scan.
+
+    Returns 0 to proceed, 1 to block.
+    """
+    auth = _load_local_auth()
+    plan = auth.get("plan", "anonymous")
+    limit = _LOCAL_LIMITS.get(plan, _LOCAL_LIMITS["anonymous"])
+    usage = _get_local_usage_today()
+
+    if usage >= limit:
+        if plan == "anonymous":
+            _echo(color("\n  🔒 Scan limit reached (5/day without account)", YELLOW))
+            _echo("     Create a free account for 25 scans/day:")
+            _echo(color("     → codetrust login", BOLD))
+            _echo("     Upgrade to Pro for unlimited scans:")
+            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
+        else:
+            _echo(color(f"\n  🔒 Daily scan limit reached ({limit}/day on {plan} plan)", YELLOW))
+            _echo("     Upgrade for higher limits:")
+            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
+        return 1
+
+    _increment_local_usage()
+
+    if plan == "anonymous" and usage == 0:
+        _echo(color("  i  Scanning without account (5/day limit)", BLUE))
+        _echo(color("     → codetrust login for 25/day free\n", BLUE))
+
+    return 0
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     """Scan files for anti-patterns."""
+    gate_result = _check_local_scan_gate()
+    if gate_result != 0:
+        return gate_result
+
     start_time = time.monotonic()
     targets, machine_output, baseline_ref, baseline_mode = _scan_parse_options(args)
 
@@ -5323,6 +5483,9 @@ def _add_scan_subparser(
     subparsers: argparse._SubParsersAction,
 ) -> None:
     """Register the 'scan' subcommand with all its options."""
+    login_parser = subparsers.add_parser("login", help="Authenticate with CodeTrust")
+    login_parser.add_argument("--api-key", dest="api_key", help="API key from app.codetrust.ai")
+
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
     scan_parser.add_argument(
@@ -6076,6 +6239,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         if not args.settings:
             args.settings = True
         return cmd_add(args)
+    if args.command == "login":
+        return cmd_login(args)
     if args.command == "scan":
         return cmd_scan(args)
     if args.command == "fix":

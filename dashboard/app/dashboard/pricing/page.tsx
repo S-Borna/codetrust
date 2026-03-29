@@ -3,6 +3,22 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 
+/** Allowed redirect hosts for billing flows. */
+const SAFE_REDIRECT_HOSTS = new Set([
+    "checkout.stripe.com",
+    "billing.stripe.com",
+]);
+
+function isSafeRedirectUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:") return false;
+        return SAFE_REDIRECT_HOSTS.has(parsed.hostname);
+    } catch {
+        return false;
+    }
+}
+
 const PLANS = [
     {
         name: "Free",
@@ -97,8 +113,10 @@ export default function DashboardPricingPage() {
                 return;
             }
             const data = await res.json();
-            if (data.url) {
+            if (data.url && isSafeRedirectUrl(data.url)) {
                 window.location.href = data.url;
+            } else if (data.url) {
+                setError("Received an untrusted redirect URL. Checkout aborted.");
             }
         } catch {
             setError("Something went wrong. Please try again.");

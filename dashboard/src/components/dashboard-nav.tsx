@@ -4,6 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
+/** Only allow avatar images from trusted HTTPS hosts. */
+const TRUSTED_IMAGE_HOSTS = new Set([
+    "avatars.githubusercontent.com",
+    "lh3.googleusercontent.com",
+]);
+
+function isSafeImageUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:") return false;
+        return TRUSTED_IMAGE_HOSTS.has(parsed.hostname);
+    } catch {
+        return false;
+    }
+}
+
 interface NavUser {
     name?: string | null;
     email?: string | null;
@@ -50,11 +66,12 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                         {displayName}
                     </span>
-                    {user?.image && (
+                    {user?.image && isSafeImageUrl(user.image) && (
                         <img
                             src={user.image}
                             alt=""
                             className="h-8 w-8 rounded-full"
+                            referrerPolicy="no-referrer"
                         />
                     )}
                     <button

@@ -74,6 +74,8 @@ declare module "next-auth" {
     }
 }
 
+const IS_PRODUCTION = (process.env.NEXTAUTH_URL || "").startsWith("https://");
+
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
     providers: [
@@ -84,6 +86,40 @@ export const authOptions: NextAuthOptions = {
     ],
     pages: {
         signIn: "/login",
+    },
+    cookies: {
+        sessionToken: {
+            name: "next-auth.session-token",
+            options: {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                secure: IS_PRODUCTION,
+            },
+        },
+        csrfToken: {
+            name: "next-auth.csrf-token",
+            options: {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                secure: IS_PRODUCTION,
+            },
+        },
+        callbackUrl: {
+            name: "next-auth.callback-url",
+            options: {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                secure: IS_PRODUCTION,
+            },
+        },
+    },
+    session: {
+        /* 24-hour sessions: plan changes and API key revocations
+           propagate within a day without forcing constant re-login. */
+        maxAge: 24 * 60 * 60,
     },
     callbacks: {
         async session({ session, user }) {

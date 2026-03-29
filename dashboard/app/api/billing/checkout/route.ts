@@ -61,8 +61,15 @@ export async function POST(request: Request) {
 
         const dbUser = await prisma.user.findUnique({
             where: { id: session.user.id },
-            select: { stripeId: true, email: true, name: true },
+            select: { stripeId: true, email: true, name: true, plan: true },
         });
+
+        if (dbUser?.plan === plan) {
+            return NextResponse.json(
+                { error: `You are already on the ${plan} plan` },
+                { status: 400 },
+            );
+        }
 
         let customerId = dbUser?.stripeId || "";
 

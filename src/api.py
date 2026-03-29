@@ -421,7 +421,7 @@ async def get_auth_context(
     auth_svc = getattr(request.app.state, "auth", None)
     auth_configured = _is_auth_configured(db, auth_svc)
 
-    if key:
+    if key and key.strip():
         return await _resolve_api_key_auth(key, db, auth_configured)
 
     auth_header = request.headers.get("Authorization", "")
@@ -452,7 +452,7 @@ async def get_optional_auth_context(
     auth_svc = getattr(request.app.state, "auth", None)
     auth_configured = _is_auth_configured(db, auth_svc)
 
-    if key:
+    if key and key.strip():
         return await _resolve_api_key_auth(key, db, auth_configured)
 
     auth_header = request.headers.get("Authorization", "")
@@ -959,6 +959,21 @@ def _require_pro_or_enterprise(plan: str) -> JSONResponse | None:
             "upgrade_url": "https://app.codetrust.ai/pricing",
         },
     )
+
+
+def _require_pro_for_cloud(auth: "AuthContext") -> JSONResponse | None:
+    """Enforce Pro+ plan on cloud API, but allow local dev mode through.
+
+    In local dev mode (no API key configured, no database), AuthContext
+    defaults to user_id='local' and plan='free'. Governance endpoints
+    must remain open locally — the product works offline. Plan-gating
+    only applies when the API serves authenticated cloud users.
+    """
+    if auth.user_id == "local":
+        return None
+    if auth.is_admin:
+        return None
+    return _require_pro_or_enterprise(auth.plan)
 
 
 def _require_team_or_above(plan: str) -> JSONResponse | None:
@@ -2031,7 +2046,7 @@ async def governance_audit(
     verdict: str | None = None,
     limit: int = 100,
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernanceAuditResponse:
+) -> GovernanceAuditResponse | JSONResponse:
     """Query the governance audit log.
 
     Returns recent audit entries and aggregate statistics.
@@ -2045,6 +2060,9 @@ async def governance_audit(
     Returns:
         Typed response with entries list and stats summary.
     """
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     from src.gateway.audit import AuditLogger
 
     audit_path = os.path.join(os.getcwd(), ".codetrust", "audit.jsonl")
@@ -3758,9 +3776,11 @@ async def _handle_stripe_event(
 )
 async def governance_policy_bundles(
     auth: AuthContext = Depends(get_auth_context),
-) -> list[GovernancePolicyBundleResponse]:
+) -> list[GovernancePolicyBundleResponse] | JSONResponse:
     """Return tenant-aware governance bundles with signatures."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     from src.services.governance_bundles import list_signed_bundles
 
     secret = settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
@@ -3776,8 +3796,11 @@ async def governance_policy_snapshot(
     request: Request,
     req: GovernancePolicySnapshotRequest,
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernancePolicySnapshotResponse:
+) -> GovernancePolicySnapshotResponse | JSONResponse:
     """Create signed governance policy snapshot and append audit trail entry."""
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     from src.gateway.audit import AuditEntry, AuditLogger
     from src.services.governance_bundles import build_signed_snapshot
 
@@ -3830,8 +3853,11 @@ async def governance_policy_snapshot(
 )
 async def governance_posture(
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernancePostureResponse:
+) -> GovernancePostureResponse | JSONResponse:
     """Return governance posture for control-plane and compliance checks."""
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     workspace = str(os.getcwd())
     engine = PolicyEngine.from_workspace(workspace)
     secret = settings.rules_hmac_secret or settings.jwt_secret or "codetrust"
@@ -3877,9 +3903,11 @@ async def governance_posture(
 async def governance_simulate_policy(
     req: GovernancePolicySimulationRequest,
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernancePolicySimulationResponse:
+) -> GovernancePolicySimulationResponse | JSONResponse:
     """Simulate command verdicts for a governance policy bundle."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     policy = get_bundle_policy(req.bundle_id)
     simulator = CommandInterceptor(
         enabled=True,
@@ -3920,9 +3948,11 @@ def _get_approval_store() -> ApprovalExceptionStore:
 )
 async def governance_list_approvals(
     auth: AuthContext = Depends(get_auth_context),
-) -> list[GovernancePendingApprovalResponse]:
+) -> list[GovernancePendingApprovalResponse] | JSONResponse:
     """List all pending governance approval requests."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_approval_store()
     pending = store.list_pending()
     return [
@@ -3949,9 +3979,11 @@ async def governance_approve_action(
     request_id: str,
     req: GovernanceApproveRequest,
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernanceApproveResponse:
+) -> GovernanceApproveResponse | JSONResponse:
     """Approve a pending governance action and create a time-bound exception."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_approval_store()
     exception = store.approve(
         request_id,
@@ -3978,9 +4010,11 @@ async def governance_approve_action(
 )
 async def governance_list_exceptions(
     auth: AuthContext = Depends(get_auth_context),
-) -> list[GovernanceExceptionResponse]:
+) -> list[GovernanceExceptionResponse] | JSONResponse:
     """List all active governance exceptions."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_approval_store()
     exceptions = store.list_active_exceptions()
     return [
@@ -4041,7 +4075,9 @@ async def governance_list_workspaces(
     Returns posture summaries for all registered workspaces
     with aggregate health metrics.
     """
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     registry = _get_workspace_registry()
     agg = registry.aggregate()
     workspace_responses = [
@@ -4085,7 +4121,9 @@ async def governance_register_workspace(
     Called by gateway instances or CLI to report their posture
     for multi-workspace aggregation.
     """
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     registry = _get_workspace_registry()
     record = registry.register(
         workspace_id=req.workspace_id,
@@ -4113,9 +4151,11 @@ async def governance_register_workspace(
 async def governance_unregister_workspace(
     workspace_id: str,
     auth: AuthContext = Depends(get_auth_context),
-) -> StatusResponse:
+) -> StatusResponse | JSONResponse:
     """Remove a workspace from the governance registry."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     registry = _get_workspace_registry()
     removed = registry.unregister(workspace_id)
     if not removed:
@@ -4146,7 +4186,9 @@ async def governance_issue_session_token(
     Creates a cross-surface audit chain ID that links all governance
     actions across IDE, CLI, CI, and API within one session.
     """
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_session_store()
     session = store.issue(
         surfaces=req.surfaces,
@@ -4172,9 +4214,11 @@ async def governance_issue_session_token(
 async def governance_validate_session_token(
     token: str,
     auth: AuthContext = Depends(get_auth_context),
-) -> GovernanceSessionStatusResponse:
+) -> GovernanceSessionStatusResponse | JSONResponse:
     """Validate a unified session token and return its status."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_session_store()
     session = store.validate(token)
     if session is None:
@@ -4200,9 +4244,11 @@ async def governance_validate_session_token(
 async def governance_revoke_session_token(
     token: str,
     auth: AuthContext = Depends(get_auth_context),
-) -> StatusResponse:
+) -> StatusResponse | JSONResponse:
     """Revoke a unified session token."""
-    del auth
+    plan_gate = _require_pro_for_cloud(auth)
+    if plan_gate is not None:
+        return plan_gate
     store = _get_session_store()
     revoked = store.revoke(token)
     if not revoked:

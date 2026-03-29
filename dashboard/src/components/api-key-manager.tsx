@@ -6,8 +6,10 @@ import { apiClient } from "@/lib/api";
 
 export function ApiKeyManager({
     initialKeys,
+    apiKey,
 }: {
     initialKeys: ApiKeyInfo[];
+    apiKey: string;
 }) {
     const [keys, setKeys] = useState<ApiKeyInfo[]>(initialKeys);
     const [newKeyName, setNewKeyName] = useState("");
@@ -17,7 +19,7 @@ export function ApiKeyManager({
     async function handleCreate() {
         if (!newKeyName.trim()) return;
         setLoading(true);
-        const result = await apiClient.createApiKey("", newKeyName);
+        const result = await apiClient.createApiKey(apiKey, newKeyName);
         if (result) {
             setCreatedKey(result.key);
             setKeys((prev) => [
@@ -42,7 +44,7 @@ export function ApiKeyManager({
         );
         if (!confirmed) return;
 
-        const success = await apiClient.revokeApiKey("", keyId);
+        const success = await apiClient.revokeApiKey(apiKey, keyId);
         if (success) {
             setKeys((prev) =>
                 prev.map((k) =>

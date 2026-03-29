@@ -300,10 +300,11 @@
     <section class="hero" id="hero">
         <p class="hero-welcome">Code<span class="hw-trust">Trust</span> &mdash; <span class="hw-gov">AI Governance</span> Enforcement Platform</p>
         <h1 class="hero-headline">Your AI agent just ran <span class="hero-hl-blue">git push --force</span>.<br>Nobody stopped it.<br><span class="hero-hl-green">Until now.</span></h1>
+        <p class="hero-sub" style="color:var(--text-2);max-width:640px;margin:1.2rem auto 0;font-size:0.95rem;line-height:1.6;">GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 &mdash; they write code, run commands, and push to production. CodeTrust blocks destructive actions, catches hallucinated packages, and tracks which model wrote every line &mdash; <strong style="color:var(--white)">before damage happens.</strong></p>
 
         <div class="hero-below" id="hero-below">
             <div class="hero-actions">
-                <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
+                <a href="https://app.codetrust.ai" class="btn btn-primary">See what your AI would break</a>
                 <a href="#layers" class="btn btn-ghost">See what codetrust init installs &rarr;</a>
             </div>
         </div>
@@ -364,7 +365,7 @@
         <div class="reveal">
             <p class="layers-bridge">8 enforcement layers. 3,006 rules. Real-time interception.<br><span class="mono" style="color:var(--green)">pip install codetrust && codetrust init</span> &mdash; governance active in 30 seconds.</p>
             <h2>What happens when you run <span class="mono" style="color:var(--green)">codetrust init</span></h2>
-            <p class="section-sub">One command. Seven enforcement layers. Thirty seconds.</p>
+            <p class="section-sub">One command. Eight enforcement layers. Thirty seconds.</p>
         </div>
 
         <div class="layers-grid reveal">
@@ -429,7 +430,7 @@
                 </div>
                 <h3>codetrust doctor</h3>
                 <p>Verification. Tests every layer. <code>git push</code> &rarr; BLOCKED (exit 2). Green = enforced.</p>
-                <span class="layer-tag layer-tag-green">7/7 verified</span>
+                <span class="layer-tag layer-tag-green">8/8 verified</span>
             </div>
         </div>
     </section>
@@ -449,6 +450,7 @@
                 <span class="hero-terminal-title">terminal &mdash; codetrust doctor</span>
             </div>
             <div class="doctor-terminal-body">
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">BASH_ENV guard</span> <span class="t-dim">&mdash; universal real-time enforcement active</span></div>
                 <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in ~/.claude/settings.json</span></div>
                 <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules active</span></div>
                 <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span></div>
@@ -466,7 +468,7 @@
     <!-- ==================== SCREEN 3: FIVE CAPABILITIES ==================== -->
     <section class="container" id="capabilities">
         <div class="reveal">
-            <h2>Seven layers of control nobody else has</h2>
+            <h2>Eight layers of control nobody else has</h2>
             <p class="section-sub">SonarQube checks quality. Snyk checks dependencies. Semgrep checks patterns.<br>Nobody checks what the AI agent itself is doing.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
         </div>
 
@@ -590,8 +592,8 @@
                 <div class="demo-card-body">
                     <div class="mini-terminal">
                         <span class="t-dim">Model attribution:</span><br>
-                        <span class="t-cyan">claude-3.5-sonnet</span> <span class="t-dim">42 lines</span><br>
-                        <span class="t-amber">gpt-4o</span> <span class="t-dim">18 lines</span><br>
+                        <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">42 lines</span><br>
+                        <span class="t-amber">gpt-5.3</span> <span class="t-dim">18 lines</span><br>
                         <span class="t-white">human</span> <span class="t-dim">156 lines</span><br>
                         <br>
                         <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit marker</span><br>
@@ -653,8 +655,8 @@
                 <div class="mini-terminal">
                     <span class="t-dim">$ codetrust scan --attribution</span><br><br>
                     <span class="t-dim">auth.py</span><br>
-                    <span class="t-cyan">claude-3.5-sonnet</span> <span class="t-dim">wrote lines 1-42</span> <span class="t-dim">(68%)</span><br>
-                    <span class="t-amber">gpt-4o</span> <span class="t-dim">wrote lines 43-61</span> <span class="t-dim">(20%)</span><br>
+                    <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">wrote lines 1-42</span> <span class="t-dim">(68%)</span><br>
+                    <span class="t-amber">gpt-5.3</span> <span class="t-dim">wrote lines 43-61</span> <span class="t-dim">(20%)</span><br>
                     <span class="t-white">human</span> <span class="t-dim">wrote lines 62-78</span> <span class="t-dim">(12%)</span><br><br>
                     <span class="t-dim">billing.py</span><br>
                     <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit marker</span><br>
@@ -666,7 +668,7 @@
                 <div class="mini-terminal">
                     <span class="t-dim"># .codetrust.toml</span><br><br>
                     <span class="t-white">[policy]</span><br>
-                    <span class="t-green">allowed_models</span> <span class="t-dim">= ["claude-*", "gpt-4o"]</span><br>
+                    <span class="t-green">allowed_models</span> <span class="t-dim">= ["claude-*", "gpt-5.3"]</span><br>
                     <span class="t-green">blocked_models</span> <span class="t-dim">= ["gpt-3.5*"]</span><br>
                     <span class="t-green">max_ai_ratio</span> <span class="t-dim">= 0.6</span><br>
                     <span class="t-green">require_attribution</span> <span class="t-dim">= true</span><br><br>
@@ -756,11 +758,11 @@
                 <div class="mini-terminal">
                     <span class="t-dim">$ codetrust scan assignment.py --attribution</span><br><br>
                     <span class="t-dim">Lines 1-8:</span> <span class="t-white">human</span> <span class="t-dim">(boilerplate, manual style)</span><br>
-                    <span class="t-dim">Lines 9-47:</span> <span class="t-cyan">claude-3.5-sonnet</span> <span class="t-dim">(high confidence: code style,</span><br>
+                    <span class="t-dim">Lines 9-47:</span> <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">(high confidence: code style,</span><br>
                     <span class="t-dim">&nbsp;&nbsp;docstring pattern, variable naming consistent with Claude output)</span><br>
                     <span class="t-dim">Lines 48-52:</span> <span class="t-white">human</span> <span class="t-dim">(manual edits to AI output)</span><br><br>
                     <span class="t-amber">Summary: 76% AI-generated</span> <span class="t-dim">(39 of 52 lines)</span><br>
-                    <span class="t-dim">Primary model: claude-3.5-sonnet</span><br>
+                    <span class="t-dim">Primary model: claude-opus-4.6</span><br>
                     <span class="t-dim">Secondary: none detected</span>
                 </div>
             </div>
@@ -944,7 +946,7 @@
     <section class="container" id="install">
         <div class="reveal">
             <h2>Governance active in 30 seconds</h2>
-            <p class="section-sub">One command. Seven layers. Fully verified.</p>
+            <p class="section-sub">One command. Eight layers. Fully verified.</p>
         </div>
 
         <div class="install-hero reveal">
@@ -1013,9 +1015,9 @@
         </div>
 
         <div class="bottom-cta reveal">
-            <h3>Your AI agents need a governance layer. Install in 30 seconds.</h3>
+            <h3>Your AI agents need governance. Install in 30 seconds.</h3>
             <div class="hero-actions">
-                <a href="https://app.codetrust.ai" class="btn btn-primary">Get Started Free</a>
+                <a href="https://app.codetrust.ai" class="btn btn-primary">Run your first governed scan</a>
                 <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-ghost">Install VS Code Extension</a>
             </div>
         </div>

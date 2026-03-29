@@ -66,6 +66,7 @@ class PlanTier(StrEnum):
 
     FREE = "free"
     PRO = "pro"
+    TEAM = "team"
     ENTERPRISE = "enterprise"
 
 

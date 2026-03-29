@@ -33,21 +33,21 @@ class TestCheckLimit:
         self, rate_limiter: RateLimiter, mock_db: AsyncMock,
     ) -> None:
         """Free tier user under limit should be allowed."""
-        mock_db.get_daily_usage.return_value = 50
+        mock_db.get_daily_usage.return_value = 10
         allowed, current, limit = await rate_limiter.check_limit("user1", "free")
         assert allowed is True
-        assert current == 50
+        assert current == 10
         assert limit == PLAN_LIMITS["free"]
 
     async def test_free_tier_blocked_at_limit(
         self, rate_limiter: RateLimiter, mock_db: AsyncMock,
     ) -> None:
         """Free tier user at limit should be blocked."""
-        mock_db.get_daily_usage.return_value = 100
+        mock_db.get_daily_usage.return_value = 25
         allowed, current, limit = await rate_limiter.check_limit("user1", "free")
         assert allowed is False
-        assert current == 100
-        assert limit == 100
+        assert current == 25
+        assert limit == 25
 
     async def test_free_tier_blocked_over_limit(
         self, rate_limiter: RateLimiter, mock_db: AsyncMock,
@@ -88,7 +88,7 @@ class TestCheckLimit:
         self, rate_limiter: RateLimiter, mock_db: AsyncMock,
     ) -> None:
         """Unknown plan defaults to free tier limit."""
-        mock_db.get_daily_usage.return_value = 99
+        mock_db.get_daily_usage.return_value = 10
         allowed, _current, limit = await rate_limiter.check_limit("user1", "unknown_plan")
         assert allowed is True
         assert limit == PLAN_LIMITS["free"]
@@ -132,7 +132,7 @@ class TestPlanLimits:
 
     def test_free_limit(self, rate_limiter: RateLimiter) -> None:
         """Free tier limit is 100."""
-        assert rate_limiter._get_limit("free") == 100
+        assert rate_limiter._get_limit("free") == 25
 
     def test_pro_limit(self, rate_limiter: RateLimiter) -> None:
         """Pro tier limit is 10,000."""
@@ -140,8 +140,8 @@ class TestPlanLimits:
 
     def test_enterprise_limit(self, rate_limiter: RateLimiter) -> None:
         """Enterprise tier limit is 100,000."""
-        assert rate_limiter._get_limit("enterprise") == 100_000
+        assert rate_limiter._get_limit("enterprise") == 1_000_000
 
     def test_unknown_plan_defaults(self, rate_limiter: RateLimiter) -> None:
         """Unknown plan defaults to free limit."""
-        assert rate_limiter._get_limit("nonexistent") == 100
+        assert rate_limiter._get_limit("nonexistent") == 25

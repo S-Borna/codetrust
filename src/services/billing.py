@@ -16,10 +16,21 @@ PLAN_PRICE_MAP: dict[str, str] = {
 }
 
 PLAN_LIMITS: dict[str, int] = {
-    PlanTier.FREE: 100,
+    PlanTier.FREE: 25,
     PlanTier.PRO: 10_000,
-    PlanTier.ENTERPRISE: 100_000,
+    PlanTier.TEAM: 100_000,
+    PlanTier.ENTERPRISE: 1_000_000,
 }
+
+# Plans that include CI enforcement (GitHub Action, BLOCK verdicts)
+CI_ENFORCEMENT_PLANS: frozenset[str] = frozenset({
+    PlanTier.PRO, PlanTier.TEAM, PlanTier.ENTERPRISE,
+})
+
+# Plans that get BLOCK on registry verification (Free gets WARN only)
+REGISTRY_BLOCK_PLANS: frozenset[str] = frozenset({
+    PlanTier.PRO, PlanTier.TEAM, PlanTier.ENTERPRISE,
+})
 
 
 class BillingService:

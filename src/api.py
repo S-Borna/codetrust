@@ -4382,12 +4382,25 @@ async def user_profile(
     auth: AuthContext = Depends(get_auth_context),
 ) -> UserProfileResponse:
     """Get the authenticated user's profile and usage stats."""
+    # Master key / admin — return synthetic profile
+    if auth.is_admin:
+        return UserProfileResponse(
+            id=auth.user_id,
+            email="said@saidborna.com",
+            name="Admin",
+            avatar_url="",
+            plan="enterprise",
+            created_at="",
+            daily_limit=1_000_000,
+            daily_usage=0,
+        )
+
     user = await db.get_user(auth.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
     daily_usage = await db.get_daily_usage(auth.user_id)
-    limit = PLAN_LIMITS.get(user.plan, PLAN_LIMITS.get("free", 100))
+    limit = PLAN_LIMITS.get(user.plan, PLAN_LIMITS.get("free", 25))
 
     return UserProfileResponse(
         id=user.id,

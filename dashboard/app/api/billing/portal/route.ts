@@ -54,6 +54,7 @@ export async function POST() {
         });
         return NextResponse.json({ url: portalSession.url });
     } catch (err) {
+        console.error("[billing/portal]", err instanceof Error ? err.message : err);
         const publicError = toPublicError(err);
         return NextResponse.json(
             { error: publicError.error },

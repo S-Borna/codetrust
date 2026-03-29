@@ -82,6 +82,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({ url: checkoutSession.url });
     } catch (err) {
+        console.error("[billing/checkout]", err instanceof Error ? err.message : err);
         const publicError = toPublicError(err);
         return NextResponse.json(
             { error: publicError.error },

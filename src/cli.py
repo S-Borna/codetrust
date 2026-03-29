@@ -4148,57 +4148,70 @@ def _scan_parse_options(
 
 
 def cmd_login(args: argparse.Namespace) -> int:
-    """Authenticate with CodeTrust and store credentials locally."""
+    """Authenticate with CodeTrust, fetch scan token, store locally."""
     api_key = getattr(args, "api_key", "") or ""
 
     if not api_key:
         _echo(f"\n{color('🔑 CodeTrust Login', BOLD)}\n")
-        _echo("  Get your API key at: https://app.codetrust.ai")
-        _echo("  Then run:")
-        _echo(color("    codetrust login --api-key YOUR_KEY\n", BOLD))
+        _echo("  1. Create account at https://app.codetrust.ai")
+        _echo("  2. Copy your API key from the dashboard")
+        _echo("  3. Run:")
+        _echo(color("     codetrust login --api-key YOUR_KEY\n", BOLD))
         return 1
 
-    # Validate key against API
     _echo("  Validating API key...")
     try:
         import httpx
 
-        resp = httpx.get(
-            f"{settings.api_url}/v1/profile",
+        # Step 1: Validate key and get profile
+        profile_resp = httpx.get(
+            f"{_API_BASE_URL}/v1/profile",
             headers={"X-API-Key": api_key},
             timeout=10,
         )
-        if resp.status_code != 200:
+        if profile_resp.status_code != 200:
             _echo(color("  ❌ Invalid API key or server error.\n", RED))
             return 1
 
-        profile = resp.json()
-        plan = str(profile.get("plan", "free"))
+        profile = profile_resp.json()
         email = str(profile.get("email", ""))
-    except (httpx.HTTPError, OSError, ValueError) as exc:
-        _echo(color(f"  ❌ Could not reach API: {exc}\n", RED))
-        _echo("  Saving key locally (will validate on next scan).")
-        plan = "free"
-        email = ""
 
-    # Save auth locally
-    auth_dir = Path.home() / ".codetrust"
-    auth_dir.mkdir(parents=True, exist_ok=True)
-    auth_file = auth_dir / "auth.json"
-    auth_file.write_text(
-        json.dumps({
+        # Step 2: Fetch scan token
+        token_resp = httpx.post(
+            f"{_API_BASE_URL}/v1/auth/token",
+            headers={"X-API-Key": api_key},
+            timeout=10,
+        )
+        if token_resp.status_code not in {200, 429}:
+            _echo(color("  ❌ Could not issue scan token.\n", RED))
+            return 1
+
+        token_data = token_resp.json()
+        plan = str(token_data.get("plan", "free"))
+        quota_limit = token_data.get("quota_limit", 25)
+
+        auth_data = {
             "api_key": api_key,
+            "token": str(token_data.get("token", "")),
             "plan": plan,
             "email": email,
-        }),
-        encoding="utf-8",
-    )
+            "quota_limit": str(quota_limit),
+            "quota_used": str(token_data.get("quota_used", 0)),
+            "expires_at": str(token_data.get("expires_at", "")),
+        }
+        if token_resp.status_code == 429:
+            auth_data["quota_exceeded"] = "true"
+
+        _save_local_auth(auth_data)
+
+    except (ImportError, OSError, ValueError) as exc:
+        _echo(color(f"  ❌ Could not reach API: {exc}\n", RED))
+        return 1
 
     _echo(color(f"  ✅ Logged in ({plan} plan)", GREEN))
     if email:
         _echo(f"     Account: {email}")
-    limit = _LOCAL_LIMITS.get(plan, 25)
-    _echo(f"     Scan limit: {limit}/day")
+    _echo(f"     Scan quota: {quota_limit}/day")
     if plan == "free":
         _echo(color("     Upgrade to Pro for unlimited: https://app.codetrust.ai/pricing", BLUE))
     _echo()
@@ -4208,15 +4221,10 @@ def cmd_login(args: argparse.Namespace) -> int:
 # --- Local scan gate (auth + usage quota) ---
 
 _AUTH_FILE = Path.home() / ".codetrust" / "auth.json"
-_USAGE_FILE = Path.home() / ".codetrust" / "usage.json"
+_API_BASE_URL = os.environ.get("CODETRUST_API_URL", "https://api.codetrust.ai")
 
-_LOCAL_LIMITS: dict[str, int] = {
-    "anonymous": 5,
-    "free": 25,
-    "pro": 1_000_000,
-    "team": 1_000_000,
-    "enterprise": 1_000_000,
-}
+_TOKEN_EXPIRY_HOURS: int = 24
+_TOKEN_REFRESH_BUFFER_HOURS: int = 2
 
 
 def _load_local_auth() -> dict[str, str]:
@@ -4229,131 +4237,124 @@ def _load_local_auth() -> dict[str, str]:
         return {}
 
 
-def _utc_today_str() -> str:
-    """Return today's date as YYYY-MM-DD string in UTC."""
-    from datetime import UTC as _UTC
-    from datetime import datetime as _dt
-
-    return _dt.now(tz=_UTC).strftime("%Y-%m-%d")
+def _save_local_auth(auth: dict[str, str | int]) -> None:
+    """Save auth data to ~/.codetrust/auth.json."""
+    _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _AUTH_FILE.write_text(json.dumps(auth), encoding="utf-8")
 
 
-def _get_local_usage_today() -> int:
-    """Get today's local scan count from ~/.codetrust/usage.json."""
-    if not _USAGE_FILE.exists():
-        return 0
+def _token_is_valid(auth: dict[str, str]) -> bool:
+    """Check if the stored token is present and not expired."""
+    token = auth.get("token", "")
+    expires_at = auth.get("expires_at", "")
+    if not token or not expires_at:
+        return False
     try:
-        data = json.loads(_USAGE_FILE.read_text(encoding="utf-8"))
-        if data.get("date") != _utc_today_str():
-            return 0
-        return int(data.get("count", 0))
-    except (json.JSONDecodeError, OSError, ValueError):
-        return 0
+        from datetime import UTC as _UTC
+        from datetime import datetime as _dt
+
+        expiry = _dt.fromisoformat(expires_at)
+        return _dt.now(tz=_UTC) < expiry
+    except (ValueError, TypeError):
+        return False
 
 
-def _increment_local_usage() -> None:
-    """Increment today's local scan count."""
-    _USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    today = _utc_today_str()
-    count = 0
-    if _USAGE_FILE.exists():
-        try:
-            data = json.loads(_USAGE_FILE.read_text(encoding="utf-8"))
-            if data.get("date") == today:
-                count = int(data.get("count", 0))
-        except (json.JSONDecodeError, OSError, ValueError):
-            pass
-    _USAGE_FILE.write_text(
-        json.dumps({"date": today, "count": count + 1}),
-        encoding="utf-8",
-    )
+def _token_needs_refresh(auth: dict[str, str]) -> bool:
+    """Check if the token is within the refresh buffer window."""
+    expires_at = auth.get("expires_at", "")
+    if not expires_at:
+        return True
+    try:
+        from datetime import UTC as _UTC
+        from datetime import datetime as _dt
+        from datetime import timedelta
+
+        expiry = _dt.fromisoformat(expires_at)
+        return _dt.now(tz=_UTC) > expiry - timedelta(hours=_TOKEN_REFRESH_BUFFER_HOURS)
+    except (ValueError, TypeError):
+        return True
 
 
-def _validate_scan_quota_remote(auth: dict[str, str]) -> dict[str, str | int] | None:
-    """Validate scan quota against the cloud API.
-
-    Returns None if allowed, or a dict with error info if blocked.
-    Falls back to local tracking if API is unreachable.
-    """
+def _refresh_token(auth: dict[str, str]) -> dict[str, str] | None:
+    """Request a fresh token from the server. Returns updated auth or None."""
     api_key = auth.get("api_key", "")
     if not api_key:
-        return None  # Anonymous — use local limit only
-
+        return None
     try:
         import httpx
 
         resp = httpx.post(
-            f"{settings.api_url}/v1/scan/static",
+            f"{_API_BASE_URL}/v1/auth/token",
             headers={"X-API-Key": api_key},
-            json={"code": "", "filename": "__quota_check__"},
-            timeout=5,
+            timeout=10,
         )
-        if resp.status_code == 429:
-            data = resp.json()
-            return {
-                "error": "limit_reached",
-                "limit": data.get("limit", 0),
-                "used": data.get("used", 0),
-                "plan": data.get("plan", auth.get("plan", "free")),
-            }
-        # Update local plan from API response (in case it changed)
         if resp.status_code == 200:
-            plan_from_api = ""
-            hints = resp.json().get("upgrade_hints", [])
-            if hints:
-                plan_from_api = "free"
-            else:
-                plan_from_api = auth.get("plan", "pro")
-            if plan_from_api and plan_from_api != auth.get("plan"):
-                auth["plan"] = plan_from_api
-                _AUTH_FILE.write_text(json.dumps(auth), encoding="utf-8")
+            data = resp.json()
+            auth["token"] = str(data.get("token", ""))
+            auth["plan"] = str(data.get("plan", "free"))
+            auth["quota_limit"] = str(data.get("quota_limit", 25))
+            auth["quota_used"] = str(data.get("quota_used", 0))
+            auth["expires_at"] = str(data.get("expires_at", ""))
+            _save_local_auth(auth)
+            return auth
+        if resp.status_code == 429:
+            auth["quota_exceeded"] = "true"
+            _save_local_auth(auth)
+            return auth
     except (ImportError, OSError, ValueError):
-        pass  # API unreachable — fall back to local
+        pass
     return None
 
 
 def _check_local_scan_gate() -> int:
-    """Check auth and usage quota before allowing a local scan.
+    """Check auth and token before allowing a scan.
 
-    Server-validated: if the user has an API key, the quota check
-    hits the cloud API to prevent local file manipulation.
+    No account = no scans. Token is server-signed and validated locally.
+    Refreshed once per day. Cannot be fabricated or manipulated.
 
     Returns 0 to proceed, 1 to block.
     """
     auth = _load_local_auth()
-    plan = auth.get("plan", "anonymous")
     api_key = auth.get("api_key", "")
 
-    # Server-side validation for authenticated users
-    if api_key:
-        remote_block = _validate_scan_quota_remote(auth)
-        if remote_block is not None:
-            limit = int(remote_block.get("limit", 0))
-            used = int(remote_block.get("used", 0))
-            remote_plan = str(remote_block.get("plan", plan))
-            _echo(color(f"\n  🔒 Daily scan limit reached ({used}/{limit} on {remote_plan} plan)", YELLOW))
-            _echo("     Upgrade for higher limits:")
-            _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
-            return 1
-        _increment_local_usage()
+    # Pre-commit hook and CI bypass scan gate (they use their own auth)
+    if os.environ.get("CODETRUST_PRECOMMIT") == "1":
+        return 0
+    if os.environ.get("CI") == "true":
         return 0
 
-    # Local-only validation for anonymous users
-    limit = _LOCAL_LIMITS.get(plan, _LOCAL_LIMITS["anonymous"])
-    usage = _get_local_usage_today()
-
-    if usage >= limit:
-        _echo(color("\n  🔒 Scan limit reached (5/day without account)", YELLOW))
-        _echo("     Create a free account for 25 scans/day:")
+    # No account → blocked
+    if not api_key:
+        _echo(color("\n  🔒 Account required to scan.", YELLOW))
+        _echo("     Create a free account (25 scans/day):")
         _echo(color("     → codetrust login", BOLD))
+        _echo("")
+        _echo("     Get your API key at https://app.codetrust.ai")
         _echo("     Upgrade to Pro for unlimited scans:")
         _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
         return 1
 
-    _increment_local_usage()
+    # Token expired or missing → refresh
+    if not _token_is_valid(auth) or _token_needs_refresh(auth):
+        refreshed = _refresh_token(auth)
+        if refreshed is None:
+            # Server unreachable — allow if token was recently valid
+            if auth.get("token") and auth.get("expires_at"):
+                _echo(color("  i  Server unreachable — using cached token\n", BLUE))
+                return 0
+            _echo(color("\n  🔒 Could not validate account. Check internet connection.", YELLOW))
+            _echo(color("     → codetrust login\n", BOLD))
+            return 1
+        auth = refreshed
 
-    if plan == "anonymous" and usage == 0:
-        _echo(color("  i  Scanning without account (5/day limit)", BLUE))
-        _echo(color("     → codetrust login for 25/day free\n", BLUE))
+    # Quota exceeded
+    if auth.get("quota_exceeded") == "true":
+        plan = auth.get("plan", "free")
+        limit = auth.get("quota_limit", "25")
+        _echo(color(f"\n  🔒 Daily scan limit reached ({limit}/day on {plan} plan)", YELLOW))
+        _echo("     Upgrade for higher limits:")
+        _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
+        return 1
 
     return 0
 

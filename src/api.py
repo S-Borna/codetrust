@@ -4306,6 +4306,54 @@ async def refresh_token(
     )
 
 
+@app.post("/v1/auth/token")
+async def issue_scan_token(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+    auth_svc: AuthService = Depends(_get_auth),
+    db: DatabaseService = Depends(_get_db),
+) -> dict[str, object]:
+    """Issue a scan token for CLI usage.
+
+    Returns a signed JWT with plan, quota limit, and daily usage.
+    CLI stores this locally and validates offline. Refreshed once/day.
+    """
+    plan = auth.plan
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS.get("free", 25))
+    usage = 0
+    if db is not None:
+        usage = await db.get_daily_usage(auth.user_id)
+
+    if usage >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "daily_scan_limit_reached",
+                "plan": plan,
+                "limit": limit,
+                "used": usage,
+                "upgrade_url": "https://app.codetrust.ai/pricing",
+            },
+        )
+
+    from datetime import UTC as _UTC
+    from datetime import datetime as _dt
+    from datetime import timedelta
+
+    token = auth_svc.create_jwt(auth.user_id, plan)
+    expires_at = _dt.now(tz=_UTC) + timedelta(minutes=settings.jwt_expire_minutes)
+
+    return {
+        "token": token,
+        "plan": plan,
+        "user_id": auth.user_id,
+        "quota_limit": limit,
+        "quota_used": usage,
+        "expires_at": expires_at.isoformat(),
+        "expires_in_minutes": settings.jwt_expire_minutes,
+    }
+
+
 @app.post("/v1/auth/logout")
 async def logout(
     request: Request,

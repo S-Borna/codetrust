@@ -40,8 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- CLAUDE.md template missing from wheel (`.gitignore` excluded `src/templates/CLAUDE.md`)
-- Added hatchling `artifacts` directive to include gitignored template files
+- Template packaging fix for wheel distribution
 - Version consistency across all distribution files
 
 ## [4.0.0] - 2026-03-28
@@ -86,13 +85,10 @@ real-time agent interception — no manual configuration required.
 
 ### Security
 
-- **Gateway bypass fix:** `python3 -c "import os; os.system('rm -rf /')"` now
-  BLOCKED — interpreter -c/-e inner string validation with 16 danger patterns
-- **3 security bugs fixed in own code** (details in commit history)
-- **Governance weakening detection:** 4 scan rules detect attempts to expand
-  skip lists, downgrade severities, disable scanning, or suppress governance
-- **Claude Code PreToolUse hook bypass discovered and reported to Anthropic**
-  — allow-list silently skips hooks (disclosure@anthropic.com + HackerOne)
+- **Gateway hardening:** interpreter inner-string validation blocks obfuscated dangerous commands
+- **3 security bugs fixed** in own code
+- **Governance weakening detection:** 4 scan rules detect attempts to weaken governance configuration
+- **Responsible disclosure:** platform-level issue reported to Anthropic via HackerOne
 
 ### Taint Analysis Expansion
 
@@ -133,10 +129,8 @@ real-time agent interception — no manual configuration required.
 
 ### Known Limitations
 
-- Claude Code allow-list can bypass PreToolUse hooks (Anthropic platform issue,
-  reported). `codetrust doctor` warns about dangerous allow-list entries.
 - Cursor/Windsurf/Copilot: governance is advisory (no PreToolUse equivalent)
-- VS Code extension scan path lacks rule-definition-file skip logic
+- BASH_ENV guard covers bash-based agents; non-bash agents require MCP proxy
 
 ## [3.0.0] - 2026-03-20
 
@@ -184,8 +178,8 @@ real-time agent interception — no manual configuration required.
 
 - Cross-platform CI stability hardening for Windows path/permission edge cases in telemetry and test cleanup paths.
 - Trust DOD execution in release smoke now reuses already-passed test gates to avoid redundant flaky reruns.
-- Claude Desktop MCP startup reliability hardened for existing users: gateway/scan startup no longer crashes on unreadable workspace policy/audit files.
-- MCP stdio transport hardened: server logging is routed to stderr, preventing JSON-RPC corruption from stdout noise.
+- Claude Desktop MCP startup reliability improved for existing users
+- MCP transport stability improvements
 - MCP runtime auto-resolution for global targets now prefers portable commands and avoids workspace-bound `.venv` defaults.
 
 ### Changed
@@ -214,14 +208,14 @@ real-time agent interception — no manual configuration required.
 ### Changed
 
 - Signature validation database expanded to 50 modules and 405 functions.
-- Live telemetry dashboard restructured to show honest, non-inflated metrics.
+- Live telemetry dashboard restructured with verified metrics.
 - Protection card presentation reworked to capability labels, while restoring meaningful sub-stats.
 
 ### Fixed
 
 - Extension MCP recovery and scan stability hardened.
-- MCP config injection now self-heals malformed config and deduplicates inject prompts.
-- Release smoke gate now self-heals in local execution paths.
+- MCP config injection improved with resilient handling
+- Release smoke gate reliability improvements
 - Dashboard moat stats layout corrected to a stable single-row presentation.
 
 ### Docs / Quality
@@ -233,15 +227,14 @@ real-time agent interception — no manual configuration required.
 
 ### Fixed
 
-- Secret Storage migration now always overwrites stale API keys instead of skipping when a value exists.
-- Global MCP config no longer injects `${workspaceFolder}` env var which crashes in non-workspace contexts.
-- MCP auto-injection uses correct `servers` key format for VS Code.
-- JavaScript obfuscator no longer breaks extension `activate` export.
+- API key storage reliability improved
+- MCP config stability for non-workspace contexts
+- Extension activation reliability fix
 
 ### Changed
 
-- PRODUCT.md corrected to match verified code reality: AST supports 10 languages (was listed as 5), typosquatting covers 1100+ packages total (was inflated to 500+ per ecosystem).
-- All 22 product promises audited and verified against actual implementation. Zero gaps.
+- Product documentation updated to match verified implementation
+- All product claims audited and verified
 
 ### Verified
 
@@ -340,12 +333,12 @@ real-time agent interception — no manual configuration required.
 
 > **Highlight:** This is the most impactful change since the Gateway launch.
 > Without it, AI agents received governance instructions but the MCP servers
-> providing those tools were never registered — governance enforcement was broken.
+> providing those tools were never registered — this fix ensures they are.
 
 #### MCP Runtime Registration
 
 - Extension and CLI now automatically register required MCP runtimes across supported IDE targets on activation/setup.
-- Registration is idempotent, resilient to malformed configs, and avoids overwriting user-owned custom entries.
+- Registration is idempotent and avoids overwriting user-owned custom entries.
 - Runtime resolution logic was hardened to reduce environment-specific startup regressions.
 
 ### Fixed

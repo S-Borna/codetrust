@@ -1512,6 +1512,76 @@ async def governance_integrity(workspace: str | None = None) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  Completion Hallucination Detection
+# ═══════════════════════════════════════════════════════════════
+
+
+@gateway.tool(name="codetrust_verify_claim")
+async def verify_claim(
+    agent_output: str,
+    session_history: str = "[]",
+) -> str:
+    """Detect completion hallucinations — claims without verification evidence.
+
+    Analyzes agent output for completion markers (checkmarks, "done", "all tests
+    pass", numeric targets) and correlates against session history for evidence
+    that the claim was actually verified (test execution, scan output, measurements).
+
+    This catches the most common and damaging form of AI hallucination in coding:
+    agents marking tasks as done without running verification. No competitor has
+    this — it requires operating inside the agent decision loop.
+
+    Args:
+        agent_output: The agent's output text to analyze for completion claims.
+        session_history: JSON array of strings — commands and outputs from the
+            session. Pass the recent terminal history for best results.
+
+    Returns:
+        JSON report with per-claim verdicts (VERIFIED / UNVERIFIED /
+        INSUFFICIENT_EVIDENCE), evidence found, and reasons.
+    """
+    from src.services.completion_hallucination import verify_claims
+
+    try:
+        history = json.loads(session_history) if session_history else []
+    except json.JSONDecodeError:
+        history = [session_history] if session_history else []
+
+    if not isinstance(history, list):
+        history = [str(history)]
+
+    results = verify_claims(agent_output, history)
+
+    report: dict[str, object] = {
+        "claims_detected": len(results),
+        "unverified_count": sum(1 for r in results if r.verdict != "VERIFIED"),
+        "results": [
+            {
+                "verdict": r.verdict,
+                "claim_text": r.claim.text,
+                "marker": r.claim.marker_matched,
+                "has_numeric_target": r.claim.has_numeric_target,
+                "evidence_count": len(r.evidence),
+                "evidence": [
+                    {"category": e.category, "text": e.text[:100]}
+                    for e in r.evidence
+                ],
+                "reason": r.reason,
+            }
+            for r in results
+        ],
+    }
+
+    logger.info(
+        "verify_claim",
+        claims_detected=len(results),
+        unverified=report["unverified_count"],
+    )
+
+    return json.dumps(_attach_attestation_payload(report), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
 #  Entry point
 # ═══════════════════════════════════════════════════════════════
 

@@ -1255,8 +1255,34 @@ function getRulesForFile(filename: string): Rule[] {
  * This is a fallback when the API is unavailable.
  * Implements all 67 rules: 56 regex + 11 file-level checks.
  */
+/**
+ * Rule definition files that should be skipped when they exceed
+ * MIN_LINES_FOR_RULE_FILE_SKIP lines. These files contain thousands
+ * of regex patterns that trigger false positives when scanned.
+ */
+const RULE_DEFINITION_BASENAMES = new Set([
+    "anti_patterns.py",
+    "enterprise.py",
+    "taint_rules.py",
+    "signatures.py",
+]);
+const MIN_LINES_FOR_RULE_FILE_SKIP = 5000;
+
+/** Check if a file is a rule definition file that should be skipped. */
+export function isRuleDefinitionFile(filename: string, lineCount: number): boolean {
+    const parts = filename.split(/[/\\]/);
+    const base = parts[parts.length - 1]?.toLowerCase() ?? "";
+    return RULE_DEFINITION_BASENAMES.has(base) && lineCount > MIN_LINES_FOR_RULE_FILE_SKIP;
+}
+
 export function scanCodeOffline(code: string, filename: string): StaticScanResponse {
     const lines = code.split("\n");
+
+    // Skip rule definition files — scanning them produces hundreds of FP
+    if (isRuleDefinitionFile(filename, lines.length)) {
+        return { findings: [], total_findings: 0, blocks: 0, warnings: 0, infos: 0, verdict: "PASS" };
+    }
+
     const findings: Finding[] = [];
     const rules = getRulesForFile(filename);
     let inDocstring = false;

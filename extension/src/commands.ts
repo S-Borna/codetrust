@@ -10,7 +10,7 @@ import { ApiClient, ApiError } from "./api-client";
 import type { RateLimitInfo } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
-import { scanCodeOffline } from "./embedded-scanner";
+import { scanCodeOffline, isRuleDefinitionFile } from "./embedded-scanner";
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
 import { getApiKeySecret, storeApiKeySecret } from "./secrets";
@@ -1096,6 +1096,11 @@ export async function handleScanOnSave(
 
     // Skip non-file schemes (e.g. output panels, git diffs)
     if (document.uri.scheme !== "file") {
+        return;
+    }
+
+    // Skip rule definition files — scanning produces hundreds of FP
+    if (isRuleDefinitionFile(document.fileName, document.lineCount)) {
         return;
     }
 

@@ -758,14 +758,23 @@ app = FastAPI(
     version=settings.version,
     description="AI code verification platform",
     lifespan=lifespan,
+    docs_url=None if settings.production_mode else "/docs",
+    redoc_url=None if settings.production_mode else "/redoc",
+    openapi_url=None if settings.production_mode else "/openapi.json",
 )
+
+_ALLOWED_ORIGINS: list[str] = [
+    "https://app.codetrust.ai",
+    "https://codetrust.ai",
+]
+if settings.dashboard_url not in _ALLOWED_ORIGINS:
+    _ALLOWED_ORIGINS.append(settings.dashboard_url)
+if not settings.production_mode:
+    _ALLOWED_ORIGINS.append("http://localhost:3000")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.dashboard_url,
-        "https://app.codetrust.ai",
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Client-Version"],

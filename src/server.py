@@ -2221,5 +2221,40 @@ async def codetrust_benchmark(
     return svc.build_report(result)
 
 
+@mcp.tool(name="codetrust_compliance_report")
+async def codetrust_compliance_report(
+    framework: str = "owasp-asi-2026",
+) -> str:
+    """Generate a compliance mapping report for a security framework.
+
+    Maps CodeTrust governance capabilities to recognized frameworks with
+    verified evidence (file paths, function names, line numbers).
+
+    Args:
+        framework: Framework identifier. Use 'list' to see all supported.
+                   Supported: owasp-asi-2026, eu-ai-act, nist-ai-rmf.
+
+    Returns:
+        Markdown-formatted compliance report with coverage levels and evidence.
+    """
+    from src.services.compliance import get_compliance_report, list_frameworks
+
+    logger.info("mcp_compliance_report", framework=framework)
+
+    if framework == "list":
+        frameworks = list_frameworks()
+        lines = ["# Supported Compliance Frameworks", ""]
+        for fid, fname in frameworks.items():
+            lines.append(f"- `{fid}`: {fname}")
+        return "\n".join(lines)
+
+    try:
+        report = get_compliance_report(framework)
+    except ValueError as exc:
+        return f"## Error\n\n{exc}"
+
+    return report.to_markdown()
+
+
 if __name__ == "__main__":
     mcp.run()

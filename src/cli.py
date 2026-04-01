@@ -3088,6 +3088,43 @@ def _find_shell_profile() -> Path | None:
     return None
 
 
+def _init_dod_file(project_dir: Path) -> None:
+    """Create a default Definition of Done file if it doesn't exist."""
+    dod_dir = project_dir / ".codetrust"
+    dod_dir.mkdir(parents=True, exist_ok=True)
+    dod_path = dod_dir / "definition_of_done.toml"
+    if dod_path.exists():
+        _echo(f"  {color('✅', GREEN)} Definition of Done file already exists")
+        return
+
+    default_content = (
+        '# Definition of Done — external enforcement gate\n'
+        '# Run: codetrust dod\n'
+        '# Exit code 0 = ALL checks pass. Exit code 1 = ANY check fails.\n'
+        '\n'
+        '[[checks]]\n'
+        'name = "Full test suite"\n'
+        'command = "pytest tests/ -x -q"\n'
+        'expected_exit_code = 0\n'
+        'expected_output_contains = ["passed"]\n'
+        'expected_output_excludes = ["FAILED", "ERROR"]\n'
+        '\n'
+        '[[checks]]\n'
+        'name = "Linting"\n'
+        'command = "ruff check src/ --ignore RUF001"\n'
+        'expected_exit_code = 0\n'
+        'expected_output_excludes = ["error"]\n'
+        '\n'
+        '[[checks]]\n'
+        'name = "Doctor all layers"\n'
+        'command = "python -m src.cli doctor"\n'
+        'expected_exit_code = 0\n'
+        'expected_output_excludes = ["MISSING", "FAILED"]\n'
+    )
+    dod_path.write_text(default_content, encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} Created Definition of Done: {dod_path}")
+
+
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
@@ -3232,11 +3269,25 @@ def cmd_init(args: argparse.Namespace) -> int:
     else:
         _echo(f"  {color('✅', GREEN)} MCP servers already configured")
 
-    # Audit allow-list after installation
+    # Definition of Done file
+    _init_dod_file(project_dir)
+
+    # Audit allow-list after installation — BLOCK if dangerous entries found
     audit_findings = audit_allow_list(project_dir)
     _print_allow_list_audit(audit_findings)
 
     _init_print_summary()
+
+    if audit_findings:
+        _echo(
+            f"\n  {color('⛔ GOVERNANCE INCOMPLETE', RED)}: "
+            f"{len(audit_findings)} allow-list entry(s) bypass enforcement.",
+        )
+        _echo(
+            f"  Remove dangerous entries from ~/.claude/settings.json "
+            f"or run: {color('codetrust doctor', BOLD)}",
+        )
+        return 1
 
     return 0
 
@@ -4733,7 +4784,7 @@ def _doctor_check_bash_env_guard() -> list[str]:
     # Detect VS Code extension environment
     if os.environ.get("CLAUDECODE") == "1" and "vscode" in os.environ.get("CLAUDE_CODE_ENTRYPOINT", ""):
         _echo(f"    {color('⚠️', YELLOW)}  Running in VS Code extension — PreToolUse hooks INACTIVE")
-        _echo(f"       BASH_ENV guard is your primary enforcement layer here")
+        _echo("       BASH_ENV guard is your primary enforcement layer here")
 
     return issues
 
@@ -4810,7 +4861,56 @@ def _doctor_check_pretooluse_hooks() -> list[str]:
             issues.append(f"Gateway hook test failed: {exc}")
             _echo(f"    {color('❌', RED)} Test failed: {exc}")
 
+        # Health-check: safe command → expect ALLOW (exit 0)
+        safe_input = json.dumps({
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls -la"},
+        })
+        try:
+            safe_result = subprocess.run(
+                [sys.executable, str(gateway_hook)],
+                input=safe_input, capture_output=True, text=True, timeout=5,
+            )
+            if safe_result.returncode == 0:
+                _echo(f"    {color('✅', GREEN)} Health: 'ls -la' → ALLOWED (exit 0)")
+            else:
+                issues.append(
+                    f"Gateway hook rejected safe command (exit {safe_result.returncode})",
+                )
+                _echo(
+                    f"    {color('❌', RED)} Health: 'ls -la' → REJECTED "
+                    f"(exit {safe_result.returncode}) — hook may be broken",
+                )
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            issues.append(f"Gateway hook health-check failed: {exc}")
+            _echo(f"    {color('❌', RED)} Health-check failed: {exc}")
+
     return issues
+
+
+def _doctor_check_compliance() -> list[str]:
+    """Check compliance coverage across all registered frameworks."""
+    # Compliance is ADVISORY — gaps do not block doctor exit code.
+    # Use 'codetrust compliance --strict' for enforcement.
+    try:
+        from src.services.compliance import (
+            compliance_summary,
+            get_compliance_report,
+            list_frameworks,
+        )
+
+        for fid, fname in list_frameworks().items():
+            report = get_compliance_report(fid)
+            summary = compliance_summary(report)
+            full_count = sum(1 for r in report.risks if r.coverage_level == "full")
+            total = len(report.risks)
+            if full_count == total:
+                _echo(f"    {color('✅', GREEN)} {fname}: {summary}")
+            else:
+                _echo(f"    {color('⚠️', YELLOW)}  {fname}: {summary} (advisory)")
+    except (ImportError, ValueError, OSError) as exc:
+        _echo(f"    {color('⚠️', YELLOW)}  Compliance check failed: {exc}")
+    return []
 
 
 def _doctor_check_mcp_config() -> list[str]:
@@ -4903,15 +5003,19 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         issues.append(".codetrust.toml not found")
         _echo(f"    {color('❌', RED)} .codetrust.toml not found")
 
-    # Allow-list audit
+    # Allow-list audit (advisory — warnings, not blocking)
     _echo(f"\n  {color('Layer 8: Allow-list Audit', BOLD)}")
     audit_findings = audit_allow_list(project_dir)
     if audit_findings:
         for f in audit_findings:
-            issues.append(f"Allow-list bypass: {f['entry']}")
             _echo(f"    {color('⚠️', YELLOW)}  {f['entry']} → {f['reason']}")
+        _echo(f"    {color('⚠️', YELLOW)}  {len(audit_findings)} bypass(es) — fix with: codetrust init")
     else:
         _echo(f"    {color('✅', GREEN)} No dangerous allow-list entries")
+
+    # Layer 9: Compliance coverage
+    _echo(f"\n  {color('Layer 9: Compliance Coverage', BOLD)}")
+    issues.extend(_doctor_check_compliance())
 
     # Summary
     _echo(f"\n{'━' * 48}")
@@ -5696,6 +5800,10 @@ def _add_governance_policy_audit_subparsers(
     )
 
     _add_audit_subparser(subparsers)
+    _add_compliance_subparser(subparsers)
+    _add_dod_subparser(subparsers)
+    _add_integrity_subparser(subparsers)
+    _add_eu_nist_subparsers(subparsers)
 
 
 def _add_audit_subparser(
@@ -5718,6 +5826,483 @@ def _add_audit_subparser(
         "--purge", action="store_true",
         help="Purge entries older than retention_days (default: 90 days)",
     )
+
+
+def _add_compliance_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'compliance' subcommand for framework compliance reports."""
+    comp_parser = subparsers.add_parser(
+        "compliance",
+        help="Generate compliance mapping reports for security frameworks",
+    )
+    comp_parser.add_argument(
+        "--framework", "-f", type=str, default="",
+        help="Framework ID (e.g. owasp-asi-2026, eu-ai-act, nist-ai-rmf)",
+    )
+    comp_parser.add_argument(
+        "--list", action="store_true", dest="list_frameworks",
+        help="List all supported compliance frameworks",
+    )
+    comp_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output as JSON instead of Markdown",
+    )
+    comp_parser.add_argument(
+        "--strict", action="store_true", default=True, dest="strict",
+        help="Exit code 1 if not fully compliant (default: True)",
+    )
+    comp_parser.add_argument(
+        "--no-strict", action="store_false", dest="strict",
+        help="Show report without exit code enforcement",
+    )
+
+
+def cmd_compliance(args: argparse.Namespace) -> int:
+    """Handle the 'compliance' CLI command."""
+    from src.services.compliance import (
+        compliance_summary,
+        get_compliance_report,
+        is_fully_compliant,
+        list_frameworks,
+    )
+
+    if getattr(args, "list_frameworks", False):
+        frameworks = list_frameworks()
+        _echo("Supported compliance frameworks:\n")
+        for fid, fname in frameworks.items():
+            _echo(f"  {fid:20s}  {fname}")
+        _echo(
+            "\nUsage: codetrust compliance --framework owasp-asi-2026"
+            "\n       codetrust compliance --framework owasp-asi-2026 --json",
+        )
+        return 0
+
+    framework_id: str = getattr(args, "framework", "")
+    if not framework_id:
+        _echo("Error: specify --framework or use --list to see options.")
+        return 1
+
+    try:
+        report = get_compliance_report(framework_id)
+    except ValueError as exc:
+        _echo(f"Error: {exc}")
+        return 1
+
+    use_json: bool = getattr(args, "json_output", False)
+    if use_json:
+        sys.stdout.write(report.to_json() + "\n")
+    else:
+        sys.stdout.write(report.to_markdown() + "\n")
+
+    # Summary line
+    summary = compliance_summary(report)
+    compliant = is_fully_compliant(framework_id)
+    label = "COMPLIANT" if compliant else "NON-COMPLIANT"
+    icon = color("✅", GREEN) if compliant else color("❌", RED)
+    _echo(f"\n{icon} {label}: {summary}")
+
+    strict: bool = getattr(args, "strict", True)
+    if strict and not compliant:
+        return 1
+    return 0
+
+
+def _add_dod_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'dod' subcommand for Definition of Done enforcement."""
+    dod_parser = subparsers.add_parser(
+        "dod",
+        help="Run Definition of Done acceptance checks",
+    )
+    dod_parser.add_argument(
+        "--check", type=str, default="",
+        help="Filter checks by name substring",
+    )
+    dod_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output as JSON",
+    )
+    dod_parser.add_argument(
+        "--file", type=str, default="",
+        help="Path to DoD TOML file (default: .codetrust/definition_of_done.toml)",
+    )
+
+
+def _add_integrity_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'integrity' subcommand for agent integrity analysis."""
+    int_parser = subparsers.add_parser(
+        "integrity",
+        help="Analyze agent session for integrity patterns (sycophancy, unsubstantiated claims)",
+    )
+    int_parser.add_argument(
+        "--session", type=str, default="",
+        help="Path to session history JSON file",
+    )
+    int_parser.add_argument(
+        "--last", action="store_true",
+        help="Analyze the most recent session from audit log (last 4 hours)",
+    )
+    int_parser.add_argument(
+        "--hours", type=int, default=4,
+        help="Hours to look back when using --last (default: 4)",
+    )
+    int_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output as JSON",
+    )
+
+
+def _audit_entries_to_session(
+    entries: list[dict[str, object]],
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Convert audit log entries into session messages and commands.
+
+    Maps audit entry action_types to message roles:
+    - validate_command / run_in_terminal → tool message (command executed)
+    - verify_claim / integrity_check → assistant verification
+    - Other actions with message content → tool output
+
+    Args:
+        entries: Parsed audit entries (dicts with action_type, message, etc.).
+
+    Returns:
+        Tuple of (messages as role/content dicts, flat command list).
+    """
+    messages: list[dict[str, str]] = []
+    commands: list[str] = []
+
+    for entry in entries:
+        action_type = str(entry.get("action_type", ""))
+        original = str(entry.get("original_action", ""))
+        message = str(entry.get("message", ""))
+        verdict = str(entry.get("verdict", ""))
+
+        if action_type in ("validate_command", "run_in_terminal"):
+            commands.append(original)
+            messages.append({"role": "tool", "content": f"{original}\n{message}"})
+        elif action_type in ("validate_file_write", "create_file", "replace_string"):
+            messages.append({"role": "tool", "content": f"[file write] {original}"})
+        elif action_type in ("verify_claim", "integrity_check", "definition_of_done"):
+            messages.append({"role": "assistant", "content": message})
+        elif verdict == "BLOCK":
+            messages.append({"role": "tool", "content": f"BLOCKED: {original} — {message}"})
+        elif message:
+            messages.append({"role": "tool", "content": message})
+
+    return messages, commands
+
+
+def cmd_integrity(args: argparse.Namespace) -> int:
+    """Handle the 'integrity' CLI command — agent integrity analysis."""
+    from src.services.agent_integrity import (
+        analyze_session,
+        format_report,
+        parse_session_messages,
+    )
+
+    session_path_str: str = getattr(args, "session", "")
+    use_last: bool = getattr(args, "last", False)
+
+    if not session_path_str and not use_last:
+        _echo("Error: specify --session <path> or --last")
+        return 1
+
+    # ── Mode 1: --session <file> ──
+    if session_path_str:
+        session_path = Path(session_path_str)
+        if not session_path.is_file():
+            _echo(f"Error: session file not found: {session_path}")
+            return 1
+
+        try:
+            raw = json.loads(session_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            _echo(f"Error reading session file: {exc}")
+            return 1
+
+        raw_messages = raw.get("messages", []) if isinstance(raw, dict) else raw
+        raw_commands: list[str] = raw.get("commands", []) if isinstance(raw, dict) else []
+        session_id = raw.get("session_id", session_path.stem) if isinstance(raw, dict) else session_path.stem
+
+    # ── Mode 2: --last (read from audit.jsonl) ──
+    else:
+        audit_path = Path.cwd() / ".codetrust" / "audit.jsonl"
+        if not audit_path.is_file():
+            _echo("Error: no audit log found at .codetrust/audit.jsonl")
+            _echo("Run commands through CodeTrust governance to generate audit data.")
+            return 1
+
+        hours: int = getattr(args, "hours", 4)
+        cutoff = time.time() - (hours * _SECONDS_PER_HOUR)
+
+        entries: list[dict[str, object]] = []
+        try:
+            with open(audit_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        if float(entry.get("timestamp", 0)) >= cutoff:
+                            entries.append(entry)
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+        except OSError as exc:
+            _echo(f"Error reading audit log: {exc}")
+            return 1
+
+        if not entries:
+            _echo(f"No audit entries found in the last {hours} hours.")
+            return 1
+
+        _echo(f"Analyzing {len(entries)} audit entries from the last {hours} hours.\n")
+        raw_messages, raw_commands = _audit_entries_to_session(entries)
+        session_id = f"audit-last-{hours}h"
+
+    messages = parse_session_messages(
+        raw_messages if isinstance(raw_messages, list) else [],
+    )
+    report = analyze_session(messages, raw_commands, session_id=session_id)
+
+    use_json: bool = getattr(args, "json_output", False)
+    if use_json:
+        sys.stdout.write(json.dumps(report.to_dict(), indent=2) + "\n")
+    else:
+        sys.stdout.write(format_report(report) + "\n")
+
+    # Exit 0 only if TRUSTWORTHY
+    if report.verdict == "TRUSTWORTHY":
+        return 0
+    return 1
+
+
+def cmd_dod(args: argparse.Namespace) -> int:
+    """Handle the 'dod' CLI command — Definition of Done enforcement."""
+    from src.services.definition_of_done import (
+        format_report,
+        load_checks,
+        run_dod,
+    )
+
+    dod_path_str: str = getattr(args, "file", "")
+    dod_path = Path(dod_path_str) if dod_path_str else None
+
+    try:
+        checks = load_checks(dod_path)
+    except FileNotFoundError as exc:
+        _echo(f"Error: {exc}")
+        _echo("Run 'codetrust init' to create a default DoD file.")
+        return 1
+    except ValueError as exc:
+        _echo(f"Error: {exc}")
+        return 1
+
+    if not checks:
+        _echo("No checks found in DoD file.")
+        return 1
+
+    check_filter: str = getattr(args, "check", "")
+    report = run_dod(checks, check_filter=check_filter or None)
+
+    use_json: bool = getattr(args, "json_output", False)
+    if use_json:
+        import json as json_mod
+        result = {
+            "summary": report.summary,
+            "all_passed": report.all_passed,
+            "checks": [
+                {
+                    "name": r.check.name,
+                    "command": r.check.command,
+                    "passed": r.passed,
+                    "actual_exit_code": r.actual_exit_code,
+                    "failure_reason": r.failure_reason,
+                }
+                for r in report.checks
+            ],
+        }
+        sys.stdout.write(json_mod.dumps(result, indent=2) + "\n")
+    else:
+        sys.stdout.write(format_report(report) + "\n")
+
+    return 0 if report.all_passed else 1
+
+
+def _add_eu_nist_subparsers(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register EU AI Act and NIST AI RMF subcommands."""
+    # risk-register
+    rr = subparsers.add_parser("risk-register", help="Manage formal risk register")
+    rr_sub = rr.add_subparsers(dest="subcommand")
+    rr_sub.add_parser("init", help="Create empty risk register")
+    rr_sub.add_parser("list", help="List all risks")
+    rr_add = rr_sub.add_parser("add", help="Add a new risk")
+    rr_add.add_argument("--title", required=True)
+    rr_add.add_argument("--description", default="")
+    rr_add.add_argument("--likelihood", type=int, default=3)
+    rr_add.add_argument("--impact", type=int, default=3)
+    rr_add.add_argument("--mitigation", default="")
+    rr_add.add_argument("--owner", default="")
+
+    # assess
+    subparsers.add_parser("assess", help="Run full conformity assessment")
+
+    # red-team
+    subparsers.add_parser("red-team", help="Run adversarial robustness tests")
+
+    # privacy
+    subparsers.add_parser("privacy", help="Show privacy and data governance report")
+
+    # governance-report
+    subparsers.add_parser("governance-report", help="Generate formal governance documentation")
+
+    # risk-map
+    subparsers.add_parser("risk-map", help="Generate automated risk catalog")
+
+    # metrics
+    subparsers.add_parser("metrics", help="Show formal metrics with SLO status")
+
+    # treatment-plan
+    tp = subparsers.add_parser("treatment-plan", help="Manage finding treatment plan")
+    tp_sub = tp.add_subparsers(dest="subcommand")
+    tp_sub.add_parser("show", help="Show current treatment plan")
+    tp_import = tp_sub.add_parser("import", help="Import findings from scan report")
+    tp_import.add_argument("report_path", help="Path to JSON scan report")
+
+
+def cmd_risk_register(args: argparse.Namespace) -> int:
+    """Handle risk-register command."""
+    from src.services.risk_register import (
+        RiskRegister,
+        add_risk,
+        format_register,
+        load_register,
+        save_register,
+    )
+
+    subcmd = getattr(args, "subcommand", None)
+
+    if subcmd == "init":
+        register = RiskRegister()
+        path = save_register(register)
+        _echo(f"Created empty risk register: {path}")
+        return 0
+
+    if subcmd == "add":
+        register = load_register()
+        risk = add_risk(
+            register,
+            title=args.title,
+            description=args.description,
+            likelihood=args.likelihood,
+            impact=args.impact,
+            mitigation=args.mitigation,
+            owner=args.owner,
+        )
+        save_register(register)
+        _echo(f"Added {risk.risk_id}: {risk.title} (score: {risk.risk_score})")
+        return 0
+
+    # Default: list
+    register = load_register()
+    sys.stdout.write(format_register(register) + "\n")
+    return 0
+
+
+def cmd_assess(args: argparse.Namespace) -> int:
+    """Handle assess (conformity assessment) command."""
+    from src.services.conformity_assessment import (
+        format_assessment,
+        run_assessment,
+    )
+
+    _echo("Running conformity assessment...\n")
+    report = run_assessment()
+    sys.stdout.write(format_assessment(report) + "\n")
+    return 0 if report.all_passed else 1
+
+
+def cmd_red_team(args: argparse.Namespace) -> int:
+    """Handle red-team command."""
+    from src.services.red_team import format_red_team, run_red_team
+
+    _echo("Running adversarial robustness tests...\n")
+    report = run_red_team()
+    sys.stdout.write(format_red_team(report) + "\n")
+    bypasses = len(report.bypasses)
+    return 1 if bypasses > 0 else 0
+
+
+def cmd_privacy(args: argparse.Namespace) -> int:
+    """Handle privacy command."""
+    from src.services.privacy import format_privacy_report, generate_privacy_report
+
+    report = generate_privacy_report()
+    sys.stdout.write(format_privacy_report(report) + "\n")
+    return 0
+
+
+def cmd_governance_report(args: argparse.Namespace) -> int:
+    """Handle governance-report command."""
+    from src.services.governance_report import (
+        format_governance_report,
+        generate_governance_report,
+    )
+
+    report = generate_governance_report()
+    sys.stdout.write(format_governance_report(report) + "\n")
+    return 0
+
+
+def cmd_risk_map(args: argparse.Namespace) -> int:
+    """Handle risk-map command."""
+    from src.services.risk_map import format_risk_map, generate_risk_map
+
+    risk_map = generate_risk_map()
+    sys.stdout.write(format_risk_map(risk_map) + "\n")
+    return 0
+
+
+def cmd_metrics(args: argparse.Namespace) -> int:
+    """Handle metrics command."""
+    from src.services.metrics_report import (
+        format_metrics_report,
+        generate_metrics_report,
+    )
+
+    report = generate_metrics_report()
+    sys.stdout.write(format_metrics_report(report) + "\n")
+    return 0
+
+
+def cmd_treatment_plan(args: argparse.Namespace) -> int:
+    """Handle treatment-plan command."""
+    from src.services.treatment_plan import (
+        format_treatment_plan,
+        import_findings_to_plan,
+        load_treatment_plan,
+        save_treatment_plan,
+    )
+
+    subcmd = getattr(args, "subcommand", None)
+
+    if subcmd == "import":
+        plan = load_treatment_plan()
+        imported = import_findings_to_plan(plan, Path(args.report_path))
+        save_treatment_plan(plan)
+        _echo(f"Imported {imported} findings. {plan.progress}")
+        return 0
+
+    # Default: show
+    plan = load_treatment_plan()
+    sys.stdout.write(format_treatment_plan(plan) + "\n")
+    return 0
 
 
 def _add_shield_subparser(
@@ -6338,6 +6923,28 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_benchmark(args)
     if args.command == "hook":
         return cmd_hook(args)
+    if args.command == "compliance":
+        return cmd_compliance(args)
+    if args.command == "integrity":
+        return cmd_integrity(args)
+    if args.command == "dod":
+        return cmd_dod(args)
+    if args.command == "risk-register":
+        return cmd_risk_register(args)
+    if args.command == "assess":
+        return cmd_assess(args)
+    if args.command == "red-team":
+        return cmd_red_team(args)
+    if args.command == "privacy":
+        return cmd_privacy(args)
+    if args.command == "governance-report":
+        return cmd_governance_report(args)
+    if args.command == "risk-map":
+        return cmd_risk_map(args)
+    if args.command == "metrics":
+        return cmd_metrics(args)
+    if args.command == "treatment-plan":
+        return cmd_treatment_plan(args)
 
     parser.print_help()
     return 0

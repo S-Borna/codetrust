@@ -256,10 +256,25 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
     files_scanned = _safe_int(p.get("files_scanned"), max_value=1_000_000)
     total_findings = _safe_int(p.get("total_findings"), max_value=10_000_000)
     hallucinations = _safe_int(p.get("hallucinations_found"), max_value=1_000_000)
-    severity = p.get("findings_by_severity") if isinstance(p.get("findings_by_severity"), dict) else {}
-    blocks = _safe_int(getattr(severity, "get", lambda _k, _d=0: 0)("BLOCK", 0), max_value=10_000_000)
     scan_type = _safe_str(p.get("scan_type"), max_length=32)
     languages, layers, rules, trust_score, trend = _parse_scan_payload(p)
+
+    # Count blocks from three sources (first available wins):
+    # 1. findings list — iterate and count severity=="BLOCK"
+    # 2. findings_by_severity dict — explicit breakdown
+    # 3. Fall back to 0
+    findings = p.get("findings")
+    severity_dict = p.get("findings_by_severity") if isinstance(p.get("findings_by_severity"), dict) else {}
+    if isinstance(findings, list):
+        blocks = sum(
+            1 for f in findings
+            if isinstance(f, dict)
+            and str(f.get("severity", "")).upper() == "BLOCK"
+        )
+    elif severity_dict:
+        blocks = _safe_int(severity_dict.get("BLOCK", 0), max_value=10_000_000)
+    else:
+        blocks = 0
 
     pipe = r.pipeline()
     pipe.incr("ct:total_scans")
@@ -285,7 +300,6 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
     if trend in {"improving", "stable", "degrading"}:
         pipe.incr(f"ct:trend:{trend}")
 
-    findings = p.get("findings")
     if isinstance(findings, list):
         seen_at = datetime.datetime.now(datetime.UTC).isoformat()
         for rule_id in _parse_finding_rule_ids(p):
@@ -293,9 +307,6 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
             pipe.incr(f"ct:impact:{category}")
             pipe.set(f"ct:impact:last_seen:{category}", seen_at)
             pipe.incr(f"ct:top_rules:{rule_id}")
-    elif isinstance(findings, int):
-        # findings count without per-finding details cannot be categorized.
-        pass
 
     await pipe.execute()
 

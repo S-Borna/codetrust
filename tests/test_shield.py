@@ -275,10 +275,14 @@ class TestAuditLog:
 
         content = AUDIT_FILE.read_text()
         lines = [ln for ln in content.strip().split("\n") if ln.strip()]
-        block_entries = [
-            json.loads(ln) for ln in lines
-            if '"BLOCK"' in ln and "rm -rf /" in ln
-        ]
+        block_entries: list[dict[str, str]] = []
+        for ln in lines:
+            if '"BLOCK"' not in ln or "rm -rf /" not in ln:
+                continue
+            try:
+                block_entries.append(json.loads(ln))
+            except json.JSONDecodeError:
+                continue  # Skip entries with invalid JSON (e.g. bash_env_guard raw paths)
         assert len(block_entries) >= 1
         assert block_entries[-1]["verdict"] == "BLOCK"
         assert block_entries[-1]["source"] == "shield"

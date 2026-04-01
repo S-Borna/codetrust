@@ -201,7 +201,7 @@ class TestFPRulesFixed:
 
     def test_logger_debug_not_redis(self, analyzer: StaticAnalyzer) -> None:
         """logger.debug() should NOT trigger redis_debug_command."""
-        code = 'logger.debug("processing request", request_id=rid)\n'  # noqa
+        code = 'logger.debug("processing request", request_id=rid)\n'
         findings = analyzer.scan_code(code, "app.py")
         redis_fps = [f for f in findings if f.rule_id == "redis_debug_command"]
         assert redis_fps == []

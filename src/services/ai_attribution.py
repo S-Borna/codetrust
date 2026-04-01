@@ -305,3 +305,122 @@ class AIAttributor:
             )
 
         return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────
+#  Per-line attribution (EU AI Act Article 52 — Transparency)
+# ─────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class LineAttribution:
+    """Attribution for a single line of code."""
+
+    line_number: int
+    commit: str
+    author: str
+    ai_model: str  # empty string if human-authored
+    timestamp: str
+
+
+def per_line_attribution(filepath: str) -> list[LineAttribution]:
+    """Generate per-line attribution by combining git blame with AI trailers.
+
+    For each line: identifies the commit, author, and whether an AI model
+    was involved (via AI-Model git trailer on that commit).
+
+    Args:
+        filepath: Path to the file to attribute.
+
+    Returns:
+        List of LineAttribution, one per line.
+    """
+    blame_output = _run_git_blame(filepath)
+    if not blame_output:
+        return []
+
+    # Cache: commit → AI-Model trailer value
+    commit_model_cache: dict[str, str] = {}
+    results: list[LineAttribution] = []
+
+    current_commit = ""
+    current_author = ""
+    current_timestamp = ""
+    line_num = 0
+
+    for raw_line in blame_output:
+        # Porcelain format: first line per block is "commit orig_line final_line [num_lines]"
+        parts = raw_line.split()
+        if len(parts) >= 3 and len(parts[0]) == 40:
+            current_commit = parts[0]
+            line_num = int(parts[2]) if parts[2].isdigit() else line_num + 1
+        elif raw_line.startswith("author "):
+            current_author = raw_line[7:]
+        elif raw_line.startswith("author-time "):
+            current_timestamp = raw_line[12:]
+        elif raw_line.startswith("\t"):
+            # This is the actual code line — emit attribution
+            if current_commit not in commit_model_cache:
+                commit_model_cache[current_commit] = _get_ai_model_trailer(current_commit)
+            results.append(LineAttribution(
+                line_number=line_num,
+                commit=current_commit[:12],
+                author=current_author,
+                ai_model=commit_model_cache[current_commit],
+                timestamp=current_timestamp,
+            ))
+
+    return results
+
+
+def per_line_summary(attributions: list[LineAttribution]) -> dict[str, float]:
+    """Aggregate per-line attributions into percentage breakdown.
+
+    Args:
+        attributions: List of line attributions.
+
+    Returns:
+        Dict of model/human → percentage. E.g. {"claude-opus-4.6": 42.0, "human": 31.0}
+    """
+    if not attributions:
+        return {}
+
+    counts: dict[str, int] = {}
+    for attr in attributions:
+        key = attr.ai_model if attr.ai_model else "human"
+        counts[key] = counts.get(key, 0) + 1
+
+    total = len(attributions)
+    return {k: round(v / total * 100, 1) for k, v in counts.items()}
+
+
+def _run_git_blame(filepath: str) -> list[str]:
+    """Run git blame in porcelain format."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "blame", "--porcelain", filepath],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            return []
+        return result.stdout.splitlines()
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+
+def _get_ai_model_trailer(commit: str) -> str:
+    """Look up AI-Model trailer on a commit."""
+    import subprocess
+
+    if not commit or len(commit) < 7:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%(trailers:key=AI-Model,valueonly)", commit],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError):
+        return ""

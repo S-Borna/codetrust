@@ -87,6 +87,11 @@ PROTECTED_PATH_PATTERNS: list = [
         re.compile(r"\.codetrust/governance-manifest\.json$"),
         "AI agent cannot modify the governance integrity manifest.",
     ),
+    (
+        "selfprotect_definition_of_done",
+        re.compile(r"\.codetrust/definition_of_done\.toml$"),
+        "AI agent cannot modify Definition of Done acceptance criteria.",
+    ),
 ]
 
 # ── Content rules (detect hardcoded secrets) ───────────────────────────────────

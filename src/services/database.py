@@ -4,7 +4,11 @@
 
 import datetime
 import hashlib
+import os
 import secrets
+import smtplib
+import threading
+from email.mime.text import MIMEText
 
 import structlog
 from sqlalchemy import func, select
@@ -15,11 +19,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-
-import os
-import smtplib
-import threading
-from email.mime.text import MIMEText
 
 from src.models.database import (
     ApiKeyRecord,

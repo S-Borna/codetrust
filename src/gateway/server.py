@@ -152,16 +152,20 @@ _preflight_sessions: dict[str, dict[str, object]] = {}
 _SESSION_ACTION_LIMIT: int = int(
     os.environ.get("CODETRUST_SESSION_ACTION_LIMIT", "500"),
 )
-_session_action_count: int = 0
+_session_action_counts: dict[str, int] = {}
 
 
 def _check_session_action_limit() -> dict[str, str] | None:
-    """Enforce per-session action limit. Returns BLOCK payload or None."""
-    global _session_action_count
-    _session_action_count += 1
+    """Enforce per-session action limit. Returns BLOCK payload or None.
+
+    Tracks counts keyed by session_id so different sessions
+    don't accumulate into a shared global counter.
+    """
+    key = _session_id or "default"
+    _session_action_counts[key] = _session_action_counts.get(key, 0) + 1
     if _SESSION_ACTION_LIMIT <= 0:
         return None
-    if _session_action_count > _SESSION_ACTION_LIMIT:
+    if _session_action_counts[key] > _SESSION_ACTION_LIMIT:
         return {
             "status": "BLOCKED",
             "verdict": "BLOCK",

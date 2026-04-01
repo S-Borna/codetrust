@@ -352,16 +352,13 @@ def detect_sycophantic_retractions(
                 break
 
         if has_retraction_same or has_retraction_next:
-            retraction_idx = next_assistant_idx if has_retraction_next else i
+            retraction_msg = messages[next_assistant_idx] if has_retraction_next else msg
 
-            if has_retraction_next and _has_new_evidence_between(messages, i, retraction_idx):
+            if has_retraction_next and _has_new_evidence_between(
+                messages, msg.index, retraction_msg.index,
+            ):
                 pass  # New evidence — legitimate
             else:
-                retraction_text = (
-                    messages[retraction_idx].content[:200]
-                    if has_retraction_next
-                    else msg.content[:200]
-                )
                 flagged_indices.add(msg.index)
                 issues.append(IntegrityIssue(
                     issue_type=IssueType.SYCOPHANTIC_RETRACTION,
@@ -369,7 +366,8 @@ def detect_sycophantic_retractions(
                     text=msg.content[:200],
                     evidence=(
                         f"Agreement at msg {msg.index}, "
-                        f"retraction at msg {retraction_idx}: {retraction_text}"
+                        f"retraction at msg {retraction_msg.index}: "
+                        f"{retraction_msg.content[:200]}"
                     ),
                     suggestion="Position changes should be based on new information, not social pressure.",
                 ))

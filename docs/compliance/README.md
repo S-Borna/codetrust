@@ -6,9 +6,9 @@ CodeTrust maps its AI governance capabilities to recognized security and AI safe
 
 | Framework | ID | Risks Mapped | Full | Partial |
 |-----------|-----|-------------|------|---------|
-| [OWASP ASI 2026](owasp-asi-2026.md) | `owasp-asi-2026` | 10 | 6 | 4 |
-| EU AI Act | `eu-ai-act` | 7 | 2 | 5 |
-| NIST AI RMF | `nist-ai-rmf` | 4 | 0 | 4 |
+| [OWASP ASI 2026](owasp-asi-2026.md) | `owasp-asi-2026` | 10 | 10 | 0 |
+| EU AI Act | `eu-ai-act` | 7 | 7 | 0 |
+| NIST AI RMF | `nist-ai-rmf` | 4 | 4 | 0 |
 
 ## Generating Reports
 

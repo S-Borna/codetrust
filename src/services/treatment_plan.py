@@ -20,6 +20,18 @@ except ModuleNotFoundError:
 
 PLAN_PATH = Path(".codetrust") / "treatment-plan.toml"
 
+
+def _toml_escape(value: str) -> str:
+    """Escape a string for use in a TOML basic string (double-quoted)."""
+    return (
+        value
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
 VALID_TREATMENT_STATUSES = frozenset({
     "open", "in_progress", "mitigated", "accepted", "false_positive",
 })
@@ -128,6 +140,8 @@ def import_findings_to_plan(
         if not isinstance(findings, list):
             continue
         for finding in findings:
+            if not isinstance(finding, dict):
+                continue
             if finding.get("severity") != "BLOCK":
                 continue
             fid = f"{finding.get('rule_id', '')}:{filepath}:{finding.get('line', 0)}"
@@ -169,15 +183,15 @@ def save_treatment_plan(plan: TreatmentPlan, path: Path | None = None) -> Path:
     ]
     for item in plan.items:
         lines.append("[[items]]")
-        lines.append(f'finding_id = "{item.finding_id}"')
-        lines.append(f'rule_id = "{item.rule_id}"')
-        lines.append(f'file = "{item.file}"')
-        lines.append(f'message = "{item.message[:100]}"')
-        lines.append(f'severity = "{item.severity}"')
-        lines.append(f'status = "{item.status}"')
-        lines.append(f'remediation = "{item.remediation[:200]}"')
-        lines.append(f'assigned_to = "{item.assigned_to}"')
-        lines.append(f'updated = "{item.updated}"')
+        lines.append(f'finding_id = "{_toml_escape(item.finding_id)}"')
+        lines.append(f'rule_id = "{_toml_escape(item.rule_id)}"')
+        lines.append(f'file = "{_toml_escape(item.file)}"')
+        lines.append(f'message = "{_toml_escape(item.message[:100])}"')
+        lines.append(f'severity = "{_toml_escape(item.severity)}"')
+        lines.append(f'status = "{_toml_escape(item.status)}"')
+        lines.append(f'remediation = "{_toml_escape(item.remediation[:200])}"')
+        lines.append(f'assigned_to = "{_toml_escape(item.assigned_to)}"')
+        lines.append(f'updated = "{_toml_escape(item.updated)}"')
         lines.append("")
 
     plan_path.write_text("\n".join(lines), encoding="utf-8")

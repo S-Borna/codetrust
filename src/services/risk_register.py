@@ -20,6 +20,18 @@ except ModuleNotFoundError:
 
 REGISTER_PATH = Path(".codetrust") / "risk-register.toml"
 
+
+def _toml_escape(value: str) -> str:
+    """Escape a string for use in a TOML basic string (double-quoted)."""
+    return (
+        value
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
 VALID_STATUSES = frozenset({"open", "mitigated", "accepted", "closed"})
 LIKELIHOOD_RANGE = range(1, 6)
 IMPACT_RANGE = range(1, 6)
@@ -166,15 +178,15 @@ def save_register(register: RiskRegister, path: Path | None = None) -> Path:
     ]
     for risk in register.risks:
         lines.append("[[risks]]")
-        lines.append(f'risk_id = "{risk.risk_id}"')
-        lines.append(f'title = "{risk.title}"')
-        lines.append(f'description = "{risk.description}"')
+        lines.append(f'risk_id = "{_toml_escape(risk.risk_id)}"')
+        lines.append(f'title = "{_toml_escape(risk.title)}"')
+        lines.append(f'description = "{_toml_escape(risk.description)}"')
         lines.append(f"likelihood = {risk.likelihood}")
         lines.append(f"impact = {risk.impact}")
-        lines.append(f'mitigation = "{risk.mitigation}"')
-        lines.append(f'owner = "{risk.owner}"')
-        lines.append(f'review_date = "{risk.review_date}"')
-        lines.append(f'status = "{risk.status}"')
+        lines.append(f'mitigation = "{_toml_escape(risk.mitigation)}"')
+        lines.append(f'owner = "{_toml_escape(risk.owner)}"')
+        lines.append(f'review_date = "{_toml_escape(risk.review_date)}"')
+        lines.append(f'status = "{_toml_escape(risk.status)}"')
         lines.append("")
 
     register_path.write_text("\n".join(lines), encoding="utf-8")

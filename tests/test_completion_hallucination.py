@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src.services.completion_hallucination import (
     ClaimVerdict,
     CompletionClaim,
     check_claim,
     detect_completion_claims,
+    detect_partial_as_complete,
     find_evidence,
     verify_claims,
 )
@@ -238,3 +241,118 @@ class TestVerifyClaims:
         fp_claims = [r for r in results if "fp" in r.claim.text.lower() or "0%" in r.claim.text]
         assert len(fp_claims) >= 1
         assert fp_claims[0].verdict != ClaimVerdict.VERIFIED
+
+
+class TestPartialAsComplete:
+    """Tests for pattern 10: partial delivery framed as complete."""
+
+    def test_partial_with_completion_frame_detected(self) -> None:
+        """Output with 6/10 partial AND 'done' → UNVERIFIED."""
+        text = (
+            "Compliance mapping done. Coverage: 6/10 full, 4/10 partial. "
+            "All checks complete."
+        )
+        result = detect_partial_as_complete(text)
+        assert result is not None
+        assert result.verdict == ClaimVerdict.UNVERIFIED
+        assert "incomplete items" in result.reason.lower() or "partial" in result.reason.lower()
+
+    def test_partial_without_completion_frame_returns_none(self) -> None:
+        """Output with partial indicators but no completion frame → None."""
+        text = "Coverage: 6/10 full, 4/10 partial. Gaps remain."
+        result = detect_partial_as_complete(text)
+        assert result is None
+
+    def test_full_coverage_with_completion_frame_returns_none(self) -> None:
+        """10/10 with 'done' → no issue (everything IS complete)."""
+        text = "Compliance mapping done. Coverage: 10/10 full."
+        result = detect_partial_as_complete(text)
+        assert result is None
+
+    def test_verify_claims_includes_partial_as_complete(self) -> None:
+        """verify_claims pipeline catches partial-as-complete."""
+        results = verify_claims(
+            agent_output="Summary: 6/10 full, 4/10 partial. Everything works.",
+            session_history=["git status"],
+        )
+        partial_results = [
+            r for r in results
+            if r.claim.marker_matched == "partial-as-complete"
+        ]
+        assert len(partial_results) == 1
+        assert partial_results[0].verdict == ClaimVerdict.UNVERIFIED
+
+    def test_fraction_detail_in_reason(self) -> None:
+        """Reason includes the specific incomplete fraction."""
+        text = "Leverans klar. OWASP: 6/10 full."
+        result = detect_partial_as_complete(text)
+        assert result is not None
+        assert "6/10" in result.reason
+
+
+# ───────────────────────────────────────────────────────────────
+#  Unified verify_claim gateway tool (completion + integrity)
+# ───────────────────────────────────────────────────────────────
+
+
+class TestUnifiedVerifyClaim:
+    """Test that verify_claim runs both pipelines with structured input."""
+
+    @pytest.mark.asyncio()
+    async def test_flat_input_returns_completion_only(self) -> None:
+        """Legacy flat list input → completion claims only, integrity is None."""
+        import json
+
+        from src.gateway.server import verify_claim
+
+        result = await verify_claim(
+            agent_output="All tests pass ✅",
+            session_history='["pytest tests/", "50 passed"]',
+        )
+        data = json.loads(result)
+        assert "completion_claims" in data
+        assert data["integrity"] is None
+        assert "summary" in data
+
+    @pytest.mark.asyncio()
+    async def test_structured_input_returns_both(self) -> None:
+        """Structured input with messages → both pipelines run."""
+        import json
+
+        from src.gateway.server import verify_claim
+
+        session = json.dumps({
+            "messages": [
+                {"role": "assistant", "content": "This cannot be done."},
+                {"role": "user", "content": "Do it."},
+                {"role": "assistant", "content": "Du har absolut rätt."},
+                {"role": "tool", "content": "pytest tests/ → 50 passed"},
+            ],
+            "commands": ["pytest tests/", "50 passed"],
+        })
+
+        result = await verify_claim(
+            agent_output="All tests pass. Done ✅",
+            session_history=session,
+        )
+        data = json.loads(result)
+        assert "completion_claims" in data
+        assert data["integrity"] is not None
+        assert "verdict" in data["integrity"]
+        assert "issues" in data["integrity"]
+        assert data["summary"]["total_issues"] >= 0
+
+    @pytest.mark.asyncio()
+    async def test_backward_compatible_with_empty_list(self) -> None:
+        """Empty list input works as before."""
+        import json
+
+        from src.gateway.server import verify_claim
+
+        result = await verify_claim(
+            agent_output="Everything is done.",
+            session_history="[]",
+        )
+        data = json.loads(result)
+        assert "completion_claims" in data
+        assert data["integrity"] is None

@@ -1124,7 +1124,11 @@ async def _emit_scan_telemetry(
     findings: list[dict[str, str]] | None = None,
 ) -> None:
     """Emit scan completion telemetry event via Redis."""
-    blocks_count = findings_count if verdict == "BLOCK" else 0
+    findings_list = findings or []
+    blocks_count = sum(
+        1 for f in findings_list
+        if isinstance(f, dict) and str(f.get("severity", "")).upper() == "BLOCK"
+    )
     try:
         event = TelemetryIngestEvent(
             event_type="scan_completed",
@@ -1137,7 +1141,7 @@ async def _emit_scan_telemetry(
                 "total_findings": findings_count,
                 "findings_by_severity": {"BLOCK": blocks_count},
                 "scan_duration_ms": latency_ms,
-                "findings": findings or [],
+                "findings": findings_list,
             },
         )
         await process_telemetry_event(r=redis_client, db=db, queue=queue, event=event)
@@ -2944,6 +2948,80 @@ async def license_scan(
     )
 
     return _build_license_scan_response(result)
+
+
+# --- Compliance Reports ---
+
+
+@app.get("/v1/compliance/{framework}")
+async def compliance_report(
+    framework: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Generate a compliance mapping report for a security framework.
+
+    Maps CodeTrust governance capabilities to recognized frameworks.
+    Supported: owasp-asi-2026, eu-ai-act, nist-ai-rmf.
+    """
+    logger.info("api_compliance_report", framework=framework)
+
+    from src.services.compliance import (
+        compliance_summary,
+        get_compliance_report,
+        is_fully_compliant,
+        list_frameworks,
+    )
+
+    if framework == "list":
+        return {"frameworks": list_frameworks()}
+
+    try:
+        report = get_compliance_report(framework)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": str(exc)},
+        )
+
+    result = report.to_dict()
+    result["fully_compliant"] = is_fully_compliant(framework)
+    result["summary"] = compliance_summary(report)
+    return result
+
+
+# --- Agent Integrity Verification ---
+
+
+@app.post("/v1/integrity/check")
+async def integrity_check(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, object]:
+    """Analyze agent session for behavioral integrity patterns.
+
+    Detects sycophantic retraction, unsubstantiated claims,
+    unverified references, and contradictory positions.
+    """
+    logger.info("api_integrity_check")
+
+    body = await request.json()
+    agent_output: str = body.get("agent_output", "")
+    raw_messages: list[dict[str, str]] = body.get("session_history", [])
+    raw_commands: list[str] = body.get("commands", [])
+    session_id: str = body.get("session_id", "api-session")
+
+    from src.services.agent_integrity import (
+        analyze_session,
+        parse_session_messages,
+    )
+
+    if agent_output:
+        raw_messages = list(raw_messages)
+        raw_messages.append({"role": "assistant", "content": agent_output})
+
+    messages = parse_session_messages(raw_messages)
+    report = analyze_session(messages, raw_commands, session_id=session_id)
+    return report.to_dict()
 
 
 # --- SBOM Generation ---

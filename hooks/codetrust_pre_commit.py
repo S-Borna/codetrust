@@ -366,6 +366,23 @@ def main() -> int:
         sys.stdout.write(f"  Report: {report_path}\n")
         return 1
 
+    # Definition of Done check (if DoD file exists)
+    dod_path = workspace / ".codetrust" / "definition_of_done.toml"
+    if dod_path.is_file():
+        sys.stdout.write(f"\n  {BOLD}Running Definition of Done checks...{RESET}\n")
+        dod_result = subprocess.run(
+            [sys.executable, "-m", "src.cli", "dod"],
+            capture_output=True, text=True, timeout=600,
+            cwd=str(workspace),
+        )
+        if dod_result.returncode != 0:
+            sys.stdout.write(dod_result.stdout)
+            sys.stdout.write(
+                f"\n  {RED}{BOLD}Commit blocked — Definition of Done checks failed.{RESET}\n",
+            )
+            return 1
+        sys.stdout.write(f"  {GREEN}DoD: all checks passed{RESET}\n")
+
     return 0
 
 

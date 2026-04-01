@@ -147,6 +147,38 @@ _last_integrity_check_at: float = 0.0
 _last_integrity_result: PolicyIntegrityResult | None = None
 _trusted_tokens: dict[str, dict[str, object]] = {}
 _preflight_sessions: dict[str, dict[str, object]] = {}
+
+# --- Session action-count limiter (OWASP ASI-03: Excessive Agency) ---
+_SESSION_ACTION_LIMIT: int = int(
+    os.environ.get("CODETRUST_SESSION_ACTION_LIMIT", "500"),
+)
+_session_action_counts: dict[str, int] = {}
+
+
+def _check_session_action_limit() -> dict[str, str] | None:
+    """Enforce per-session action limit. Returns BLOCK payload or None.
+
+    Tracks counts keyed by session_id so different sessions
+    don't accumulate into a shared global counter.
+    """
+    key = _session_id or "default"
+    _session_action_counts[key] = _session_action_counts.get(key, 0) + 1
+    if _SESSION_ACTION_LIMIT <= 0:
+        return None
+    if _session_action_counts[key] > _SESSION_ACTION_LIMIT:
+        return {
+            "status": "BLOCKED",
+            "verdict": "BLOCK",
+            "rule_id": "session_action_limit_exceeded",
+            "message": (
+                f"Session action limit reached ({_SESSION_ACTION_LIMIT}). "
+                "Start a new session or raise CODETRUST_SESSION_ACTION_LIMIT."
+            ),
+            "suggestion": "Begin a new trusted session or request limit increase.",
+        }
+    return None
+
+
 _approval_store = ApprovalExceptionStore(
     _workspace,
     approval_ttl_minutes=_engine.config.approval_ttl_minutes,
@@ -550,6 +582,10 @@ async def validate_command(command: str) -> str:
         JSON with verdict (ALLOW/WARN/BLOCK), message, and suggestion.
     """
     logger.info("gateway_validate_command", command=command[:100])
+
+    action_limit = _check_session_action_limit()
+    if action_limit is not None:
+        return json.dumps(_attach_attestation_payload(action_limit), indent=2)
 
     integrity_block = _integrity_block_payload()
     if integrity_block is not None:
@@ -1521,64 +1557,264 @@ async def verify_claim(
     agent_output: str,
     session_history: str = "[]",
 ) -> str:
-    """Detect completion hallucinations — claims without verification evidence.
+    """Verify agent claims — completion hallucination + behavioral integrity.
 
-    Analyzes agent output for completion markers (checkmarks, "done", "all tests
-    pass", numeric targets) and correlates against session history for evidence
-    that the claim was actually verified (test execution, scan output, measurements).
+    Analyzes agent output for two categories of trust issues:
 
-    This catches the most common and damaging form of AI hallucination in coding:
-    agents marking tasks as done without running verification. No competitor has
-    this — it requires operating inside the agent decision loop.
+    1. **Completion hallucination**: claims like "done", "all tests pass",
+       checkmarks — without corresponding verification commands in history.
+
+    2. **Behavioral integrity** (when structured messages provided):
+       sycophantic retraction, unsubstantiated facts, unverified file
+       references, contradictory positions without new evidence.
 
     Args:
-        agent_output: The agent's output text to analyze for completion claims.
-        session_history: JSON array of strings — commands and outputs from the
-            session. Pass the recent terminal history for best results.
+        agent_output: The agent's output text to analyze.
+        session_history: JSON input, accepts two formats:
+            - **Flat list of strings** (legacy): commands and outputs.
+              Runs completion hallucination detection only.
+            - **Object with "messages" and "commands"**: structured session.
+              Runs BOTH completion hallucination AND integrity analysis.
+              Messages: [{"role": "assistant"|"user"|"tool", "content": "..."}]
 
     Returns:
-        JSON report with per-claim verdicts (VERIFIED / UNVERIFIED /
-        INSUFFICIENT_EVIDENCE), evidence found, and reasons.
+        JSON report with completion_claims + integrity sections.
     """
     from src.services.completion_hallucination import verify_claims
 
     try:
-        history = json.loads(session_history) if session_history else []
+        raw = json.loads(session_history) if session_history else []
     except json.JSONDecodeError:
-        history = [session_history] if session_history else []
+        raw = [session_history] if session_history else []
 
-    if not isinstance(history, list):
-        history = [str(history)]
+    # Detect input format: structured (dict with messages) or flat (list of strings)
+    structured = isinstance(raw, dict) and "messages" in raw
+    if structured:
+        flat_commands: list[str] = raw.get("commands", [])
+        raw_messages: list[dict[str, str]] = raw.get("messages", [])
+        # Build flat history for completion hallucination from tool messages
+        flat_history = list(flat_commands)
+        for msg in raw_messages:
+            if msg.get("role") == "tool":
+                flat_history.append(str(msg.get("content", "")))
+    elif isinstance(raw, list):
+        flat_history = [str(item) for item in raw]
+        flat_commands = flat_history
+        raw_messages = []
+    else:
+        flat_history = [str(raw)]
+        flat_commands = flat_history
+        raw_messages = []
 
-    results = verify_claims(agent_output, history)
+    # ── Pipeline 1: Completion hallucination ──
+    completion_results = verify_claims(agent_output, flat_history)
 
     report: dict[str, object] = {
-        "claims_detected": len(results),
-        "unverified_count": sum(1 for r in results if r.verdict != "VERIFIED"),
-        "results": [
-            {
-                "verdict": r.verdict,
-                "claim_text": r.claim.text,
-                "marker": r.claim.marker_matched,
-                "has_numeric_target": r.claim.has_numeric_target,
-                "evidence_count": len(r.evidence),
-                "evidence": [
-                    {"category": e.category, "text": e.text[:100]}
-                    for e in r.evidence
-                ],
-                "reason": r.reason,
-            }
-            for r in results
-        ],
+        "completion_claims": {
+            "claims_detected": len(completion_results),
+            "unverified_count": sum(
+                1 for r in completion_results if r.verdict != "VERIFIED"
+            ),
+            "results": [
+                {
+                    "verdict": r.verdict,
+                    "claim_text": r.claim.text,
+                    "marker": r.claim.marker_matched,
+                    "has_numeric_target": r.claim.has_numeric_target,
+                    "evidence_count": len(r.evidence),
+                    "evidence": [
+                        {"category": e.category, "text": e.text[:100]}
+                        for e in r.evidence
+                    ],
+                    "reason": r.reason,
+                }
+                for r in completion_results
+            ],
+        },
+    }
+
+    # ── Pipeline 2: Integrity analysis (only with structured input) ──
+    if structured and raw_messages:
+        from src.services.agent_integrity import analyze_session, parse_session_messages
+
+        msgs_with_output = list(raw_messages)
+        if agent_output:
+            msgs_with_output.append({"role": "assistant", "content": agent_output})
+
+        messages = parse_session_messages(msgs_with_output)
+        integrity = analyze_session(messages, flat_commands, session_id=_session_id)
+        report["integrity"] = integrity.to_dict()
+    else:
+        report["integrity"] = None
+
+    # ── Summary ──
+    total_completion_unverified = report["completion_claims"]["unverified_count"]
+    integrity_data = report.get("integrity")
+    total_integrity_issues = len(integrity_data["issues"]) if integrity_data else 0
+
+    report["summary"] = {
+        "completion_unverified": total_completion_unverified,
+        "integrity_issues": total_integrity_issues,
+        "total_issues": total_completion_unverified + total_integrity_issues,
     }
 
     logger.info(
         "verify_claim",
-        claims_detected=len(results),
-        unverified=report["unverified_count"],
+        completion_claims=len(completion_results),
+        completion_unverified=total_completion_unverified,
+        integrity_issues=total_integrity_issues,
     )
 
     return json.dumps(_attach_attestation_payload(report), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Agent Integrity Verification
+# ═══════════════════════════════════════════════════════════════
+
+
+@gateway.tool(name="codetrust_integrity_check")
+async def integrity_check(
+    agent_output: str,
+    session_history: str = "[]",
+) -> str:
+    """Analyze agent output for behavioral integrity patterns.
+
+    Detects four categories of trust-damaging agent behavior:
+    - Sycophantic retraction: agrees then reverses without new evidence
+    - Unsubstantiated claims: states facts without verification commands
+    - Unverified references: cites files/lines without reading them
+    - Contradictory positions: takes opposite stances without new info
+
+    These patterns are more trust-damaging than completion hallucination
+    because they erode confidence in everything the agent says.
+
+    Args:
+        agent_output: The agent's latest output text to analyze.
+        session_history: JSON array of message objects with "role" and "content"
+            keys, or a JSON object with "messages" and "commands" arrays.
+
+    Returns:
+        JSON integrity report with per-issue details, score, and verdict
+        (TRUSTWORTHY / QUESTIONABLE / UNRELIABLE).
+    """
+    from src.services.agent_integrity import (
+        analyze_session,
+        parse_session_messages,
+    )
+
+    try:
+        raw = json.loads(session_history) if session_history else {}
+    except json.JSONDecodeError:
+        raw = {}
+
+    if isinstance(raw, list):
+        raw_messages = raw
+        raw_commands: list[str] = []
+    elif isinstance(raw, dict):
+        raw_messages = raw.get("messages", [])
+        raw_commands = raw.get("commands", [])
+    else:
+        raw_messages = []
+        raw_commands = []
+
+    # If agent_output is provided separately, add it as the last assistant message
+    if agent_output and isinstance(raw_messages, list):
+        raw_messages = list(raw_messages)
+        raw_messages.append({"role": "assistant", "content": agent_output})
+
+    messages = parse_session_messages(raw_messages)
+    report = analyze_session(messages, raw_commands, session_id=_session_id)
+
+    result = report.to_dict()
+
+    logger.info(
+        "integrity_check",
+        total_claims=report.total_claims,
+        verified=report.verified_claims,
+        issues=len(report.issues),
+        verdict=report.verdict.value,
+    )
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="integrity_check",
+        verdict="ALLOW" if report.verdict == "TRUSTWORTHY" else "WARN",
+        rule_id="agent_integrity",
+        original_action=f"Integrity check: {report.total_claims} claims",
+        message=f"{report.verdict.value} — score {report.integrity_score:.2f}",
+        suggestion="Review flagged issues for trust-damaging patterns.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(result), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Definition of Done
+# ═══════════════════════════════════════════════════════════════
+
+
+@gateway.tool(name="codetrust_run_dod")
+async def run_dod_tool(
+    check_name: str = "",
+) -> str:
+    """Run Definition of Done acceptance checks from .codetrust/definition_of_done.toml.
+
+    Every check runs as a real subprocess — no simulation.
+    Returns full report with pass/fail per check and overall verdict.
+
+    Args:
+        check_name: Optional filter — only run checks whose name contains this substring.
+
+    Returns:
+        JSON report with per-check results, summary, and overall pass/fail.
+    """
+    from pathlib import Path as _Path
+
+    from src.services.definition_of_done import load_checks, run_dod
+
+    logger.info("gateway_run_dod", check_name=check_name)
+
+    dod_path = _Path(_workspace) / ".codetrust" / "definition_of_done.toml"
+    try:
+        checks = load_checks(dod_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return json.dumps({"error": str(exc)}, indent=2)
+
+    report = run_dod(checks, check_filter=check_name or None)
+
+    result = {
+        "summary": report.summary,
+        "all_passed": report.all_passed,
+        "checks": [
+            {
+                "name": r.check.name,
+                "command": r.check.command,
+                "passed": r.passed,
+                "actual_exit_code": r.actual_exit_code,
+                "failure_reason": r.failure_reason,
+            }
+            for r in report.checks
+        ],
+    }
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="definition_of_done",
+        verdict="ALLOW" if report.all_passed else "WARN",
+        rule_id="dod_enforcement",
+        original_action=f"DoD check: {check_name or 'all'}",
+        message=report.summary,
+        suggestion="Fix failing checks before claiming work is done.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(result), indent=2)
 
 
 # ═══════════════════════════════════════════════════════════════

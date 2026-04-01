@@ -270,11 +270,101 @@ def check_claim(
     )
 
 
+# ───────────────────────────────────────────────────────────────
+#  Pattern 10: Partial delivery framed as complete
+# ───────────────────────────────────────────────────────────────
+
+_PARTIAL_INDICATORS: list[re.Pattern[str]] = [
+    re.compile(r"\bpartial\b", re.IGNORECASE),
+    re.compile(r"\bplanned\b", re.IGNORECASE),
+    re.compile(r"\b\d+\s*/\s*\d+\b"),                              # "6/10"
+    re.compile(r"coverage_level.*partial", re.IGNORECASE),
+    re.compile(r"coverage_level.*planned", re.IGNORECASE),
+    re.compile(r"gap[s]?\s*:", re.IGNORECASE),
+    re.compile(r"what.*missing", re.IGNORECASE),
+    re.compile(r"\bnot\s+yet\b", re.IGNORECASE),
+]
+
+_COMPLETION_FRAMES: list[re.Pattern[str]] = [
+    re.compile(r"\bleveran[st]", re.IGNORECASE),
+    re.compile(r"\bklar[t]?\b", re.IGNORECASE),
+    re.compile(r"\bdone\b", re.IGNORECASE),
+    re.compile(r"\bcomplete[d]?\b", re.IGNORECASE),
+    re.compile(r"\bsammanfattning\b", re.IGNORECASE),
+    re.compile(r"\bsummary\b", re.IGNORECASE),
+    re.compile(r"\ball\s+checks\s+pass", re.IGNORECASE),
+    re.compile(r"allt\s+fungerar", re.IGNORECASE),
+    re.compile(r"everything\s+works", re.IGNORECASE),
+]
+
+_FRACTION_RE = re.compile(r"\b(\d+)\s*/\s*(\d+)\b")
+
+
+def detect_partial_as_complete(text: str) -> ClaimCheckResult | None:
+    """Detect when output contains incomplete items but frames delivery as complete.
+
+    Args:
+        text: Agent output text to analyze.
+
+    Returns:
+        ClaimCheckResult with UNVERIFIED verdict if partial-as-complete detected,
+        or None if no issue found.
+    """
+    has_partial = any(p.search(text) for p in _PARTIAL_INDICATORS)
+    has_completion = any(p.search(text) for p in _COMPLETION_FRAMES)
+
+    if not (has_partial and has_completion):
+        return None
+
+    # Check if fractions indicate < 100%
+    fractions = _FRACTION_RE.findall(text)
+    incomplete_fractions = [
+        f"{num}/{denom}"
+        for num, denom in fractions
+        if num != denom and int(denom) > 0
+    ]
+
+    # If we have fractions but they're all N/N (100%), no problem
+    if fractions and not incomplete_fractions:
+        return None
+
+    # Build reason with specifics
+    partial_matches = [
+        p.pattern for p in _PARTIAL_INDICATORS if p.search(text)
+    ]
+    frame_matches = [
+        p.pattern for p in _COMPLETION_FRAMES if p.search(text)
+    ]
+
+    fraction_detail = ""
+    if incomplete_fractions:
+        fraction_detail = f" Incomplete items: {', '.join(incomplete_fractions[:3])}."
+
+    return ClaimCheckResult(
+        verdict=ClaimVerdict.UNVERIFIED,
+        claim=CompletionClaim(
+            text=text[:200],
+            marker_matched="partial-as-complete",
+            has_numeric_target=bool(incomplete_fractions),
+            numeric_value=incomplete_fractions[0] if incomplete_fractions else "",
+        ),
+        evidence=[],
+        reason=(
+            "Output contains incomplete items but frames delivery as complete."
+            f"{fraction_detail}"
+            f" Partial indicators: {len(partial_matches)}."
+            f" Completion frames: {len(frame_matches)}."
+        ),
+    )
+
+
 def verify_claims(
     agent_output: str,
     session_history: list[str],
 ) -> list[ClaimCheckResult]:
     """Full pipeline: detect claims, find evidence, check each claim.
+
+    Also checks for partial-as-complete framing (pattern 10).
 
     Args:
         agent_output: The agent's latest output text.
@@ -283,10 +373,18 @@ def verify_claims(
     Returns:
         List of claim check results. Empty if no claims detected.
     """
+    results: list[ClaimCheckResult] = []
+
+    # Pattern 10: partial-as-complete
+    partial_result = detect_partial_as_complete(agent_output)
+    if partial_result is not None:
+        results.append(partial_result)
+
     claims = detect_completion_claims(agent_output)
     if not claims:
-        return []
+        return results
 
     evidence = find_evidence(session_history)
+    results.extend(check_claim(claim, evidence) for claim in claims)
 
-    return [check_claim(claim, evidence) for claim in claims]
+    return results

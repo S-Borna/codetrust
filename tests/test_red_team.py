@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from src.services.red_team import (
     EVASION_TESTS,
     EvasionResult,

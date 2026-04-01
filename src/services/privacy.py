@@ -91,7 +91,10 @@ def generate_privacy_report() -> PrivacyReport:
         PrivacyReport reflecting current telemetry settings.
     """
     telemetry_enabled = os.environ.get("CODETRUST_TELEMETRY", "1") != "0"
-    retention_days = int(os.environ.get("CODETRUST_RETENTION_DAYS", "90"))
+    try:
+        retention_days = int(os.environ.get("CODETRUST_RETENTION_DAYS", "90"))
+    except (ValueError, TypeError):
+        retention_days = 90
 
     return PrivacyReport(
         telemetry_enabled=telemetry_enabled,

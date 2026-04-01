@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from src.services.ai_attribution import (
     LineAttribution,
     per_line_summary,

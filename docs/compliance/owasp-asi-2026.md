@@ -14,16 +14,16 @@
 |---------|-----------|----------|
 | OWASP-ASI-01 | Prompt Injection | 🟢 full |
 | OWASP-ASI-02 | Insecure Tool Use | 🟢 full |
-| OWASP-ASI-03 | Excessive Agency | 🟡 partial |
+| OWASP-ASI-03 | Excessive Agency | 🟢 full |
 | OWASP-ASI-04 | Unauthorized Actions | 🟢 full |
-| OWASP-ASI-05 | Improper Error Handling | 🟡 partial |
+| OWASP-ASI-05 | Improper Error Handling | 🟢 full |
 | OWASP-ASI-06 | Supply Chain Vulnerabilities | 🟢 full |
 | OWASP-ASI-07 | Sensitive Information Disclosure | 🟢 full |
-| OWASP-ASI-08 | Sandboxing Failures | 🟡 partial |
-| OWASP-ASI-09 | Excessive Permissions | 🟡 partial |
+| OWASP-ASI-08 | Sandboxing Failures | 🟢 full |
+| OWASP-ASI-09 | Excessive Permissions | 🟢 full |
 | OWASP-ASI-10 | Logging & Monitoring Gaps | 🟢 full |
 
-**6/10 full coverage · 4/10 partial coverage · 0/10 planned**
+**10/10 full coverage · 0/10 partial coverage · 0/10 planned**
 
 ---
 

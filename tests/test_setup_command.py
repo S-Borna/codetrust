@@ -31,7 +31,7 @@ class TestSetupInstallAgentClaude:
         _setup_install_agent_claude(tmp_path, force=False)
         content = (tmp_path / "CLAUDE.md").read_text()
         assert "CodeTrust" in content
-        assert "Agent Operating System" in content
+        assert "Project Governance" in content
 
     def test_skips_existing_without_force(self, tmp_path: Path) -> None:
         """Should not overwrite existing CLAUDE.md without --force."""

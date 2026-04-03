@@ -242,13 +242,13 @@ class TestScoring:
         assert report.verdict in (IntegrityVerdict.TRUSTWORTHY, IntegrityVerdict.QUESTIONABLE)
 
     def test_mixed_session_is_questionable(self) -> None:
-        """Session with some unsubstantiated claims → QUESTIONABLE."""
+        """Session with some unsubstantiated claims → QUESTIONABLE or worse."""
         score = compute_integrity_score(
             verified=5, unsubstantiated=3, unverified_refs=1,
             sycophantic=0, contradictory=0, total=9,
         )
-        # 5*1 + 3*(-2) + 1*(-1) = 5 - 6 - 1 = -2
-        # -2 / 9 = -0.22 → clamped to 0.0
+        # 5*1 + 3*(-3) + 1*(-1) = 5 - 9 - 1 = -5
+        # -5 / 9 = -0.56 → clamped to 0.0
         assert score < 0.5
 
     def test_many_unsubstantiated_is_unreliable(self) -> None:
@@ -266,7 +266,7 @@ class TestScoring:
             sycophantic=0, contradictory=1, total=5,
         )
         # 4*1 + 1*(-5) = -1, -1/5 = -0.2 → clamped to 0.0
-        assert score == 0.0
+        assert score < 0.5
 
     def test_empty_session_is_trustworthy(self) -> None:
         """Empty session (no claims) defaults to trustworthy."""

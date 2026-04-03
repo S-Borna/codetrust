@@ -6060,14 +6060,29 @@ def cmd_integrity(args: argparse.Namespace) -> int:
             _echo(f"No audit entries found in the last {hours} hours.")
             return 1
 
-        _echo(f"Analyzing {len(entries)} audit entries from the last {hours} hours.\n")
         raw_messages, raw_commands = _audit_entries_to_session(entries)
+
+        _echo(f"Analyzing {len(entries)} audit entries from the last {hours} hours.\n")
         session_id = f"audit-last-{hours}h"
 
     messages = parse_session_messages(
         raw_messages if isinstance(raw_messages, list) else [],
     )
     report = analyze_session(messages, raw_commands, session_id=session_id)
+
+    # Guard: 0 claims analyzed means no assertions were found to evaluate.
+    # Returning TRUSTWORTHY for an empty analysis is misleading — the audit
+    # log lacks agent dialog, so no behavioral analysis was possible.
+    if report.total_claims == 0 and use_last:
+        _echo("No agent claims found to analyze.")
+        _echo("")
+        _echo("The audit log records governance actions (command validation, file writes)")
+        _echo("but not the agent's reasoning or claims. Without dialog, integrity")
+        _echo("analysis cannot detect behavioral issues like sycophancy or false claims.")
+        _echo("")
+        _echo("Use --session <file> to analyze a session transcript instead.")
+        _echo("Export format: {\"messages\": [{\"role\": \"...\", \"content\": \"...\"}], \"commands\": [...]}")
+        return 1
 
     use_json: bool = getattr(args, "json_output", False)
     if use_json:

@@ -356,3 +356,28 @@ class TestUnifiedVerifyClaim:
         data = json.loads(result)
         assert "completion_claims" in data
         assert data["integrity"] is None
+
+    @pytest.mark.asyncio()
+    async def test_top_level_aliases_for_old_consumers(self) -> None:
+        """Old consumers access claims_detected and results at top level."""
+        import json
+
+        from src.gateway.server import verify_claim
+
+        result = await verify_claim(
+            agent_output="All tests pass ✅. Fully functional.",
+            session_history="[]",
+        )
+        data = json.loads(result)
+
+        # New format: nested under completion_claims
+        assert "completion_claims" in data
+        nested_count = data["completion_claims"]["claims_detected"]
+        nested_results = data["completion_claims"]["results"]
+
+        # Old format: top-level aliases must exist and match
+        assert "claims_detected" in data, "Missing top-level claims_detected alias"
+        assert "results" in data, "Missing top-level results alias"
+        assert data["claims_detected"] == nested_count
+        assert data["results"] == nested_results
+        assert data["claims_detected"] > 0

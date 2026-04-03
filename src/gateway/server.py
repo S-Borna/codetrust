@@ -152,20 +152,20 @@ _preflight_sessions: dict[str, dict[str, object]] = {}
 _SESSION_ACTION_LIMIT: int = int(
     os.environ.get("CODETRUST_SESSION_ACTION_LIMIT", "500"),
 )
-_session_action_counts: dict[str, int] = {}
+_session_action_count: int = 0
 
 
 def _check_session_action_limit() -> dict[str, str] | None:
     """Enforce per-session action limit. Returns BLOCK payload or None.
 
-    Tracks counts keyed by session_id so different sessions
-    don't accumulate into a shared global counter.
+    Uses a process-level counter. In production each gateway process serves
+    one session. The counter resets on process restart (new session).
     """
-    key = _session_id or "default"
-    _session_action_counts[key] = _session_action_counts.get(key, 0) + 1
+    global _session_action_count
+    _session_action_count += 1
     if _SESSION_ACTION_LIMIT <= 0:
         return None
-    if _session_action_counts[key] > _SESSION_ACTION_LIMIT:
+    if _session_action_count > _SESSION_ACTION_LIMIT:
         return {
             "status": "BLOCKED",
             "verdict": "BLOCK",
@@ -1657,6 +1657,11 @@ async def verify_claim(
         "integrity_issues": total_integrity_issues,
         "total_issues": total_completion_unverified + total_integrity_issues,
     }
+
+    # Backward compatibility: old consumers access claims_detected and results
+    # at top level. New consumers use completion_claims.claims_detected etc.
+    report["claims_detected"] = report["completion_claims"]["claims_detected"]
+    report["results"] = report["completion_claims"]["results"]
 
     logger.info(
         "verify_claim",

@@ -22,15 +22,29 @@ REGISTER_PATH = Path(".codetrust") / "risk-register.toml"
 
 
 def _toml_escape(value: str) -> str:
-    """Escape a string for use in a TOML basic string (double-quoted)."""
-    return (
-        value
-        .replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t")
-    )
+    """Escape a string for safe use in a TOML basic string (double-quoted).
+
+    Handles: backslash, quotes, common whitespace, control characters (U+0000-U+001F
+    excluding already-handled \\n/\\r/\\t), and the DEL character (U+007F).
+    Conforms to TOML v1.0 basic string escaping rules.
+    """
+    # Order matters: backslash first to avoid double-escaping
+    result = value.replace("\\", "\\\\")
+    result = result.replace('"', '\\"')
+    result = result.replace("\b", "\\b")
+    result = result.replace("\f", "\\f")
+    result = result.replace("\n", "\\n")
+    result = result.replace("\r", "\\r")
+    result = result.replace("\t", "\\t")
+    # Remaining control characters → \uXXXX
+    cleaned: list[str] = []
+    for ch in result:
+        cp = ord(ch)
+        if cp <= 0x1F or cp == 0x7F:
+            cleaned.append(f"\\u{cp:04X}")
+        else:
+            cleaned.append(ch)
+    return "".join(cleaned)
 
 VALID_STATUSES = frozenset({"open", "mitigated", "accepted", "closed"})
 LIKELIHOOD_RANGE = range(1, 6)

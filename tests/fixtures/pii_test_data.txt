@@ -1,0 +1,41 @@
+This file contains planted PII for testing CodeTrust PII detection.
+
+Contact Information:
+  Email: john.doe+work@example.com
+  Phone: +46 70 123 4567
+
+Financial:
+  Credit card: 4111 1111 1111 1111
+  IBAN: SE45 5000 0000 0583 9825 7466
+
+Swedish Identity:
+  Personnummer: 900101-1234
+
+Credentials:
+  Stripe key: sk-test_abc123def456ghi789jkl012mno345pqr
+  GitHub token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn
+  Slack token: xoxb-123456789012-abcdefghijklmn
+
+Passwords:
+  password = "SuperSecret123!"
+
+Network:
+  Server IP: 192.168.1.100
+
+Authentication:
+  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+URL with credentials:
+  https://admin:p4ssw0rd@database.internal.com/db
+
+Private Key:
+  -----BEGIN RSA PRIVATE KEY-----
+
+US SSN:
+  SSN: 123-45-6789
+
+Contextual:
+  name: John Smith
+  address: Storgatan 15, 111 22
+  dob: 1990-01-15
+  passport number: AB1234567

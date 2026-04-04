@@ -1,55 +1,35 @@
 name: CodeTrust Scan
-
 on:
   pull_request:
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
-  security-events: write
   pull-requests: write
 
 jobs:
-  codetrust-scan:
-    name: CodeTrust Security Scan
+  codetrust:
+    name: CodeTrust Quality Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run CodeTrust Scan
-        uses: ./action
-        id: scan
+      - uses: actions/setup-python@v5
         with:
-          fail-on: block
-          sarif: "true"
-          files: "src/services/ src/models/ src/gateway/ src/formatters/ src/utils/ tests/"
+          python-version: '3.12'
 
-      - name: Upload SARIF to GitHub Security
-        if: always() && steps.scan.outputs.sarif-file
-        uses: github/codeql-action/upload-sarif@b8d3b6e8af63cde30bdc382c0bc28114f4346c88  # v3.26.13
-        with:
-          sarif_file: codetrust-results.sarif
-          category: codetrust
+      - name: Install CodeTrust
+        run: pip install codetrust
 
-      - name: Comment scan results on PR
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7.1.0
-        with:
-          script: |
-            const fs = require('fs');
-            const reportPath = 'codetrust-report.md';
-            if (fs.existsSync(reportPath)) {
-              const report = fs.readFileSync(reportPath, 'utf8');
-              const body = `## CodeTrust Scan Results\n\n${report}`;
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body.substring(0, 65000)
-              });
-            }
+      - name: Scan changed files
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\.(py|js|ts|go|rs)$' || true)
+          if [ -n "$FILES" ]; then
+            echo "$FILES" | xargs codetrust scan
+          else
+            echo "No source files changed."
+          fi

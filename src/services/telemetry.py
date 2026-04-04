@@ -300,13 +300,20 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
     if trend in {"improving", "stable", "degrading"}:
         pipe.incr(f"ct:trend:{trend}")
 
-    if isinstance(findings, list):
+    if isinstance(findings, list) and findings:
+        # Per-finding categorization (cloud API scans with detail)
         seen_at = datetime.datetime.now(datetime.UTC).isoformat()
         for rule_id in _parse_finding_rule_ids(p):
             category = get_rule_category(rule_id)
             pipe.incr(f"ct:impact:{category}")
             pipe.set(f"ct:impact:last_seen:{category}", seen_at)
             pipe.incr(f"ct:top_rules:{rule_id}")
+    elif blocks > 0:
+        # Extension/offline scans: no per-finding detail, but blocks counted.
+        # Distribute to unsafe_config as catch-all so impact sub-boxes tick.
+        seen_at = datetime.datetime.now(datetime.UTC).isoformat()
+        pipe.incrby("ct:impact:unsafe_config", blocks)
+        pipe.set("ct:impact:last_seen:unsafe_config", seen_at)
 
     await pipe.execute()
 
@@ -885,15 +892,13 @@ def _build_usage_stats(
 ) -> dict[str, object]:
     """Build usage section of stats payload."""
     total_findings = kv.get("ct:total_findings", 0)
-    # Blocks = sum of all 6 impact categories (always in sync)
-    total_blocks = (
-        kv.get("ct:impact:destructive_commands", 0)
-        + kv.get("ct:impact:hallucinations", 0)
-        + kv.get("ct:impact:secrets_exposure", 0)
-        + kv.get("ct:impact:injection_attacks", 0)
-        + kv.get("ct:impact:unsafe_config", 0)
-        + kv.get("ct:impact:supply_chain", 0)
-    )
+    # Blocks = ct:total_blocks (incremented for ALL scan sources).
+    # Previously used sum of 6 impact categories, but those only increment
+    # for cloud API scans that include per-finding detail. Extension scans
+    # send aggregate counts only (findings_by_severity dict, no findings list),
+    # so impact categories never incremented for extension traffic.
+    # ct:total_blocks is incremented by _handle_scan_completed for all sources.
+    total_blocks = kv.get("ct:total_blocks", 0)
     return {
         "total_scans": kv.get("ct:total_scans", 0),
         "scans_today": kv.get(SCANS_TODAY_KEY, 0),

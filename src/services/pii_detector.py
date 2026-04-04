@@ -376,8 +376,8 @@ def detect(text: str, min_confidence: float = 0.0) -> list[PIIFinding]:
         for match in pattern.regex.finditer(text):
             start, end = match.start(), match.end()
 
-            # Dedup overlapping matches
-            if any(s <= start < e or s < end <= e for s, e in seen_ranges):
+            # Dedup overlapping matches (symmetric — also catches full containment)
+            if any(start < e and end > s for s, e in seen_ranges):
                 continue
 
             matched_text = match.group(1) if match.lastindex else match.group(0)

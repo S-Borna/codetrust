@@ -90,6 +90,7 @@ def _wrap_tool(
     agent_name: str,
     log: CrewGovernanceLog,
     blocked_tools: set[str],
+    scan_outputs: bool = True,
 ) -> Any:
     """Wrap a tool function with governance validation.
 
@@ -98,6 +99,7 @@ def _wrap_tool(
         agent_name: Name of the agent using this tool.
         log: Governance log to append events to.
         blocked_tools: Set of tool names this agent is forbidden from using.
+        scan_outputs: Whether to scan tool outputs for anti-patterns.
 
     Returns:
         Wrapped function that validates before calling original.
@@ -146,8 +148,8 @@ def _wrap_tool(
         # Execute original
         output = tool_func(*args, **kwargs)
 
-        # Scan output
-        if output:
+        # Scan output (only if scan_outputs enabled)
+        if output and scan_outputs:
             from src.services.static_analyzer import StaticAnalyzer
             analyzer = StaticAnalyzer()
             findings = analyzer.scan_code(str(output), filename=f"{tool_name}_output")
@@ -220,7 +222,7 @@ class CodeTrustCrew:
 
             tools = getattr(agent, "tools", [])
             wrapped = [
-                _wrap_tool(t, agent_name, self.log, agent_blocked)
+                _wrap_tool(t, agent_name, self.log, agent_blocked, self.scan_outputs)
                 for t in tools
             ]
             agent.tools = wrapped

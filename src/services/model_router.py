@@ -298,12 +298,12 @@ def evaluate_routing(
     if (blocked_patterns
             and _model_in_list(model, blocked_patterns)
             and not (allowed_patterns and _model_in_list(model, allowed_patterns))):
-            return RoutingDecision(
-                classification=classification,
-                model=model,
-                action="block",
-                reason=f"Model '{model}' is blocked for {level_name} data",
-            )
+        return RoutingDecision(
+            classification=classification,
+            model=model,
+            action="block",
+            reason=f"Model '{model}' is blocked for {level_name} data",
+        )
 
     # Check allowed list
     if allowed_patterns:

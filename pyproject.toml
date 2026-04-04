@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "codetrust"
 version = "4.0.6"
-description = "AI Governance Enforcement Platform — real-time BASH_ENV guard + PreToolUse interception, 3,006 rules (2,924 scan + 82 gateway), 8 enforcement layers auto-installed by codetrust init. Guided remediation with 2,924 Grade A suggestions. Cross-language taint analysis (7 languages, 323 definitions). 39 MCP tools, 65 API endpoints, 2,509 tests. CLI, VS Code extension, GitHub Action, MCP server."
+description = "AI Governance Enforcement Platform — 9 enforcement layers, 2,924 scan rules, PII detection (16 categories), data classification + model routing, LLM cost tracking, compliance (OWASP 10/10, EU AI Act 7/7, NIST 4/4), agent integrity verification, framework integrations (LangChain, CrewAI, OpenAI), governance dashboard. 72 API endpoints, 2,989 tests. CLI, VS Code extension, GitHub Action, MCP server."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 requires-python = ">=3.12"
@@ -77,6 +77,10 @@ dev = [
     "httpx[cli]>=0.27.0",
     "aiosqlite>=0.20.0",
 ]
+langchain = ["langchain>=0.1.0"]
+crewai = ["crewai>=0.1.0"]
+openai-agents = ["openai-agents>=0.1.0"]
+all-frameworks = ["langchain>=0.1.0", "crewai>=0.1.0", "openai-agents>=0.1.0"]
 
 [project.scripts]
 codetrust = "src.cli:main"

@@ -13,7 +13,7 @@
 #  Override via env: CODETRUST_GOVERNANCE_MODE=audit
 
 [codetrust]
-exclude_paths = ["migrations/", "vendor/", "node_modules/", "tests/", "src/rules/"]
+exclude_paths = ["migrations/", "vendor/", "node_modules/"]
 ignore_rules = []
 
 [codetrust.governance]
@@ -30,10 +30,10 @@ mode = "enforce"
 block_heredoc = true         # Heredocs corrupt files via shell escaping
 block_eval = true            # Shell eval is arbitrary code execution
 block_sudo = false           # sudo su — warn but don't block by default
-block_rm_rf = true           # recursive force remove — catastrophic data loss
+block_rm_rf = true           # rm -rf / — catastrophic data loss
 block_curl_pipe_sh = true    # curl|sh — remote code execution
 block_git_push = true        # AI agents must not push to remote
-block_chmod_777 = true       # world-writable mode — grants all permissions
+block_chmod_777 = true       # chmod 777 grants all permissions
 
 # ───────────────────────────────────────────────────────────────
 #  File Governance
@@ -64,21 +64,39 @@ block_suspicious_packages = true
 [codetrust.governance.audit]
 enabled = true
 path = ".codetrust/audit.jsonl"
-retention_days = 90
 
 # ───────────────────────────────────────────────────────────────
-#  Webhooks
+#  Trusted Execution / Zero-Slop Enforcement
 # ───────────────────────────────────────────────────────────────
-#  Get real-time alerts on BLOCK/WARN verdicts via Slack, Teams,
-#  PagerDuty, or any generic webhook endpoint.
-#
-#  Providers: slack, teams, pagerduty, generic
+#  When enabled, every actionable operation must go through
+#  codetrust_* proxy tools, with explicit allow_reason.
 
-[codetrust.governance.webhooks]
-# url = "https://hooks.slack.com/services/T.../B.../xxx"
-# provider = "slack"
-# on_block = true
-# on_warn = false
+[codetrust.governance.trusted_execution]
+enabled = false
+deny_native_execution = false
+require_allow_reason = false
+allow_reason_min_length = 12
+session_binding_required = true
+anti_bypass_checks = true
+
+# ───────────────────────────────────────────────────────────────
+#  Approval & Exception Governance
+# ───────────────────────────────────────────────────────────────
+
+[codetrust.governance.approval]
+required_rules = [
+	"gateway_git_push",
+	"gateway_git_force_push",
+	"gateway_curl_pipe_sh",
+	"gateway_rm_rf_root",
+	"gateway_rm_rf_home",
+	"gateway_heredoc",
+]
+allowed_roles = ["owner", "admin", "security"]
+ttl_minutes = 30
+
+[codetrust.governance.exceptions]
+ttl_minutes = 60
 
 # ───────────────────────────────────────────────────────────────
 #  Disable specific rules (by rule_id)

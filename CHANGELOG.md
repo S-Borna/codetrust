@@ -9,10 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### What's Coming
 
-- Completion Hallucination Detection (agent claim verification)
 - Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets
 - Org-level governance alerting for drift and repeat BLOCK events
-- Universal rule file_types scoping (performance optimization)
+
+## [4.1.0] - 2026-04-04
+
+### Added
+- **PII Detection Engine** — 16 categories (email, phone, credit card with Luhn, personnummer, API keys, JWT, IBAN, private keys, passwords, URLs with credentials, SSN, passport, name, address, DOB). Auto-redaction. Per-category policy (block/warn/redact/off). CLI: `codetrust pii scan|redact|policy|report`. MCP tool: `pii_scan`. API: `POST /v1/pii/scan`.
+- **Data Classification + Model Routing** — 4 sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED). Path + content + PII-based classification. Per-level model routing with wildcard patterns. Auto-redact restricted data. CLI: `codetrust classify`. MCP tools: `classify_data`, `check_model_routing`.
+- **LLM Cost Tracking** — 20 models across 4 providers (Claude 4.x, GPT-4.1/o3/o4, Gemini 2.x, Llama 4). Per-developer/team/model aggregation. Budget enforcement (warn at 80%, alert at 95%, block at 100%). Anomaly detection (3x 7-day avg, 50% team concentration). CLI: `codetrust cost`. MCP tool: `cost_report`.
+- **Compliance Frameworks** — OWASP ASI 2026 (10/10), EU AI Act (7/7), NIST AI RMF (4/4). All full coverage verified by `codetrust dod`. CLI: `codetrust compliance --framework <id>`.
+- **Agent Integrity Verification** — 4 behavioral patterns: sycophantic retraction, unsubstantiated claims, unverified references, contradictory positions. Calibrated against 20 real session incidents (100% detection). CLI: `codetrust integrity`.
+- **Definition of Done Engine** — External enforcement gate. 6 checks in TOML. Protected by file-write hook. Pre-commit blocks on failure. CLI: `codetrust dod`.
+- **Framework Integrations** — LangChain (`CodeTrustGovernance`), CrewAI (`CodeTrustCrew`), OpenAI Agents SDK (`governed_agent`). `pip install codetrust[langchain|crewai|openai-agents]`.
+- **Real-time Governance Dashboard** — 3 API endpoints (overview, timeline, alerts). 7 Next.js pages with live data polling. Enforcement, compliance, PII, classification, cost, integrity views.
+- **Completion Hallucination Detection** — 9 marker patterns, 4 evidence categories. Detects agent claims without verification evidence. MCP tool: `verify_claim`.
+- **9 EU/NIST gap-closure modules** — risk_register, privacy, conformity_assessment, red_team, governance_report, risk_map, metrics_report, treatment_plan, per-line attribution.
+
+### Changed
+- **Universal rule scoping** — 1,680 universal rules reduced to 78 (95.4% reduction). 10% faster Python scans. CLI rule routing fixed for multi-language rules.
+- **Enforcement layers** — 8 to 9 (compliance coverage added as Layer 9).
+- **Agent Integrity scoring** — weights calibrated from real incident data: unsubstantiated -2 to -3, sycophantic -3 to -4.
+- **verify_claim output** — backward-compatible top-level `claims_detected` and `results` aliases added.
+- **TOML escaping** — robust handling of control characters, \b, \f, \uXXXX per TOML v1.0 spec.
+- **`codetrust init`** — now creates `pii-policy.toml` and `model-routing.toml` with sensible defaults.
+- **`codetrust --last`** — returns exit 1 with explanation when 0 claims found (no false TRUSTWORTHY).
+- **CLAUDE.md philosophy** — enforcement handles compliance, text gives context. No mandatory tool-calls.
+
+### Fixed
+- **Telemetry blocks counter** — counted from findings list instead of empty severity dict.
+- **owasp-asi-2026.md** — 10 stale evidence references corrected against actual code.
+- **Copilot PR review** — 14 findings resolved (TOML escaping, sycophancy detector, unused imports, etc.).
 
 ## [4.0.6] - 2026-03-29
 

@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets
 - Org-level governance alerting for drift and repeat BLOCK events
 
-## [4.1.0] - 2026-04-04
+## [Unreleased — 4.1.0]
 
 ### Added
 - **PII Detection Engine** — 16 categories (email, phone, credit card with Luhn, personnummer, API keys, JWT, IBAN, private keys, passwords, URLs with credentials, SSN, passport, name, address, DOB). Auto-redaction. Per-category policy (block/warn/redact/off). CLI: `codetrust pii scan|redact|policy|report`. MCP tool: `pii_scan`. API: `POST /v1/pii/scan`.

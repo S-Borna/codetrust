@@ -48,7 +48,7 @@ export interface DashboardOverview {
     pii: {
         scans_24h: number;
         findings_24h: number;
-        top_categories: string[];
+        top_categories: Array<[string, number]>;
         blocks_24h: number;
     };
     classification: {

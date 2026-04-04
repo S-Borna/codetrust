@@ -9,7 +9,7 @@ export default function PIIPage() {
                 PII Detection
             </h1>
             <p className="mt-2 text-gray-500 dark:text-gray-400">
-                Personally identifiable information detection across 17 categories with policy enforcement.
+                Personally identifiable information detection across 16 categories with policy enforcement.
             </p>
 
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-4">
@@ -27,7 +27,7 @@ export default function PIIPage() {
                 </div>
                 <div className="rounded-lg border p-6 text-center">
                     <p className="text-sm text-gray-500">Categories</p>
-                    <p className="mt-1 text-3xl font-bold text-blue-600">17</p>
+                    <p className="mt-1 text-3xl font-bold text-blue-600">16</p>
                 </div>
             </div>
 

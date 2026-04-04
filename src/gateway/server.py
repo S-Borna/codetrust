@@ -1854,10 +1854,11 @@ async def pii_scan(
     result["redacted_text"] = report.redacted_text
     result["policy"] = policy_result
 
+    _pii_verdict_map = {"block": "BLOCK", "warn": "WARN", "redact": "WARN"}
     _audit.log(AuditEntry(
         timestamp=time.time(),
         action_type="pii_scan",
-        verdict="BLOCK" if policy_result["overall_action"] == "block" else "ALLOW",
+        verdict=_pii_verdict_map.get(str(policy_result.get("overall_action", "")), "ALLOW"),
         rule_id="pii_detection",
         original_action=f"PII scan ({len(text)} chars)",
         message=report.summary,
@@ -1936,7 +1937,7 @@ async def check_model_routing(
     _audit.log(AuditEntry(
         timestamp=time.time(),
         action_type="check_model_routing",
-        verdict="BLOCK" if decision.action == "block" else "ALLOW",
+        verdict={"block": "BLOCK", "warn": "WARN", "redact": "WARN"}.get(decision.action, "ALLOW"),
         rule_id="model_routing",
         original_action=f"route {model} for {decision.classification.sensitivity.label} data",
         message=decision.reason,

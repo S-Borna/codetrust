@@ -24,8 +24,12 @@ from src.services.cost_tracker import (
 
 
 @pytest.fixture(autouse=True)
-def _clean_cost_storage(tmp_path: Path) -> None:
-    """Use tmp_path for cost event storage to avoid polluting project."""
+def _clean_cost_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate cost storage to tmp_path so tests don't write to project CWD."""
+    monkeypatch.setattr(
+        "src.services.cost_storage._DEFAULT_STORAGE_PATH",
+        str(tmp_path / ".codetrust" / "cost-events.jsonl"),
+    )
 
 
 # ───────────────────────────────────────────────────────────────

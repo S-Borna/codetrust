@@ -4818,6 +4818,14 @@ def _dashboard_pii(hours: int = 24) -> dict:
                         continue
                     if entry.get("action_type") == "pii_scan":
                         scans += 1
+                        msg = str(entry.get("message", ""))
+                        # Parse "N PII items found: 1 email, 1 api_key" from message
+                        import re as _re
+                        count_match = _re.match(r"(\d+) PII item", msg)
+                        if count_match:
+                            findings += int(count_match.group(1))
+                        for cat_match in _re.finditer(r"(\d+) (\w+)", msg):
+                            cat_counter[cat_match.group(2)] += int(cat_match.group(1))
                         if entry.get("verdict") == "BLOCK":
                             pii_blocks += 1
                 except (json.JSONDecodeError, ValueError):

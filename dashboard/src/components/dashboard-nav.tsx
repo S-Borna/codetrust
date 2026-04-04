@@ -52,12 +52,15 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                     >
                         CodeTrust
                     </Link>
-                    <nav className="hidden sm:flex items-center gap-1">
+                    <nav className="hidden sm:flex items-center gap-1 flex-wrap">
                         <Link href="/dashboard" className={navClass("/dashboard")}>Overview</Link>
+                        <Link href="/dashboard/enforcement" className={navClass("/dashboard/enforcement")}>Enforcement</Link>
+                        <Link href="/dashboard/compliance" className={navClass("/dashboard/compliance")}>Compliance</Link>
+                        <Link href="/dashboard/pii" className={navClass("/dashboard/pii")}>PII</Link>
+                        <Link href="/dashboard/classification" className={navClass("/dashboard/classification")}>Classification</Link>
+                        <Link href="/dashboard/cost" className={navClass("/dashboard/cost")}>Cost</Link>
+                        <Link href="/dashboard/integrity" className={navClass("/dashboard/integrity")}>Integrity</Link>
                         <Link href="/dashboard/team" className={navClass("/dashboard/team")}>Team</Link>
-                        <Link href="/dashboard/api-keys" className={navClass("/dashboard/api-keys")}>API Keys</Link>
-                        <Link href="/dashboard/governance" className={navClass("/dashboard/governance")}>Governance</Link>
-                        <Link href="/dashboard/pricing" className={navClass("/dashboard/pricing")}>Pricing</Link>
                         <Link href="/dashboard/settings" className={navClass("/dashboard/settings")}>Settings</Link>
                     </nav>
                 </div>

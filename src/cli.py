@@ -125,6 +125,9 @@ def _classify_rule_entry(
             cats.get(f"nginx_{sev_lower}", cats["nginx_warn"]).append(entry)
         elif ft_set == {".bicep"}:
             cats.get(f"bicep_{sev_lower}", cats["bicep_warn"]).append(entry)
+        elif ft_set & {".py", ".js", ".ts", ".go", ".java", ".rb", ".rs", ".c", ".cpp", ".cs", ".php"}:
+            # Multi-language code rules → generic bucket (applied to all code files)
+            cats.get(f"generic_{sev_lower}", cats["generic_warn"]).append(entry)
         else:
             cats.get(f"devops_{sev_lower}", cats["devops_warn"]).append(entry)
     else:
@@ -3125,6 +3128,72 @@ def _init_dod_file(project_dir: Path) -> None:
     _echo(f"  {color('✅', GREEN)} Created Definition of Done: {dod_path}")
 
 
+def _init_pii_policy(project_dir: Path) -> None:
+    """Create a default PII detection policy if it doesn't exist."""
+    policy_path = project_dir / ".codetrust" / "pii-policy.toml"
+    if policy_path.exists():
+        _echo(f"  {color('✅', GREEN)} PII policy already exists")
+        return
+
+    content = (
+        "# PII Detection Policy\n"
+        "# Controls how CodeTrust handles personally identifiable information.\n"
+        "\n"
+        "[pii]\n"
+        'enabled = true\n'
+        'mode = "warn"              # "block" | "warn" | "redact" | "off"\n'
+        "min_confidence = 0.7\n"
+        "log_findings = true\n"
+        "\n"
+        "[pii.categories]\n"
+        '# Override mode per category\n'
+        'api_key = "block"\n'
+        'private_key = "block"\n'
+        'password = "block"\n'
+        'credit_card = "block"\n'
+        'personnummer = "block"\n'
+        'email = "warn"\n'
+        'phone = "warn"\n'
+        'name = "off"\n'
+    )
+    policy_path.write_text(content, encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} Created PII policy: {policy_path}")
+
+
+def _init_model_routing_policy(project_dir: Path) -> None:
+    """Create a default model routing policy if it doesn't exist."""
+    policy_path = project_dir / ".codetrust" / "model-routing.toml"
+    if policy_path.exists():
+        _echo(f"  {color('✅', GREEN)} Model routing policy already exists")
+        return
+
+    content = (
+        "# Model Routing Policy\n"
+        "# Controls which LLM models can access data at each sensitivity level.\n"
+        "\n"
+        "[model_routing]\n"
+        "enabled = true\n"
+        '"default_action" = "warn"\n'
+        "\n"
+        "[model_routing.levels.public]\n"
+        'allowed_models = ["*"]\n'
+        "\n"
+        "[model_routing.levels.internal]\n"
+        'allowed_models = ["claude-*", "gpt-4o", "gpt-4o-mini"]\n'
+        'blocked_models = ["*-preview", "experimental-*"]\n'
+        "\n"
+        "[model_routing.levels.confidential]\n"
+        'allowed_models = ["claude-opus-*", "claude-sonnet-*", "gpt-4o"]\n'
+        "\n"
+        "[model_routing.levels.restricted]\n"
+        "allowed_models = []\n"
+        'action = "block"\n'
+        "redact_before_send = true\n"
+    )
+    policy_path.write_text(content, encoding="utf-8")
+    _echo(f"  {color('✅', GREEN)} Created model routing policy: {policy_path}")
+
+
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
@@ -3271,6 +3340,10 @@ def cmd_init(args: argparse.Namespace) -> int:
 
     # Definition of Done file
     _init_dod_file(project_dir)
+
+    # PII policy + model routing policy
+    _init_pii_policy(project_dir)
+    _init_model_routing_policy(project_dir)
 
     # Audit allow-list after installation — BLOCK if dangerous entries found
     audit_findings = audit_allow_list(project_dir)
@@ -5017,6 +5090,61 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     _echo(f"\n  {color('Layer 9: Compliance Coverage', BOLD)}")
     issues.extend(_doctor_check_compliance())
 
+    # Data classification + model routing (informational)
+    from src.services.model_router import load_routing_policy
+    routing_policy = load_routing_policy(project_dir)
+    _echo(f"\n  {color('Data Classification + Model Routing', BOLD)}")
+    if routing_policy.get("enabled", True):
+        level_count = len(routing_policy.get("levels", {}))
+        model_lists = routing_policy.get("levels", {})
+        configured_models = set()
+        for lp in model_lists.values():
+            for m in lp.get("allowed_models", []):
+                if m != "*":
+                    configured_models.add(m)
+        _echo(f"    ✅ Enabled ({level_count} sensitivity levels, {len(configured_models)} model patterns configured)")
+    else:
+        _echo("    Data classification disabled")
+
+    # PII policy (informational)
+    from src.services.pii_detector import load_pii_policy
+    pii_policy = load_pii_policy(project_dir)
+    _echo(f"\n  {color('PII Detection', BOLD)}")
+    if pii_policy.get("enabled", True):
+        pii_mode = pii_policy.get("mode", "warn")
+        blocked_cats = [
+            cat for cat, m in pii_policy.get("categories", {}).items() if m == "block"
+        ]
+        _echo(f"    ✅ Enabled (mode: {pii_mode}, {len(blocked_cats)} categories on block)")
+    else:
+        _echo("    PII detection disabled")
+
+    # Cost tracking (informational)
+    from src.services.cost_tracker import load_cost_config
+    cost_cfg = load_cost_config(project_dir)
+    _echo(f"\n  {color('Cost Tracking', BOLD)}")
+    if cost_cfg.get("enabled", True):
+        budget = cost_cfg.get("budget", {})
+        limit = budget.get("monthly_limit", 0)
+        if limit and limit > 0:
+            _echo(f"    ✅ Enabled (budget ${limit:.0f}/month)")
+        else:
+            _echo("    ✅ Enabled (no budget limit configured)")
+    else:
+        _echo("    Cost tracking disabled")
+
+    # Framework integrations (informational — not an enforcement layer)
+    detected = detect_frameworks()
+    installed_frameworks = [fw for fw in detected if fw["installed"]]
+    if installed_frameworks:
+        _echo(f"\n  {color('Framework Integrations (detected)', BOLD)}")
+        for fw in installed_frameworks:
+            _echo(f"    ✅ {fw['name']} v{fw['version']} — governance via {fw['class']}")
+    else:
+        _echo(f"\n  {color('Framework Integrations', BOLD)}")
+        _echo("    No frameworks detected (LangChain, CrewAI, OpenAI Agents)")
+        _echo("    Install with: pip install codetrust[langchain]")
+
     # Summary
     _echo(f"\n{'━' * 48}")
     if not issues:
@@ -5803,6 +5931,10 @@ def _add_governance_policy_audit_subparsers(
     _add_compliance_subparser(subparsers)
     _add_dod_subparser(subparsers)
     _add_integrity_subparser(subparsers)
+    _add_integrations_subparser(subparsers)
+    _add_pii_subparser(subparsers)
+    _add_classify_subparser(subparsers)
+    _add_cost_subparser(subparsers)
     _add_eu_nist_subparsers(subparsers)
 
 
@@ -5956,6 +6088,97 @@ def _add_integrity_subparser(
     )
 
 
+def _add_integrations_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'integrations' subcommand for framework detection."""
+    int_parser = subparsers.add_parser(
+        "integrations",
+        help="List detected AI frameworks and CodeTrust integration status",
+    )
+    int_parser.add_argument(
+        "--check", action="store_true",
+        help="Verify that integrations can be imported",
+    )
+    int_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output as JSON",
+    )
+
+
+def _add_pii_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'pii' subcommand for PII detection."""
+    pii_parser = subparsers.add_parser(
+        "pii",
+        help="Detect personally identifiable information (PII)",
+    )
+    pii_sub = pii_parser.add_subparsers(dest="pii_action")
+
+    scan_p = pii_sub.add_parser("scan", help="Scan file or stdin for PII")
+    scan_p.add_argument("file", nargs="?", help="File to scan (omit for --stdin)")
+    scan_p.add_argument("--stdin", action="store_true", help="Read from stdin")
+    scan_p.add_argument("--json", action="store_true", dest="json_output")
+
+    redact_p = pii_sub.add_parser("redact", help="Show redacted version of file")
+    redact_p.add_argument("file", help="File to redact")
+
+    pii_sub.add_parser("policy", help="Show active PII policy")
+
+    report_p = pii_sub.add_parser("report", help="PII report for project")
+    report_p.add_argument("--json", action="store_true", dest="json_output")
+
+
+def _add_classify_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'classify' subcommand for data classification + model routing."""
+    cls_parser = subparsers.add_parser(
+        "classify",
+        help="Classify data sensitivity and check model routing",
+    )
+    cls_parser.add_argument("path", nargs="?", help="File or directory to classify")
+    cls_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
+    cls_parser.add_argument("--model", help="Check if model is allowed for this data")
+    cls_parser.add_argument("--report", action="store_true", help="Full report with summary")
+    cls_parser.add_argument("--json", action="store_true", dest="json_output")
+
+
+def _add_cost_subparser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register 'cost' subcommand for LLM cost tracking."""
+    cost_parser = subparsers.add_parser(
+        "cost", help="LLM cost tracking per developer/team",
+    )
+    cost_sub = cost_parser.add_subparsers(dest="cost_action")
+
+    # Default: report
+    report_p = cost_sub.add_parser("report", help="Cost report (default)")
+    report_p.add_argument("--period", choices=["daily", "weekly", "monthly"], default="monthly")
+    report_p.add_argument("--developer", help="Filter by developer")
+    report_p.add_argument("--team", help="Filter by team")
+    report_p.add_argument("--model", help="Filter by model pattern")
+    report_p.add_argument("--project", help="Filter by project")
+    report_p.add_argument("--json", action="store_true", dest="json_output")
+    report_p.add_argument("--export", choices=["csv"], help="Export format")
+
+    cost_sub.add_parser("budget", help="Show budget status")
+    cost_sub.add_parser("anomalies", help="Show cost anomalies")
+
+    log_p = cost_sub.add_parser("log", help="Log a usage event")
+    log_p.add_argument("event_json", help="JSON string with model, provider, input_tokens, output_tokens")
+
+    # Also support bare `codetrust cost` as alias for report
+    cost_parser.add_argument("--period", choices=["daily", "weekly", "monthly"], default="monthly")
+    cost_parser.add_argument("--developer", help="Filter by developer")
+    cost_parser.add_argument("--team", help="Filter by team")
+    cost_parser.add_argument("--model", help="Filter by model pattern")
+    cost_parser.add_argument("--project", help="Filter by project")
+    cost_parser.add_argument("--json", action="store_true", dest="json_output")
+
+
 def _audit_entries_to_session(
     entries: list[dict[str, object]],
 ) -> tuple[list[dict[str, str]], list[str]]:
@@ -5994,6 +6217,439 @@ def _audit_entries_to_session(
             messages.append({"role": "tool", "content": message})
 
     return messages, commands
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Framework Integrations
+# ═══════════════════════════════════════════════════════════════
+
+_FRAMEWORK_SPECS: list[dict[str, str]] = [
+    {
+        "name": "LangChain",
+        "import": "langchain",
+        "integration": "src.integrations.langchain",
+        "class": "CodeTrustGovernance",
+        "install": "pip install codetrust[langchain]",
+    },
+    {
+        "name": "CrewAI",
+        "import": "crewai",
+        "integration": "src.integrations.crewai",
+        "class": "CodeTrustCrew",
+        "install": "pip install codetrust[crewai]",
+    },
+    {
+        "name": "OpenAI Agents SDK",
+        "import": "agents",
+        "integration": "src.integrations.openai_agents",
+        "class": "governed_agent",
+        "install": "pip install codetrust[openai-agents]",
+    },
+]
+
+
+def detect_frameworks() -> list[dict[str, object]]:
+    """Detect installed AI frameworks and CodeTrust integration availability.
+
+    Returns:
+        List of dicts with name, installed (bool), integration_available (bool).
+    """
+    import importlib
+
+    results: list[dict[str, object]] = []
+    for spec in _FRAMEWORK_SPECS:
+        installed = False
+        integration_ok = False
+        version = ""
+
+        try:
+            mod = importlib.import_module(spec["import"])
+            installed = True
+            version = getattr(mod, "__version__", "unknown")
+        except ImportError:
+            pass
+
+        try:
+            importlib.import_module(spec["integration"])
+            integration_ok = True
+        except ImportError:
+            pass
+
+        results.append({
+            "name": spec["name"],
+            "installed": installed,
+            "version": version,
+            "integration_available": integration_ok,
+            "class": spec["class"],
+            "install_hint": spec["install"],
+        })
+    return results
+
+
+def cmd_integrations(args: argparse.Namespace) -> int:
+    """Handle the 'integrations' CLI command — list frameworks and status."""
+    use_check: bool = getattr(args, "check", False)
+    use_json: bool = getattr(args, "json_output", False)
+
+    results = detect_frameworks()
+
+    if use_json:
+        _echo(json.dumps(results, indent=2))
+        return 0
+
+    _echo(f"\n{color('Framework Integrations', BOLD)}\n")
+
+    for fw in results:
+        if fw["installed"]:
+            status = color(f"installed (v{fw['version']})", GREEN)
+            gov = f"governance via {fw['class']}"
+        else:
+            status = color("not installed", YELLOW if not use_check else RED)
+            gov = fw["install_hint"]
+
+        _echo(f"  {fw['name']:20s}  {status}")
+        _echo(f"  {'':20s}  {gov}")
+        _echo("")
+
+    if use_check:
+        all_ok = all(r["integration_available"] for r in results if r["installed"])
+        if all_ok:
+            _echo(color("  All detected frameworks have governance integrations.\n", GREEN))
+        else:
+            _echo(color("  Some integrations failed to load.\n", RED))
+            return 1
+
+    return 0
+
+
+def cmd_pii(args: argparse.Namespace) -> int:
+    """Handle the 'pii' CLI command — PII detection and redaction."""
+    from src.services.pii_detector import (
+        load_pii_policy,
+        redact,
+        scan_text,
+    )
+
+    action = getattr(args, "pii_action", None)
+    if not action:
+        _echo("Usage: codetrust pii {scan,redact,policy,report}")
+        return 1
+
+    if action == "policy":
+        policy = load_pii_policy()
+        _echo(f"\n{color('PII Policy', BOLD)}\n")
+        _echo(f"  Enabled:        {policy['enabled']}")
+        _echo(f"  Mode:           {policy['mode']}")
+        _echo(f"  Min confidence: {policy['min_confidence']}")
+        _echo("\n  Category overrides:")
+        for cat, mode in sorted(policy.get("categories", {}).items()):
+            _echo(f"    {cat:20s}  {mode}")
+        _echo("")
+        return 0
+
+    if action == "scan":
+        use_stdin: bool = getattr(args, "stdin", False)
+        file_path: str = getattr(args, "file", "") or ""
+        use_json: bool = getattr(args, "json_output", False)
+
+        if use_stdin:
+            text = sys.stdin.read()
+        elif file_path:
+            try:
+                text = Path(file_path).read_text(encoding="utf-8")
+            except OSError as exc:
+                _echo(f"Error reading file: {exc}")
+                return 1
+        else:
+            _echo("Error: specify a file or --stdin")
+            return 1
+
+        policy = load_pii_policy()
+        report = scan_text(text, min_confidence=policy.get("min_confidence", 0.7))
+
+        if use_json:
+            _echo(json.dumps(report.to_dict(), indent=2))
+        else:
+            _echo(f"\n{color('PII Scan Results', BOLD)}")
+            _echo(f"  Risk level: {report.risk_level}")
+            _echo(f"  {report.summary}\n")
+            for f in report.findings:
+                _echo(f"  [{f.category.upper()}] confidence={f.confidence:.0%} "
+                      f"offset={f.start}-{f.end}")
+                _echo(f"    {f.context}")
+            if not report.findings:
+                _echo(color("  No PII detected.\n", GREEN))
+        return 0
+
+    if action == "redact":
+        file_path = getattr(args, "file", "")
+        if not file_path:
+            _echo("Error: specify a file to redact")
+            return 1
+        try:
+            text = Path(file_path).read_text(encoding="utf-8")
+        except OSError as exc:
+            _echo(f"Error reading file: {exc}")
+            return 1
+        _echo(redact(text, min_confidence=0.7))
+        return 0
+
+    if action == "report":
+        use_json = getattr(args, "json_output", False)
+        project_dir = Path.cwd()
+        # Scan common config/env files
+        targets = list(project_dir.glob("**/.env*")) + list(project_dir.glob("**/config*"))
+        targets = [f for f in targets if f.is_file() and f.stat().st_size < 100_000]
+
+        all_findings: list[dict[str, object]] = []
+        for target in targets[:50]:  # limit to 50 files
+            try:
+                text = target.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            report = scan_text(text, min_confidence=0.7)
+            if report.findings:
+                all_findings.append({
+                    "file": str(target.relative_to(project_dir)),
+                    "findings": len(report.findings),
+                    "risk_level": report.risk_level,
+                    "summary": report.summary,
+                })
+
+        if use_json:
+            _echo(json.dumps(all_findings, indent=2))
+        else:
+            _echo(f"\n{color('PII Report', BOLD)}\n")
+            if all_findings:
+                for entry in all_findings:
+                    _echo(f"  {entry['file']}: {entry['summary']} [{entry['risk_level']}]")
+            else:
+                _echo(color("  No PII detected in scanned files.\n", GREEN))
+        return 0
+
+    _echo(f"Unknown pii action: {action}")
+    return 1
+
+
+def cmd_classify(args: argparse.Namespace) -> int:
+    """Handle the 'classify' CLI command — data classification + model routing."""
+    from src.services.data_classifier import classify_file, classify_text
+    from src.services.model_router import evaluate_routing
+
+    target_path: str = getattr(args, "path", "") or ""
+    use_stdin: bool = getattr(args, "stdin", False)
+    model_name: str = getattr(args, "model", "") or ""
+    use_report: bool = getattr(args, "report", False)
+    use_json: bool = getattr(args, "json_output", False)
+
+    # Collect files to classify
+    results: list[dict[str, object]] = []
+
+    if use_stdin:
+        text = sys.stdin.read()
+        result = classify_text(text)
+        entry: dict[str, object] = {"file": "<stdin>", "classification": result}
+        if model_name:
+            routing = evaluate_routing(text, model_name)
+            entry["routing"] = routing
+        results.append(entry)
+
+    elif target_path:
+        p = Path(target_path)
+        if p.is_file():
+            try:
+                result = classify_file(p)
+                entry = {"file": str(p), "classification": result}
+                if model_name:
+                    text = p.read_text(encoding="utf-8", errors="replace")
+                    routing = evaluate_routing(text, model_name, file_path=str(p))
+                    entry["routing"] = routing
+                results.append(entry)
+            except OSError as exc:
+                _echo(f"Error reading {p}: {exc}")
+                return 1
+        elif p.is_dir():
+            # Scan directory — common code file extensions
+            extensions = {".py", ".js", ".ts", ".go", ".java", ".rs", ".rb", ".md", ".toml", ".yaml", ".yml", ".json", ".env"}
+            files = sorted(f for f in p.rglob("*") if f.is_file() and (f.suffix in extensions or f.name.startswith(".env")))
+            files = [f for f in files if ".git/" not in str(f) and "__pycache__" not in str(f) and f.stat().st_size < 200_000]
+            for fp in files[:100]:
+                try:
+                    result = classify_file(fp)
+                    entry = {"file": str(fp.relative_to(p) if fp.is_relative_to(p) else fp), "classification": result}
+                    if model_name:
+                        text = fp.read_text(encoding="utf-8", errors="replace")
+                        routing = evaluate_routing(text, model_name, file_path=str(fp))
+                        entry["routing"] = routing
+                    results.append(entry)
+                except OSError:
+                    continue
+        else:
+            _echo(f"Error: path not found: {target_path}")
+            return 1
+    else:
+        _echo("Usage: codetrust classify <file|dir> [--model MODEL] [--report] [--json]")
+        return 1
+
+    if use_json:
+        json_results = []
+        for r in results:
+            jr: dict[str, object] = {"file": r["file"], **r["classification"].to_dict()}
+            if "routing" in r:
+                jr["routing"] = r["routing"].to_dict()
+            json_results.append(jr)
+        _echo(json.dumps(json_results, indent=2))
+        return 0
+
+    # Human-readable output
+    _echo("")
+    level_counts: dict[str, int] = {}
+    route_counts: dict[str, int] = {"allow": 0, "warn": 0, "block": 0, "redact": 0}
+
+    for r in results:
+        cls = r["classification"]
+        level = cls.sensitivity.label.upper()
+        level_counts[level] = level_counts.get(level, 0) + 1
+        reason_hint = ""
+        if cls.reasons and cls.reasons[0] != "No sensitivity indicators detected":
+            reason_hint = f" — {cls.reasons[0]}"
+
+        line = f"  {r['file']:.<50s} {level} ({cls.confidence:.2f}){reason_hint}"
+        _echo(line)
+
+        if "routing" in r:
+            rt = r["routing"]
+            action = rt.action.upper()
+            route_counts[rt.action] = route_counts.get(rt.action, 0) + 1
+            _echo(f"  {'':50s} routing: {action} for {model_name}")
+
+    if use_report or len(results) > 1:
+        _echo("")
+        parts = [f"{c} {lev.lower()}" for lev, c in sorted(level_counts.items())]
+        _echo(f"  Summary: {', '.join(parts)}")
+        if model_name:
+            route_parts = [f"{c} {act}" for act, c in sorted(route_counts.items()) if c > 0]
+            _echo(f"  Model routing for {model_name}: {', '.join(route_parts)}")
+
+    _echo("")
+    return 0
+
+
+def cmd_cost(args: argparse.Namespace) -> int:
+    """Handle the 'cost' CLI command — LLM cost tracking."""
+    from src.services.cost_storage import read_events
+    from src.services.cost_tracker import check_budget, detect_anomalies, generate_report, log_usage
+
+    action = getattr(args, "cost_action", None) or "report"
+
+    if action == "log":
+        event_json_str: str = getattr(args, "event_json", "")
+        try:
+            raw = json.loads(event_json_str)
+        except json.JSONDecodeError as exc:
+            _echo(f"Invalid JSON: {exc}")
+            return 1
+        event = log_usage(
+            model=raw.get("model", "unknown"),
+            provider=raw.get("provider", "unknown"),
+            input_tokens=int(raw.get("input_tokens", 0)),
+            output_tokens=int(raw.get("output_tokens", 0)),
+            action=raw.get("action", "code_generation"),
+            developer=raw.get("developer", ""),
+            team=raw.get("team", ""),
+            session_id=raw.get("session_id", ""),
+        )
+        _echo(f"Logged: {event.model} {event.total_tokens} tokens ${event.estimated_cost_usd:.4f}")
+        return 0
+
+    if action == "budget":
+        events = read_events()
+        total = sum(e.estimated_cost_usd for e in events)
+        by_dev = {}
+        for e in events:
+            by_dev[e.developer] = by_dev.get(e.developer, 0) + e.estimated_cost_usd
+        status = check_budget(total, by_dev)
+        _echo(f"\n{color('Budget Status', BOLD)}\n")
+        if not status.get("configured"):
+            _echo("  No budget configured in .codetrust.toml [cost.budget]")
+            _echo("  Add monthly_limit to enable budget tracking.\n")
+        else:
+            _echo(f"  {status['message']}")
+            _echo(f"  Monthly limit: ${status['monthly_limit']:.2f}")
+            _echo(f"  Used: ${status['total_cost']:.2f} ({status['usage_percent']:.0f}%)")
+            if status.get("developer_alerts"):
+                _echo("\n  Developer alerts:")
+                for alert in status["developer_alerts"]:
+                    _echo(f"    {alert['developer']}: ${alert['cost']:.2f} / ${alert['limit']:.2f} [{alert['level']}]")
+            _echo("")
+        return 0
+
+    if action == "anomalies":
+        events = read_events()
+        anomalies = detect_anomalies(events)
+        _echo(f"\n{color('Cost Anomalies', BOLD)}\n")
+        if not anomalies:
+            _echo("  No anomalies detected.\n")
+        else:
+            for a in anomalies:
+                _echo(f"  [{a['type']}] {a['detail']}")
+            _echo("")
+        return 0
+
+    # Default: report
+    period = getattr(args, "period", "monthly") or "monthly"
+    developer = getattr(args, "developer", "") or ""
+    team = getattr(args, "team", "") or ""
+    model_filter = getattr(args, "model", "") or ""
+    project_filter = getattr(args, "project", "") or ""
+    use_json = getattr(args, "json_output", False)
+    export_fmt = getattr(args, "export", None)
+
+    report = generate_report(
+        period=period, developer=developer, team=team,
+        model_filter=model_filter, project_filter=project_filter,
+    )
+
+    if use_json:
+        _echo(json.dumps(report.to_dict(), indent=2))
+        return 0
+
+    if export_fmt == "csv":
+        _echo("timestamp,model,provider,developer,team,project,input_tokens,output_tokens,cost_usd")
+        events = read_events()
+        for e in events:
+            _echo(f"{e.timestamp},{e.model},{e.provider},{e.developer},{e.team},{e.project},{e.input_tokens},{e.output_tokens},{e.estimated_cost_usd}")
+        return 0
+
+    _echo(f"\n{color(f'Cost Report ({period})', BOLD)}")
+    _echo(f"  Period: {report.start_date[:10]} to {report.end_date[:10]}")
+    _echo(f"  Events: {report.event_count}")
+    _echo(f"  Total tokens: {report.total_tokens:,}")
+    _echo(f"  Total cost: ${report.total_cost_usd:.2f}\n")
+
+    if report.by_model:
+        _echo("  By model:")
+        for model_name, cost in sorted(report.by_model.items(), key=lambda x: -x[1]):
+            _echo(f"    {model_name:30s} ${cost:.2f}")
+        _echo("")
+
+    if report.by_developer:
+        _echo("  By developer:")
+        for dev, cost in sorted(report.by_developer.items(), key=lambda x: -x[1]):
+            _echo(f"    {dev:30s} ${cost:.2f}")
+        _echo("")
+
+    if report.anomalies:
+        _echo(f"  {color('Anomalies:', YELLOW)}")
+        for a in report.anomalies:
+            _echo(f"    {a['detail']}")
+        _echo("")
+
+    if report.budget_status and report.budget_status.get("configured"):
+        bs = report.budget_status
+        _echo(f"  Budget: {bs['message']}\n")
+
+    return 0
 
 
 def cmd_integrity(args: argparse.Namespace) -> int:
@@ -6942,6 +7598,14 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_compliance(args)
     if args.command == "integrity":
         return cmd_integrity(args)
+    if args.command == "integrations":
+        return cmd_integrations(args)
+    if args.command == "pii":
+        return cmd_pii(args)
+    if args.command == "classify":
+        return cmd_classify(args)
+    if args.command == "cost":
+        return cmd_cost(args)
     if args.command == "dod":
         return cmd_dod(args)
     if args.command == "risk-register":

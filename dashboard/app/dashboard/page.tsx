@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ScanHistoryTable } from "@/components/scan-history";
 import { UsageChart } from "@/components/usage-chart";
+import { GovernanceOverview } from "@/components/governance-overview";
 import { apiClient } from "@/lib/api";
 import { BackendAuthRequired } from "@/components/backend-auth-required";
 import { PlanGate } from "@/components/plan-gate";
@@ -63,6 +64,9 @@ export default async function DashboardPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Governance overview — polls /v1/dashboard/overview every 30s */}
+            <GovernanceOverview apiKey={apiKey} />
 
             <PlanGate
                 currentPlan={plan}

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>v4.0.6</code> &middot; <code>3,006 rules</code> &middot; <code>8 enforcement layers</code> &middot; <code>2,509 tests</code>
+  <code>v4.0.6</code> &middot; <code>2,924 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>2,989 tests</code>
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@ GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 — these models write code, run t
 
 ```bash
 pip install codetrust && codetrust init && codetrust doctor
-# 8/8 layers active — governance enforced. 30 seconds.
+# 9/9 layers active — governance enforced. 30 seconds.
 ```
 
 ---
@@ -113,7 +113,7 @@ The BASH_ENV guard intercepts every `/bin/bash -c` command on the machine — it
 `codetrust init` auto-installs two enforcement layers:
 
 - **BASH_ENV guard** — intercepts every bash command before execution. Works in all IDEs, all agents, cannot be bypassed by the agent. Pure bash, 26ms overhead, zero dependencies.
-- **PreToolUse hooks** — Claude Code CLI-specific interception. 44 blocked patterns, 13 protected paths, 6 secret detection rules.
+- **PreToolUse hooks** — Claude Code CLI-specific interception. 44 blocked patterns, 14 protected paths, 6 secret detection rules.
 
 `git push` → BLOCKED. `rm -rf /` → BLOCKED. Heredoc → BLOCKED. `curl | sh` → BLOCKED.
 
@@ -136,7 +136,7 @@ No other tool gives engineering leadership this level of control over AI usage.
 
 AI agents are instructed by governance files (CLAUDE.md, .cursorrules, .codetrust.toml). Without protection, the agent can modify these files to remove its own restrictions.
 
-CodeTrust's file-write guard protects 13 governance file paths. Any attempt to modify governance files → **BLOCKED**. The agent cannot weaken its own oversight.
+CodeTrust's file-write guard protects 14 governance file paths. Any attempt to modify governance files → **BLOCKED**. The agent cannot weaken its own oversight.
 
 ### 5. Commit Guards — Nothing Unsafe Reaches Main
 
@@ -154,37 +154,35 @@ AI agents hallucinate packages and functions that don't exist. CodeTrust catches
 
 ## 8 More Capabilities
 
-### 7. AI Governance Gateway
-82 interception rules. 4 validators (command, file write, file delete, package). 4 proxy tools. Interpreter -c/-e bypass detection. Governance weakening detection.
+### 7. PII Detection — 16 Categories
+Emails, phone numbers, credit cards (Luhn-validated), Swedish personnummer, API keys, passwords, JWTs, IBANs, IP addresses, private keys, URLs with credentials, SSNs, names, addresses, dates of birth, passport numbers. Auto-redaction. Policy enforcement (block/warn/redact per category).
 
-### 8. Guided Remediation — 2,924 Individual Suggestions
+### 8. Data Classification + Model Routing
+Automatic sensitivity assessment: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED. Per-sensitivity model routing — restrict which LLMs can access which data. Auto-redact restricted content before sending to any model.
+
+### 9. LLM Cost Tracking
+20 models with current pricing (Claude 4.x, GPT-4.1/o3/o4, Gemini 2.x, Llama 4). Per-developer, per-team, per-model aggregation. Budget enforcement (warn/alert/block). Anomaly detection (3x daily average, 50%+ team concentration).
+
+### 10. Compliance Frameworks — 21/21 Full
+OWASP Agentic Security Initiative 2026 (10/10), EU AI Act (7/7), NIST AI Risk Management Framework (4/4). All verified via `codetrust compliance --framework <id> --strict`. Definition of Done enforcement gate.
+
+### 11. Agent Integrity Verification
+4 behavioral patterns: sycophantic retraction, unsubstantiated claims, unverified references, contradictory positions. Calibrated against 20 real session incidents. 100% detection rate. CLI: `codetrust integrity`.
+
+### 12. Framework Integrations
+LangChain (`CodeTrustGovernance` callback handler), CrewAI (`CodeTrustCrew` governed crew), OpenAI Agents SDK (`governed_agent` tool wrapper). 3 lines of code to add governance. `pip install codetrust[langchain]`.
+
+### 13. Real-time Governance Dashboard
+6-section overview (enforcement, compliance, PII, classification, cost, integrity). Live polling every 30s. Timeline, alerts, per-framework detail pages. `app.codetrust.ai`.
+
+### 14. Guided Remediation — 2,924 Individual Suggestions
 Every BLOCK finding includes root cause, exact fix, CVE references. 17 special handlers. The agent reads the suggestion and self-corrects. Zero templates.
-
-### 9. Cross-Language Taint Analysis
-323 definitions across 7 languages (Python, JS/TS, Go, Java, C#, Kotlin, Rust). Cross-file + cross-language (HTTP/gRPC boundary) tracking. SQL injection, XSS, SSRF, path traversal, deserialization.
-
-### 10. Static Analysis — 2,924 Rules
-92 file extensions. 23+ languages. Pre-indexed by extension, pre-compiled regex. 2ms worst case.
-
-### 11. AST Deep Analysis
-10 tree-sitter structural checks. 9 languages. Missing timeout, resource limits, broad exception, silent swallow, unbounded loops, mutable state.
-
-### 12. Trust Score & Drift Tracking
-0-100 safety score. Baseline comparison. Grade curve A+ through F. CI fail threshold. `codetrust trust-diff`, `codetrust trend`.
-
-### 13. Vulnerability & License Scanning
-CVE scanning via OSV + NVD CVSS enrichment. License compliance. SBOM generation (CycloneDX, SPDX).
-
-### 14. Docker & Infrastructure Verification
-Ghost image detection. Root user, missing WORKDIR/healthcheck. Kubernetes resource limits. Terraform/HCL rules.
 
 ---
 
-## Scan Coverage — 10 Analysis Categories
+## Scan Coverage
 
-Static analysis, root cause analysis, SQL safety, AST structural analysis, container hardening, infrastructure-as-code, framework rules (React, Kubernetes, CI/CD), live import verification, Docker image verification, and real-time AI governance gateway.
-
-**2,924 scan rules + 82 gateway rules = 3,006 total.**
+Static analysis (2,924 rules, 89 extensions), AST structural analysis (10 tree-sitter checks), cross-language taint (7 languages), container/IaC hardening, live import verification (8 registries), and real-time AI governance gateway (44 BLOCK patterns).
 
 ---
 
@@ -193,7 +191,7 @@ Static analysis, root cause analysis, SQL safety, AST structural analysis, conta
 ```bash
 pip install codetrust
 cd your-project
-codetrust init          # Installs 8 enforcement layers
+codetrust init          # Installs 9 enforcement layers
 codetrust doctor        # Verifies all layers active
 codetrust scan .        # Scan your code
 ```
@@ -204,20 +202,17 @@ codetrust scan .        # Scan your code
 
 | Metric | Value |
 |--------|-------|
-| Scan rules | 2,924 |
-| Gateway rules | 82 |
-| Total rules | 3,006 |
-| Enforcement layers | 8 |
-| Guided remediation suggestions | 2,924 |
-| Taint definitions | 323 across 7 languages |
-| AST checks | 10 |
-| Signature database | 50 modules, 405 functions |
-| Import registries | 8 |
-| File extensions | 92 |
-| MCP tools | 39 (21 scan + 18 gateway) |
-| API endpoints | 65 |
-| CLI commands | 22 |
-| Tests | 2,509 |
+| Scan rules | 2,924 (89 file extensions) |
+| Gateway interceptor | 62 rules (44 BLOCK) |
+| Enforcement layers | 9 (verified by `codetrust doctor`) |
+| Guided remediation | 2,924 individual suggestions |
+| PII detection | 16 categories with validators |
+| Compliance frameworks | 3 (OWASP 10/10, EU 7/7, NIST 4/4) |
+| Cost tracking models | 20 across 4 providers |
+| Framework integrations | 3 (LangChain, CrewAI, OpenAI) |
+| API endpoints | 72 |
+| CLI commands | 52 |
+| Tests | 2,989 |
 
 ---
 
@@ -229,37 +224,41 @@ codetrust scan .        # Scan your code
 | **VS Code** | [Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) | Scan on save, diagnostics, governance |
 | **Chrome** | Chrome Web Store | Browser-side scans on GitHub |
 | **GitHub Action** | `pip install codetrust` in CI | PR gate with SARIF upload |
-| **MCP Server** | 39 tools | Governance for Claude Code / Cursor / Windsurf |
-| **REST API** | [api.codetrust.ai](https://api.codetrust.ai/docs) | 65 endpoints |
+| **MCP Server** | 2 servers | Governance for Claude Code / Cursor / Windsurf |
+| **REST API** | [api.codetrust.ai](https://api.codetrust.ai/docs) | 72 endpoints |
 
 ---
 
-## What's New in v4.0.6
+## What's New
 
-- **BASH_ENV guard** — universal real-time enforcement across all IDEs and agents
-- **8 enforcement layers** — all verified by `codetrust doctor`
-- **Pre-commit audit trail** — every commit logged
-- **Quote-aware heredoc detection** — zero false positives
-- **Scanner quality** — FP 80% → 0%, performance 27s → 2ms
-- **Cross-language taint** — 7 languages, 323 definitions
-- **AI Observability** — model enumeration, attribution, shadow AI detection
+- **PII Detection** — 16 categories, Luhn/IBAN validators, auto-redaction, policy enforcement
+- **Data Classification + Model Routing** — 4 sensitivity levels, per-model access control
+- **LLM Cost Tracking** — 20 models, per-developer budgets, anomaly detection
+- **Compliance** — OWASP ASI 10/10, EU AI Act 7/7, NIST AI RMF 4/4
+- **Agent Integrity** — 4 behavioral patterns, calibrated against real incidents
+- **Framework Integrations** — LangChain, CrewAI, OpenAI Agents SDK
+- **Governance Dashboard** — 6-section overview with live polling
+- **Rule scoping** — universal rules 1,680 → 78 (95% reduction, 10% faster scans)
+- **Definition of Done** — external enforcement gate, `codetrust dod`
 
 ---
 
 ## CLI
 
 ```bash
+codetrust init                     # Install governance
+codetrust doctor                   # Verify 9 layers
 codetrust scan app.py              # Scan a file
-codetrust scan . --sarif           # SARIF for CI
-codetrust scan . --json            # JSON output
-codetrust doctor                   # Verify 8 layers
-codetrust pr-risk                  # PR risk summary
-codetrust trust-diff               # Trust score diff
-codetrust vuln                     # CVE scan
-codetrust license                  # License compliance
-codetrust fix --pr                 # Auto-fix PR
-codetrust governance --status      # Governance overview
+codetrust compliance --framework owasp-asi-2026  # Compliance report
+codetrust pii scan app.py          # PII detection
+codetrust classify src/ --model gpt-4o  # Data classification + routing
+codetrust cost                     # LLM cost report
+codetrust integrity --session f.json  # Agent integrity analysis
+codetrust integrations             # Framework status
+codetrust dod                      # Definition of Done gate
 codetrust audit --hours 24         # Audit trail
+codetrust pr-risk                  # PR risk summary
+codetrust vuln                     # CVE scan
 ```
 
 ---
@@ -268,8 +267,8 @@ codetrust audit --hours 24         # Audit trail
 
 | Server | Command | Tools |
 |--------|---------|-------|
-| **Scan** | `codetrust-mcp` | 21 — analysis, verification, SARIF |
-| **Gateway** | `codetrust-gateway-mcp` | 18 — real-time interception |
+| **Guardian** | `codetrust-mcp` | Scan, compliance, audit, attribution |
+| **Gateway** | `codetrust-gateway-mcp` | Real-time interception, PII, classification, cost |
 
 ```json
 {
@@ -331,13 +330,13 @@ Python, JavaScript, TypeScript, Go, Rust, Java, C#, C/C++, Ruby, PHP, Shell, Pow
 
 ## Security & Compliance
 
-Append-only audit trail. Agent auto-detection (Claude Opus 4.6, GPT-5.3, Codex 5.3, Gemini 3, Copilot, Cursor, Windsurf). Secret scanning. Rate limiting. SSO (Azure AD, Okta, Auth0, Google). GDPR export and erasure.
+Append-only audit trail. 3 compliance frameworks (OWASP ASI 10/10, EU AI Act 7/7, NIST RMF 4/4). PII detection with auto-redaction. Agent auto-detection (26 models). Secret scanning. Rate limiting. SSO (Azure AD, Okta, Auth0, Google). GDPR export and erasure. Definition of Done enforcement gate.
 
 ---
 
 ## Enterprise
 
-CVE scanning (OSV + NVD). License compliance. Cross-file import analysis. Auto-fix PRs. Team RBAC. Org-wide policy enforcement.
+PII detection (16 categories, GDPR compliance). Data classification with model routing. LLM cost tracking per developer/team. Compliance dashboards (OWASP, EU AI Act, NIST). Agent integrity verification. Framework integrations (LangChain, CrewAI, OpenAI). SSO (Azure AD, Okta, Auth0). Team RBAC. Org-wide policy enforcement.
 
 ---
 

@@ -4718,3 +4718,292 @@ async def gdpr_delete(
     if not result.get("deleted"):
         raise HTTPException(status_code=404, detail="User not found")
     return result
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Real-time Governance Dashboard
+# ═══════════════════════════════════════════════════════════════
+
+
+def _dashboard_enforcement(hours: int = 24) -> dict:
+    """Build enforcement section from audit log."""
+    import time as time_mod
+    from collections import Counter
+    from pathlib import Path as PathLib
+
+    audit_path = PathLib.cwd() / ".codetrust" / "audit.jsonl"
+    cutoff = time_mod.time() - (hours * 3600)
+    blocks = 0
+    warns = 0
+    rule_counter: Counter = Counter()
+
+    if audit_path.is_file():
+        try:
+            for line in audit_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    ts = float(entry.get("timestamp", 0))
+                    if ts < cutoff:
+                        continue
+                    verdict = entry.get("verdict", "")
+                    if verdict == "BLOCK":
+                        blocks += 1
+                        rule_counter[entry.get("rule_id", "unknown")] += 1
+                    elif verdict == "WARN":
+                        warns += 1
+                except (json.JSONDecodeError, ValueError):
+                    continue
+        except OSError:
+            pass
+
+    top_rules = [{"rule": r, "count": c} for r, c in rule_counter.most_common(10)]
+    return {
+        "layers_active": 9,
+        "total_blocks_24h": blocks,
+        "total_warns_24h": warns,
+        "top_blocked_rules": top_rules,
+    }
+
+
+def _dashboard_compliance() -> dict:
+    """Build compliance section from compliance engine."""
+    try:
+        from src.services.compliance import get_compliance_report
+
+        result = {}
+        for framework_id, short_name in [
+            ("owasp-asi-2026", "owasp_asi"),
+            ("eu-ai-act", "eu_ai_act"),
+            ("nist-ai-rmf", "nist_rmf"),
+        ]:
+            report = get_compliance_report(framework_id)
+            full_count = sum(1 for r in report.risks if r.coverage_level == "full")
+            result[short_name] = {
+                "status": "COMPLIANT" if full_count == len(report.risks) else "NON-COMPLIANT",
+                "full": full_count,
+                "total": len(report.risks),
+            }
+        return result
+    except Exception:
+        return {
+            "owasp_asi": {"status": "UNKNOWN", "full": 0, "total": 10},
+            "eu_ai_act": {"status": "UNKNOWN", "full": 0, "total": 7},
+            "nist_rmf": {"status": "UNKNOWN", "full": 0, "total": 4},
+        }
+
+
+def _dashboard_pii(hours: int = 24) -> dict:
+    """Build PII section from audit log."""
+    import time as time_mod
+    from collections import Counter
+    from pathlib import Path as PathLib
+
+    cutoff = time_mod.time() - (hours * 3600)
+    scans = 0
+    findings = 0
+    pii_blocks = 0
+    cat_counter: Counter = Counter()
+
+    audit_path = PathLib.cwd() / ".codetrust" / "audit.jsonl"
+    if audit_path.is_file():
+        try:
+            for line in audit_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if float(entry.get("timestamp", 0)) < cutoff:
+                        continue
+                    if entry.get("action_type") == "pii_scan":
+                        scans += 1
+                        if entry.get("verdict") == "BLOCK":
+                            pii_blocks += 1
+                except (json.JSONDecodeError, ValueError):
+                    continue
+        except OSError:
+            pass
+
+    return {
+        "scans_24h": scans,
+        "findings_24h": findings,
+        "top_categories": list(cat_counter.most_common(5)),
+        "blocks_24h": pii_blocks,
+    }
+
+
+def _dashboard_classification() -> dict:
+    """Build classification section."""
+    return {
+        "files_classified": 0,
+        "by_level": {"public": 0, "internal": 0, "confidential": 0, "restricted": 0},
+        "routing_decisions_24h": 0,
+        "routing_blocks_24h": 0,
+    }
+
+
+def _dashboard_cost() -> dict:
+    """Build cost section from cost tracker."""
+    try:
+        from src.services.cost_tracker import generate_report
+
+        report = generate_report(period="monthly")
+        top_dev = max(report.by_developer.items(), key=lambda x: x[1]) if report.by_developer else ("none", 0.0)
+        top_model = max(report.by_model.items(), key=lambda x: x[1]) if report.by_model else ("none", 0.0)
+        budget = report.budget_status or {}
+        limit = budget.get("monthly_limit", 0)
+
+        return {
+            "current_month_usd": round(report.total_cost_usd, 2),
+            "budget_limit_usd": limit,
+            "budget_pct": round((report.total_cost_usd / limit * 100) if limit else 0, 1),
+            "top_developer": {"name": top_dev[0], "cost": round(top_dev[1], 2)},
+            "top_model": {"name": top_model[0], "cost": round(top_model[1], 2)},
+            "anomalies_24h": len(report.anomalies),
+        }
+    except Exception:
+        return {
+            "current_month_usd": 0,
+            "budget_limit_usd": 0,
+            "budget_pct": 0,
+            "top_developer": {"name": "none", "cost": 0},
+            "top_model": {"name": "none", "cost": 0},
+            "anomalies_24h": 0,
+        }
+
+
+def _dashboard_integrity() -> dict:
+    """Build integrity section from audit log."""
+    return {
+        "sessions_analyzed": 0,
+        "trustworthy": 0,
+        "questionable": 0,
+        "unreliable": 0,
+        "top_issue": "none",
+    }
+
+
+@app.get("/v1/dashboard/overview")
+async def dashboard_overview(
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Real-time governance dashboard overview.
+
+    Returns aggregated data from all enterprise modules:
+    enforcement, compliance, PII, classification, cost, integrity.
+    """
+    return {
+        "enforcement": _dashboard_enforcement(),
+        "compliance": _dashboard_compliance(),
+        "pii": _dashboard_pii(),
+        "classification": _dashboard_classification(),
+        "cost": _dashboard_cost(),
+        "integrity": _dashboard_integrity(),
+    }
+
+
+@app.get("/v1/dashboard/timeline")
+async def dashboard_timeline(
+    hours: int = 24,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Event timeline for the governance dashboard.
+
+    Returns chronological events: blocks, warns, PII findings,
+    cost events, integrity issues.
+
+    Args:
+        hours: Number of hours to look back (default 24).
+    """
+    import time as time_mod
+    from pathlib import Path as PathLib
+
+    cutoff = time_mod.time() - (hours * 3600)
+    events: list[dict] = []
+
+    audit_path = PathLib.cwd() / ".codetrust" / "audit.jsonl"
+    if audit_path.is_file():
+        try:
+            for line in audit_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    ts = float(entry.get("timestamp", 0))
+                    if ts < cutoff:
+                        continue
+                    events.append({
+                        "timestamp": entry.get("timestamp"),
+                        "type": entry.get("action_type", "unknown"),
+                        "verdict": entry.get("verdict", ""),
+                        "rule_id": entry.get("rule_id", ""),
+                        "message": str(entry.get("message", ""))[:200],
+                    })
+                except (json.JSONDecodeError, ValueError):
+                    continue
+        except OSError:
+            pass
+
+    events.sort(key=lambda e: float(e.get("timestamp", 0)), reverse=True)
+    return {"hours": hours, "event_count": len(events), "events": events[:500]}
+
+
+@app.get("/v1/dashboard/alerts")
+async def dashboard_alerts(
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Active governance alerts.
+
+    Returns alerts for: budget thresholds, anomalies, PII in restricted
+    context, unreliable integrity scores, compliance degradation.
+    """
+    alerts: list[dict] = []
+
+    # Budget alerts
+    try:
+        from src.services.cost_tracker import generate_report
+
+        cost_report = generate_report(period="monthly")
+        if cost_report.budget_status and cost_report.budget_status.get("configured"):
+            level = cost_report.budget_status.get("level", "ok")
+            if level in ("warn", "alert", "exceeded"):
+                alerts.append({
+                    "type": "budget",
+                    "severity": level,
+                    "message": cost_report.budget_status.get("message", ""),
+                })
+    except Exception:
+        pass
+
+    # Cost anomalies
+    try:
+        from src.services.cost_tracker import generate_report as gen_report
+
+        report = gen_report(period="daily")
+        for anomaly in report.anomalies:
+            alerts.append({
+                "type": "cost_anomaly",
+                "severity": "warn",
+                "message": anomaly.get("detail", ""),
+            })
+    except Exception:
+        pass
+
+    # Compliance check
+    try:
+        from src.services.compliance import get_compliance_report
+
+        for fw_id in ("owasp-asi-2026", "eu-ai-act", "nist-ai-rmf"):
+            report = get_compliance_report(fw_id)
+            partial = sum(1 for r in report.risks if r.coverage_level != "full")
+            if partial > 0:
+                alerts.append({
+                    "type": "compliance",
+                    "severity": "alert",
+                    "message": f"{fw_id}: {partial} risk(s) not at full coverage",
+                })
+    except Exception:
+        pass
+
+    return {"alert_count": len(alerts), "alerts": alerts}

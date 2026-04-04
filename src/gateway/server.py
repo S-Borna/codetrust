@@ -1823,6 +1823,178 @@ async def run_dod_tool(
 
 
 # ═══════════════════════════════════════════════════════════════
+#  PII Detection
+# ═══════════════════════════════════════════════════════════════
+
+
+async def pii_scan(
+    text: str,
+    min_confidence: float = 0.7,
+) -> str:
+    """Scan text for personally identifiable information (PII).
+
+    Detects 15+ categories: email, phone, credit card, personnummer,
+    API keys, private keys, JWT, IBAN, IP addresses, passwords,
+    URLs with credentials, names, addresses, dates of birth, passport, SSN.
+
+    Args:
+        text: Text to scan for PII.
+        min_confidence: Minimum confidence threshold (0.0-1.0).
+
+    Returns:
+        JSON report with findings, risk level, redacted text, and summary.
+    """
+    from src.services.pii_detector import apply_policy, load_pii_policy, scan_text
+
+    report = scan_text(text, min_confidence=min_confidence)
+    policy = load_pii_policy()
+    policy_result = apply_policy(report, policy)
+
+    result = report.to_dict()
+    result["redacted_text"] = report.redacted_text
+    result["policy"] = policy_result
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="pii_scan",
+        verdict="BLOCK" if policy_result["overall_action"] == "block" else "ALLOW",
+        rule_id="pii_detection",
+        original_action=f"PII scan ({len(text)} chars)",
+        message=report.summary,
+        suggestion="Remove or redact PII before sharing.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(result), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Data Classification + Model Routing
+# ═══════════════════════════════════════════════════════════════
+
+
+async def classify_data(
+    text: str,
+    file_path: str = "",
+) -> str:
+    """Classify text content by data sensitivity level.
+
+    Returns PUBLIC, INTERNAL, CONFIDENTIAL, or RESTRICTED with
+    confidence score, PII findings, and content/path indicators.
+
+    Args:
+        text: Content to classify.
+        file_path: Optional file path for path-based classification.
+
+    Returns:
+        JSON classification result.
+    """
+    from src.services.data_classifier import classify_text
+
+    result = classify_text(text, file_path=file_path)
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="classify_data",
+        verdict="ALLOW",
+        rule_id="data_classification",
+        original_action=f"classify ({result.sensitivity.label})",
+        message=f"{result.sensitivity.label} (confidence {result.confidence})",
+        suggestion="Review classification before sharing data externally.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(result.to_dict()), indent=2)
+
+
+async def check_model_routing(
+    text: str,
+    model: str,
+    file_path: str = "",
+) -> str:
+    """Check if a model is allowed to access the given content.
+
+    Classifies the content and evaluates model routing policy.
+    Returns allow/warn/block/redact decision.
+
+    Args:
+        text: Content the model would receive.
+        model: Model identifier (e.g. "gpt-4o", "claude-opus-4-20250514").
+        file_path: Optional file path for classification context.
+
+    Returns:
+        JSON routing decision with action and reason.
+    """
+    from src.services.model_router import evaluate_routing
+
+    decision = evaluate_routing(text, model, file_path=file_path)
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="check_model_routing",
+        verdict="BLOCK" if decision.action == "block" else "ALLOW",
+        rule_id="model_routing",
+        original_action=f"route {model} for {decision.classification.sensitivity.label} data",
+        message=decision.reason,
+        suggestion="Use an approved model or redact sensitive data.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(decision.to_dict()), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Cost Tracking
+# ═══════════════════════════════════════════════════════════════
+
+
+async def cost_report(
+    period: str = "monthly",
+    developer: str = "",
+    team: str = "",
+    model_filter: str = "",
+) -> str:
+    """Generate LLM cost report — aggregated by developer, team, model.
+
+    Args:
+        period: "daily", "weekly", or "monthly".
+        developer: Filter by developer name.
+        team: Filter by team name.
+        model_filter: Filter by model pattern (wildcards supported).
+
+    Returns:
+        JSON cost report with breakdowns, trends, anomalies, and budget status.
+    """
+    from src.services.cost_tracker import generate_report
+
+    report = generate_report(
+        period=period, developer=developer, team=team,
+        model_filter=model_filter,
+    )
+
+    _audit.log(AuditEntry(
+        timestamp=time.time(),
+        action_type="cost_report",
+        verdict="ALLOW",
+        rule_id="cost_tracking",
+        original_action=f"cost report ({period})",
+        message=f"${report.total_cost_usd:.2f} total, {report.event_count} events",
+        suggestion="Review cost trends and anomalies regularly.",
+        session_id=_session_id,
+        agent_id=_agent_id,
+        workspace=_workspace,
+    ))
+
+    return json.dumps(_attach_attestation_payload(report.to_dict()), indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
 #  Entry point
 # ═══════════════════════════════════════════════════════════════
 

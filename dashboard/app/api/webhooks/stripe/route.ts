@@ -62,30 +62,23 @@ export async function POST(request: Request): Promise<NextResponse> {
              * checkout creation if the API is ever compromised.
              */
             let plan: string | null = null;
-            let trialEnd: Date | null = null;
 
             if (session.line_items?.data?.[0]?.price?.id) {
                 plan = resolvePlanFromPriceId(session.line_items.data[0].price.id);
             }
 
-            /* Fetch subscription once — used for plan verification AND trial_end */
-            if (session.subscription) {
+            if (!plan && session.subscription) {
                 try {
                     const subscription = await stripe.subscriptions.retrieve(
                         session.subscription as string,
                     );
-                    if (!plan) {
-                        const priceId = subscription.items.data[0]?.price?.id;
-                        if (priceId) {
-                            plan = resolvePlanFromPriceId(priceId);
-                        }
-                    }
-                    if (subscription.trial_end) {
-                        trialEnd = new Date(subscription.trial_end * 1000);
+                    const priceId = subscription.items.data[0]?.price?.id;
+                    if (priceId) {
+                        plan = resolvePlanFromPriceId(priceId);
                     }
                 } catch (fetchErr) {
                     console.error(
-                        "[webhook] Failed to fetch subscription:",
+                        "[webhook] Failed to fetch subscription for price verification:",
                         fetchErr instanceof Error ? fetchErr.message : fetchErr,
                     );
                 }
@@ -105,7 +98,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
             await prisma.user.updateMany({
                 where: { stripeId: customerId },
-                data: { plan, trialEnd },
+                data: { plan },
             });
             break;
         }
@@ -117,12 +110,9 @@ export async function POST(request: Request): Promise<NextResponse> {
             if (updatedPriceId) {
                 const updatedPlan = resolvePlanFromPriceId(updatedPriceId);
                 if (updatedPlan) {
-                    const updatedTrialEnd = updatedSub.trial_end
-                        ? new Date(updatedSub.trial_end * 1000)
-                        : null;
                     await prisma.user.updateMany({
                         where: { stripeId: updatedCustomerId },
-                        data: { plan: updatedPlan, trialEnd: updatedTrialEnd },
+                        data: { plan: updatedPlan },
                     });
                 }
             }
@@ -135,7 +125,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
             await prisma.user.updateMany({
                 where: { stripeId: customerId },
-                data: { plan: "free", trialEnd: null },
+                data: { plan: "free" },
             });
             break;
         }

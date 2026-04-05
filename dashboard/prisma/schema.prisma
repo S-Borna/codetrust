@@ -43,7 +43,6 @@ model User {
   image         String?
   plan          String    @default("free")
   stripeId      String?
-  trialEnd      DateTime?
   accounts      Account[]
   sessions      Session[]
 }

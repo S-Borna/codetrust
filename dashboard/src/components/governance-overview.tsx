@@ -147,7 +147,7 @@ export function GovernanceOverview({ apiKey }: { apiKey: string }) {
                 </h2>
                 <span className="text-xs text-gray-400">
                     {error
-                        ? `Polling paused — ${error}`
+                        ? `Retrying — ${error}`
                         : lastUpdated
                             ? `Updated ${lastUpdated} (polls every 30s)`
                             : "Loading..."}

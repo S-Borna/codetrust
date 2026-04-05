@@ -61,7 +61,7 @@ declare module "next-auth" {
     interface User {
         plan?: string;
         apiKey?: string;
-        trialEnd?: string | null;
+        trialEnd?: Date | null;
     }
     interface Session {
         user: {

@@ -97,9 +97,24 @@ export async function POST(request: Request): Promise<NextResponse> {
                 );
             }
 
+            /* Extract trial_end from subscription if present */
+            let trialEnd: Date | null = null;
+            if (session.subscription) {
+                try {
+                    const sub = await stripe.subscriptions.retrieve(
+                        session.subscription as string,
+                    );
+                    if (sub.trial_end) {
+                        trialEnd = new Date(sub.trial_end * 1000);
+                    }
+                } catch {
+                    /* trial_end is optional — proceed without it */
+                }
+            }
+
             await prisma.user.updateMany({
                 where: { stripeId: customerId },
-                data: { plan },
+                data: { plan, trialEnd },
             });
             break;
         }

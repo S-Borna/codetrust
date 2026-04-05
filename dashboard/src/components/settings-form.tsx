@@ -25,7 +25,7 @@ interface UserInfo {
     plan?: string;
 }
 
-export function SettingsForm({ user, apiKey }: { user?: UserInfo | null; apiKey?: string }) {
+export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | null; apiKey?: string; trialEnd?: string | null }) {
     const plan = user?.plan || "free";
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState("");
@@ -195,6 +195,17 @@ export function SettingsForm({ user, apiKey }: { user?: UserInfo | null; apiKey?
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
                     Subscription
                 </h3>
+                {trialEnd && new Date(trialEnd) > new Date() && (
+                    <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${
+                        Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000) <= 3
+                            ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+                            : "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                    }`}>
+                        Pro trial: {Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000)} days remaining
+                        {Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000) <= 3 &&
+                            " — add a payment method to keep Pro features"}
+                    </div>
+                )}
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-gray-900 dark:text-white">

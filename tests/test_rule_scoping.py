@@ -28,8 +28,8 @@ class TestUniversalRuleCount:
         )
 
     def test_total_rules_unchanged(self) -> None:
-        """Total rule count must stay at 2,924."""
-        assert len(ANTI_PATTERNS) == 2924
+        """Total rule count must stay at 2,923 (r2a_152 removed as duplicate of ci_unpinned_action)."""
+        assert len(ANTI_PATTERNS) == 2923
 
 
 class TestScopedRulesValid:

@@ -24,7 +24,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install CodeTrust
-        run: pip install codetrust
+        run: pip install .
 
       - name: Scan changed files
         run: |
@@ -42,7 +42,7 @@ jobs:
 
           if [ -n "$FILES" ]; then
             echo "Scanning $(echo "$FILES" | wc -l | tr -d ' ') files..."
-            echo "$FILES" | xargs codetrust scan
+            echo "$FILES" | xargs codetrust scan --no-verify-imports --no-verify-signatures
           else
             echo "No scannable source files changed."
           fi

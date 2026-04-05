@@ -158,6 +158,20 @@ class TestAPIKeyDetection:
         api_keys = [f for f in findings if f.category == "api_key"]
         assert len(api_keys) == 0
 
+    def test_bearer_token_long(self) -> None:
+        """Real Bearer token (20+ chars) should trigger."""
+        text = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5c"
+        findings = detect(text)
+        cats = [f.category for f in findings]
+        assert "api_key" in cats
+
+    def test_bearer_token_short_no_match(self) -> None:
+        """Short 'Bearer JWT' in docstring should NOT trigger."""
+        text = '"""Resolve auth from a Bearer JWT token."""'
+        findings = detect(text)
+        api_keys = [f for f in findings if f.category == "api_key"]
+        assert len(api_keys) == 0
+
 
 class TestPasswordDetection:
     """Test cleartext credential detection."""

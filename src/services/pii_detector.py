@@ -218,7 +218,7 @@ _API_KEY_RE = re.compile(
     r"|ghp_[a-zA-Z0-9]{36,}|gho_[a-zA-Z0-9]{36,}"
     r"|github_pat_[a-zA-Z0-9_]{20,}"
     r"|xoxb-[a-zA-Z0-9\-]{20,}|xoxp-[a-zA-Z0-9\-]{20,}"
-    r"|Bearer\s+[a-zA-Z0-9\-._~+/]+=*"
+    r"|Bearer\s+[a-zA-Z0-9\-._~+/]{20,}=*"
     r"|AKIA[0-9A-Z]{16}"
     r"|sk_live_[a-zA-Z0-9]{20,}|pk_live_[a-zA-Z0-9]{20,}"
     r"|sk_test_[a-zA-Z0-9]{20,}|pk_test_[a-zA-Z0-9]{20,})\b",
@@ -226,7 +226,7 @@ _API_KEY_RE = re.compile(
 
 _PASSWORD_RE = re.compile(
     r"(?:password|passwd|pwd|secret|token|api_key|apikey|auth_token)"
-    r"\s*[=:]\s*['\"]([^'\"]{4,})['\"]",
+    r"\s*[=:]\s*['\"]([^'\"]{8,})['\"]",
     re.IGNORECASE,
 )
 
@@ -264,7 +264,13 @@ _SSN_RE = re.compile(
 # ── Contextual patterns ──
 
 _NAME_RE = re.compile(
-    r"(?:name|user|patient|customer|contact|kund|namn|employee)\s*[=:]\s*['\"]?([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)+)['\"]?",
+    # Require word-character boundary (no className/userName/_name/1name
+    # prefix) and at least two capitalized words (first + last name).
+    # Removed "user" — too many FP in code (user = await db...).
+    r"(?<![A-Za-z0-9_])(?:name|patient|customer|contact|kund|namn|employee)"
+    r"\s*[=:]\s*['\"]?"
+    r"([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)+)"
+    r"['\"]?",
     re.IGNORECASE,
 )
 

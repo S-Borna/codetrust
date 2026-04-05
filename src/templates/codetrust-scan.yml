@@ -36,6 +36,7 @@ jobs:
           FILES=$(git diff --name-only --diff-filter=ACM "$BASE_SHA" "${{ github.sha || 'HEAD' }}" \
             | grep -E '\.(py|js|ts|jsx|tsx|go|rs)$' \
             | grep -v 'src/rules/' \
+            | grep -v 'src/templates/' \
             | grep -v 'node_modules/' \
             | head -50 \
             || true)

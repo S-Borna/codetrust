@@ -24,7 +24,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install CodeTrust
-        run: pip install codetrust
+        run: pip install .
 
       - name: Scan changed files
         run: |

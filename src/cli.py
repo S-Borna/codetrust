@@ -2786,13 +2786,19 @@ def _init_precommit_hook(project_dir: Path) -> list[str]:
 
 
 def _init_github_action(project_dir: Path, *, force: bool) -> list[str]:
-    """Install GitHub Action workflow."""
+    """Install GitHub Action workflow.
+
+    Never overwrites an existing workflow — even with --force.
+    CI workflows accumulate manual hardening (timeouts, exclusions,
+    file caps) that templates cannot reproduce.  Use --force only
+    for first-time creation after manual deletion.
+    """
     installed: list[str] = []
     workflows_dir = project_dir / ".github" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
     action_file = workflows_dir / "codetrust-scan.yml"
-    if action_file.exists() and not force:
-        _echo(f"  {color('⚠️', YELLOW)}  GitHub Action exists (use --force to overwrite)")
+    if action_file.exists():
+        _echo(f"  {color('✅', GREEN)} GitHub Action already exists (preserved)")
     else:
         action_file.write_text(_load_template("codetrust-scan.yml"))
         installed.append("GitHub Action")
@@ -4428,14 +4434,19 @@ def _check_local_scan_gate() -> int:
 
     Returns 0 to proceed, 1 to block.
     """
-    auth = _load_local_auth()
-    api_key = auth.get("api_key", "")
-
     # Pre-commit hook and CI bypass scan gate (they use their own auth)
     if os.environ.get("CODETRUST_PRECOMMIT") == "1":
         return 0
     if os.environ.get("CI") == "true":
         return 0
+
+    # Environment variable overrides auth.json (master key, CI, dev)
+    env_key = os.environ.get("CODETRUST_MASTER_KEY") or os.environ.get("CODETRUST_API_KEY")
+    if env_key and env_key != "[I will paste the key myself]":
+        return 0
+
+    auth = _load_local_auth()
+    api_key = auth.get("api_key", "")
 
     # No account → blocked
     if not api_key:

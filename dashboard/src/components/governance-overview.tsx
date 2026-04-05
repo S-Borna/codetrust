@@ -111,7 +111,7 @@ export function GovernanceOverview({ apiKey }: { apiKey: string }) {
         return () => { active = false; clearInterval(interval); };
     }, [apiKey]);
 
-    if (error) {
+    if (error && !data) {
         return (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -145,11 +145,13 @@ export function GovernanceOverview({ apiKey }: { apiKey: string }) {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Governance Overview
                 </h2>
-                {lastUpdated && (
-                    <span className="text-xs text-gray-400">
-                        Updated {lastUpdated} (polls every 30s)
-                    </span>
-                )}
+                <span className="text-xs text-gray-400">
+                    {error
+                        ? `Polling paused — ${error}`
+                        : lastUpdated
+                            ? `Updated ${lastUpdated} (polls every 30s)`
+                            : "Loading..."}
+                </span>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -129,24 +129,23 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = user.id;
                 // Fetch plan from DB
                 let dbPlan = "free";
-                let dbTrialEnd: Date | null = null;
+                let dbTrialEnd: string | null = null;
                 try {
                     const dbUser = await prisma.user.findUnique({
                         where: { id: user.id },
-                        select: { plan: true, stripeId: true, trialEnd: true },
+                        select: { plan: true, trialEnd: true },
                     });
                     dbPlan = dbUser?.plan || "free";
-                    dbTrialEnd = dbUser?.trialEnd || null;
+                    dbTrialEnd = dbUser?.trialEnd?.toISOString() || null;
                 } catch {
-                    /* trialEnd column may not exist yet — degrade gracefully */
                     const dbUser = await prisma.user.findUnique({
                         where: { id: user.id },
-                        select: { plan: true, stripeId: true },
+                        select: { plan: true },
                     });
                     dbPlan = dbUser?.plan || "free";
                 }
                 session.user.plan = dbPlan;
-                session.user.trialEnd = dbTrialEnd?.toISOString() || null;
+                session.user.trialEnd = dbTrialEnd;
                 const bootstrap = await bootstrapDashboardApiKey({
                     userId: user.id,
                     email: session.user.email,

@@ -325,3 +325,39 @@ async def test_regression_existing_telemetry_fields_remain_unchanged(
     assert isinstance(impact["top_rules"], list)
 
     assert isinstance(quality["top_rules_triggered"], list)
+
+
+@pytest.mark.asyncio
+async def test_fallback_impact_increments_unsafe_config_for_extension_scans(
+    fake_cache: CacheService,
+) -> None:
+    """When scan has blocks but no per-finding list, unsafe_config gets the blocks."""
+    from src.services.telemetry import TelemetryIngestEvent, process_telemetry_event
+
+    r = fake_cache.raw_client()
+    assert r is not None
+
+    # Simulate extension scan: findings_by_severity but no findings list
+    event = TelemetryIngestEvent(
+        event_type="scan_completed",
+        source="vscode",
+        installation_id="test-ext",
+        version="4.0.6",
+        payload={
+            "scan_type": "static",
+            "files_scanned": 1,
+            "total_findings": 5,
+            "findings_by_severity": {"BLOCK": 3, "WARN": 2},
+            # No "findings" key — extension doesn't send per-finding detail
+        },
+    )
+    await process_telemetry_event(r=r, db=None, queue=None, event=event)
+
+    # ct:total_blocks should have the 3 blocks
+    assert int(await r.get("ct:total_blocks") or 0) == 3
+
+    # Fallback: unsafe_config should have received the 3 blocks
+    assert int(await r.get("ct:impact:unsafe_config") or 0) == 3
+
+    # last_seen should be set
+    assert await r.get("ct:impact:last_seen:unsafe_config") is not None

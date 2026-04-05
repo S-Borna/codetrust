@@ -264,13 +264,14 @@ _SSN_RE = re.compile(
 # ── Contextual patterns ──
 
 _NAME_RE = re.compile(
-    # Require word boundary (no className/userName prefix) and at least
-    # two capitalized words (first + last name).  Removed "user" — too
-    # many FP in code (user = await db...).
-    r"(?<![A-Za-z])(?:name|patient|customer|contact|kund|namn|employee)"
+    # Require word-character boundary (no className/userName/_name/1name
+    # prefix) and at least two capitalized words (first + last name).
+    # Removed "user" — too many FP in code (user = await db...).
+    r"(?<![A-Za-z0-9_])(?:name|patient|customer|contact|kund|namn|employee)"
     r"\s*[=:]\s*['\"]?"
     r"([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)+)"
     r"['\"]?",
+    re.IGNORECASE,
 )
 
 _ADDRESS_RE = re.compile(

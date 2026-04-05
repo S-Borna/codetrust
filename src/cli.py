@@ -4319,7 +4319,8 @@ def cmd_login(args: argparse.Namespace) -> int:
         _echo(f"\n{color('🔑 CodeTrust Login', BOLD)}\n")
         _echo("  Get your API key at https://app.codetrust.ai\n")
         try:
-            api_key = input("  API key: ").strip()
+            import getpass
+            api_key = getpass.getpass("  API key: ").strip()
         except (EOFError, KeyboardInterrupt):
             _echo("\n")
             return 1
@@ -4387,12 +4388,15 @@ def cmd_login(args: argparse.Namespace) -> int:
 
 def cmd_logout(_args: argparse.Namespace) -> int:
     """Remove local authentication data."""
-    auth_file = Path.home() / ".codetrust" / "auth.json"
-    if auth_file.exists():
-        auth_file.unlink()
-        _echo(color("  ✅ Logged out — auth data removed.\n", GREEN))
-    else:
+    if not _AUTH_FILE.exists():
         _echo("  No active session.\n")
+        return 0
+    try:
+        _AUTH_FILE.unlink()
+    except OSError as exc:
+        _echo(f"  Failed to remove auth data: {exc}\n")
+        return 1
+    _echo(color("  ✅ Logged out — auth data removed.\n", GREEN))
     return 0
 
 

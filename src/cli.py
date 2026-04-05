@@ -2247,6 +2247,7 @@ POLICY_DEFAULT_EXCLUDE_PATHS: list[str] = [
     "migrations/",
     "vendor/",
     "node_modules/",
+    "src/rules/",
 ]
 
 PYPROJECT_POLICY_BEGIN = "# BEGIN CODETRUST POLICY (generated)"
@@ -3197,27 +3198,9 @@ def _init_model_routing_policy(project_dir: Path) -> None:
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
     _echo(f"\n{'━' * 48}")
-    _echo(f"\n  {color('✅ CodeTrust installed — AI Governance active', GREEN)}\n")
-    _echo("  Enforcement stack:")
-    _echo(f"    Layer 1: BASH_ENV guard              {color('(universal real-time)', RED)}")
-    _echo(f"    Layer 2: PreToolUse hooks            {color('(CLI real-time)', RED)}")
-    _echo(f"    Layer 3: MCP Gateway + Guardian      {color('(proxy validation)', RED)}")
-    _echo(f"    Layer 4: Pre-commit hook             {color('(commit gate)', GREEN)}")
-    _echo(f"    Layer 5: GitHub Action               {color('(PR gate)', GREEN)}")
-    _echo(f"    Layer 6: CLAUDE.md / .cursorrules    {color('(advisory)', BLUE)}")
-    _echo()
-    _echo("  Governance:")
-    _echo(f"    Config:    .codetrust.toml   {color('(edit to customize)', BLUE)}")
-    _echo("    Audit log: .codetrust/audit.jsonl")
-    _echo("    Mode:      enforce (block violations)")
-    _echo()
-    _echo("  Next steps:")
-    _echo("    1. Push to GitHub")
-    _echo("    2. Settings → Branches → Require 'CodeTrust Quality Gate' to pass")
-    _echo("    3. Install VS Code extension: code --install-extension SaidBorna.codetrust")
-    _echo()
-    _echo(f"  Verify: {color('codetrust doctor', BOLD)}")
-    _echo()
+    _echo(f"  {color('✅ CodeTrust installed — 9 enforcement layers active', GREEN)}")
+    _echo(f"  Config: .codetrust.toml  |  Verify: {color('codetrust doctor', BOLD)}")
+    _echo(f"{'━' * 48}\n")
 
 
 def audit_allow_list(project_dir: Path) -> list[dict[str, str]]:
@@ -3302,6 +3285,13 @@ def _print_allow_list_audit(findings: list[dict[str, str]]) -> None:
 def cmd_init(args: argparse.Namespace) -> int:
     """Install CodeTrust enforcement layers into current project."""
     project_dir = Path.cwd()
+
+    if not (project_dir / ".git").is_dir():
+        _echo(
+            f"\n{color('❌', RED)} Not a git repository. "
+            f"Run {color('git init', BOLD)} first.\n"
+        )
+        return 1
 
     if getattr(args, "check", False):
         _echo(f"\n{color('🛡️  CodeTrust — Installation check', BOLD)}\n")

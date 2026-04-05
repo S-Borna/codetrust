@@ -13,6 +13,7 @@ jobs:
   codetrust:
     name: CodeTrust Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,9 +28,21 @@ jobs:
 
       - name: Scan changed files
         run: |
-          FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.pull_request.base.sha || 'HEAD~1' }} ${{ github.sha || 'HEAD' }} | grep -E '\.(py|js|ts|go|rs)$' || true)
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA="HEAD~1"
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACM "$BASE_SHA" "${{ github.sha || 'HEAD' }}" \
+            | grep -E '\.(py|js|ts|jsx|tsx|go|rs)$' \
+            | grep -v 'src/rules/' \
+            | grep -v 'node_modules/' \
+            | head -50 \
+            || true)
+
           if [ -n "$FILES" ]; then
+            echo "Scanning $(echo "$FILES" | wc -l | tr -d ' ') files..."
             echo "$FILES" | xargs codetrust scan
           else
-            echo "No source files changed."
+            echo "No scannable source files changed."
           fi

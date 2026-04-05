@@ -84,6 +84,9 @@ _DANGEROUS_INNER_PATTERNS: list = [
     (re.compile(r"\bexec\s*\("), "exec() call"),  # noqa: codetrust — pattern to BLOCK, not usage
     (re.compile(r"__import__\s*\("), "__import__() call"),
     (re.compile(r"\bchr\s*\(\s*\d"), "chr() obfuscation"),
+    (re.compile(r"\.claude/hooks/"), ".claude/hooks/ path manipulation"),
+    (re.compile(r"codetrust_gateway_hook"), "gateway hook file manipulation"),
+    (re.compile(r"codetrust_file_write_hook"), "file write hook manipulation"),
     (re.compile(r"\bchmod\s+777"), "chmod 777"),
     (re.compile(r"curl.*\|\s*(?:ba)?sh"), "curl pipe to shell"),
     (re.compile(r"git\s+push"), "git push"),
@@ -398,6 +401,44 @@ BLOCKED_PATTERNS: list = [
         re.compile(r"npm\s+install\s+https?://"),
         "npm install from URL blocked — unverified source.",
         "Install from the npm registry: npm install <package-name>.",
+    ),
+
+    # Category 13: Destructive database operations
+    (
+        "gateway_prisma_db_push_data_loss",
+        re.compile(r"prisma\s+(?:db\s+push|migrate\s+reset).*--accept-data-loss"),
+        "prisma db push with --accept-data-loss blocked — drops production tables.",
+        "Run prisma db push WITHOUT --accept-data-loss. Review the migration plan first.",
+    ),
+    (
+        "gateway_prisma_force_reset",
+        re.compile(r"prisma\s+(?:db\s+push\s+--force-reset|migrate\s+reset)"),
+        "prisma destructive reset blocked — drops all tables and recreates.",
+        "Use prisma migrate deploy for production databases.",
+    ),
+    (
+        "gateway_drop_database",
+        re.compile(r"\b(?:dropdb|DROP\s+DATABASE)\b", re.IGNORECASE),
+        "DROP DATABASE blocked — irreversible data destruction.",
+        "Ask the user to perform destructive database operations manually.",
+    ),
+    (
+        "gateway_drop_table",
+        re.compile(r"\bDROP\s+TABLE\b", re.IGNORECASE),
+        "DROP TABLE blocked — irreversible data loss.",
+        "Ask the user to review and run this manually.",
+    ),
+    (
+        "gateway_truncate_table",
+        re.compile(r"\bTRUNCATE\b", re.IGNORECASE),
+        "TRUNCATE blocked — deletes all rows without logging.",
+        "Use DELETE with a WHERE clause, or ask the user to run this manually.",
+    ),
+    (
+        "gateway_delete_no_where",
+        re.compile(r"\bDELETE\s+FROM\s+\w+\s*;", re.IGNORECASE),
+        "DELETE FROM without WHERE blocked — deletes all rows.",
+        "Add a WHERE clause to limit deletion scope.",
     ),
 ]
 

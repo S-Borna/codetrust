@@ -290,3 +290,49 @@ def test_cmd_audit_table_prints_entries(monkeypatch: pytest.MonkeyPatch, tmp_pat
     out = capsys.readouterr().out
     assert "Audit Log" in out
     assert "eval_exec" in out
+
+
+# ── Login / Logout ──
+
+
+class TestLogout:
+    """Test codetrust logout command."""
+
+    def test_logout_removes_auth_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        auth_file = tmp_path / ".codetrust" / "auth.json"
+        auth_file.parent.mkdir(parents=True)
+        auth_file.write_text('{"api_key":"test"}')
+        monkeypatch.setattr(cli, "_AUTH_FILE", auth_file)
+
+        args = argparse.Namespace()
+        rc = cli.cmd_logout(args)
+        assert rc == 0
+        assert not auth_file.exists()
+
+    def test_logout_no_session(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+        auth_file = tmp_path / ".codetrust" / "auth.json"
+        monkeypatch.setattr(cli, "_AUTH_FILE", auth_file)
+
+        args = argparse.Namespace()
+        rc = cli.cmd_logout(args)
+        assert rc == 0
+        assert "No active session" in capsys.readouterr().out
+
+
+class TestLoginInteractive:
+    """Test codetrust login interactive prompt."""
+
+    def test_login_empty_input_returns_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("getpass.getpass", lambda _prompt="": "")
+        args = argparse.Namespace(api_key="")
+        rc = cli.cmd_login(args)
+        assert rc == 1
+
+    def test_login_eof_returns_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def _raise_eof(_prompt: str = "") -> str:
+            raise EOFError
+
+        monkeypatch.setattr("getpass.getpass", _raise_eof)
+        args = argparse.Namespace(api_key="")
+        rc = cli.cmd_login(args)
+        assert rc == 1

@@ -4317,11 +4317,15 @@ def cmd_login(args: argparse.Namespace) -> int:
 
     if not api_key:
         _echo(f"\n{color('🔑 CodeTrust Login', BOLD)}\n")
-        _echo("  1. Create account at https://app.codetrust.ai")
-        _echo("  2. Copy your API key from the dashboard")
-        _echo("  3. Run:")
-        _echo(color("     codetrust login --api-key YOUR_KEY\n", BOLD))
-        return 1
+        _echo("  Get your API key at https://app.codetrust.ai\n")
+        try:
+            import getpass
+            api_key = getpass.getpass("  API key: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            _echo("\n")
+            return 1
+        if not api_key:
+            return 1
 
     _echo("  Validating API key...")
     try:
@@ -4379,6 +4383,20 @@ def cmd_login(args: argparse.Namespace) -> int:
     if plan == "free":
         _echo(color("     Upgrade to Pro for unlimited: https://app.codetrust.ai/pricing", BLUE))
     _echo()
+    return 0
+
+
+def cmd_logout(_args: argparse.Namespace) -> int:
+    """Remove local authentication data."""
+    if not _AUTH_FILE.exists():
+        _echo("  No active session.\n")
+        return 0
+    try:
+        _AUTH_FILE.unlink()
+    except OSError as exc:
+        _echo(f"  Failed to remove auth data: {exc}\n")
+        return 1
+    _echo(color("  ✅ Logged out — auth data removed.\n", GREEN))
     return 0
 
 
@@ -5828,6 +5846,7 @@ def _add_scan_subparser(
     """Register the 'scan' subcommand with all its options."""
     login_parser = subparsers.add_parser("login", help="Authenticate with CodeTrust")
     login_parser.add_argument("--api-key", dest="api_key", help="API key from app.codetrust.ai")
+    subparsers.add_parser("logout", help="Remove local authentication")
 
     scan_parser = subparsers.add_parser("scan", help="Scan files for anti-patterns")
     scan_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
@@ -7608,6 +7627,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_add(args)
     if args.command == "login":
         return cmd_login(args)
+    if args.command == "logout":
+        return cmd_logout(args)
     if args.command == "scan":
         return cmd_scan(args)
     if args.command == "fix":

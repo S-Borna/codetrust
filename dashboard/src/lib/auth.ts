@@ -61,6 +61,7 @@ declare module "next-auth" {
     interface User {
         plan?: string;
         apiKey?: string;
+        trialEnd?: Date | null;
     }
     interface Session {
         user: {
@@ -70,6 +71,7 @@ declare module "next-auth" {
             image?: string | null;
             plan?: string;
             apiKey?: string;
+            trialEnd?: string | null;
         };
     }
 }
@@ -128,9 +130,10 @@ export const authOptions: NextAuthOptions = {
                 // Fetch plan from DB
                 const dbUser = await prisma.user.findUnique({
                     where: { id: user.id },
-                    select: { plan: true, stripeId: true },
+                    select: { plan: true, stripeId: true, trialEnd: true },
                 });
                 session.user.plan = dbUser?.plan || "free";
+                session.user.trialEnd = dbUser?.trialEnd?.toISOString() || null;
                 const bootstrap = await bootstrapDashboardApiKey({
                     userId: user.id,
                     email: session.user.email,

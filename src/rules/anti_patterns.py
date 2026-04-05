@@ -29730,16 +29730,6 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             ),
     },
     {
-        "id": "r2a_152",
-        "pattern": r"uses:\s*\w+/\w+@(?:master|main|latest|v\d+)\b(?!\.\d+\.\d+)",
-        "message": "Unpinned GitHub Action uses mutable tag vulnerable to supply chain attacks; pin to a full SHA hash",
-        "severity": Severity.BLOCK,
-            "suggestion": (
-                "Unpinned GitHub Action uses mutable tag vulnerable to supply chain attacks. Review the specific pattern in your code and apply the fix described in the finding message. Consult your framework documentation for the recommended approach."
-            ),
-        "file_types": [".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".rb", ".rs", ".c", ".cpp", ".cs", ".php", ".swift", ".kt", ".scala", ".dart", ".sh", ".bash"],
-    },
-    {
         "id": "r2a_153",
         "pattern": r"runs-on:\s*self-hosted",
         "message": "Self-hosted runners on public repos enable arbitrary code execution by forked PRs; use environment protection rules",

@@ -157,13 +157,14 @@ export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | nul
                             </button>
                             <button
                                 onClick={() => {
-                                    navigator.clipboard.writeText(apiKey);
-                                    setCopied("key");
-                                    setTimeout(() => setCopied(""), 2000);
+                                    navigator.clipboard.writeText(apiKey).then(
+                                        () => { setCopied("key"); setTimeout(() => setCopied(""), 2000); },
+                                        () => { setCopied("fail"); setTimeout(() => setCopied(""), 2000); },
+                                    );
                                 }}
                                 className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                             >
-                                {copied === "key" ? "Copied!" : "Copy"}
+                                {copied === "key" ? "Copied!" : copied === "fail" ? "Failed" : "Copy"}
                             </button>
                         </div>
                         <div>
@@ -176,13 +177,14 @@ export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | nul
                                 </code>
                                 <button
                                     onClick={() => {
-                                        navigator.clipboard.writeText(`codetrust login --api-key ${apiKey}`);
-                                        setCopied("cli");
-                                        setTimeout(() => setCopied(""), 2000);
+                                        navigator.clipboard.writeText(`codetrust login --api-key ${apiKey}`).then(
+                                            () => { setCopied("cli"); setTimeout(() => setCopied(""), 2000); },
+                                            () => { setCopied("fail"); setTimeout(() => setCopied(""), 2000); },
+                                        );
                                     }}
                                     className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                                 >
-                                    {copied === "cli" ? "Copied!" : "Copy"}
+                                    {copied === "cli" ? "Copied!" : copied === "fail" ? "Failed" : "Copy"}
                                 </button>
                             </div>
                         </div>
@@ -195,17 +197,23 @@ export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | nul
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
                     Subscription
                 </h3>
-                {trialEnd && new Date(trialEnd) > new Date() && (
-                    <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${
-                        Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000) <= 3
-                            ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
-                            : "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-                    }`}>
-                        Pro trial: {Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000)} days remaining
-                        {Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000) <= 3 &&
-                            " — add a payment method to keep Pro features"}
-                    </div>
-                )}
+                {(() => {
+                    if (!trialEnd) return null;
+                    const trialEndDate = new Date(trialEnd);
+                    if (trialEndDate <= new Date()) return null;
+                    const daysRemaining = Math.ceil((trialEndDate.getTime() - Date.now()) / 86_400_000);
+                    const isEndingSoon = daysRemaining <= 3;
+                    return (
+                        <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${
+                            isEndingSoon
+                                ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+                                : "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                        }`}>
+                            Pro trial: {daysRemaining} days remaining
+                            {isEndingSoon && " — add a payment method to keep Pro features"}
+                        </div>
+                    );
+                })()}
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-gray-900 dark:text-white">

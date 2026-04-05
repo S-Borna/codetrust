@@ -62,24 +62,30 @@ export async function POST(request: Request): Promise<NextResponse> {
              * checkout creation if the API is ever compromised.
              */
             let plan: string | null = null;
+            let trialEnd: Date | null = null;
 
             if (session.line_items?.data?.[0]?.price?.id) {
                 plan = resolvePlanFromPriceId(session.line_items.data[0].price.id);
             }
 
-            if (!plan && session.subscription) {
-                /* line_items may not be expanded — fetch subscription to get price */
+            /* Fetch subscription once — used for plan verification AND trial_end */
+            if (session.subscription) {
                 try {
                     const subscription = await stripe.subscriptions.retrieve(
                         session.subscription as string,
                     );
-                    const priceId = subscription.items.data[0]?.price?.id;
-                    if (priceId) {
-                        plan = resolvePlanFromPriceId(priceId);
+                    if (!plan) {
+                        const priceId = subscription.items.data[0]?.price?.id;
+                        if (priceId) {
+                            plan = resolvePlanFromPriceId(priceId);
+                        }
+                    }
+                    if (subscription.trial_end) {
+                        trialEnd = new Date(subscription.trial_end * 1000);
                     }
                 } catch (fetchErr) {
                     console.error(
-                        "[webhook] Failed to fetch subscription for price verification:",
+                        "[webhook] Failed to fetch subscription:",
                         fetchErr instanceof Error ? fetchErr.message : fetchErr,
                     );
                 }
@@ -97,21 +103,6 @@ export async function POST(request: Request): Promise<NextResponse> {
                 );
             }
 
-            /* Extract trial_end from subscription if present */
-            let trialEnd: Date | null = null;
-            if (session.subscription) {
-                try {
-                    const sub = await stripe.subscriptions.retrieve(
-                        session.subscription as string,
-                    );
-                    if (sub.trial_end) {
-                        trialEnd = new Date(sub.trial_end * 1000);
-                    }
-                } catch {
-                    /* trial_end is optional — proceed without it */
-                }
-            }
-
             await prisma.user.updateMany({
                 where: { stripeId: customerId },
                 data: { plan, trialEnd },
@@ -126,9 +117,12 @@ export async function POST(request: Request): Promise<NextResponse> {
             if (updatedPriceId) {
                 const updatedPlan = resolvePlanFromPriceId(updatedPriceId);
                 if (updatedPlan) {
+                    const updatedTrialEnd = updatedSub.trial_end
+                        ? new Date(updatedSub.trial_end * 1000)
+                        : null;
                     await prisma.user.updateMany({
                         where: { stripeId: updatedCustomerId },
-                        data: { plan: updatedPlan },
+                        data: { plan: updatedPlan, trialEnd: updatedTrialEnd },
                     });
                 }
             }
@@ -141,7 +135,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
             await prisma.user.updateMany({
                 where: { stripeId: customerId },
-                data: { plan: "free" },
+                data: { plan: "free", trialEnd: null },
             });
             break;
         }

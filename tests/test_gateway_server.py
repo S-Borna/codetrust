@@ -21,9 +21,22 @@ def _patch_gateway_globals(monkeypatch, tmp_path):
     monkeypatch.setenv("CODETRUST_WORKSPACE", str(tmp_path))
     # Create a minimal .codetrust.toml with proper nested structure
     (tmp_path / ".codetrust.toml").write_text(
-        '[codetrust.governance]\nenabled = true\nmode = "active"\n\n'
+        '[codetrust.governance]\nenabled = true\nmode = "audit"\n\n'
         '[codetrust.governance.audit]\nenabled = true\npath = ".codetrust/audit.jsonl"\n'
     )
+    # Create audit directory and policy manifest so integrity check passes
+    (tmp_path / ".codetrust").mkdir(exist_ok=True)
+    # Reload the module so it picks up the tmp_path workspace
+    import src.gateway.server as gw_mod
+
+    gw_mod._workspace = str(tmp_path)
+    gw_mod._engine = gw_mod._load_policy_engine(str(tmp_path))
+    gw_mod._interceptor = gw_mod.CommandInterceptor(
+        enabled=gw_mod._engine.active or gw_mod._engine.auditing,
+        disabled_rules=gw_mod._engine.get_disabled_rules(),
+        protected_paths=gw_mod._engine.get_protected_paths(),
+    )
+    gw_mod._session_action_count = 0
 
 
 # ---------------------------------------------------------------------------

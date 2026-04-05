@@ -412,7 +412,7 @@ BLOCKED_PATTERNS: list = [
     ),
     (
         "gateway_prisma_force_reset",
-        re.compile(r"prisma\s+(?:db\s+push\s+--force-reset|migrate\s+reset)"),
+        re.compile(r"prisma\s+(?:migrate\s+reset|db\s+push\b[^\n]*\s--force-reset\b)"),
         "prisma destructive reset blocked — drops all tables and recreates.",
         "Use prisma migrate deploy for production databases.",
     ),
@@ -436,7 +436,7 @@ BLOCKED_PATTERNS: list = [
     ),
     (
         "gateway_delete_no_where",
-        re.compile(r"\bDELETE\s+FROM\s+\w+\s*;", re.IGNORECASE),
+        re.compile(r"\bDELETE\s+FROM\s+\w+\s*(?:;|$)", re.IGNORECASE),
         "DELETE FROM without WHERE blocked — deletes all rows.",
         "Add a WHERE clause to limit deletion scope.",
     ),

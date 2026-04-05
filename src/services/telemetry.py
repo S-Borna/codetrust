@@ -265,12 +265,15 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
     # 3. Fall back to 0
     findings = p.get("findings")
     severity_dict = p.get("findings_by_severity") if isinstance(p.get("findings_by_severity"), dict) else {}
-    if isinstance(findings, list):
+    if isinstance(findings, list) and findings:
         blocks = sum(
             1 for f in findings
             if isinstance(f, dict)
             and str(f.get("severity", "")).upper() == "BLOCK"
         )
+        # If findings list had no severities but severity_dict reports blocks, use that
+        if blocks == 0 and severity_dict:
+            blocks = _safe_int(severity_dict.get("BLOCK", 0), max_value=10_000_000)
     elif severity_dict:
         blocks = _safe_int(severity_dict.get("BLOCK", 0), max_value=10_000_000)
     else:
@@ -301,7 +304,7 @@ async def _handle_scan_completed(r: redis.Redis, event: TelemetryIngestEvent) ->
         pipe.incr(f"ct:trend:{trend}")
 
     if isinstance(findings, list) and findings:
-        # Per-finding categorization (cloud API scans with detail)
+        # Per-finding categorization when a detailed findings list is present.
         seen_at = datetime.datetime.now(datetime.UTC).isoformat()
         for rule_id in _parse_finding_rule_ids(p):
             category = get_rule_category(rule_id)

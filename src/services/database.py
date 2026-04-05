@@ -972,12 +972,14 @@ class DatabaseService:
         for rule_id, count in top_rule_counts.items():
             counters[f"ct:top_rules:{rule_id}"] = int(count)
 
-        snapshot_values = await self.get_latest_counter_snapshots(tuple(DISTRIBUTION_SNAPSHOT_KEY_MAP.values()))
-        counters["ct:ext:pepy_total_downloads"] = _payload_int(snapshot_values.get("ct:ext:pepy_total_downloads"))
-        counters["ct:ext:marketplace_installs"] = _payload_int(snapshot_values.get("ct:ext:marketplace_installs"))
-        counters["ct:ext:marketplace_downloads"] = _payload_int(snapshot_values.get("ct:ext:marketplace_downloads"))
-        counters["ct:ext:marketplace_updates"] = _payload_int(snapshot_values.get("ct:ext:marketplace_updates"))
-        counters["ct:ext:openvsx_downloads"] = _payload_int(snapshot_values.get("ct:ext:openvsx_downloads"))
+        # Read ALL counter_snapshots and use max(aggregated, snapshot) for each key.
+        # This ensures Redis warmup recovers data even if telemetry_events_raw
+        # is incomplete (e.g., after accidental table drop + reseed).
+        all_snapshot_keys = list(counters.keys()) + list(DISTRIBUTION_SNAPSHOT_KEY_MAP.values())
+        snapshot_values = await self.get_latest_counter_snapshots(tuple(all_snapshot_keys))
+        for snap_key, snap_val in snapshot_values.items():
+            current = counters.get(snap_key, 0)
+            counters[snap_key] = max(current, _payload_int(snap_val))
         counters.update({f"ct:scans_by_source:{src}": cnt for src, cnt in by_source.items()})
         return counters
 

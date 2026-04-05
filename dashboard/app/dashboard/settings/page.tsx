@@ -16,11 +16,7 @@ export default async function SettingsPage() {
                 </p>
             </div>
 
-            <SettingsForm
-                user={session?.user}
-                apiKey={session?.user?.apiKey || ""}
-                trialEnd={session?.user?.trialEnd || null}
-            />
+            <SettingsForm user={session?.user} apiKey={session?.user?.apiKey || ""} />
         </div>
     );
 }

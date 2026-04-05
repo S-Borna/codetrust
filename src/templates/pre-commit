@@ -96,11 +96,13 @@ def _try_cli_scan(files: list[str]) -> int | None:
             if check.returncode != 0:
                 continue
         try:
+            hook_env = {**os.environ, "CODETRUST_PRECOMMIT": "1"}
             result = subprocess.run(
                 [py, "-m", "src.cli", "scan", "--json", *files],
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=hook_env,
             )
         except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
             continue

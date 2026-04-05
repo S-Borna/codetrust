@@ -25,10 +25,12 @@ interface UserInfo {
     plan?: string;
 }
 
-export function SettingsForm({ user }: { user?: UserInfo | null }) {
+export function SettingsForm({ user, apiKey }: { user?: UserInfo | null; apiKey?: string }) {
     const plan = user?.plan || "free";
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState("");
+    const [keyVisible, setKeyVisible] = useState(false);
+    const [copied, setCopied] = useState("");
 
     function sanitizeErrorMessage(message: string): string {
         const hasStripeSecretLikeToken = /sk_(live|test)_[A-Za-z0-9]+/.test(message);
@@ -135,6 +137,58 @@ export function SettingsForm({ user }: { user?: UserInfo | null }) {
                     </div>
                 </div>
             </div>
+
+            {/* API Key */}
+            {apiKey && (
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
+                        API Key
+                    </h3>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">
+                                {keyVisible ? apiKey : `${apiKey.slice(0, 12)}${"•".repeat(32)}`}
+                            </code>
+                            <button
+                                onClick={() => setKeyVisible(!keyVisible)}
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                            >
+                                {keyVisible ? "Hide" : "Show"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(apiKey);
+                                    setCopied("key");
+                                    setTimeout(() => setCopied(""), 2000);
+                                }}
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                            >
+                                {copied === "key" ? "Copied!" : "Copy"}
+                            </button>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Connect your CLI:
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <code className="flex-1 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">
+                                    codetrust login --api-key {apiKey.slice(0, 12)}...
+                                </code>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`codetrust login --api-key ${apiKey}`);
+                                        setCopied("cli");
+                                        setTimeout(() => setCopied(""), 2000);
+                                    }}
+                                    className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                >
+                                    {copied === "cli" ? "Copied!" : "Copy"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Subscription */}
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

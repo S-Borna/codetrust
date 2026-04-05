@@ -125,7 +125,11 @@ def _classify_rule_entry(
             cats.get(f"nginx_{sev_lower}", cats["nginx_warn"]).append(entry)
         elif ft_set == {".bicep"}:
             cats.get(f"bicep_{sev_lower}", cats["bicep_warn"]).append(entry)
-        elif ft_set & {".py", ".js", ".ts", ".go", ".java", ".rb", ".rs", ".c", ".cpp", ".cs", ".php"}:
+        elif ft_set & {".kt", ".java"} and not ft_set & {".py", ".js", ".ts"}:
+            # Kotlin/Java-only rules — skip, no dedicated bucket yet.
+            # These only fire via the API deep-scan engine, not CLI.
+            pass
+        elif ft_set & {".py", ".js", ".ts", ".go", ".rb", ".rs", ".c", ".cpp", ".cs", ".php"}:
             # Multi-language code rules → generic bucket (applied to all code files)
             cats.get(f"generic_{sev_lower}", cats["generic_warn"]).append(entry)
         else:
@@ -2248,6 +2252,8 @@ POLICY_DEFAULT_EXCLUDE_PATHS: list[str] = [
     "vendor/",
     "node_modules/",
     "src/rules/",
+    "src/templates/",
+    ".github/",
 ]
 
 PYPROJECT_POLICY_BEGIN = "# BEGIN CODETRUST POLICY (generated)"

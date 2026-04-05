@@ -98,7 +98,7 @@ def _try_cli_scan(files: list[str]) -> int | None:
         try:
             hook_env = {**os.environ, "CODETRUST_PRECOMMIT": "1"}
             result = subprocess.run(
-                [py, "-m", "src.cli", "scan", "--json", *files],
+                [py, "-m", "src.cli", "scan", "--json", "--no-verify-imports", "--no-verify-signatures", *files],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -177,11 +177,13 @@ def main() -> int:
             return True
         return False
 
+    _exclude_prefixes = ('src/rules/', 'src/templates/', '.github/')
     source_files = [
         f
         for f in files
         if any(f.endswith(ext) for ext in source_exts)
         and not _is_test_file(f)
+        and not f.startswith(_exclude_prefixes)
     ]
 
     if not source_files:

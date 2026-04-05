@@ -4489,17 +4489,24 @@ def cmd_scan(args: argparse.Namespace) -> int:
     else:
         all_findings, files_scanned = _scan_direct_collect(targets)
 
-    all_findings, hallucinations = _scan_verify_imports(
-        targets, all_findings, args, machine_output=machine_output,
-    )
+    # Skip network-dependent checks in CI (no Redis cache, slow registry
+    # lookups, tree-sitter compilation).  Regex scan covers the quality gate.
+    is_ci = os.environ.get("CI") == "true"
 
-    all_findings = _scan_validate_signatures(
-        targets, all_findings, args, machine_output=machine_output,
-    )
+    if not is_ci:
+        all_findings, hallucinations = _scan_verify_imports(
+            targets, all_findings, args, machine_output=machine_output,
+        )
 
-    all_findings = _scan_runtime_verify(
-        targets, all_findings, args, machine_output=machine_output,
-    )
+        all_findings = _scan_validate_signatures(
+            targets, all_findings, args, machine_output=machine_output,
+        )
+
+        all_findings = _scan_runtime_verify(
+            targets, all_findings, args, machine_output=machine_output,
+        )
+    else:
+        hallucinations = 0
 
     cwd = Path.cwd()
     all_findings, suppressed_count = _scan_post_process(

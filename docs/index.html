@@ -260,6 +260,7 @@
 
     <link rel="stylesheet" href="style.css?v=4.0.6">
 </head>
+
 <body>
     <div class="scroll-progress" id="scroll-progress"></div>
 
@@ -274,9 +275,16 @@
         <a href="https://codetrust.ai" class="topbar-logo">
             <span class="code">Code</span><span class="trust">Trust</span>
         </a>
-        <button class="mobile-toggle" id="mobile-toggle" aria-label="Open menu" aria-expanded="false">
-            <svg class="mobile-icon mobile-icon--menu" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-            <svg class="mobile-icon mobile-icon--close" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Open menu" aria-expanded="false"
+            aria-controls="topbar-nav">
+            <svg class="mobile-icon mobile-icon--menu" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <svg class="mobile-icon mobile-icon--close" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
         </button>
     </nav>
     <!-- Mobile nav: outside topbar to escape its stacking context (position:fixed) -->
@@ -286,23 +294,30 @@
         <a href="https://pypi.org/project/codetrust/">PyPI</a>
         <a href="/lifetime.html" style="color:#10b981 !important;font-weight:600 !important;">Lifetime Deal</a>
         <a href="/report.html">Report / Contact</a>
-        <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install VS Code</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install
+            VS Code</a>
     </div>
-        <div class="section-tabs" id="section-tabs">
-            <a href="#telemetry" class="tab-link">Live Data</a>
-            <a href="#layers" class="tab-link">Enforcement</a>
-            <a href="#capabilities" class="tab-link">Capabilities</a>
-            <a href="#who" class="tab-link">For You</a>
-            <a href="#compare" class="tab-link">Compare</a>
-            <a href="#install" class="tab-link">Get Started</a>
-        </div>
+    <div class="section-tabs" id="section-tabs">
+        <a href="#telemetry" class="tab-link">Live Data</a>
+        <a href="#layers" class="tab-link">Enforcement</a>
+        <a href="#capabilities" class="tab-link">Capabilities</a>
+        <a href="#who" class="tab-link">For You</a>
+        <a href="#compare" class="tab-link">Compare</a>
+        <a href="#install" class="tab-link">Get Started</a>
+    </div>
 
 
     <!-- ==================== SCREEN 1: HERO ==================== -->
     <section class="hero" id="hero">
-        <p class="hero-welcome">Code<span class="hw-trust">Trust</span> &mdash; <span class="hw-gov">AI Governance</span> Enforcement Platform</p>
-        <h1 class="hero-headline">Your AI agent just ran <span class="hero-hl-blue">git push --force</span>.<br><span class="hero-hl-green">CodeTrust stopped it before it executed.</span></h1>
-        <p class="hero-sub" style="color:var(--text-2);max-width:640px;margin:1.2rem auto 0;font-size:0.95rem;line-height:1.6;">GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 &mdash; they write code, run commands, and push to production. CodeTrust blocks destructive actions, catches hallucinated packages, and tracks which model wrote every line &mdash; <strong style="color:var(--white)">before damage happens.</strong></p>
+        <p class="hero-welcome">Code<span class="hw-trust">Trust</span> &mdash; <span class="hw-gov">AI
+                Governance</span> Enforcement Platform</p>
+        <h1 class="hero-headline">Your AI agent just ran <span class="hero-hl-blue">git push --force</span>.<br><span
+                class="hero-hl-green">CodeTrust stopped it before it executed.</span></h1>
+        <p class="hero-sub"
+            style="color:var(--text-2);max-width:640px;margin:1.2rem auto 0;font-size:0.95rem;line-height:1.6;">GPT-5.3,
+            Claude Opus 4.6, Gemini 3, Codex 5.3 &mdash; they write code, run commands, and push to production.
+            CodeTrust blocks destructive actions, catches hallucinated packages, and tracks which model wrote every line
+            &mdash; <strong style="color:var(--white)">before damage happens.</strong></p>
 
         <div class="hero-below" id="hero-below">
             <div class="hero-actions">
@@ -316,7 +331,8 @@
     <section class="container" id="telemetry">
         <div class="reveal">
             <h2><span class="live-dot"></span> Live from production. Not a demo.</h2>
-            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production infrastructure. These numbers update in real time.</p>
+            <p class="section-sub">Every scan, every block, every verification &mdash; streamed live from production
+                infrastructure. These numbers update in real time.</p>
         </div>
 
         <div class="dash-grid reveal">
@@ -339,7 +355,8 @@
                 <div class="dash-hero-num dash-cyan" data-key="pypi_total">0</div>
                 <div class="dash-hero-label">PyPI downloads</div>
                 <div class="dash-detail-row">
-                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk PyPI</span>
+                    <span class="dash-detail"><strong class="dash-val-cyan" data-key="pypi_week">0</strong>/wk
+                        PyPI</span>
                     <span class="dash-detail"><strong data-key="marketplace_downloads">0</strong> VS Code</span>
                     <span class="dash-detail"><strong data-key="openvsx_downloads">0</strong> Open VSX</span>
                 </div>
@@ -348,25 +365,33 @@
 
         <div class="dash-source-bar reveal">
             <span class="dash-source-label">Scans by source:</span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI <strong data-key="src_cli">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code <strong data-key="src_vscode">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub Action <strong data-key="src_github_action">0</strong></span>
-            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API <strong data-key="src_cloud_api">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--green)"></span> CLI
+                <strong data-key="src_cli">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--indigo)"></span> VS Code
+                <strong data-key="src_vscode">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--amber)"></span> GitHub
+                Action <strong data-key="src_github_action">0</strong></span>
+            <span class="dash-source-chip"><span class="dash-src-dot" style="background:var(--cyan)"></span> Cloud API
+                <strong data-key="src_cloud_api">0</strong></span>
         </div>
 
         <div class="impact-threats reveal">
             <div id="impact-grid" class="impact-grid"></div>
         </div>
 
-        <p class="telemetry-context reveal">Impact categories track high-severity threats prevented. Total findings includes all severity levels across every scan.</p>
+        <p class="telemetry-context reveal">Impact categories track high-severity threats prevented. Total findings
+            includes all severity levels across every scan.</p>
         <p class="telemetry-note reveal" id="live-updated-at">live</p>
-        <p class="reveal" style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-top:1.2rem;">Your AI agents are generating the same patterns right now. The question is whether anyone is catching them.</p>
+        <p class="reveal" style="text-align:center;color:var(--text-2);font-size:0.85rem;margin-top:1.2rem;">Your AI
+            agents are generating the same patterns right now. The question is whether anyone is catching them.</p>
     </section>
 
     <!-- ==================== SCREEN 2: WHAT codetrust init INSTALLS ==================== -->
     <section class="container" id="layers">
         <div class="reveal">
-            <p class="layers-bridge">8 enforcement layers. 3,006 rules. Real-time interception.<br><span class="mono" style="color:var(--green)">pip install codetrust && codetrust init</span> &mdash; governance active in 30 seconds.</p>
+            <p class="layers-bridge">8 enforcement layers. 3,006 rules. Real-time interception.<br><span class="mono"
+                    style="color:var(--green)">pip install codetrust && codetrust init</span> &mdash; governance active
+                in 30 seconds.</p>
             <h2>What happens when you run <span class="mono" style="color:var(--green)">codetrust init</span></h2>
             <p class="section-sub">One command. Eight enforcement layers. Thirty seconds.</p>
         </div>
@@ -375,25 +400,37 @@
             <div class="layer-card layer-card-hero" style="--glow-color: var(--red)">
                 <div class="layer-number">01</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
                 </div>
                 <h3>PreToolUse Hooks</h3>
-                <p>Intercepts <strong>every</strong> terminal command before execution. <code>git push</code> &rarr; BLOCKED. <code>rm -rf /</code> &rarr; BLOCKED. The agent cannot proceed.</p>
+                <p>Intercepts <strong>every</strong> terminal command before execution. <code>git push</code> &rarr;
+                    BLOCKED. <code>rm -rf /</code> &rarr; BLOCKED. The agent cannot proceed.</p>
                 <span class="layer-tag layer-tag-red">real-time &middot; 45+ patterns</span>
             </div>
             <div class="layer-card" style="--glow-color: var(--indigo)">
                 <div class="layer-number">02</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
                 </div>
                 <h3>MCP Servers</h3>
-                <p>Claude Code, Cursor, Claude Desktop &mdash; all configured. Gateway + Guardian registered in every IDE automatically.</p>
+                <p>Claude Code, Cursor, Claude Desktop &mdash; all configured. Gateway + Guardian registered in every
+                    IDE automatically.</p>
                 <span class="layer-tag layer-tag-indigo">39 MCP tools</span>
             </div>
             <div class="layer-card" style="--glow-color: var(--amber)">
                 <div class="layer-number">03</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <polyline points="17 11 19 13 23 9" />
+                    </svg>
                 </div>
                 <h3>Pre-commit Hook</h3>
                 <p>Commit gate. Every staged file scanned. BLOCK findings = rejected commit. No exceptions.</p>
@@ -402,7 +439,12 @@
             <div class="layer-card" style="--glow-color: var(--indigo)">
                 <div class="layer-number">04</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path
+                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
                 </div>
                 <h3>GitHub Action</h3>
                 <p>PR gate. Full scan on every pull request. SARIF upload. Fails the check on BLOCK findings.</p>
@@ -411,7 +453,10 @@
             <div class="layer-card" style="--glow-color: var(--cyan)">
                 <div class="layer-number">05</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
                 </div>
                 <h3>Agent Instructions</h3>
                 <p>CLAUDE.md and .cursorrules injected. The agent is told to call CodeTrust before every action.</p>
@@ -420,16 +465,24 @@
             <div class="layer-card" style="--glow-color: var(--amber)">
                 <div class="layer-number">06</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
                 </div>
                 <h3>Governance Config</h3>
-                <p><code>.codetrust.toml</code> &mdash; enforce mode, audit logging, 82 gateway rules, protected paths.</p>
+                <p><code>.codetrust.toml</code> &mdash; enforce mode, audit logging, 82 gateway rules, protected paths.
+                </p>
                 <span class="layer-tag layer-tag-amber">enforce mode</span>
             </div>
             <div class="layer-card layer-card-final" style="--glow-color: var(--green)">
                 <div class="layer-number" style="color: var(--green)">07</div>
                 <div class="layer-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
                 </div>
                 <h3>codetrust doctor</h3>
                 <p>Verification. Tests every layer. <code>git push</code> &rarr; BLOCKED (exit 2). Green = enforced.</p>
@@ -453,16 +506,32 @@
                 <span class="hero-terminal-title">terminal &mdash; codetrust doctor</span>
             </div>
             <div class="doctor-terminal-body">
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">BASH_ENV guard</span> <span class="t-dim">&mdash; universal real-time enforcement active</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in ~/.claude/settings.json</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules active</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Pre-commit hook</span> <span class="t-dim">&mdash; .git/hooks/pre-commit installed</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">GitHub Action</span> <span class="t-dim">&mdash; .github/workflows/codetrust.yml present</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">CLAUDE.md governance</span> <span class="t-dim">&mdash; agent instructions injected</span></div>
-                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">Governance config</span> <span class="t-dim">&mdash; .codetrust.toml enforce mode</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span
+                        class="t-white">BASH_ENV guard</span> <span class="t-dim">&mdash; universal real-time
+                        enforcement active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span
+                        class="t-white">PreToolUse hooks</span> <span class="t-dim">&mdash; installed in
+                        ~/.claude/settings.json</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP
+                        Gateway server</span> <span class="t-dim">&mdash; registered, 82 interception rules
+                        active</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">MCP
+                        Guardian server</span> <span class="t-dim">&mdash; registered, 2,924 scan rules active</span>
+                </div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span
+                        class="t-white">Pre-commit hook</span> <span class="t-dim">&mdash; .git/hooks/pre-commit
+                        installed</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span class="t-white">GitHub
+                        Action</span> <span class="t-dim">&mdash; .github/workflows/codetrust.yml present</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span
+                        class="t-white">CLAUDE.md governance</span> <span class="t-dim">&mdash; agent instructions
+                        injected</span></div>
+                <div class="doctor-line"><span class="doctor-check t-green">&#10003;</span> <span
+                        class="t-white">Governance config</span> <span class="t-dim">&mdash; .codetrust.toml enforce
+                        mode</span></div>
                 <div class="doctor-summary">
-                    <span class="t-green">8/8 layers active</span> <span class="t-dim">&mdash;</span> <span class="t-white">governance fully enforced</span>
+                    <span class="t-green">8/8 layers active</span> <span class="t-dim">&mdash;</span> <span
+                        class="t-white">governance fully enforced</span>
                 </div>
             </div>
         </div>
@@ -472,7 +541,9 @@
     <section class="container" id="capabilities">
         <div class="reveal">
             <h2>Eight layers of control nobody else has</h2>
-            <p class="section-sub">SonarQube checks quality. Snyk checks dependencies. Semgrep checks patterns.<br>Nobody checks what the AI agent itself is doing.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
+            <p class="section-sub">SonarQube checks quality. Snyk checks dependencies. Semgrep checks
+                patterns.<br>Nobody checks what the AI agent itself is doing.<br><span class="hl-green">That requires
+                    governance, not just scanning.</span></p>
         </div>
 
         <div class="five-cards">
@@ -484,14 +555,17 @@
                 </div>
                 <div class="demo-card-body">
                     <div class="mini-terminal">
-                        <span class="t-dim">$</span> <span class="t-white">from</span> openai_helpers <span class="t-white">import</span> retry_with_backoff<br>
+                        <span class="t-dim">$</span> <span class="t-white">from</span> openai_helpers <span
+                            class="t-white">import</span> retry_with_backoff<br>
                         <br>
                         <span class="t-red">BLOCK</span> <span class="t-dim">openai_helpers not found on PyPI</span><br>
-                        <span class="t-dim">Did you mean:</span> <span class="t-amber">openai</span> <span class="t-dim">(v1.52.0)</span>
+                        <span class="t-dim">Did you mean:</span> <span class="t-amber">openai</span> <span
+                            class="t-dim">(v1.52.0)</span>
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Your AI invents packages that look real. We verify every import against 8 live registries before it reaches your lockfile.
+                    Your AI invents packages that look real. We verify every import against 8 live registries before it
+                    reaches your lockfile.
                 </div>
             </div>
 
@@ -521,7 +595,8 @@
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 323 taint definitions across 7 languages.
+                    Cross-file and cross-language taint analysis. Python to JS to Go via HTTP boundary detection. 323
+                    taint definitions across 7 languages.
                 </div>
             </div>
 
@@ -561,7 +636,8 @@
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    82 interception rules. Auto-installed via PreToolUse hooks. Every command your AI agent runs passes through the gateway first. Claude Code, Cursor, Copilot &mdash; all governed.
+                    82 interception rules. Auto-installed via PreToolUse hooks. Every command your AI agent runs passes
+                    through the gateway first. Claude Code, Cursor, Copilot &mdash; all governed.
                 </div>
             </div>
 
@@ -582,7 +658,8 @@
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Not just "unsafe code detected" &mdash; exact code, exact fix, root cause explanation. 2,924 individual suggestions across all rule categories.
+                    Not just "unsafe code detected" &mdash; exact code, exact fix, root cause explanation. 2,924
+                    individual suggestions across all rule categories.
                 </div>
             </div>
 
@@ -599,12 +676,14 @@
                         <span class="t-amber">gpt-5.3</span> <span class="t-dim">18 lines</span><br>
                         <span class="t-white">human</span> <span class="t-dim">156 lines</span><br>
                         <br>
-                        <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit marker</span><br>
+                        <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit
+                            marker</span><br>
                         <span class="t-dim">from unregistered model in auth.py</span>
                     </div>
                 </div>
                 <div class="demo-card-sub">
-                    Shadow AI detection. Developer risk scoring. 26 models discovered live. Know exactly which AI touched your codebase and what it changed.
+                    Shadow AI detection. Developer risk scoring. 26 models discovered live. Know exactly which AI
+                    touched your codebase and what it changed.
                 </div>
             </div>
         </div>
@@ -629,7 +708,8 @@
                 <div class="persona-emoji">&#x1F393;</div>
                 <h3>I teach</h3>
                 <p>Which students used AI? Which model? Which lines? Proof, not suspicion.</p>
-                <span class="persona-feature">Attribution trails &middot; Shadow AI detection &middot; Per-line proof</span>
+                <span class="persona-feature">Attribution trails &middot; Shadow AI detection &middot; Per-line
+                    proof</span>
             </a>
             <a href="#persona-vibe" class="persona-card persona-vibe">
                 <div class="persona-emoji">&#x26A1;</div>
@@ -648,7 +728,8 @@
             <div class="persona-section-header">
                 <span class="persona-section-tag persona-tag-founder">For founders &amp; CTOs</span>
                 <h2>Know exactly which AI writes your code</h2>
-                <p class="section-sub">Your team uses Claude, Copilot, Cursor, and three tools you don't know about.<br>CodeTrust tracks every model, every edit, every commit.</p>
+                <p class="section-sub">Your team uses Claude, Copilot, Cursor, and three tools you don't know
+                    about.<br>CodeTrust tracks every model, every edit, every commit.</p>
             </div>
         </div>
 
@@ -658,9 +739,12 @@
                 <div class="mini-terminal">
                     <span class="t-dim">$ codetrust scan --attribution</span><br><br>
                     <span class="t-dim">auth.py</span><br>
-                    <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">wrote lines 1-42</span> <span class="t-dim">(68%)</span><br>
-                    <span class="t-amber">gpt-5.3</span> <span class="t-dim">wrote lines 43-61</span> <span class="t-dim">(20%)</span><br>
-                    <span class="t-white">human</span> <span class="t-dim">wrote lines 62-78</span> <span class="t-dim">(12%)</span><br><br>
+                    <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">wrote lines 1-42</span> <span
+                        class="t-dim">(68%)</span><br>
+                    <span class="t-amber">gpt-5.3</span> <span class="t-dim">wrote lines 43-61</span> <span
+                        class="t-dim">(20%)</span><br>
+                    <span class="t-white">human</span> <span class="t-dim">wrote lines 62-78</span> <span
+                        class="t-dim">(12%)</span><br><br>
                     <span class="t-dim">billing.py</span><br>
                     <span class="t-red">WARN</span> <span class="t-dim">Shadow AI detected: ai_edit marker</span><br>
                     <span class="t-dim">from unregistered model &mdash; not in approved list</span>
@@ -701,7 +785,8 @@
             <div class="persona-section-header">
                 <span class="persona-section-tag persona-tag-dev">For developers</span>
                 <h2>2,924 rules. Every one tells you how to fix it.</h2>
-                <p class="section-sub">Not "unsafe code detected." Exact line, exact fix, root cause explanation.<br>The agent reads the suggestion and self-corrects. Zero back-and-forth.</p>
+                <p class="section-sub">Not "unsafe code detected." Exact line, exact fix, root cause explanation.<br>The
+                    agent reads the suggestion and self-corrects. Zero back-and-forth.</p>
             </div>
         </div>
 
@@ -710,8 +795,10 @@
                 <h4>Guided Remediation</h4>
                 <div class="mini-terminal">
                     <span class="t-red">BLOCK</span> <span class="t-dim">sql_injection_fstring</span><br>
-                    <span class="t-dim">Line 28:</span> <span class="t-white">cursor.execute(f"SELECT * FROM users WHERE id={uid}")</span><br><br>
-                    <span class="t-green">FIX:</span> <span class="t-white">cursor.execute("SELECT * FROM users WHERE id=%s", (uid,))</span><br>
+                    <span class="t-dim">Line 28:</span> <span class="t-white">cursor.execute(f"SELECT * FROM users WHERE
+                        id={uid}")</span><br><br>
+                    <span class="t-green">FIX:</span> <span class="t-white">cursor.execute("SELECT * FROM users WHERE
+                        id=%s", (uid,))</span><br>
                     <span class="t-dim">Root cause: f-string interpolation in SQL allows</span><br>
                     <span class="t-dim">attacker-controlled input to modify query structure.</span><br>
                     <span class="t-dim">Parameterized queries escape input at the driver level.</span>
@@ -721,10 +808,12 @@
                 <h4>Cross-Language Taint</h4>
                 <div class="mini-terminal">
                     <span class="t-dim">Flask API (Python)</span><br>
-                    <span class="t-white">user_input = request.form['q']</span> <span class="taint-tag taint-tag-source" style="font-size:0.6rem">SOURCE</span><br>
+                    <span class="t-white">user_input = request.form['q']</span> <span class="taint-tag taint-tag-source"
+                        style="font-size:0.6rem">SOURCE</span><br>
                     <span class="t-dim">&darr; POST /api/search</span><br><br>
                     <span class="t-dim">Express handler (Node.js)</span><br>
-                    <span class="t-white">const html = `&lt;div&gt;${req.body.q}&lt;/div&gt;`</span> <span class="taint-tag taint-tag-sink" style="font-size:0.6rem">SINK: XSS</span><br><br>
+                    <span class="t-white">const html = `&lt;div&gt;${req.body.q}&lt;/div&gt;`</span> <span
+                        class="taint-tag taint-tag-sink" style="font-size:0.6rem">SINK: XSS</span><br><br>
                     <span class="t-red">BLOCK</span> <span class="t-dim">Tainted data crosses HTTP boundary</span><br>
                     <span class="t-dim">Python &rarr; Node.js without sanitization</span>
                 </div>
@@ -751,7 +840,8 @@
             <div class="persona-section-header">
                 <span class="persona-section-tag persona-tag-teach">For educators</span>
                 <h2>Proof, not suspicion</h2>
-                <p class="section-sub">Students submit code. You need to know: did they write it, or did an AI?<br>CodeTrust gives you per-line attribution with model identification.</p>
+                <p class="section-sub">Students submit code. You need to know: did they write it, or did an
+                    AI?<br>CodeTrust gives you per-line attribution with model identification.</p>
             </div>
         </div>
 
@@ -760,11 +850,16 @@
                 <h4>Student Submission Analysis</h4>
                 <div class="mini-terminal">
                     <span class="t-dim">$ codetrust scan assignment.py --attribution</span><br><br>
-                    <span class="t-dim">Lines 1-8:</span> <span class="t-white">human</span> <span class="t-dim">(boilerplate, manual style)</span><br>
-                    <span class="t-dim">Lines 9-47:</span> <span class="t-cyan">claude-opus-4.6</span> <span class="t-dim">(high confidence: code style,</span><br>
-                    <span class="t-dim">&nbsp;&nbsp;docstring pattern, variable naming consistent with Claude output)</span><br>
-                    <span class="t-dim">Lines 48-52:</span> <span class="t-white">human</span> <span class="t-dim">(manual edits to AI output)</span><br><br>
-                    <span class="t-amber">Summary: 76% AI-generated</span> <span class="t-dim">(39 of 52 lines)</span><br>
+                    <span class="t-dim">Lines 1-8:</span> <span class="t-white">human</span> <span
+                        class="t-dim">(boilerplate, manual style)</span><br>
+                    <span class="t-dim">Lines 9-47:</span> <span class="t-cyan">claude-opus-4.6</span> <span
+                        class="t-dim">(high confidence: code style,</span><br>
+                    <span class="t-dim">&nbsp;&nbsp;docstring pattern, variable naming consistent with Claude
+                        output)</span><br>
+                    <span class="t-dim">Lines 48-52:</span> <span class="t-white">human</span> <span
+                        class="t-dim">(manual edits to AI output)</span><br><br>
+                    <span class="t-amber">Summary: 76% AI-generated</span> <span class="t-dim">(39 of 52
+                        lines)</span><br>
                     <span class="t-dim">Primary model: claude-opus-4.6</span><br>
                     <span class="t-dim">Secondary: none detected</span>
                 </div>
@@ -774,10 +869,14 @@
                 <div class="mini-terminal">
                     <span class="t-dim">$ codetrust scan repo/ --shadow-ai</span><br><br>
                     <span class="t-white">AI tools active in this workspace:</span><br><br>
-                    <span class="t-green">&#10003;</span> <span class="t-white">GitHub Copilot</span> <span class="t-dim">(registered, approved)</span><br>
-                    <span class="t-green">&#10003;</span> <span class="t-white">Claude Code</span> <span class="t-dim">(registered, approved)</span><br>
-                    <span class="t-red">&#x2716;</span> <span class="t-white">Cursor</span> <span class="t-dim">(detected, NOT in approved list)</span><br>
-                    <span class="t-red">&#x2716;</span> <span class="t-white">Unknown model</span> <span class="t-dim">(ai_edit markers in 3 files)</span><br><br>
+                    <span class="t-green">&#10003;</span> <span class="t-white">GitHub Copilot</span> <span
+                        class="t-dim">(registered, approved)</span><br>
+                    <span class="t-green">&#10003;</span> <span class="t-white">Claude Code</span> <span
+                        class="t-dim">(registered, approved)</span><br>
+                    <span class="t-red">&#x2716;</span> <span class="t-white">Cursor</span> <span
+                        class="t-dim">(detected, NOT in approved list)</span><br>
+                    <span class="t-red">&#x2716;</span> <span class="t-white">Unknown model</span> <span
+                        class="t-dim">(ai_edit markers in 3 files)</span><br><br>
                     <span class="t-red">WARN</span> <span class="t-dim">2 unregistered AI tools detected</span>
                 </div>
             </div>
@@ -790,7 +889,9 @@
             <div class="persona-section-header">
                 <span class="persona-section-tag persona-tag-vibe">For vibe coders</span>
                 <h2>Your AI just hallucinated a package. We caught it.</h2>
-                <p class="section-sub">You asked Claude to build a Stripe integration. It imported <code>stripe_helpers</code> &mdash;<br>a package that doesn't exist. A typosquatter registered it 12 minutes ago.<br>CodeTrust blocked it before <code>pip install</code> finished.</p>
+                <p class="section-sub">You asked Claude to build a Stripe integration. It imported
+                    <code>stripe_helpers</code> &mdash;<br>a package that doesn't exist. A typosquatter registered it 12
+                    minutes ago.<br>CodeTrust blocked it before <code>pip install</code> finished.</p>
             </div>
         </div>
 
@@ -799,12 +900,16 @@
                 <h4>Hallucination Catch</h4>
                 <div class="mini-terminal">
                     <span class="t-green">$</span> <span class="t-dim">pip install stripe-helpers</span><br><br>
-                    <span class="t-red">BLOCK</span> <span class="t-white">stripe-helpers</span> <span class="t-dim">not found on PyPI</span><br>
+                    <span class="t-red">BLOCK</span> <span class="t-white">stripe-helpers</span> <span class="t-dim">not
+                        found on PyPI</span><br>
                     <span class="t-dim">This package was hallucinated by your AI.</span><br><br>
                     <span class="t-dim">Did you mean:</span><br>
-                    <span class="t-amber">stripe</span> <span class="t-dim">(v10.12.0) &mdash; official Stripe SDK</span><br><br>
-                    <span class="t-green">$</span> <span class="t-dim">pip install anthropic-agent-toolkit</span><br><br>
-                    <span class="t-red">BLOCK</span> <span class="t-dim">This package was registered 12 minutes ago.</span><br>
+                    <span class="t-amber">stripe</span> <span class="t-dim">(v10.12.0) &mdash; official Stripe
+                        SDK</span><br><br>
+                    <span class="t-green">$</span> <span class="t-dim">pip install
+                        anthropic-agent-toolkit</span><br><br>
+                    <span class="t-red">BLOCK</span> <span class="t-dim">This package was registered 12 minutes
+                        ago.</span><br>
                     <span class="t-dim">Likely typosquat. Contains reverse shell in setup.py.</span>
                 </div>
             </div>
@@ -820,7 +925,8 @@
                     <span class="t-green">&#10003;</span> <span class="t-dim">GitHub Action</span><br>
                     <span class="t-green">&#10003;</span> <span class="t-dim">Agent instructions</span><br>
                     <span class="t-green">&#10003;</span> <span class="t-dim">Governance config</span><br><br>
-                    <span class="t-green">&#10003; 8/8 layers active</span> <span class="t-dim">&mdash; governance enforced</span><br>
+                    <span class="t-green">&#10003; 8/8 layers active</span> <span class="t-dim">&mdash; governance
+                        enforced</span><br>
                     <span class="t-dim">Your AI agent is now governed. Ship with confidence.</span>
                 </div>
             </div>
@@ -832,7 +938,8 @@
     <section class="container" id="editors">
         <div class="reveal">
             <h2>Works in your editor</h2>
-            <p class="section-sub">CodeTrust works across Cursor, VS Code, and any AI coding tool.<br>Enforcement happens before execution &mdash; not inside the editor.</p>
+            <p class="section-sub">CodeTrust works across Cursor, VS Code, and any AI coding tool.<br>Enforcement
+                happens before execution &mdash; not inside the editor.</p>
         </div>
 
         <div class="five-cards" style="max-width:1000px;margin:0 auto">
@@ -841,7 +948,9 @@
                     <h3>Cursor &amp; AI-native editors</h3>
                 </div>
                 <div class="demo-card-body" style="padding:1rem 1.2rem">
-                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Claude Code, Cursor, AI agents &mdash; MCP Gateway + Guardian intercept every action. Commands are blocked before execution.</p>
+                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Claude Code, Cursor, AI
+                        agents &mdash; MCP Gateway + Guardian intercept every action. Commands are blocked before
+                        execution.</p>
                 </div>
             </div>
             <div class="demo-card demo-card-half reveal" style="flex:1;min-width:280px">
@@ -849,7 +958,9 @@
                     <h3>VS Code</h3>
                 </div>
                 <div class="demo-card-body" style="padding:1rem 1.2rem">
-                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Extension scans on save with inline findings. BASH_ENV guard blocks commands at OS level. GitHub Action enforces rules in CI.</p>
+                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Extension scans on save
+                        with inline findings. BASH_ENV guard blocks commands at OS level. GitHub Action enforces rules
+                        in CI.</p>
                 </div>
             </div>
             <div class="demo-card demo-card-half reveal" style="flex:1;min-width:280px">
@@ -857,18 +968,23 @@
                     <h3>Any environment</h3>
                 </div>
                 <div class="demo-card-body" style="padding:1rem 1.2rem">
-                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Terminal, CI, scripts, agents &mdash; pre-commit hook + GitHub Action + BASH_ENV guard. Same enforcement everywhere.</p>
+                    <p style="font-size:0.82rem;color:var(--text-2);line-height:1.6;margin:0">Terminal, CI, scripts,
+                        agents &mdash; pre-commit hook + GitHub Action + BASH_ENV guard. Same enforcement everywhere.
+                    </p>
                 </div>
             </div>
         </div>
-        <p class="reveal" style="text-align:center;color:var(--text-3);font-size:0.8rem;margin-top:1.5rem;">Your editor doesn't matter. Execution does.</p>
+        <p class="reveal" style="text-align:center;color:var(--text-3);font-size:0.8rem;margin-top:1.5rem;">Your editor
+            doesn't matter. Execution does.</p>
     </section>
 
     <!-- ==================== SCREEN 6: COMPETITIVE ==================== -->
     <section class="container" id="compare">
         <div class="reveal">
             <h2>What they miss. What we govern.</h2>
-            <p class="section-sub">SAST tools were built for human-written code. AI agents don't just write code &mdash;<br>they execute commands, install packages, and modify files.<br><span class="hl-green">That requires governance, not just scanning.</span></p>
+            <p class="section-sub">SAST tools were built for human-written code. AI agents don't just write code
+                &mdash;<br>they execute commands, install packages, and modify files.<br><span class="hl-green">That
+                    requires governance, not just scanning.</span></p>
         </div>
 
         <div class="compare-battle reveal">
@@ -880,12 +996,14 @@
                 </div>
                 <div class="battle-items">
                     <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Lint errors</div>
-                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Unused variables</div>
+                    <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Unused variables
+                    </div>
                     <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Code style</div>
                     <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Type mismatches</div>
                     <div class="battle-item battle-item-dim"><span class="battle-x">&times;</span> Known CVEs</div>
                 </div>
-                <div class="battle-footnote">Scans code <em>after</em> it's written. Human reviews findings. Maybe.</div>
+                <div class="battle-footnote">Scans code <em>after</em> it's written. Human reviews findings. Maybe.
+                </div>
             </div>
             <div class="battle-vs">vs</div>
             <div class="battle-side battle-new">
@@ -895,16 +1013,25 @@
                     <span class="battle-verdict-tag battle-verdict-live">real-time governance</span>
                 </div>
                 <div class="battle-items">
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Hallucinated packages blocked</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Destructive commands intercepted</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Tainted data flows traced</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Ghost Docker images caught</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Pre-execution interception</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> 2,924 guided fix suggestions</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Shadow AI detection</div>
-                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Model attribution per line</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Hallucinated
+                        packages blocked</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Destructive
+                        commands intercepted</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Tainted data
+                        flows traced</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Ghost Docker
+                        images caught</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Pre-execution
+                        interception</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> 2,924 guided
+                        fix suggestions</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Shadow AI
+                        detection</div>
+                    <div class="battle-item battle-item-glow"><span class="battle-check">&#10003;</span> Model
+                        attribution per line</div>
                 </div>
-                <div class="battle-footnote">Intercepts the agent <em>before</em> damage occurs. Automatic. Zero config.</div>
+                <div class="battle-footnote">Intercepts the agent <em>before</em> damage occurs. Automatic. Zero config.
+                </div>
             </div>
         </div>
 
@@ -997,12 +1124,18 @@
                     <span class="hero-terminal-title">terminal</span>
                 </div>
                 <div class="install-terminal-body">
-                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">pip install codetrust</span></div>
-                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust init</span></div>
-                    <div class="install-line"><span class="t-dim">&nbsp;&nbsp;Installing 8 enforcement layers...</span></div>
-                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-dim">All layers installed</span></div>
-                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust doctor</span></div>
-                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-white">8/8 layers active &mdash; governance fully enforced</span></div>
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">pip install
+                            codetrust</span></div>
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust init</span>
+                    </div>
+                    <div class="install-line"><span class="t-dim">&nbsp;&nbsp;Installing 8 enforcement layers...</span>
+                    </div>
+                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-dim">All layers
+                            installed</span></div>
+                    <div class="install-line"><span class="t-dim">$</span> <span class="t-green">codetrust doctor</span>
+                    </div>
+                    <div class="install-line"><span class="t-green">&#10003;</span> <span class="t-white">8/8 layers
+                            active &mdash; governance fully enforced</span></div>
                 </div>
             </div>
         </div>
@@ -1010,7 +1143,11 @@
         <div class="install-surfaces reveal">
             <div class="install-surface-card">
                 <div class="install-surface-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                    </svg>
                 </div>
                 <h3>VS Code Extension</h3>
                 <code>ext install SaidBorna.codetrust</code>
@@ -1018,7 +1155,13 @@
             </div>
             <div class="install-surface-card">
                 <div class="install-surface-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path
+                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
                 </div>
                 <h3>GitHub Action</h3>
                 <code>pip install codetrust</code>
@@ -1026,7 +1169,12 @@
             </div>
             <div class="install-surface-card">
                 <div class="install-surface-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
                 </div>
                 <h3>Chrome Extension</h3>
                 <code>Chrome Web Store</code>
@@ -1057,7 +1205,8 @@
             <h3>Your AI agents need governance. Install in 30 seconds.</h3>
             <div class="hero-actions">
                 <a href="https://app.codetrust.ai" class="btn btn-primary">Run your first governed scan</a>
-                <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="btn btn-ghost">Install VS Code Extension</a>
+                <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"
+                    class="btn btn-ghost">Install VS Code Extension</a>
             </div>
         </div>
     </section>
@@ -1079,7 +1228,7 @@
         document.body.classList.add('loaded');
 
         // Scroll progress
-        window.addEventListener('scroll', function() {
+        window.addEventListener('scroll', function () {
             var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
             var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
             var progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
@@ -1089,47 +1238,66 @@
             document.getElementById('topbar').classList.toggle('scrolled', scrollTop > 40);
         });
 
-        // Mobile nav toggle — rebuilt from scratch
-        (function() {
+        // Mobile nav toggle
+        (function () {
             var btn = document.getElementById('mobile-toggle');
             var nav = document.getElementById('topbar-nav');
-            var topbar = document.getElementById('topbar');
+            var mobileQuery = window.matchMedia('(max-width: 640px)');
+            var scrollTopBeforeOpen = 0;
             if (!btn || !nav) return;
 
+            function setExpandedState(isOpen) {
+                btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                btn.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+            }
+
             function open() {
+                if (!mobileQuery.matches) return;
                 nav.classList.add('open');
-                btn.setAttribute('aria-expanded', 'true');
-                document.body.style.overflow = 'hidden';
-                document.body.style.position = 'fixed';
-                document.body.style.width = '100%';
-                topbar.style.zIndex = '999999';
+                setExpandedState(true);
+                scrollTopBeforeOpen = window.scrollY || window.pageYOffset || 0;
+                document.body.classList.add('mobile-menu-open');
+                document.body.style.top = '-' + scrollTopBeforeOpen + 'px';
             }
 
             function close() {
                 nav.classList.remove('open');
-                btn.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-                document.body.style.position = '';
-                document.body.style.width = '';
-                topbar.style.zIndex = '';
+                setExpandedState(false);
+                if (document.body.classList.contains('mobile-menu-open')) {
+                    var top = parseInt(document.body.style.top || '0', 10);
+                    document.body.classList.remove('mobile-menu-open');
+                    document.body.style.top = '';
+                    window.scrollTo(0, Math.abs(top));
+                }
             }
 
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function (event) {
+                event.preventDefault();
                 nav.classList.contains('open') ? close() : open();
             });
 
-            nav.querySelectorAll('a').forEach(function(a) {
+            nav.querySelectorAll('a').forEach(function (a) {
                 a.addEventListener('click', close);
             });
 
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close();
             });
+
+            function handleViewportChange(event) {
+                if (!event.matches) close();
+            }
+
+            if (typeof mobileQuery.addEventListener === 'function') {
+                mobileQuery.addEventListener('change', handleViewportChange);
+            } else if (typeof mobileQuery.addListener === 'function') {
+                mobileQuery.addListener(handleViewportChange);
+            }
         })();
 
         // Scroll reveal
-        var revealObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
+        var revealObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
                     revealObserver.unobserve(entry.target);
@@ -1137,24 +1305,24 @@
             });
         }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
-        document.querySelectorAll('.reveal').forEach(function(el) {
+        document.querySelectorAll('.reveal').forEach(function (el) {
             revealObserver.observe(el);
         });
 
         // ============================================================
         // TAB NAV — highlight active section on scroll
         // ============================================================
-        (function() {
+        (function () {
             var tabs = document.querySelectorAll('.tab-link');
             var sectionIds = [];
-            tabs.forEach(function(tab) {
+            tabs.forEach(function (tab) {
                 sectionIds.push(tab.getAttribute('href').substring(1));
             });
-            var tabObserver = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
+            var tabObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
                     if (entry.isIntersecting) {
                         var id = entry.target.id;
-                        tabs.forEach(function(tab) {
+                        tabs.forEach(function (tab) {
                             if (tab.getAttribute('href') === '#' + id) {
                                 tab.classList.add('active');
                             } else {
@@ -1164,7 +1332,7 @@
                     }
                 });
             }, { threshold: 0.15, rootMargin: '-80px 0px -60% 0px' });
-            sectionIds.forEach(function(id) {
+            sectionIds.forEach(function (id) {
                 var el = document.getElementById(id);
                 if (el) tabObserver.observe(el);
             });
@@ -1173,13 +1341,13 @@
         // ============================================================
         // GATEWAY ANIMATION — Card 2 animated lines
         // ============================================================
-        var gatewayObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
+        var gatewayObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     var lines = entry.target.querySelectorAll('.gateway-line');
-                    lines.forEach(function(line) {
+                    lines.forEach(function (line) {
                         var delay = parseInt(line.dataset.delay) || 0;
-                        setTimeout(function() {
+                        setTimeout(function () {
                             line.classList.add('show');
                         }, delay);
                     });
@@ -1196,12 +1364,12 @@
         // ============================================================
         // INIT STEPS ANIMATION — staggered checkmark reveal
         // ============================================================
-        var initStepsObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
+        var initStepsObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     var steps = entry.target.querySelectorAll('.init-step');
-                    steps.forEach(function(step, i) {
-                        setTimeout(function() {
+                    steps.forEach(function (step, i) {
+                        setTimeout(function () {
                             step.classList.add('init-step-visible');
                         }, i * 200);
                     });
@@ -1301,7 +1469,7 @@
             if (!grid) return;
 
             var categories = Object.entries(m.impact_categories || {})
-                .map(function(pair) {
+                .map(function (pair) {
                     var key = pair[0];
                     var value = pair[1];
                     return {
@@ -1311,10 +1479,10 @@
                         last_seen: value ? value.last_seen : null
                     };
                 })
-                .filter(function(entry) { return entry.key !== 'other'; })
-                .sort(function(a, b) { return b.count - a.count; });
+                .filter(function (entry) { return entry.key !== 'other'; })
+                .sort(function (a, b) { return b.count - a.count; });
 
-            grid.innerHTML = categories.map(function(entry) {
+            grid.innerHTML = categories.map(function (entry) {
                 return '<article class="impact-card" data-category="' + entry.key + '">' +
                     '<div class="impact-card-head">' +
                     '<span class="impact-icon">' + (IMPACT_ICONS[entry.key] || '\uD83E\uDDE9') + '</span>' +
@@ -1329,7 +1497,7 @@
         function animateValue(el, from, to, duration) {
             if (from === to) return;
             var start = performance.now();
-            var step = function(now) {
+            var step = function (now) {
                 var progress = Math.min((now - start) / duration, 1);
                 var ease = 1 - Math.pow(1 - progress, 3);
                 el.textContent = Math.floor(from + (to - from) * ease).toLocaleString();
@@ -1343,7 +1511,7 @@
         function updateDashboard(payload) {
             var m = extractStats(payload);
             var dur = firstLoad ? 1800 : 600;
-            document.querySelectorAll('[data-key]').forEach(function(el) {
+            document.querySelectorAll('[data-key]').forEach(function (el) {
                 var key = el.dataset.key;
                 var val = m[key];
                 if (val === undefined) return;
@@ -1353,7 +1521,7 @@
                 if (newVal !== oldVal) {
                     animateValue(el, oldVal, newVal, dur);
                     el.classList.add('dash-pulse');
-                    setTimeout(function() { el.classList.remove('dash-pulse'); }, 1200);
+                    setTimeout(function () { el.classList.remove('dash-pulse'); }, 1200);
                 }
             });
             firstLoad = false;
@@ -1403,7 +1571,7 @@
                 startPolling();
                 return;
             }
-            ws.onmessage = function(event) {
+            ws.onmessage = function (event) {
                 try {
                     var msg = JSON.parse(event.data);
                     if (msg && msg.stats) {
@@ -1413,10 +1581,10 @@
                     // ignore
                 }
             };
-            ws.onopen = function() {
+            ws.onopen = function () {
                 wsFailCount = 0;
             };
-            ws.onclose = function() {
+            ws.onclose = function () {
                 ws = null;
                 startPolling();
                 wsFailCount++;
@@ -1424,7 +1592,7 @@
                     setTimeout(connectWebSocket, 30000);
                 }
             };
-            ws.onerror = function() {
+            ws.onerror = function () {
                 try { ws.close(); } catch (e) { }
             };
         }

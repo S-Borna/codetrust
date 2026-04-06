@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -26,8 +27,21 @@ interface NavUser {
     image?: string | null;
 }
 
+const NAV_LINKS = [
+    { href: "/dashboard", label: "Overview" },
+    { href: "/dashboard/enforcement", label: "Enforcement" },
+    { href: "/dashboard/compliance", label: "Compliance" },
+    { href: "/dashboard/pii", label: "PII" },
+    { href: "/dashboard/classification", label: "Classification" },
+    { href: "/dashboard/cost", label: "Cost" },
+    { href: "/dashboard/integrity", label: "Integrity" },
+    { href: "/dashboard/team", label: "Team" },
+    { href: "/dashboard/settings", label: "Settings" },
+] as const;
+
 export function DashboardNav({ user }: { user?: NavUser | null }) {
     const pathname = usePathname();
+    const [mobileOpen, setMobileOpen] = useState(false);
     let displayName = "User";
     if (user && typeof user.name === "string" && user.name.length > 0) {
         displayName = user.name;
@@ -53,20 +67,16 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                         CodeTrust
                     </Link>
                     <nav className="hidden sm:flex items-center gap-1 flex-wrap">
-                        <Link href="/dashboard" className={navClass("/dashboard")}>Overview</Link>
-                        <Link href="/dashboard/enforcement" className={navClass("/dashboard/enforcement")}>Enforcement</Link>
-                        <Link href="/dashboard/compliance" className={navClass("/dashboard/compliance")}>Compliance</Link>
-                        <Link href="/dashboard/pii" className={navClass("/dashboard/pii")}>PII</Link>
-                        <Link href="/dashboard/classification" className={navClass("/dashboard/classification")}>Classification</Link>
-                        <Link href="/dashboard/cost" className={navClass("/dashboard/cost")}>Cost</Link>
-                        <Link href="/dashboard/integrity" className={navClass("/dashboard/integrity")}>Integrity</Link>
-                        <Link href="/dashboard/team" className={navClass("/dashboard/team")}>Team</Link>
-                        <Link href="/dashboard/settings" className={navClass("/dashboard/settings")}>Settings</Link>
+                        {NAV_LINKS.map((link) => (
+                            <Link key={link.href} href={link.href} className={navClass(link.href)}>
+                                {link.label}
+                            </Link>
+                        ))}
                     </nav>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">
                         {displayName}
                     </span>
                     {user?.image && isSafeImageUrl(user.image) && (
@@ -79,12 +89,52 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                     )}
                     <button
                         onClick={() => signOut({ callbackUrl: "/" })}
-                        className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+                        className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
                     >
                         Sign out
                     </button>
+                    <button
+                        onClick={() => setMobileOpen((prev) => !prev)}
+                        className="sm:hidden p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        aria-label={mobileOpen ? "Stäng meny" : "Öppna meny"}
+                        aria-expanded={mobileOpen}
+                    >
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {mobileOpen ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                            )}
+                        </svg>
+                    </button>
                 </div>
             </div>
+
+            {mobileOpen && (
+                <nav className="sm:hidden border-t border-gray-200 dark:border-gray-800 px-6 py-3 flex flex-col gap-1">
+                    {NAV_LINKS.map((link) => (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={navClass(link.href)}
+                        >
+                            {link.label}
+                        </Link>
+                    ))}
+                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {displayName}
+                        </span>
+                        <button
+                            onClick={() => signOut({ callbackUrl: "/" })}
+                            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+                        >
+                            Sign out
+                        </button>
+                    </div>
+                </nav>
+            )}
         </header>
     );
 }

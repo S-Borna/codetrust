@@ -707,7 +707,7 @@ footer a:hover { color: var(--text-2); }
         background: rgba(5, 5, 7, 0.98);
         backdrop-filter: blur(24px);
         padding: 1.5rem; gap: 0.15rem;
-        overflow-y: auto; z-index: 999;
+        overflow-y: auto; z-index: 1100;
     }
     .topbar-nav.open { display: flex; }
     .topbar-nav a { padding: 0.85rem 1rem; font-size: 1rem; min-height: 48px; display: flex; align-items: center; }

@@ -16780,7 +16780,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "auth_oauth_no_state",
-        "pattern": r"(?i)(?:oauth|authorize_url|authorization_endpoint).*(?:redirect|callback)(?!.*state=)",
+        "pattern": r"(?i)(?:https?://|[?&]).*(?:oauth|authorize).*(?:redirect_uri|callback_url).*=(?!.*state=)",
         "message": "OAuth redirect without state parameter. Vulnerable to CSRF attacks.",
         "severity": Severity.BLOCK,
             "suggestion": (

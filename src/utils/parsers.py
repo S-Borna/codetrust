@@ -146,14 +146,40 @@ def extract_python_imports(code: str) -> list[str]:
       from . import something -> skip (relative import)
 
     Normalizes via PYTHON_IMPORT_TO_PACKAGE mapping.
-    Skips stdlib modules.
+    Skips stdlib modules, TYPE_CHECKING-only imports, and docstring examples.
     """
     packages: set[str] = set()
+    in_type_checking = False
+    in_docstring = False
+    type_checking_indent = 0
 
     for line in code.splitlines():
         stripped = line.strip()
+
+        # Track docstrings — skip imports inside them
+        if '"""' in stripped or "'''" in stripped:
+            quote = '"""' if '"""' in stripped else "'''"
+            count = stripped.count(quote)
+            if count == 1:
+                in_docstring = not in_docstring
+            continue
+        if in_docstring:
+            continue
+
         if not stripped or stripped.startswith("#"):
             continue
+
+        # Track TYPE_CHECKING blocks — skip imports inside them
+        if stripped == "if TYPE_CHECKING:":
+            in_type_checking = True
+            type_checking_indent = len(line) - len(line.lstrip())
+            continue
+        if in_type_checking:
+            current_indent = len(line) - len(line.lstrip())
+            if stripped and current_indent <= type_checking_indent:
+                in_type_checking = False
+            else:
+                continue
 
         top_level = _extract_python_import_line(stripped)
         if top_level is not None:
@@ -182,8 +208,10 @@ def _extract_python_import_line(line: str) -> str | None:
 
 
 def _normalize_python_package(module: str) -> str | None:
-    """Normalize a Python module name, skip stdlib."""
+    """Normalize a Python module name, skip stdlib and type stubs."""
     if module in _PYTHON_STDLIB:
+        return None
+    if module.startswith("_"):
         return None
     return PYTHON_IMPORT_TO_PACKAGE.get(module, module)
 

@@ -154,20 +154,14 @@ export function GovernanceOverview({ apiKey }: { apiKey: string }) {
                 </span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Core — what every user needs */}
+            <div className="grid gap-4 sm:grid-cols-3">
                 <Card
-                    title="Enforcement"
-                    value={`${data.enforcement.total_blocks_24h} blocks`}
-                    subtitle={`${data.enforcement.layers_active} layers active, ${data.enforcement.total_warns_24h} warns (24h)`}
+                    title="Threats Blocked"
+                    value={data.enforcement.total_blocks_24h}
+                    subtitle={`${data.enforcement.layers_active} enforcement layers active, ${data.enforcement.total_warns_24h} warnings (24h)`}
                     href="/dashboard/enforcement"
                     borderColor={data.enforcement.total_blocks_24h > 0 ? "border-l-red-500" : "border-l-green-500"}
-                />
-                <Card
-                    title="Compliance"
-                    value={`${complianceTotal}/${complianceMax}`}
-                    subtitle={allCompliant ? "All frameworks compliant" : "Coverage gaps detected"}
-                    href="/dashboard/compliance"
-                    borderColor={allCompliant ? "border-l-green-500" : "border-l-yellow-500"}
                 />
                 <Card
                     title="PII Detection"
@@ -177,28 +171,48 @@ export function GovernanceOverview({ apiKey }: { apiKey: string }) {
                     borderColor={data.pii.blocks_24h > 0 ? "border-l-red-500" : "border-l-green-500"}
                 />
                 <Card
-                    title="Cost (this month)"
-                    value={`$${data.cost.current_month_usd.toFixed(2)}`}
-                    subtitle={data.cost.budget_limit_usd > 0
-                        ? `${data.cost.budget_pct.toFixed(0)}% of $${data.cost.budget_limit_usd} budget`
-                        : `Top model: ${data.cost.top_model.name}`}
-                    href="/dashboard/cost"
-                    borderColor={data.cost.budget_pct > 95 ? "border-l-red-500" : data.cost.budget_pct > 80 ? "border-l-yellow-500" : "border-l-green-500"}
-                />
-                <Card
-                    title="Integrity"
-                    value={`${data.integrity.trustworthy} / ${data.integrity.sessions_analyzed}`}
-                    subtitle={`${data.integrity.questionable} questionable, ${data.integrity.unreliable} unreliable`}
+                    title="Agent Integrity"
+                    value={data.integrity.sessions_analyzed > 0
+                        ? `${data.integrity.trustworthy}/${data.integrity.sessions_analyzed} trusted`
+                        : "No sessions yet"}
+                    subtitle={data.integrity.unreliable > 0
+                        ? `${data.integrity.unreliable} unreliable sessions detected`
+                        : data.integrity.questionable > 0
+                            ? `${data.integrity.questionable} questionable`
+                            : "All sessions healthy"}
                     href="/dashboard/integrity"
                     borderColor={data.integrity.unreliable > 0 ? "border-l-red-500" : "border-l-green-500"}
                 />
-                <Card
-                    title="Classification"
-                    value={`${data.classification.files_classified} files`}
-                    subtitle={Object.entries(data.classification.by_level).map(([k, v]) => `${v} ${k}`).join(", ") || "No files classified yet"}
-                    href="/dashboard/classification"
-                    borderColor="border-l-blue-500"
-                />
+            </div>
+
+            {/* Pro — governance & operations */}
+            <div className="mt-6">
+                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Pro</p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <Card
+                        title="LLM Cost"
+                        value={`$${data.cost.current_month_usd.toFixed(2)}`}
+                        subtitle={data.cost.budget_limit_usd > 0
+                            ? `${data.cost.budget_pct.toFixed(0)}% of budget`
+                            : `Top model: ${data.cost.top_model.name}`}
+                        href="/dashboard/cost"
+                        borderColor={data.cost.budget_pct > 95 ? "border-l-red-500" : data.cost.budget_pct > 80 ? "border-l-yellow-500" : "border-l-green-500"}
+                    />
+                    <Card
+                        title="Classification"
+                        value={`${data.classification.files_classified} files`}
+                        subtitle={Object.entries(data.classification.by_level).map(([k, v]) => `${v} ${k}`).join(", ") || "No files classified yet"}
+                        href="/dashboard/classification"
+                        borderColor="border-l-blue-500"
+                    />
+                    <Card
+                        title="Compliance Mapping"
+                        value={`${complianceTotal}/${complianceMax}`}
+                        subtitle={allCompliant ? "All frameworks mapped" : "Coverage gaps detected"}
+                        href="/dashboard/compliance"
+                        borderColor={allCompliant ? "border-l-green-500" : "border-l-yellow-500"}
+                    />
+                </div>
             </div>
 
             {/* Top blocked rules */}

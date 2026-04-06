@@ -32,37 +32,11 @@ export default async function DashboardPage() {
         <div className="space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Dashboard
+                    Your AI agents are governed.
                 </h1>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Overview of your recent scans and usage
+                    {usage.total_scans} scans in the last 30 days &middot; Plan: <span className="font-medium text-brand-600 capitalize">{plan}</span>
                 </p>
-            </div>
-
-            {/* Stats cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Total scans (30d)
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                        {usage.total_scans}
-                    </p>
-                </div>
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Recent scans
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-                        {history.total}
-                    </p>
-                </div>
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Plan</p>
-                    <p className="mt-2 text-3xl font-bold text-brand-600 capitalize">
-                        {plan}
-                    </p>
-                </div>
             </div>
 
             {/* Governance overview — polls /v1/dashboard/overview every 30s */}

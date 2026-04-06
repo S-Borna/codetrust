@@ -27,16 +27,19 @@ interface NavUser {
     image?: string | null;
 }
 
-const NAV_LINKS = [
+const CORE_LINKS = [
     { href: "/dashboard", label: "Overview" },
     { href: "/dashboard/enforcement", label: "Enforcement" },
-    { href: "/dashboard/compliance", label: "Compliance" },
     { href: "/dashboard/pii", label: "PII" },
-    { href: "/dashboard/classification", label: "Classification" },
-    { href: "/dashboard/cost", label: "Cost" },
     { href: "/dashboard/integrity", label: "Integrity" },
-    { href: "/dashboard/team", label: "Team" },
     { href: "/dashboard/settings", label: "Settings" },
+] as const;
+
+const PRO_LINKS = [
+    { href: "/dashboard/cost", label: "Cost" },
+    { href: "/dashboard/classification", label: "Classification" },
+    { href: "/dashboard/governance", label: "Governance" },
+    { href: "/dashboard/team", label: "Team" },
 ] as const;
 
 export function DashboardNav({ user }: { user?: NavUser | null }) {
@@ -67,9 +70,15 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
                         CodeTrust
                     </Link>
                     <nav className="hidden sm:flex items-center gap-1 flex-wrap">
-                        {NAV_LINKS.map((link) => (
+                        {CORE_LINKS.map((link) => (
                             <Link key={link.href} href={link.href} className={navClass(link.href)}>
                                 {link.label}
+                            </Link>
+                        ))}
+                        <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                        {PRO_LINKS.map((link) => (
+                            <Link key={link.href} href={link.href} className={navClass(link.href)}>
+                                <span className="opacity-60">{link.label}</span>
                             </Link>
                         ))}
                     </nav>
@@ -112,7 +121,19 @@ export function DashboardNav({ user }: { user?: NavUser | null }) {
 
             {mobileOpen && (
                 <nav className="sm:hidden border-t border-gray-200 dark:border-gray-800 px-6 py-3 flex flex-col gap-1">
-                    {NAV_LINKS.map((link) => (
+                    {CORE_LINKS.map((link) => (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={navClass(link.href)}
+                        >
+                            {link.label}
+                        </Link>
+                    ))}
+                    <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+                    <p className="px-3 py-1 text-xs font-medium text-gray-400 uppercase tracking-wider">Pro</p>
+                    {PRO_LINKS.map((link) => (
                         <Link
                             key={link.href}
                             href={link.href}

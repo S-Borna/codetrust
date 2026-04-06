@@ -278,15 +278,16 @@
             <svg class="mobile-icon mobile-icon--menu" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             <svg class="mobile-icon mobile-icon--close" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
-        <div class="topbar-nav" id="topbar-nav">
-            <a href="https://app.codetrust.ai">Get Started</a>
-            <a href="https://github.com/S-Borna/codetrust">GitHub</a>
-            <a href="https://pypi.org/project/codetrust/">PyPI</a>
-            <a href="/lifetime.html" style="color:#10b981 !important;font-weight:600 !important;">Lifetime Deal</a>
-            <a href="/report.html">Report / Contact</a>
-            <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install VS Code</a>
-        </div>
     </nav>
+    <!-- Mobile nav: outside topbar to escape its stacking context (position:fixed) -->
+    <div class="topbar-nav" id="topbar-nav">
+        <a href="https://app.codetrust.ai">Get Started</a>
+        <a href="https://github.com/S-Borna/codetrust">GitHub</a>
+        <a href="https://pypi.org/project/codetrust/">PyPI</a>
+        <a href="/lifetime.html" style="color:#10b981 !important;font-weight:600 !important;">Lifetime Deal</a>
+        <a href="/report.html">Report / Contact</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust" class="topbar-install">Install VS Code</a>
+    </div>
         <div class="section-tabs" id="section-tabs">
             <a href="#telemetry" class="tab-link">Live Data</a>
             <a href="#layers" class="tab-link">Enforcement</a>

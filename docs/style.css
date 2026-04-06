@@ -131,6 +131,8 @@ a { color: inherit; text-decoration: none; }
 .topbar-logo .trust { color: #3b82f6; }
 .topbar-nav {
     display: flex; align-items: center; gap: 0.25rem;
+    position: fixed; top: 0; right: clamp(1rem, 4vw, 3rem);
+    height: 56px; z-index: 1001;
 }
 .topbar-nav a {
     padding: 0.4rem 0.9rem; font-size: 0.82rem;

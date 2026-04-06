@@ -1292,24 +1292,31 @@ footer a:hover {
 
     /* --- Nav: hidden by default --- */
     .topbar-nav {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgb(5, 5, 7);
-        z-index: 1001;
         display: none;
+        position: static;
+        height: auto;
+        width: 100%;
+        right: auto;
         flex-direction: column;
-        padding: 72px 1.5rem 2rem;
+        background: var(--black);
+        padding: 1rem 1.5rem 2rem;
         gap: 0.25rem;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
     }
 
     /* --- Nav: open state --- */
     .topbar-nav.open {
         display: flex;
+    }
+
+    /* --- When menu open: hide everything else so nav has no z-index competition --- */
+    body.mobile-menu-open::before,
+    body.mobile-menu-open .bg-animation,
+    body.mobile-menu-open .scroll-progress,
+    body.mobile-menu-open .section-tabs,
+    body.mobile-menu-open .hero,
+    body.mobile-menu-open section,
+    body.mobile-menu-open footer {
+        display: none !important;
     }
 
     /* --- Nav links --- */
@@ -1342,10 +1349,6 @@ footer a:hover {
     /* --- Topbar --- */
     .topbar {
         padding: 0 1rem;
-    }
-
-    .topbar.topbar--menu-open {
-        z-index: 1002;
     }
 
     /* --- Layout adjustments --- */

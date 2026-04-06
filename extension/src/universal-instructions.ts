@@ -29,47 +29,11 @@ const HASH_ALGORITHM = "sha256";
 
 /** Rules content — describes the outcome and prohibited behaviours, not the mechanism. */
 const RULES_BLOCK = `
-## CodeTrust Governance — Mandatory Rules ${MARKER}
+## CodeTrust Governance — Active ${MARKER}
 
-> Enforced by CodeTrust v2.5.2+. Active in every session, every workspace.
-> All actions are logged to \`.codetrust/audit.jsonl\` (append-only).
-
-### Proxy Validation — Two-Step Workflow
-
-Before calling any native tool, call the corresponding CodeTrust proxy first:
-
-| Native Tool              | Call This First                                  |
-|--------------------------|--------------------------------------------------|
-| run_in_terminal          | mcp_codetrust-gat_codetrust_validate_command     |
-| run_in_terminal          | mcp_codetrust-gat_codetrust_run_in_terminal      |
-
-Response handling:
-- \`status: APPROVED\` → proceed with native tool using EXACT same parameters
-- \`status: BLOCKED\`  → STOP. Do NOT proceed. Use the suggestion instead.
-- \`status: WARN\`     → acknowledge, then proceed.
-
-For package installs: call \`mcp_codetrust-gat_codetrust_validate_package\` — BLOCKED = do not install.
-For file deletions:   call \`mcp_codetrust-gat_codetrust_validate_file_delete\` — BLOCKED = do not delete.
-
-### Absolute Prohibitions
-
-- NEVER run \`git push\` — user pushes manually, always
-- NEVER use heredoc (\`<< EOF\`) — use the create_file tool instead
-- NEVER write hardcoded secrets, API keys, or passwords — use environment variables
-- NEVER use wildcard imports (import all-symbol forms) — import explicitly
-- NEVER use \`Any\` type annotation — use explicit types always
-- NEVER skip CodeTrust validation to save time — zero exceptions
-- NEVER use bare \`except:\` — always catch specific exception types
-- NEVER use \`print()\` in production code — use structured logging
-- NEVER use magic numbers inline — extract to named constants
-
-### Code Quality Requirements
-
-- Full type annotations on all function parameters and return types
-- Docstring on every public function and class
-- Max ~40 lines per function — split by responsibility if longer
-- Every external call wrapped in try/except with specific exception types
-- No TODO/HACK/FIXME in committed code — resolve or open an issue
+CodeTrust enforcement is active via hooks and BASH_ENV.
+Commands are intercepted automatically before execution.
+If a command is blocked, follow the fix in the block message.
 `;
 
 /** Describes one platform target to inject rules into. */

@@ -274,8 +274,9 @@
         <a href="https://codetrust.ai" class="topbar-logo">
             <span class="code">Code</span><span class="trust">Trust</span>
         </a>
-        <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Open menu" aria-expanded="false">
+            <svg class="mobile-icon mobile-icon--menu" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg class="mobile-icon mobile-icon--close" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
         <div class="topbar-nav" id="topbar-nav">
             <a href="https://app.codetrust.ai">Get Started</a>
@@ -1088,26 +1089,48 @@
         });
 
         // Mobile nav toggle
-        var mobileBtn = document.getElementById('mobile-toggle');
-        var navPanel = document.getElementById('topbar-nav');
-        mobileBtn.addEventListener('click', function() {
-            navPanel.classList.toggle('open');
-            mobileBtn.setAttribute('aria-expanded', navPanel.classList.contains('open'));
-        });
-        // Close nav when a link is clicked
-        navPanel.querySelectorAll('a').forEach(function(link) {
-            link.addEventListener('click', function() {
-                navPanel.classList.remove('open');
-                mobileBtn.setAttribute('aria-expanded', 'false');
-            });
-        });
-        // Close on ESC
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && navPanel.classList.contains('open')) {
-                navPanel.classList.remove('open');
-                mobileBtn.setAttribute('aria-expanded', 'false');
+        (function() {
+            var btn = document.getElementById('mobile-toggle');
+            var nav = document.getElementById('topbar-nav');
+            if (!btn || !nav) return;
+
+            function isOpen() { return nav.classList.contains('open'); }
+
+            function toggle() {
+                var opening = !isOpen();
+                nav.classList.toggle('open');
+                btn.setAttribute('aria-expanded', String(opening));
+                btn.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
+                document.body.style.overflow = opening ? 'hidden' : '';
             }
-        });
+
+            function close() {
+                if (!isOpen()) return;
+                nav.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+                btn.setAttribute('aria-label', 'Open menu');
+                document.body.style.overflow = '';
+            }
+
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggle();
+            });
+
+            nav.querySelectorAll('a').forEach(function(link) {
+                link.addEventListener('click', close);
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') close();
+            });
+
+            document.addEventListener('click', function(e) {
+                if (isOpen() && !nav.contains(e.target) && !btn.contains(e.target)) {
+                    close();
+                }
+            });
+        })();
 
         // Scroll reveal
         var revealObserver = new IntersectionObserver(function(entries) {

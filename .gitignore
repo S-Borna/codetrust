@@ -99,3 +99,4 @@ src/Roadmap E-Blocks/
 .claude-desktop-sync.md
 scripts/pre_publish_gate.py
 CC_PROMPT_*.md
+PREFERENCES.md

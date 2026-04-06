@@ -344,7 +344,7 @@ body.loaded .hero-below {
 }
 @keyframes hero-reveal {
     from { opacity: 0; transform: translateY(30px); filter: blur(4px); }
-    to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    to { opacity: 1; transform: translateY(0); filter: none; }
 }
 
 /* ====================== CONTAINER ====================== */

@@ -17,11 +17,21 @@ interface BootstrapApiKeyResponse {
     prefix: string;
 }
 
+/** In-memory cache: avoids re-bootstrapping (and rotating) the API key
+ *  on every session callback. TTL = 20 minutes. */
+const bootstrapCache = new Map<string, { data: BootstrapApiKeyResponse; expiresAt: number }>();
+const BOOTSTRAP_TTL_MS = 20 * 60 * 1000;
+
 async function bootstrapDashboardApiKey(params: {
     userId: string;
     email?: string | null;
     name?: string | null;
 }): Promise<BootstrapApiKeyResponse | null> {
+    const cached = bootstrapCache.get(params.userId);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.data;
+    }
+
     const masterKey = process.env.CODETRUST_API_KEY || "";
     if (!masterKey) {
         console.error("[bootstrap] CODETRUST_API_KEY is not set");
@@ -50,7 +60,12 @@ async function bootstrapDashboardApiKey(params: {
             console.error(`[bootstrap] ${response.status} from ${url}: ${body}`);
             return null;
         }
-        return await response.json() as BootstrapApiKeyResponse;
+        const data = await response.json() as BootstrapApiKeyResponse;
+        bootstrapCache.set(params.userId, {
+            data,
+            expiresAt: Date.now() + BOOTSTRAP_TTL_MS,
+        });
+        return data;
     } catch (err) {
         console.error(`[bootstrap] fetch failed for ${url}:`, err);
         return null;

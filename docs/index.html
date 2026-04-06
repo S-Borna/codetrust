@@ -891,7 +891,8 @@
                 <h2>Your AI just hallucinated a package. We caught it.</h2>
                 <p class="section-sub">You asked Claude to build a Stripe integration. It imported
                     <code>stripe_helpers</code> &mdash;<br>a package that doesn't exist. A typosquatter registered it 12
-                    minutes ago.<br>CodeTrust blocked it before <code>pip install</code> finished.</p>
+                    minutes ago.<br>CodeTrust blocked it before <code>pip install</code> finished.
+                </p>
             </div>
         </div>
 
@@ -1242,9 +1243,10 @@
         (function () {
             var btn = document.getElementById('mobile-toggle');
             var nav = document.getElementById('topbar-nav');
+            var topbar = document.getElementById('topbar');
             var mobileQuery = window.matchMedia('(max-width: 640px)');
             var scrollTopBeforeOpen = 0;
-            if (!btn || !nav) return;
+            if (!btn || !nav || !topbar) return;
 
             function setExpandedState(isOpen) {
                 btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -1254,6 +1256,7 @@
             function open() {
                 if (!mobileQuery.matches) return;
                 nav.classList.add('open');
+                topbar.classList.add('topbar--menu-open');
                 setExpandedState(true);
                 scrollTopBeforeOpen = window.scrollY || window.pageYOffset || 0;
                 document.body.classList.add('mobile-menu-open');
@@ -1262,6 +1265,7 @@
 
             function close() {
                 nav.classList.remove('open');
+                topbar.classList.remove('topbar--menu-open');
                 setExpandedState(false);
                 if (document.body.classList.contains('mobile-menu-open')) {
                     var top = parseInt(document.body.style.top || '0', 10);
@@ -1278,6 +1282,10 @@
 
             nav.querySelectorAll('a').forEach(function (a) {
                 a.addEventListener('click', close);
+            });
+
+            nav.addEventListener('click', function (event) {
+                if (event.target === nav) close();
             });
 
             document.addEventListener('keydown', function (e) {

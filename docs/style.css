@@ -1344,6 +1344,10 @@ footer a:hover {
         padding: 0 1rem;
     }
 
+    .topbar.topbar--menu-open {
+        z-index: 1002;
+    }
+
     /* --- Layout adjustments --- */
     .hero {
         padding: 5.5rem 1.2rem 3rem;

@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -23,9 +23,9 @@ describe("DashboardNav", () => {
     it("renders nav items", () => {
         render(<DashboardNav />);
         expect(screen.getByText("Overview")).toBeInTheDocument();
+        expect(screen.getByText("Enforcement")).toBeInTheDocument();
+        expect(screen.getByText("Compliance")).toBeInTheDocument();
         expect(screen.getByText("Team")).toBeInTheDocument();
-        expect(screen.getByText("API Keys")).toBeInTheDocument();
-        expect(screen.getByText("Governance")).toBeInTheDocument();
         expect(screen.getByText("Settings")).toBeInTheDocument();
     });
 
@@ -37,14 +37,36 @@ describe("DashboardNav", () => {
 
     it("renders without user", () => {
         render(<DashboardNav />);
-        // Should not crash
         expect(screen.getByText("CodeTrust")).toBeInTheDocument();
     });
 
     it("highlights active nav item", () => {
         render(<DashboardNav />);
-        // The Overview link should have the active class since pathname is /dashboard
         const overviewLink = screen.getByText("Overview");
         expect(overviewLink.closest("a")).toHaveAttribute("href", "/dashboard");
+    });
+
+    it("toggles mobile menu on hamburger click", () => {
+        render(<DashboardNav />);
+        const toggle = screen.getByLabelText("Open menu");
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+        fireEvent.click(toggle);
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByLabelText("Close menu")).toBeInTheDocument();
+    });
+
+    it("closes mobile menu when a nav link is clicked", () => {
+        render(<DashboardNav />);
+        const toggle = screen.getByLabelText("Open menu");
+        fireEvent.click(toggle);
+
+        // Mobile menu should be open — find a link inside the mobile nav
+        const mobileLinks = screen.getAllByText("Settings");
+        // Click the last one (mobile menu instance)
+        fireEvent.click(mobileLinks[mobileLinks.length - 1]);
+
+        // Menu should close
+        expect(screen.getByLabelText("Open menu")).toHaveAttribute("aria-expanded", "false");
     });
 });

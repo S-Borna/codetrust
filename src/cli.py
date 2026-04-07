@@ -4709,34 +4709,85 @@ def _status_check_hooks_path(project_dir: Path) -> bool:
         return False
 
 
-def cmd_status(_args: argparse.Namespace) -> int:
-    """Check which enforcement layers are installed."""
-    project_dir = Path.cwd()
+def _status_count_blocks_24h(project_dir: Path) -> tuple[int, int]:
+    """Count BLOCK and WARN verdicts in audit log over the last 24 hours.
 
-    _echo(f"\n{color('🛡️  CodeTrust Status', BOLD)}\n")
+    Returns:
+        (block_count, warn_count) — both 0 if audit log missing or unreadable.
+    """
+    audit_path = project_dir / ".codetrust" / "audit.jsonl"
+    if not audit_path.exists():
+        return 0, 0
+    cutoff = time.time() - 86400  # 24h
+    blocks = 0
+    warns = 0
+    try:
+        with audit_path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts = entry.get("timestamp", 0)
+                if not isinstance(ts, (int, float)) or ts < cutoff:
+                    continue
+                verdict = entry.get("verdict", "")
+                if verdict == "BLOCK":
+                    blocks += 1
+                elif verdict == "WARN":
+                    warns += 1
+    except OSError:
+        return 0, 0
+    return blocks, warns
+
+
+def cmd_status(_args: argparse.Namespace) -> int:
+    """One-line status: are you protected, and what happened today?"""
+    project_dir = Path.cwd()
 
     checks = _status_collect_checks(project_dir)
     hooks_path_set = _status_check_hooks_path(project_dir)
+    total_layers = len(checks) + 1
+    active_layers = sum(1 for _, ok in checks if ok) + (1 if hooks_path_set else 0)
+    all_ok = active_layers == total_layers
 
-    all_ok = True
-    for name, installed in checks:
-        icon = color("✅", GREEN) if installed else color("❌", RED)
-        _echo(f"  {icon} {name}")
-        if not installed:
-            all_ok = False
+    blocks_24h, warns_24h = _status_count_blocks_24h(project_dir)
 
-    icon = color("✅", GREEN) if hooks_path_set else color("❌", RED)
-    _echo(f"  {icon} core.hooksPath = hooks")
-    if not hooks_path_set:
-        all_ok = False
-
-    _echo()
     if all_ok:
-        _echo(color("  All enforcement layers active.\n", GREEN))
+        status_label = color("✅ Protected", GREEN)
+        layers_str = color(f"{active_layers}/{total_layers} layers", GREEN)
     else:
-        _echo(f"  Run {color('codetrust init', BOLD)} to install missing layers.\n")
+        status_label = color("⚠ Partial", YELLOW)
+        layers_str = color(f"{active_layers}/{total_layers} layers", YELLOW)
 
-    return 0 if all_ok else 1
+    blocks_str = (
+        color(f"{blocks_24h} blocks", RED)
+        if blocks_24h > 0
+        else color("0 blocks", GREEN)
+    )
+
+    warns_str = (
+        color(f"{warns_24h} warns", YELLOW) if warns_24h > 0 else f"{warns_24h} warns"
+    )
+
+    _echo(
+        f"\n  🛡️  {status_label}   |   {layers_str}   |   "
+        f"{blocks_str} (24h)   |   {warns_str} (24h)\n",
+    )
+
+    if not all_ok:
+        missing = [name for name, ok in checks if not ok]
+        if not hooks_path_set:
+            missing.append("core.hooksPath")
+        _echo(f"     Missing: {', '.join(missing)}")
+        _echo(f"     Repair:  {color('codetrust init', BOLD)}\n")
+        return 1
+
+    _echo(f"     Run {color('codetrust doctor', BOLD)} for full enforcement details.\n")
+    return 0
 
 
 # --- Doctor command ---

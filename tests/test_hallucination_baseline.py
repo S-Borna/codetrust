@@ -29,6 +29,7 @@ HALLUCINATION_RULE_IDS: frozenset[str] = frozenset({
     "hallucinated_import_nonexistent",
     "hallucinated_import_misspelled",
     "hallucinated_method_chain",
+    "hallucinated_method_buzzword",
     "hallucinated_config_option",
     "hallucinated_cli_flag",
     "hallucinated_env_var",

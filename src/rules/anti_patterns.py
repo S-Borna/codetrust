@@ -1055,7 +1055,7 @@ ANTI_PATTERNS: list[dict[str, str]] = [
     },
     {
         "id": "hallucinated_api_endpoint",
-        "pattern": r"(?i)[\"']/api/v\d+/[a-z]+/[a-z]+/[a-z]+/[a-z]+[\"']",
+        "pattern": r"(?i)[\"'](?:https?://[^/\s\"']*)?/(?:api/)?v\d+/[a-z_]+/[a-z_]+/[a-z_]+/[a-z_]+(?:/[a-z_]+)*[\"']",
         "message": "Deeply nested API endpoint path. Verify this endpoint actually exists — AI may hallucinate API routes.",
         "severity": Severity.WARN,
             "suggestion": (
@@ -1070,6 +1070,16 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             "suggestion": (
                 "Check .env.example or the deployment configuration to verify this environment variable exists. AI agents invent plausible-sounding env var names that no service reads. If it doesn't exist, either add it to the config or use the correct variable name."
             ),
+    },
+    {
+        "id": "hallucinated_method_buzzword",
+        "pattern": r"\.(?:smart_|intelligent_|magic_|auto_optimize|turbo_|hyper_|ultra_)[a-z][a-z_]*\s*\(",
+        "message": "Method name uses an AI-buzzword prefix. Verify this method actually exists on the type — AI agents invent plausible-sounding method names like .smart_filter(), .intelligent_sort(), .magic_paginate().",
+        "severity": Severity.WARN,
+        "suggestion": (
+            "Check the actual API documentation or type definitions. Method names with AI-buzzword prefixes (smart_, intelligent_, magic_, turbo_) are a strong signal of hallucinated APIs. Real libraries rarely use these naming conventions for public methods."
+        ),
+        "file_types": [".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".rb", ".rs", ".c", ".cpp", ".cs", ".php", ".swift", ".kt", ".scala", ".dart"],
     },
     {
         "id": "placeholder_url",

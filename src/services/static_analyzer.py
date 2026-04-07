@@ -6,6 +6,7 @@ import ast
 import os
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import structlog
 
@@ -102,6 +103,126 @@ class StaticAnalyzer:
         basename = os.path.basename(filename).lower()
         return ext in DEVOPS_EXTENSIONS or basename in DEVOPS_FILENAMES
 
+    # Test file detection — legacy behavior: unconditionally skip test files
+    # from rule matching. This is mirrored here for CLI parity. Note that
+    # individual rules can still apply to tests if they explicitly opt in,
+    # via the custom_rules mechanism or by running against specific files.
+    _TEST_FILE_PREFIXES: ClassVar[tuple[str, ...]] = ("test_", "conftest")
+    _TEST_FILE_INFIXES: ClassVar[tuple[str, ...]] = (".test.", ".spec.")
+
+    # CLI entrypoint files that should skip certain rules (e.g. print_debug).
+    _CLI_ENTRYPOINTS: ClassVar[frozenset[str]] = frozenset({
+        "cli.py", "scan_runner.py", "scan.py",
+    })
+
+    # Rules that are skipped for CLI entrypoint files.
+    _ENTRYPOINT_SKIP_RULES: ClassVar[frozenset[str]] = frozenset({
+        "print_debug",
+    })
+
+    def _is_test_file(self, basename: str) -> bool:
+        """Return True if basename matches a test file pattern.
+
+        Mirrors legacy CLI scanner's unconditional test file skip:
+        test_*.py, conftest*.py, *.test.*, *.spec.*
+        """
+        return (
+            basename.startswith(self._TEST_FILE_PREFIXES)
+            or any(infix in basename for infix in self._TEST_FILE_INFIXES)
+        )
+
+    def _is_binary_file_content(self, code: str) -> bool:
+        """Return True if the first 8KB of content contains a null byte.
+
+        Mirrors legacy CLI scanner's binary detection. A null byte in the
+        first 8192 bytes is a strong signal the file is binary, not source.
+        """
+        return "\x00" in code[:8192]
+
+    def _is_ci_workflow_file(self, filename: str) -> bool:
+        """Return True for GitHub Actions / CI workflow YAML files.
+
+        Path-based: matches files under .github/workflows/ with .yml or .yaml
+        extension. Legacy CLI scanner routes these to CI rules instead of K8s.
+        """
+        if not filename:
+            return False
+        normalized = filename.replace("\\", "/").lower()
+        return (
+            ".github/workflows/" in normalized
+            and (normalized.endswith(".yml") or normalized.endswith(".yaml"))
+        )
+
+    def _load_project_config_overrides(self) -> dict[str, object]:
+        """Load ignore_rules and severity_overrides from .codetrust.toml.
+
+        Cached on instance to avoid re-reading the TOML file for each scan
+        in batch runs. Returns an empty dict on any error — config overrides
+        are a best-effort feature that must not block scanning.
+        """
+        if hasattr(self, "_config_overrides_cache"):
+            return self._config_overrides_cache  # type: ignore[attr-defined]
+
+        try:
+            import tomllib
+        except ImportError:
+            self._config_overrides_cache: dict[str, object] = {}
+            return self._config_overrides_cache
+
+        config_path = Path.cwd() / ".codetrust.toml"
+        if not config_path.exists():
+            self._config_overrides_cache = {}
+            return self._config_overrides_cache
+
+        try:
+            with config_path.open("rb") as f:
+                data = tomllib.load(f)
+        except (OSError, tomllib.TOMLDecodeError):
+            self._config_overrides_cache = {}
+            return self._config_overrides_cache
+
+        # Support both top-level and [codetrust] section layouts for
+        # backward compatibility with legacy scanner's _load_project_config.
+        if "codetrust" in data and isinstance(data["codetrust"], dict):
+            self._config_overrides_cache = data["codetrust"]
+        else:
+            self._config_overrides_cache = data
+        return self._config_overrides_cache
+
+    def _apply_config_overrides(
+        self, findings: list[Finding], config: dict[str, object],
+    ) -> list[Finding]:
+        """Apply ignore_rules and severity_overrides from project config.
+
+        - ignore_rules: list of rule_ids to filter out entirely
+        - severity_overrides: dict mapping rule_id → new severity (BLOCK/WARN/INFO)
+
+        Mirrors legacy CLI scanner's _apply_config_overrides behavior.
+        """
+        ignore_rules = config.get("ignore_rules", [])
+        severity_overrides = config.get("severity_overrides", {})
+
+        if not isinstance(ignore_rules, list):
+            ignore_rules = []
+        if not isinstance(severity_overrides, dict):
+            severity_overrides = {}
+
+        ignore_set = {str(r) for r in ignore_rules}
+        severity_map = {str(k): str(v).upper() for k, v in severity_overrides.items()}
+
+        result: list[Finding] = []
+        for f in findings:
+            if f.rule_id in ignore_set:
+                continue
+            if f.rule_id in severity_map:
+                try:
+                    new_severity = Severity(severity_map[f.rule_id])
+                    f = f.model_copy(update={"severity": new_severity})
+                except (ValueError, AttributeError):
+                    pass  # Invalid severity string — keep original
+            result.append(f)
+        return result
+
     def _dispatch_special_handler(
         self,
         handler: str,
@@ -193,12 +314,20 @@ class StaticAnalyzer:
         """
         findings: list[Finding] = []
 
+        # Gap fix: binary file detection (legacy parity)
+        if self._is_binary_file_content(code):
+            return []
+
+        # Gap fix: test file skip (legacy parity — unconditional skip)
+        basename = os.path.basename(filename).lower() if filename else ""
+        if basename and self._is_test_file(basename):
+            return []
+
         # Fix 1: Skip CodeTrust's own rule definition files — scanning them
         # is circular and causes 27s freezes on 30K-line files.
         # Accept basename alone (MCP callers may omit path prefix).
         # Safety net: only skip large files (>5000 lines) to avoid
         # suppressing a user's small file that shares the name.
-        basename = os.path.basename(filename).lower() if filename else ""
         if basename in self.RULE_DEFINITION_FILES:
             line_count = code.count("\n") + 1
             normalized = filename.replace("\\", "/").lower()
@@ -217,6 +346,8 @@ class StaticAnalyzer:
 
         lines = code.splitlines()
         ext = os.path.splitext(filename)[1].lower() if filename else ""
+        is_ci_workflow = self._is_ci_workflow_file(filename)
+        is_cli_entrypoint = basename in self._CLI_ENTRYPOINTS
 
         # Fix 2: Use pre-indexed rules for this extension.
         # DevOps files get aggregated DevOps rules (deduped) in addition to ext rules.
@@ -242,6 +373,16 @@ class StaticAnalyzer:
             if self._should_skip_rule(rule, ext, filename):
                 continue
 
+            # Gap fix: CLI entrypoint skip rules (print_debug etc.)
+            rule_id = str(rule.get("id", ""))
+            if is_cli_entrypoint and rule_id in self._ENTRYPOINT_SKIP_RULES:
+                continue
+
+            # Gap fix: CI vs K8s routing. YAML files under .github/workflows/
+            # should NOT get K8s rules (they're CI, not cluster configs).
+            if is_ci_workflow and rule_id.startswith("k8s_"):
+                continue
+
             handler = rule.get("special_handler", "")
             if handler:
                 result = self._dispatch_special_handler(handler, lines, filename)
@@ -253,6 +394,11 @@ class StaticAnalyzer:
                 findings.extend(self._apply_negate_rule(rule, lines, filename))
             else:
                 findings.extend(self._apply_rule(rule, lines, filename))
+
+        # Gap fix: apply project config overrides (ignore_rules, severity_overrides)
+        config = self._load_project_config_overrides()
+        if config:
+            findings = self._apply_config_overrides(findings, config)
 
         logger.info(
             "static_scan_complete",

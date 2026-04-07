@@ -17,12 +17,6 @@ if TYPE_CHECKING:
 from src.cli import (
     _build_cli_rules,
     _calculate_drift_score,
-    _check_ci_no_timeout,
-    _check_compose_healthcheck,
-    _check_connection_timeout,
-    _check_except_swallow,
-    _check_function_length,
-    _check_sleep_no_context,
     _findings_to_sarif,
     _load_project_config,
     color,
@@ -195,125 +189,9 @@ class TestScanPath:
 
 
 # ---------------------------------------------------------------------------
-# Special handlers
-# ---------------------------------------------------------------------------
-
-
-class TestExceptSwallow:
-    def test_detects_except_pass(self) -> None:
-        lines = ["try:\n", "    x = 1\n", "except Exception:\n", "    pass\n"]
-        findings: list[dict] = []
-        _check_except_swallow(lines, "test.py", findings)
-        assert len(findings) == 1
-        assert findings[0]["rule_id"] == "except_swallow"
-
-    def test_no_false_positive(self) -> None:
-        lines = ["try:\n", "    x = 1\n", "except Exception as e:\n", "    logger.error(e)\n"]
-        findings: list[dict] = []
-        _check_except_swallow(lines, "test.py", findings)
-        assert len(findings) == 0
-
-
-class TestSleepNoContext:
-    def test_detects_uncommented_sleep(self) -> None:
-        lines = ["import time\n", "time.sleep(5)\n"]
-        findings: list[dict] = []
-        _check_sleep_no_context(lines, "test.py", findings)
-        assert len(findings) == 1
-
-    def test_commented_sleep_ok(self) -> None:
-        lines = ["# Wait for rate limit\n", "time.sleep(5)\n"]
-        findings: list[dict] = []
-        _check_sleep_no_context(lines, "test.py", findings)
-        assert len(findings) == 0
-
-
-class TestFunctionLength:
-    def test_detects_long_function(self) -> None:
-        lines = ["def big_func():\n"]
-        for i in range(50):
-            lines.append(f"    x_{i} = {i}\n")
-        findings: list[dict] = []
-        _check_function_length(lines, "test.py", findings)
-        assert len(findings) == 1
-        assert findings[0]["rule_id"] == "long_function"
-
-    def test_short_function_ok(self) -> None:
-        lines = ["def small():\n", "    return 1\n"]
-        findings: list[dict] = []
-        _check_function_length(lines, "test.py", findings)
-        assert len(findings) == 0
-
-
-class TestConnectionTimeout:
-    def test_detects_no_timeout(self) -> None:
-        lines = ["client = AsyncClient()\n"]
-        findings: list[dict] = []
-        _check_connection_timeout(lines, "test.py", findings)
-        assert len(findings) == 1
-
-    def test_with_timeout_ok(self) -> None:
-        lines = ["client = AsyncClient(timeout=30)\n"]
-        findings: list[dict] = []
-        _check_connection_timeout(lines, "test.py", findings)
-        assert len(findings) == 0
-
-
-class TestComposeHealthcheck:
-    def test_detects_no_healthcheck(self) -> None:
-        lines = [
-            "version: '3'\n",
-            "services:\n",
-            "  redis:\n",
-            "    image: redis:latest\n",
-            "    ports:\n",
-            "      - " + "63" + "79:6379\n",
-        ]
-        findings: list[dict] = []
-        _check_compose_healthcheck(lines, "compose.yml", findings)
-        assert len(findings) >= 1
-
-    def test_with_healthcheck_ok(self) -> None:
-        lines = [
-            "version: '3'\n",
-            "services:\n",
-            "  redis:\n",
-            "    image: redis:latest\n",
-            "    healthcheck:\n",
-            "      test: redis-cli ping\n",
-        ]
-        findings: list[dict] = []
-        _check_compose_healthcheck(lines, "compose.yml", findings)
-        assert len(findings) == 0
-
-
-class TestCiNoTimeout:
-    def test_detects_no_timeout(self) -> None:
-        lines = [
-            "jobs:\n",
-            "  build:\n",
-            "    runs-on: ubuntu-latest\n",
-            "    steps:\n",
-            "      - uses: actions/checkout@v4\n",
-        ]
-        findings: list[dict] = []
-        _check_ci_no_timeout(lines, "ci.yml", findings)
-        assert len(findings) >= 1
-
-    def test_with_timeout_ok(self) -> None:
-        lines = [
-            "jobs:\n",
-            "  build:\n",
-            "    runs-on: ubuntu-latest\n",
-            "    timeout-minutes: 10\n",
-            "    steps:\n",
-            "      - uses: actions/checkout@v4\n",
-        ]
-        findings: list[dict] = []
-        _check_ci_no_timeout(lines, "ci.yml", findings)
-        assert len(findings) == 0
-
-
+# Note: Special handler tests (except_swallow, sleep_no_context, function_length,
+# connection_timeout, compose_healthcheck, ci_no_timeout) moved to StaticAnalyzer
+# tests after scanner unification. The legacy free-function versions were removed.
 # ---------------------------------------------------------------------------
 # Drift score & SARIF
 # ---------------------------------------------------------------------------

@@ -14,7 +14,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import ast
 import contextlib
 import importlib.resources
 import json
@@ -1427,26 +1426,21 @@ PROJECT_CONFIG = _load_project_config()
 
 
 def scan_file(filepath: str) -> list[dict[str, str | int]]:
-    """Scan a single file for anti-patterns, routing rules by file type."""
-    findings: list[dict[str, str | int]] = []
+    """Scan a single file for anti-patterns via StaticAnalyzer.
 
-    # Config-based path exclusions
+    Thin wrapper kept for backwards compatibility with tests and external
+    callers. New code should call _scan_file_via_analyzer directly or use
+    StaticAnalyzer.scan_code.
+    """
+    from src.services.static_analyzer import StaticAnalyzer
+
+    # Config-based path exclusions (preserved from legacy behavior)
     exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
     for pat in exclude_paths:
         if pat in filepath:
-            return findings
+            return []
 
-    try:
-        with open(filepath, "rb") as bf:
-            chunk = bf.read(8192)
-            if b"\x00" in chunk:
-                return findings  # Binary file — skip
-        with open(filepath, encoding="utf-8", errors="ignore") as f:
-            code = f.read()
-    except OSError:
-        return findings
-
-    return scan_text(code, filepath)
+    return _scan_file_via_analyzer(StaticAnalyzer(), Path(filepath))
 
 
 _CLI_ENTRYPOINTS = {"cli.py", "scan_runner.py", "scan.py"}
@@ -1469,274 +1463,21 @@ _DEVOPS_K8S_RULES = (
 )
 
 
-def _select_rule_sets(
-    ext: str,
-    is_dockerfile: bool,
-    is_react: bool,
-    is_ci: bool,
-    is_k8s: bool,
-    is_devops: bool,
-    is_ruby: bool = False,
-    is_php: bool = False,
-    is_powershell: bool = False,
-    is_nginx: bool = False,
-    is_bicep: bool = False,
-    is_systemd: bool = False,
-) -> tuple[
-    list[tuple[str, str, str]],
-    list[tuple[str, str, str]],
-    list[tuple[str, str, str]],
-]:
-    """Select (block, warn, info) rule sets based on file type flags."""
-    tb, tw, ti = _get_typed_rules_for_ext(ext)
-    if ext in SQL_EXTS:
-        return SQL_BLOCK_RULES + tb, SQL_WARN_RULES + tw, SQL_INFO_RULES + ti
-    if is_dockerfile:
-        return (
-            BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES + tb,
-            WARN_RULES + DOCKER_WARN_RULES + DEVOPS_WARN_RULES + tw,
-            INFO_RULES + ti,
-        )
-    if is_react:
-        return BLOCK_RULES + REACT_BLOCK_RULES + tb, WARN_RULES + REACT_WARN_RULES + tw, INFO_RULES + ti
-    if is_ruby:
-        return BLOCK_RULES + RUBY_BLOCK_RULES + tb, WARN_RULES + RUBY_WARN_RULES + tw, INFO_RULES + ti
-    if is_php:
-        return BLOCK_RULES + PHP_BLOCK_RULES + tb, WARN_RULES + PHP_WARN_RULES + tw, INFO_RULES + ti
-    if is_powershell:
-        return (
-            BLOCK_RULES + PS_BLOCK_RULES + DEVOPS_BLOCK_RULES + tb,
-            WARN_RULES + PS_WARN_RULES + DEVOPS_WARN_RULES + tw,
-            INFO_RULES + PS_INFO_RULES + DEVOPS_INFO_RULES + ti,
-        )
-    if is_systemd:
-        return tb, SYSTEMD_WARN_RULES + tw, SYSTEMD_INFO_RULES + ti
-    if is_nginx:
-        return (
-            NGINX_BLOCK_RULES + REDIS_BLOCK_RULES + DEVOPS_BLOCK_RULES + tb,
-            NGINX_WARN_RULES + REDIS_WARN_RULES + DEVOPS_WARN_RULES + tw,
-            NGINX_INFO_RULES + DEVOPS_INFO_RULES + ti,
-        )
-    if is_bicep:
-        return BLOCK_RULES + BICEP_BLOCK_RULES + tb, WARN_RULES + BICEP_WARN_RULES + tw, INFO_RULES + ti
-    if is_ci:
-        return (
-            _DEVOPS_K8S_RULES[0] + CI_BLOCK_RULES + tb,
-            WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES + K8S_WARN_RULES + tw,
-            _DEVOPS_K8S_RULES[2] + CI_INFO_RULES + ti,
-        )
-    if is_k8s:
-        return _DEVOPS_K8S_RULES
-    if is_devops:
-        tb, tw, ti = _get_typed_rules_for_ext(ext)
-        return BLOCK_RULES + DEVOPS_BLOCK_RULES + tb, WARN_RULES + DEVOPS_WARN_RULES + tw, INFO_RULES + DEVOPS_INFO_RULES + ti
-    # Default: universal rules + typed rules matching this extension
-    tb, tw, ti = _get_typed_rules_for_ext(ext)
-    return BLOCK_RULES + tb, WARN_RULES + tw, INFO_RULES + ti
-
-
-_COMPILED_CACHE: dict[str, re.Pattern[str]] = {}
-
-
-def _compiled(pattern: str) -> re.Pattern[str]:
-    """Return a compiled regex, caching to avoid repeated compilation."""
-    c = _COMPILED_CACHE.get(pattern)
-    if c is None:
-        c = re.compile(pattern)
-        _COMPILED_CACHE[pattern] = c
-    return c
-
-
-def _append_rule_matches(
-    line: str,
-    line_num: int,
-    filepath: str,
-    rules: list[tuple[str, str, str]],
-    severity: str,
-    findings: list[dict[str, str | int]],
-    skip_rule_id: str = "",
-) -> None:
-    """Append findings for all rules matching a single line."""
-    for rule_entry in rules:
-        # Backward compat: accept 3-tuple or 4-tuple
-        if len(rule_entry) == 4:
-            rule_id, pattern, message, suggestion = rule_entry
-        else:
-            rule_id, pattern, message = rule_entry
-            suggestion = ""
-        if skip_rule_id and rule_id == skip_rule_id:
-            continue
-        if _compiled(pattern).search(line):
-            findings.append({
-                "rule_id": rule_id, "severity": severity,
-                "message": message, "file": filepath, "line": line_num,
-                "suggestion": suggestion,
-            })
-
-
-def _is_docstring_boundary_cli(stripped: str) -> bool:
-    """Check if a line toggles docstring state (open/close boundary).
-
-    Only triggers on lines where triple-quotes appear at the START,
-    not when referenced inside code (e.g. ``if '\"\"\"' in text:``).
-    """
-    for quote in ('"""', "'''"):
-        if stripped.startswith(quote) and stripped.count(quote) == 1:
-            return True
-    return False
-
-
-def _match_line_rules(
-    lines: list[str],
-    filepath: str,
-    block_rules: list[tuple[str, str, str]],
-    warn_rules: list[tuple[str, str, str]],
-    info_rules: list[tuple[str, str, str]],
-    is_cli_entrypoint: bool,
-) -> list[dict[str, str | int]]:
-    """Match per-line regex rules and return findings."""
-    findings: list[dict[str, str | int]] = []
-    _noqa = "no" + "qa"   # split to avoid self-triggering suppress_lint rule
-    _type_ign = "type: " + "ignore"
-    _eslint_dis = "eslint-" + "disable"
-    skip_warn = "print_debug" if is_cli_entrypoint else ""
-    in_docstring = False
-
-    for line_num, line in enumerate(lines, 1):
-        stripped = line.strip()
-        if _is_docstring_boundary_cli(stripped):
-            in_docstring = not in_docstring
-        # Skip anti-pattern matching inside docstrings
-        if in_docstring:
-            continue
-        if _noqa in line or _type_ign in line or _eslint_dis in line:
-            for rule_entry in warn_rules:
-                if len(rule_entry) == 4:
-                    rule_id, pattern, message, suggestion = rule_entry
-                else:
-                    rule_id, pattern, message = rule_entry
-                    suggestion = ""
-                if rule_id == "suppress_lint" and re.search(pattern, line):
-                    findings.append({
-                        "rule_id": rule_id, "severity": "WARN",
-                        "message": message, "file": filepath, "line": line_num,
-                        "suggestion": suggestion,
-                    })
-            if "noqa" in line:
-                continue
-        _append_rule_matches(line, line_num, filepath, block_rules, "BLOCK", findings)
-        _append_rule_matches(line, line_num, filepath, warn_rules, "WARN", findings, skip_rule_id=skip_warn)
-        _append_rule_matches(line, line_num, filepath, info_rules, "INFO", findings)
-    return findings
-
-
-def _check_dockerfile_file_level(
-    lines: list[str],
-    filepath: str,
-    findings: list[dict[str, str | int]],
-) -> None:
-    """Run file-level Dockerfile checks (USER, WORKDIR, HEALTHCHECK)."""
-    content = "".join(lines)
-    if not re.search(r"^\s*USER\s+\S+", content, re.MULTILINE):
-        findings.append({
-            "rule_id": "docker_root_user", "severity": "WARN",
-            "message": "Dockerfile has no USER instruction \u2014 runs as root.",
-            "file": filepath, "line": 1,
-        })
-    if not re.search(r"^\s*WORKDIR\s+", content, re.MULTILINE):
-        findings.append({
-            "rule_id": "docker_no_workdir", "severity": "INFO",
-            "message": "Dockerfile has no WORKDIR \u2014 set explicit working directory.",
-            "file": filepath, "line": 1,
-        })
-    if re.search(r"^\s*CMD\s", content, re.MULTILINE) and not re.search(r"^\s*HEALTHCHECK\s", content, re.MULTILINE):
-        findings.append({
-            "rule_id": "dockerfile_no_healthcheck", "severity": "INFO",
-            "message": "Dockerfile has CMD but no HEALTHCHECK. Add HEALTHCHECK for container orchestration.",
-            "file": filepath, "line": 1,
-        })
-
-
-def _run_special_handlers(
-    lines: list[str],
-    filepath: str,
-    ext: str,
-    basename: str,
-    is_dockerfile: bool,
-    is_devops: bool,
-    is_ci: bool,
-    findings: list[dict[str, str | int]],
-) -> None:
-    """Run all special handler checks and append findings in-place."""
-    if is_dockerfile:
-        _check_dockerfile_file_level(lines, filepath, findings)
-    _check_except_swallow(lines, filepath, findings)
-    _check_sleep_no_context(lines, filepath, findings)
-    if ext == ".py":
-        _check_function_length(lines, filepath, findings)
-    _check_connection_timeout(lines, filepath, findings)
-    if is_devops and ext in {".yml", ".yaml"} and "compose" in basename:
-        _check_compose_healthcheck(lines, filepath, findings)
-    if is_ci:
-        _check_ci_no_timeout(lines, filepath, findings)
-
-
-def _apply_config_overrides(
-    findings: list[dict[str, str | int]],
-) -> list[dict[str, str | int]]:
-    """Filter findings by project config ignore_rules and severity_overrides."""
-    ignore_rules: set[str] = set(PROJECT_CONFIG.get("ignore_rules", []))
-    severity_overrides: dict[str, str] = PROJECT_CONFIG.get("severity_overrides", {})
-    if not ignore_rules and not severity_overrides:
-        return findings
-    filtered: list[dict[str, str | int]] = []
-    for f in findings:
-        rid = str(f.get("rule_id", ""))
-        if rid in ignore_rules:
-            continue
-        if rid in severity_overrides:
-            f = {**f, "severity": severity_overrides[rid].upper()}
-        filtered.append(f)
-    return filtered
-
-
 def scan_text(code: str, filepath: str) -> list[dict[str, str | int]]:
-    """Scan in-memory code using the same routing logic as scan_file."""
+    """Scan in-memory code via StaticAnalyzer.
+
+    Thin wrapper kept for backwards compatibility. StaticAnalyzer handles
+    test file skipping, config overrides, CI vs K8s routing, special handlers,
+    and all other previously-legacy behavior.
+    """
+    from src.services.static_analyzer import StaticAnalyzer
+
     exclude_paths = PROJECT_CONFIG.get("exclude_paths", [])
     for pat in exclude_paths:
         if pat in filepath:
             return []
 
-    basename = os.path.basename(filepath).lower()
-    ext = Path(filepath).suffix.lower()
-
-    if _is_test_file(basename):
-        return []
-
-    is_cli_entrypoint = basename in _CLI_ENTRYPOINTS
-    is_dockerfile = basename.startswith("dockerfile")
-    is_ci = ".github" in filepath and ext in {".yml", ".yaml"}
-    is_devops = ext in DEVOPS_EXTS or basename in DEVOPS_NAMES
-    is_react = ext in {".jsx", ".tsx"}
-    is_k8s = ext in {".yml", ".yaml"} and not is_ci
-    is_ruby = ext == ".rb"
-    is_php = ext == ".php"
-    is_powershell = ext in {".ps1", ".psm1", ".psd1"}
-    is_nginx = ext == ".conf"
-    is_bicep = ext == ".bicep"
-    is_systemd = ext in {".service", ".timer"}
-
-    block_rules, warn_rules, info_rules = _select_rule_sets(
-        ext, is_dockerfile, is_react, is_ci, is_k8s, is_devops,
-        is_ruby=is_ruby, is_php=is_php, is_powershell=is_powershell,
-        is_nginx=is_nginx, is_bicep=is_bicep, is_systemd=is_systemd,
-    )
-
-    lines = code.splitlines(keepends=True)
-    findings = _match_line_rules(lines, filepath, block_rules, warn_rules, info_rules, is_cli_entrypoint)
-    _run_special_handlers(lines, filepath, ext, basename, is_dockerfile, is_devops, is_ci, findings)
-
-    return _apply_config_overrides(findings)
+    return _scan_text_via_analyzer(StaticAnalyzer(), code, filepath)
 
 
 def _scan_text_at_git_ref(
@@ -1756,7 +1497,8 @@ def _scan_text_at_git_ref(
         )
         if out.returncode != 0:
             return []
-        return scan_text(out.stdout, rel_path)
+        from src.services.static_analyzer import StaticAnalyzer
+        return _scan_text_via_analyzer(StaticAnalyzer(), out.stdout, rel_path)
     except Exception:
         return []
 
@@ -1788,21 +1530,13 @@ def _severity_meets_threshold(severity: str, threshold: str) -> bool:
 
 
 def _scan_code_text(code: str, filename: str) -> list[dict[str, str | int]]:
-    """Scan in-memory code using the same routing as scan_file()."""
-    tmp_path = Path(filename)
-    basename = tmp_path.name.lower()
+    """Scan in-memory code via StaticAnalyzer (test file skip honored)."""
+    from src.services.static_analyzer import StaticAnalyzer
+
+    basename = Path(filename).name.lower()
     if _is_test_file(basename):
         return []
-
-    # Preserve path-based routing (e.g., .github, dockerfile naming) by writing
-    # to a temp directory that mirrors the original relative path.
-    import tempfile as _tempfile
-
-    with _tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_file = Path(tmp_dir) / tmp_path
-        tmp_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp_file.write_text(code, encoding="utf-8", errors="ignore")
-        return scan_file(str(tmp_file))
+    return _scan_text_via_analyzer(StaticAnalyzer(), code, filename)
 
 
 def _git_show_head(project_dir: Path, relpath: str) -> str | None:
@@ -1839,6 +1573,9 @@ def _collect_head_and_current_findings(
 ) -> tuple[list[dict[str, str | int]], list[dict[str, str | int]]]:
     """Collect findings for HEAD and current working tree."""
     head_findings: list[dict[str, str | int]] = []
+    from src.services.static_analyzer import StaticAnalyzer
+
+    analyzer = StaticAnalyzer()
     cur_findings: list[dict[str, str | int]] = []
     for rel in norm_files:
         head_text = _git_show_head(project_dir, rel)
@@ -1846,7 +1583,7 @@ def _collect_head_and_current_findings(
             head_findings.extend(_scan_code_text(head_text, rel))
         abs_path = project_dir / rel
         if abs_path.is_file():
-            cur_findings.extend(scan_file(str(abs_path)))
+            cur_findings.extend(_scan_file_via_analyzer(analyzer, abs_path))
     return (
         _sort_findings(_dedupe_findings(head_findings)),
         _sort_findings(_dedupe_findings(cur_findings)),
@@ -1957,15 +1694,7 @@ def _trend_write(project_dir: Path, entry: dict[str, object]) -> None:
 
 
 def _trend_snapshot(project_dir: Path, targets: list[str]) -> dict[str, object]:
-    all_findings: list[dict[str, str | int]] = []
-    files_scanned = 0
-    for t in targets:
-        all_findings.extend(scan_path(t))
-        if Path(t).is_file():
-            files_scanned += 1
-        elif Path(t).is_dir():
-            for _root, _dirs, files in os.walk(t):
-                files_scanned += sum(1 for fn in files if Path(fn).suffix in SOURCE_EXTS)
+    all_findings, files_scanned = _scan_direct_collect(targets)
 
     all_findings = _sort_findings(_dedupe_findings(all_findings))
     drift = _calculate_drift_score(all_findings)
@@ -2047,161 +1776,6 @@ def cmd_trend(args: argparse.Namespace) -> int:
         return _cmd_trend_record(args, project_dir)
 
     return _cmd_trend_show(args, project_dir, limit)
-
-
-# ── Special handler implementations ──────────────────────────────
-
-
-def _check_except_swallow(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag except blocks that swallow errors with pass/..."""
-    in_docstring = False
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if _is_docstring_boundary_cli(stripped):
-            in_docstring = not in_docstring
-        if in_docstring:
-            continue
-        if not re.match(r"^\s*except[\s:]", line):
-            continue
-        # Look at the next non-blank line(s) for pass or ...
-        for j in range(i + 1, min(i + 3, len(lines))):
-            nxt = lines[j].strip()
-            if not nxt:
-                continue
-            if nxt in ("pass", "..."):
-                findings.append({
-                    "rule_id": "except_swallow",
-                    "severity": "BLOCK",
-                    "message": "Exception caught and silently swallowed (pass/...). Handle the error or re-raise.",
-                    "file": filepath,
-                    "line": i + 1,
-                })
-            break  # only check the first non-blank line after except
-
-
-def _check_sleep_no_context(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag sleep calls without a preceding comment explaining why."""
-    sleep_re = re.compile(r"(?:time\.)?sleep\s*\(")
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        if sleep_re.search(line):
-            # Check if the preceding line is a comment
-            prev = lines[i - 1].strip() if i > 0 else ""
-            if not prev.startswith("#"):
-                findings.append({
-                    "rule_id": "sleep_no_context",
-                    "severity": "INFO",
-                    "message": "sleep call without explanation. Why is a delay needed? Document or fix root cause.",
-                    "file": filepath,
-                    "line": i + 1,
-                })
-
-
-def _check_function_length(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag Python functions longer than 40 lines using AST."""
-    if not filepath.endswith(".py"):
-        return
-    code = "\n".join(lines)
-    try:
-        tree = ast.parse(code)
-    except SyntaxError:
-        logger.debug("ast_parse_failed", filepath=filepath)
-        return
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            end = node.end_lineno or node.lineno
-            length = end - node.lineno + 1
-            if length > 40:
-                findings.append({
-                    "rule_id": "long_function",
-                    "severity": "INFO",
-                    "message": (
-                        f"Function '{node.name}' is "
-                        f"{length} lines (max 40)."
-                    ),
-                    "file": filepath,
-                    "line": node.lineno,
-                })
-
-
-def _check_connection_timeout(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag network/DB connections without explicit timeout."""
-    conn_re = re.compile(
-        r"(?:from_url|AsyncClient|Client|create_async_engine|create_engine)\s*\(",
-    )
-    for i, line in enumerate(lines):
-        if conn_re.search(line):
-            # Check current + next 2 lines for 'timeout'
-            context = "".join(lines[i:i + 3])
-            if "timeout" not in context.lower():
-                findings.append({
-                    "rule_id": "connection_no_timeout",
-                    "severity": "WARN",
-                    "message": "Network/DB connection without explicit timeout. Add connect_timeout or socket_timeout.",
-                    "file": filepath,
-                    "line": i + 1,
-                })
-
-
-def _check_compose_healthcheck(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag Docker Compose services without healthcheck."""
-    content = "".join(lines)
-    # Find services with 'image:' but no 'healthcheck:' at same indent
-    service_re = re.compile(r"^\s{2}(\w[\w-]*):\s*$", re.MULTILINE)
-    for m in service_re.finditer(content):
-        svc_name = m.group(1)
-        svc_start = m.end()
-        # Find next service or EOF
-        nxt = service_re.search(content, svc_start)
-        svc_block = content[svc_start:nxt.start() if nxt else len(content)]
-        if "image:" in svc_block and "healthcheck:" not in svc_block:
-            line_num = content[:m.start()].count("\n") + 1
-            findings.append({
-                "rule_id": "compose_no_healthcheck",
-                "severity": "INFO",
-                "message": f"Service '{svc_name}' has no healthcheck. Add healthcheck for reliable orchestration.",
-                "file": filepath,
-                "line": line_num,
-            })
-
-
-def _check_ci_no_timeout(
-    lines: list[str], filepath: str, findings: list[dict],
-) -> None:
-    """Flag CI jobs (runs-on:) without timeout-minutes."""
-    content = "".join(lines)
-    # Find jobs with runs-on but no timeout-minutes
-    runs_on_re = re.compile(r"^\s+runs-on:\s", re.MULTILINE)
-    for m in runs_on_re.finditer(content):
-        # Look backward for job name and forward for timeout-minutes
-        before = content[:m.start()]
-        # Find the job block — look for next runs-on or EOF
-        nxt = runs_on_re.search(content, m.end())
-        job_block = content[m.start():nxt.start() if nxt else len(content)]
-        if "timeout-minutes:" not in job_block:
-            # Also check a few lines above (job-level timeout)
-            prev_block = before[max(0, len(before) - _PREV_BLOCK_LOOKBACK):]
-            if "timeout-minutes:" not in prev_block:
-                line_num = before.count("\n") + 1
-                findings.append({
-                    "rule_id": "ci_no_timeout",
-                    "severity": "INFO",
-                    "message": "CI job has no timeout-minutes. Add timeout to prevent hung pipelines.",
-                    "file": filepath,
-                    "line": line_num,
-                })
 
 
 def scan_path(target: str) -> list[dict[str, str | int]]:
@@ -3703,15 +3277,18 @@ def _scan_baseline_collect(
     targets: list[str], baseline_ref: str, args: argparse.Namespace,
     *, machine_output: bool,
 ) -> tuple[list[dict[str, str | int]], int]:
-    """Collect findings in baseline (diff) mode."""
+    """Collect findings in baseline (diff) mode — uses StaticAnalyzer for parity."""
+    from src.services.static_analyzer import StaticAnalyzer
+
     cwd = Path.cwd()
     scan_files = _scan_baseline_changed_files(cwd, targets, baseline_ref)
 
+    analyzer = StaticAnalyzer()
     baseline_findings: list[dict[str, str | int]] = []
     head_findings: list[dict[str, str | int]] = []
 
     for rel in scan_files:
-        head_findings.extend(scan_file(rel))
+        head_findings.extend(_scan_file_via_analyzer(analyzer, Path(rel)))
         baseline_findings.extend(
             _scan_text_at_git_ref(cwd=cwd, ref=baseline_ref, rel_path=rel),
         )
@@ -3728,19 +3305,76 @@ def _scan_baseline_collect(
 def _scan_direct_collect(
     targets: list[str],
 ) -> tuple[list[dict[str, str | int]], int]:
-    """Collect findings by scanning targets directly."""
+    """Collect findings by scanning targets directly via StaticAnalyzer.
+
+    Replaced the legacy scan_path walk with StaticAnalyzer.scan_code for
+    unified scanner behavior across CLI, API, and MCP surfaces. Legacy
+    scanner had an AST line-counting bug (double-newline via '\\n'.join
+    of keepends=True lines) that over-reported long_function findings.
+    """
+    from src.services.static_analyzer import StaticAnalyzer
+
+    analyzer = StaticAnalyzer()
     all_findings: list[dict[str, str | int]] = []
     files_scanned = 0
+
     for target in targets:
-        findings = scan_path(target)
-        all_findings.extend(findings)
-        if Path(target).is_file():
+        target_path = Path(target)
+        if target_path.is_file():
+            all_findings.extend(_scan_file_via_analyzer(analyzer, target_path))
             files_scanned += 1
-        elif Path(target).is_dir():
-            for _root, dirs, files in os.walk(target):
-                dirs[:] = [d for d in dirs if d not in _SCAN_SKIP_DIRS]
-                files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
+            continue
+        if not target_path.is_dir():
+            continue
+        for root, dirs, files in os.walk(target_path):
+            dirs[:] = [d for d in dirs if d not in _SCAN_SKIP_DIRS]
+            for fname in files:
+                ext = Path(fname).suffix.lower()
+                if ext not in SOURCE_EXTS:
+                    continue
+                fpath = Path(root) / fname
+                all_findings.extend(_scan_file_via_analyzer(analyzer, fpath))
+                files_scanned += 1
+
     return all_findings, files_scanned
+
+
+def _scan_file_via_analyzer(
+    analyzer: object, fpath: Path,
+) -> list[dict[str, str | int]]:
+    """Scan a single file through StaticAnalyzer and convert to dict findings."""
+    try:
+        code = fpath.read_text(encoding="utf-8", errors="ignore")
+    except OSError as exc:
+        logger.debug("scan_file_read_error", path=str(fpath), error=str(exc))
+        return []
+    return _scan_text_via_analyzer(analyzer, code, str(fpath))
+
+
+def _scan_text_via_analyzer(
+    analyzer: object, code: str, filepath: str,
+) -> list[dict[str, str | int]]:
+    """Scan in-memory code through StaticAnalyzer and convert to dict findings."""
+    try:
+        # type: ignore[attr-defined] — analyzer is a StaticAnalyzer instance
+        findings = analyzer.scan_code(code, filepath)  # type: ignore[attr-defined]
+    except Exception as exc:
+        logger.debug("scan_text_analyzer_error", path=filepath, error=str(exc))
+        return []
+
+    result: list[dict[str, str | int]] = []
+    for f in findings:
+        result.append({
+            "rule_id": f.rule_id,
+            "severity": f.severity.value
+            if hasattr(f.severity, "value")
+            else str(f.severity),
+            "message": f.message,
+            "file": filepath,
+            "line": f.line,
+            "suggestion": getattr(f, "suggestion", "") or "",
+        })
+    return result
 
 
 def _scan_targets_whole_project(targets: list[str]) -> bool:

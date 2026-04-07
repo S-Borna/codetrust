@@ -3378,17 +3378,21 @@ def _scan_text_via_analyzer(
 
 
 def _scan_targets_whole_project(targets: list[str]) -> bool:
-    """Check whether scan targets cover the whole project (vs specific files).
+    """Check whether scan targets are suitable for snapshot baseline mode.
 
-    Snapshot baseline only activates on whole-project scans. A user running
-    `codetrust scan src/foo.py` should NOT trigger baseline establishment.
+    Baseline mode activates for directory scans (whole project or any
+    sub-directory). Individual file scans do NOT trigger baseline — a user
+    running `codetrust scan src/foo.py` just wants findings for that file.
+
+    The baseline file itself lives in .codetrust/baseline.json at the
+    project root, independent of which directory was scanned.
     """
     if not targets:
         return True
     if len(targets) != 1:
         return False
     target = targets[0]
-    return target in (".", "./") or target == str(Path.cwd())
+    return Path(target).is_dir()
 
 
 def _scan_apply_snapshot_baseline(

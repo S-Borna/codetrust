@@ -314,6 +314,22 @@ class StaticAnalyzer:
         """
         findings: list[Finding] = []
 
+        # Skip CodeTrust's own governance files. They're installed by init,
+        # protected by file-write hooks, and verified by doctor. Scanning them
+        # creates false positives on CT's own templates (e.g. "chmod 777" in
+        # a comment triggering the world-writable rule).
+        if filename:
+            normalized = filename.replace("\\", "/")
+            if (
+                "/.codetrust/" in normalized
+                or normalized.startswith(".codetrust/")
+                or normalized.endswith("/.codetrust.toml")
+                or normalized == ".codetrust.toml"
+                or normalized.endswith("/codetrust-scan.yml")
+                or normalized.endswith("codetrust-scan.yml")
+            ):
+                return []
+
         # Gap fix: binary file detection (legacy parity)
         if self._is_binary_file_content(code):
             return []

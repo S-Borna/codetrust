@@ -36,8 +36,9 @@ export default function CostPage() {
     const budget = data?.budget_limit_usd ?? 0;
     const pct = data?.budget_pct ?? 0;
     const anomalies = data?.anomalies_24h ?? 0;
-    const topDev = data?.top_developer ?? { name: "--", cost: 0 };
-    const topModel = data?.top_model ?? { name: "--", cost: 0 };
+    const topDev = data?.top_developer ?? { name: "", cost: 0 };
+    const topModel = data?.top_model ?? { name: "", cost: 0 };
+    const hasUsage = cost > 0;
 
     return (
         <div className="mx-auto max-w-6xl px-6 py-8">
@@ -79,13 +80,25 @@ export default function CostPage() {
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div className="rounded-lg border p-6">
                     <p className="text-sm text-gray-500">Top Developer</p>
-                    <p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{topDev.name}</p>
-                    <p className="text-sm text-gray-400">${topDev.cost.toFixed(2)}</p>
+                    {hasUsage && topDev.name ? (
+                        <>
+                            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{topDev.name}</p>
+                            <p className="text-sm text-gray-400">${topDev.cost.toFixed(2)}</p>
+                        </>
+                    ) : (
+                        <p className="mt-1 text-sm text-gray-400">No usage tracked yet</p>
+                    )}
                 </div>
                 <div className="rounded-lg border p-6">
                     <p className="text-sm text-gray-500">Top Model</p>
-                    <p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{topModel.name}</p>
-                    <p className="text-sm text-gray-400">${topModel.cost.toFixed(2)}</p>
+                    {hasUsage && topModel.name ? (
+                        <>
+                            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{topModel.name}</p>
+                            <p className="text-sm text-gray-400">${topModel.cost.toFixed(2)}</p>
+                        </>
+                    ) : (
+                        <p className="mt-1 text-sm text-gray-400">No usage tracked yet</p>
+                    )}
                 </div>
             </div>
 

@@ -51,11 +51,11 @@ export default function EnforcementPage() {
                 </div>
                 <div className="rounded-lg border p-6 text-center">
                     <p className="text-sm text-gray-500">Blocks (24h)</p>
-                    <p className="mt-1 text-3xl font-bold text-red-600">{blocks}</p>
+                    <p className={`mt-1 text-3xl font-bold ${blocks > 0 ? "text-red-600" : "text-green-600"}`}>{blocks}</p>
                 </div>
                 <div className="rounded-lg border p-6 text-center">
                     <p className="text-sm text-gray-500">Warns (24h)</p>
-                    <p className="mt-1 text-3xl font-bold text-yellow-600">{warns}</p>
+                    <p className={`mt-1 text-3xl font-bold ${warns > 0 ? "text-yellow-600" : "text-green-600"}`}>{warns}</p>
                 </div>
             </div>
 

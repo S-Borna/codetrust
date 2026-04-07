@@ -3247,10 +3247,20 @@ def _init_model_routing_policy(project_dir: Path) -> None:
 
 def _init_print_summary() -> None:
     """Print the post-init enforcement stack summary."""
-    _echo(f"\n{'━' * 48}")
-    _echo(f"  {color('✅ CodeTrust installed — 9 enforcement layers active', GREEN)}")
-    _echo(f"  Config: .codetrust.toml  |  Verify: {color('codetrust doctor', BOLD)}")
-    _echo(f"{'━' * 48}\n")
+    _echo(f"\n{'━' * 56}")
+    _echo(f"  {color('✅ Your AI agents are now governed.', GREEN + BOLD)}")
+    _echo()
+    _echo(f"  {color('Your agents can no longer:', BOLD)}")
+    _echo("    × Run destructive commands (git push --force, rm -rf, eval)")
+    _echo("    × Install hallucinated packages (verified against 8 registries)")
+    _echo("    × Write secrets to files (API keys, private keys, passwords)")
+    _echo("    × Bypass security checks via heredoc or shell tricks")
+    _echo()
+    _echo(f"  {color('Next:', BOLD)}")
+    _echo(f"    {color('codetrust scan', GREEN)}      — see what your AI has already written")
+    _echo(f"    {color('codetrust status', GREEN)}    — quick health check")
+    _echo(f"    {color('codetrust doctor', GREEN)}    — full enforcement details")
+    _echo(f"{'━' * 56}\n")
 
 
 def audit_allow_list(project_dir: Path) -> list[dict[str, str]]:

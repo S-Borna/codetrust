@@ -3257,7 +3257,8 @@ def _init_print_summary() -> None:
     _echo("    × Bypass security checks via heredoc or shell tricks")
     _echo()
     _echo(f"  {color('Next:', BOLD)}")
-    _echo(f"    {color('codetrust scan', GREEN)}      — see what your AI has already written")
+    _echo(f"    {color('codetrust scan', GREEN)}      — establish baseline (existing code accepted as legacy)")
+    _echo(f"    {color('codetrust scan', GREEN)}      — run again: shows only NEW issues from now on")
     _echo(f"    {color('codetrust status', GREEN)}    — quick health check")
     _echo(f"    {color('codetrust doctor', GREEN)}    — full enforcement details")
     _echo(f"{'━' * 56}\n")
@@ -3676,6 +3677,69 @@ def _scan_direct_collect(
                 dirs[:] = [d for d in dirs if d not in _SCAN_SKIP_DIRS]
                 files_scanned += sum(1 for f in files if Path(f).suffix in SOURCE_EXTS)
     return all_findings, files_scanned
+
+
+def _scan_targets_whole_project(targets: list[str]) -> bool:
+    """Check whether scan targets cover the whole project (vs specific files).
+
+    Snapshot baseline only activates on whole-project scans. A user running
+    `codetrust scan src/foo.py` should NOT trigger baseline establishment.
+    """
+    if not targets:
+        return True
+    if len(targets) != 1:
+        return False
+    target = targets[0]
+    return target in (".", "./") or target == str(Path.cwd())
+
+
+def _scan_apply_snapshot_baseline(
+    all_findings: list[dict[str, str | int]],
+    project_dir: Path,
+) -> tuple[list[dict[str, str | int]], dict[str, object]]:
+    """Apply snapshot baseline logic to scan results.
+
+    On first scan: save findings as baseline, return empty findings list
+    so user sees a clean "Baseline established" message instead of legacy
+    findings being graded.
+
+    On subsequent scans: filter findings to delta vs baseline.
+
+    Returns:
+        Tuple of (filtered_findings, info_dict). info_dict contains
+        'mode' ('established' | 'delta') and metadata for output.
+    """
+    from src.services.baseline import (
+        baseline_exists,
+        baseline_metadata,
+        filter_new_findings,
+        load_baseline_keys,
+        save_baseline,
+    )
+
+    if not baseline_exists(project_dir):
+        try:
+            count = save_baseline(project_dir, all_findings)
+        except OSError as exc:
+            logger.warning("baseline_save_failed", error=str(exc))
+            return all_findings, {}
+        return [], {
+            "mode": "established",
+            "accepted_count": count,
+        }
+
+    keys = load_baseline_keys(project_dir)
+    if keys is None:
+        return all_findings, {}
+
+    new_findings = filter_new_findings(all_findings, keys)
+    meta = baseline_metadata(project_dir) or {}
+    return new_findings, {
+        "mode": "delta",
+        "baseline_count": meta.get("count", 0),
+        "baseline_created": meta.get("created", ""),
+        "new_count": len(new_findings),
+    }
 
 
 def _scan_process_import_findings(
@@ -4298,6 +4362,33 @@ def _scan_output_human(
         _echo(color(f"  🧹 Suppressed {suppressed_count} linter-covered finding(s) (opt-in)", BLUE))
         _echo()
 
+    snapshot = result.get("snapshot_baseline", {})
+
+    # Baseline established case: short, celebratory output
+    if isinstance(snapshot, dict) and snapshot.get("mode") == "established":
+        accepted = snapshot.get("accepted_count", 0)
+        _echo(f"\n{color('🛡️  CodeTrust Scan — Baseline established', BOLD)}")
+        _echo(
+            f"   {result['files_scanned']} files scanned   |   "
+            f"{color(f'{accepted} existing issues', BLUE)} marked as accepted legacy",
+        )
+        _echo()
+        _echo(color(
+            "  ✅ From now on, CodeTrust protects new code.",
+            GREEN,
+        ))
+        _echo(
+            "     Future scans will show only NEW issues introduced after this baseline.",
+        )
+        _echo(
+            f"     Baseline saved to {color('.codetrust/baseline.json', BOLD)}",
+        )
+        _echo(
+            f"     To see all issues (including legacy): {color('codetrust scan --no-baseline', BOLD)}",
+        )
+        _echo()
+        return
+
     drift = result.get("drift_score", {})
     findings = result.get("findings", [])
     blocks = [f for f in findings if f.get("severity") == "BLOCK"]
@@ -4305,6 +4396,18 @@ def _scan_output_human(
     infos = [f for f in findings if f.get("severity") == "INFO"]
 
     _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
+
+    # Delta mode subtitle
+    if isinstance(snapshot, dict) and snapshot.get("mode") == "delta":
+        baseline_count = snapshot.get("baseline_count", 0)
+        _echo(
+            color(
+                f"   Comparing against baseline ({baseline_count} accepted)   "
+                f"|   {color('--no-baseline', BOLD)} to see all",
+                BLUE,
+            ),
+        )
+
     _echo(
         f"   {result['files_scanned']} files scanned"
         f"   |   {color(f'{len(blocks)} must fix', RED if blocks else GREEN)}"
@@ -4651,6 +4754,15 @@ def cmd_scan(args: argparse.Namespace) -> int:
     start_time = time.monotonic()
     targets, machine_output, baseline_ref, baseline_mode = _scan_parse_options(args)
 
+    # Snapshot baseline mode (different from git --baseline ref mode):
+    # On the first whole-project scan, save findings as accepted legacy.
+    # Subsequent scans show only new findings vs that snapshot.
+    snapshot_mode = (
+        not baseline_mode
+        and not bool(getattr(args, "no_baseline", False))
+        and _scan_targets_whole_project(targets)
+    )
+
     if baseline_mode:
         all_findings, files_scanned = _scan_baseline_collect(
             targets, baseline_ref, args, machine_output=machine_output,
@@ -4682,10 +4794,20 @@ def cmd_scan(args: argparse.Namespace) -> int:
         all_findings, args, cwd, baseline_mode=baseline_mode,
     )
 
+    # Snapshot baseline handling: filter to delta on subsequent scans,
+    # establish baseline on first scan.
+    snapshot_info: dict[str, object] = {}
+    if snapshot_mode:
+        all_findings, snapshot_info = _scan_apply_snapshot_baseline(
+            all_findings, cwd,
+        )
+
     result = _scan_build_result(
         all_findings, args, files_scanned, baseline_ref,
         baseline_mode=baseline_mode,
     )
+    if snapshot_info:
+        result["snapshot_baseline"] = snapshot_info
 
     _scan_emit_telemetry(
         args, result, hallucinations, start_time,
@@ -4768,6 +4890,49 @@ def _status_count_blocks_24h(project_dir: Path) -> tuple[int, int]:
     except OSError:
         return 0, 0
     return blocks, warns
+
+
+def cmd_baseline(args: argparse.Namespace) -> int:
+    """Manage scan baseline (snapshot of accepted legacy findings)."""
+    from src.services.baseline import (
+        baseline_metadata,
+        reset_baseline,
+    )
+
+    project_dir = Path.cwd()
+    action = getattr(args, "baseline_action", None) or "status"
+
+    if action == "status":
+        meta = baseline_metadata(project_dir)
+        if meta is None:
+            _echo(f"\n  {color('No baseline yet.', YELLOW)}")
+            _echo(
+                f"  Run {color('codetrust scan', BOLD)} to establish one — "
+                f"first scan accepts existing findings as legacy.\n",
+            )
+            return 0
+        _echo(f"\n  {color('🛡️  Baseline established', GREEN)}")
+        _echo(f"     Accepted findings: {color(str(meta['count']), BOLD)}")
+        _echo(f"     Created: {meta['created']}")
+        _echo(f"     File: {color('.codetrust/baseline.json', BOLD)}")
+        _echo(
+            f"     Reset with: {color('codetrust baseline reset', BOLD)}\n",
+        )
+        return 0
+
+    if action == "reset":
+        if reset_baseline(project_dir):
+            _echo(f"\n  {color('✅ Baseline removed.', GREEN)}")
+            _echo(
+                f"     Next {color('codetrust scan', BOLD)} will establish a new baseline.\n",
+            )
+            return 0
+        _echo(f"\n  {color('No baseline to reset.', YELLOW)}\n")
+        return 0
+
+    _echo(f"\n  Unknown baseline action: {action}")
+    _echo("  Use 'codetrust baseline status' or 'codetrust baseline reset'\n")
+    return 1
 
 
 def cmd_status(_args: argparse.Namespace) -> int:
@@ -6018,6 +6183,10 @@ def _add_scan_subparser(
         help="Show INFO-level findings (hidden by default)",
     )
     scan_parser.add_argument(
+        "--no-baseline", action="store_true",
+        help="Disable snapshot baseline — show all findings, not just delta",
+    )
+    scan_parser.add_argument(
         "--fail-on", dest="fail_on", choices=["never", "warn", "block"],
         default="block", help="Exit non-zero when verdict meets threshold (default: block)",
     )
@@ -6083,6 +6252,14 @@ def _add_utility_subparsers(
 ) -> None:
     """Register 'status', 'doctor', 'pr-risk', and 'trust-diff' subcommands."""
     subparsers.add_parser("status", help="Check installed enforcement layers")
+
+    baseline_parser = subparsers.add_parser(
+        "baseline",
+        help="Manage scan baseline (snapshot of accepted legacy findings)",
+    )
+    baseline_sub = baseline_parser.add_subparsers(dest="baseline_action")
+    baseline_sub.add_parser("status", help="Show baseline metadata (count, date)")
+    baseline_sub.add_parser("reset", help="Delete the current baseline")
 
     doctor_parser = subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
     doctor_parser.add_argument(
@@ -7791,6 +7968,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_license(args)
     if args.command == "status":
         return cmd_status(args)
+    if args.command == "baseline":
+        return cmd_baseline(args)
     if args.command == "doctor":
         return cmd_doctor(args)
     if args.command == "pr-risk":

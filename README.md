@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>v4.0.6</code> &middot; <code>2,924 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>2,989 tests</code>
+  <code>v4.0.6</code> &middot; <code>2,924 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>3,033 tests</code>
 </p>
 
 <p align="center">
@@ -192,9 +192,16 @@ Static analysis (2,924 rules, 89 extensions), AST structural analysis (10 tree-s
 pip install codetrust
 cd your-project
 codetrust init          # Installs 9 enforcement layers
-codetrust doctor        # Verifies all layers active
-codetrust scan .        # Scan your code
+codetrust scan .        # First scan: establishes baseline (existing code accepted)
+codetrust scan .        # Second scan: shows only NEW issues from now on
+codetrust status        # One-line health check
 ```
+
+**Why two scans?** CodeTrust accepts your existing codebase as "baseline" on
+the first scan and then only flags NEW issues introduced after that. You don't
+get judged for legacy code — you get protected going forward. Run
+`codetrust baseline status` to inspect, `baseline reset` to start over,
+or `baseline share` to commit it for team workflow.
 
 ---
 
@@ -212,7 +219,7 @@ codetrust scan .        # Scan your code
 | Framework integrations | 3 (LangChain, CrewAI, OpenAI) |
 | API endpoints | 72 |
 | CLI commands | 52 |
-| Tests | 2,989 |
+| Tests | 3,033 |
 
 ---
 
@@ -231,13 +238,17 @@ codetrust scan .        # Scan your code
 
 ## What's New
 
+- **First-scan baseline mode** — existing code accepted as legacy automatically; subsequent scans show only NEW issues. `codetrust baseline share` for team workflow.
+- **Hallucination detection 95%** — measured against ground-truth dataset (was ~55% baseline), unified across CLI/API/MCP surfaces.
+- **Grade A suggestions** — every BLOCK and WARN finding now ships with concrete fix guidance (2,924 individual recommendations) directly in scan output.
+- **Vibe-coder UX** — `init` 50→25 lines, `doctor` 66→21 lines, `status` one line, `scan` summary leads with "X must fix | Y should fix" instead of total count, INFO hidden by default.
 - **PII Detection** — 16 categories, Luhn/IBAN validators, auto-redaction, policy enforcement
 - **Data Classification + Model Routing** — 4 sensitivity levels, per-model access control
 - **LLM Cost Tracking** — 20 models, per-developer budgets, anomaly detection
 - **Compliance** — OWASP ASI 10/10, EU AI Act 7/7, NIST AI RMF 4/4
 - **Agent Integrity** — 4 behavioral patterns, calibrated against real incidents
 - **Framework Integrations** — LangChain, CrewAI, OpenAI Agents SDK
-- **Governance Dashboard** — 6-section overview with live polling
+- **Governance Dashboard** — core/pro layout, live polling, no fake compliance badges
 - **Rule scoping** — universal rules 1,680 → 78 (95% reduction, 10% faster scans)
 - **Definition of Done** — external enforcement gate, `codetrust dod`
 

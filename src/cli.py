@@ -3408,22 +3408,77 @@ def cmd_init(args: argparse.Namespace) -> int:
 # --- Scan command ---
 
 
-def _calculate_drift_score(findings: list[dict]) -> dict:
-    """Calculate AI Drift Score from CLI scan findings."""
-    weights = {"BLOCK": 10, "WARN": 3, "INFO": 1}
-    total_weight = sum(weights.get(f.get("severity", "INFO"), 1) for f in findings)
-    score = max(0, 100 - total_weight)
+_HALLUC_RULE_IDS: frozenset[str] = frozenset({
+    "hardcoded_secret", "eval_exec", "sql_injection", "pickle_load",
+    "api_key_in_config", "docker_env_secret", "hallucinated_localhost_port",
+    "hallucinated_api_endpoint", "hallucinated_env_var", "placeholder_url",
+    "fake_api_key_format", "hallucinated_import_nonexistent",
+    "hallucinated_import_misspelled", "hallucinated_method_chain",
+    "hallucinated_config_option", "hallucinated_cli_flag",
+    "hallucinated_version", "phantom_file_reference", "hallucinated_http_status",
+    "import_not_found",
+})
+
+
+def _grade(score: int) -> str:
+    """Convert numeric score to letter grade."""
+    if score >= 95:
+        return "A+"
     if score >= 90:
-        grade = "A"
-    elif score >= 70:
-        grade = "B"
-    elif score >= 50:
-        grade = "C"
-    elif score >= 30:
-        grade = "D"
-    else:
-        grade = "F"
-    return {"score": score, "grade": grade}
+        return "A"
+    if score >= 80:
+        return "B+"
+    if score >= 70:
+        return "B"
+    if score >= 60:
+        return "C+"
+    if score >= 50:
+        return "C"
+    if score >= 30:
+        return "D"
+    return "F"
+
+
+def _calculate_drift_score(findings: list[dict]) -> dict:
+    """Calculate AI Drift Score from CLI scan findings.
+
+    Returns both 'score' (legacy drift weight) and 'ai_trust_score' (nuanced
+    formula with hallucination cap, BLOCK/WARN penalties, and breakdown).
+    """
+    weights = {"BLOCK": 10, "WARN": 3, "INFO": 1}
+    total_weight = 0
+    halluc_count = 0
+    nh_block = 0
+    nh_warn = 0
+    for f in findings:
+        sev = str(f.get("severity", "INFO"))
+        rule_id = str(f.get("rule_id", ""))
+        total_weight += weights.get(sev, 1)
+        is_halluc = rule_id in _HALLUC_RULE_IDS
+        if is_halluc:
+            halluc_count += 1
+        elif sev == "BLOCK":
+            nh_block += 1
+        elif sev == "WARN":
+            nh_warn += 1
+
+    score = max(0, 100 - total_weight)
+    halluc_penalty = min(50, halluc_count * 15)
+    block_penalty = nh_block * 5
+    warn_penalty = min(15, nh_warn * 0.5)
+    ai_trust_score = max(0, int(100 - halluc_penalty - block_penalty - warn_penalty))
+
+    return {
+        "score": score,
+        "grade": _grade(score),
+        "ai_trust_score": ai_trust_score,
+        "ai_trust_grade": _grade(ai_trust_score),
+        "trust_breakdown": {
+            "hallucinations": halluc_count,
+            "block_findings": nh_block,
+            "warn_findings": nh_warn,
+        },
+    }
 
 
 _SARIF_SEVERITY: dict[str, str] = {"BLOCK": "error", "WARN": "warning", "INFO": "note"}
@@ -4221,14 +4276,30 @@ def _scan_output_human(
         _echo()
 
     drift = result.get("drift_score", {})
-    _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
-    _echo(f"   Files: {result['files_scanned']} | Findings: {result['total_findings']}")
-    _echo(f"   AI Drift Score: {drift['score']}/100 ({drift['grade']})\n")
-
     findings = result.get("findings", [])
     blocks = [f for f in findings if f.get("severity") == "BLOCK"]
     warns = [f for f in findings if f.get("severity") == "WARN"]
     infos = [f for f in findings if f.get("severity") == "INFO"]
+
+    _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
+    _echo(
+        f"   {result['files_scanned']} files scanned"
+        f"   |   {color(f'{len(blocks)} must fix', RED if blocks else GREEN)}"
+        f"   |   {color(f'{len(warns)} should fix', YELLOW if warns else GREEN)}"
+        f"   |   {len(infos)} suggestions",
+    )
+    trust = drift.get("ai_trust_score", drift.get("score", 100))
+    trust_grade = drift.get("ai_trust_grade", drift.get("grade", "A+"))
+    breakdown = drift.get("trust_breakdown", {})
+    breakdown_parts = []
+    if breakdown.get("hallucinations", 0) > 0:
+        breakdown_parts.append(f"{breakdown['hallucinations']} hallucinated")
+    if breakdown.get("block_findings", 0) > 0:
+        breakdown_parts.append(f"{breakdown['block_findings']} security")
+    if breakdown.get("warn_findings", 0) > 0:
+        breakdown_parts.append(f"{breakdown['warn_findings']} quality")
+    breakdown_str = f" — {', '.join(breakdown_parts)}" if breakdown_parts else ""
+    _echo(f"   Trust Score: {trust}/100 ({trust_grade}){breakdown_str}\n")
 
     hints = result.get("upgrade_hints", [])
     is_free = bool(hints)  # upgrade_hints only present for free tier

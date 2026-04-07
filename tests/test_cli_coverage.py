@@ -323,7 +323,13 @@ class TestDriftScore:
     def test_perfect_score(self) -> None:
         result = _calculate_drift_score([])
         assert result["score"] == 100
-        assert result["grade"] == "A"
+        assert result["grade"] == "A+"
+        assert result["ai_trust_score"] == 100
+        assert result["trust_breakdown"] == {
+            "hallucinations": 0,
+            "block_findings": 0,
+            "warn_findings": 0,
+        }
 
     def test_warn_findings(self) -> None:
         findings = [{"severity": "WARN"}, {"severity": "WARN"}]
@@ -342,6 +348,20 @@ class TestDriftScore:
         result = _calculate_drift_score(findings)
         assert result["score"] == 0
         assert result["grade"] == "F"
+
+    def test_ai_trust_score_with_breakdown(self) -> None:
+        """Trust score reflects hallucinations + non-halluc findings separately."""
+        findings = [
+            {"rule_id": "hallucinated_import_nonexistent", "severity": "BLOCK"},
+            {"rule_id": "except_swallow", "severity": "BLOCK"},
+            {"rule_id": "magic_number", "severity": "WARN"},
+        ]
+        result = _calculate_drift_score(findings)
+        # 1 halluc (-15) + 1 non-halluc BLOCK (-5) + 1 WARN (-0.5) = -20.5
+        assert result["ai_trust_score"] == 79
+        assert result["trust_breakdown"]["hallucinations"] == 1
+        assert result["trust_breakdown"]["block_findings"] == 1
+        assert result["trust_breakdown"]["warn_findings"] == 1
 
 
 class TestFindingsToSarif:

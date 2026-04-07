@@ -471,11 +471,11 @@ class TestCliScanEngine:
         ]
         drift = _calculate_drift_score(findings)
         assert drift["score"] == 87  # 100 - 10 - 3
-        assert drift["grade"] == "B"
+        assert drift["grade"] == "B+"
 
     def test_cli_drift_score_perfect(self) -> None:
         from src.cli import _calculate_drift_score
 
         drift = _calculate_drift_score([])
         assert drift["score"] == 100
-        assert drift["grade"] == "A"
+        assert drift["grade"] == "A+"

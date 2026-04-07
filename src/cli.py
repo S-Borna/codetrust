@@ -6221,6 +6221,10 @@ def _create_main_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codetrust",
         description="CodeTrust — AI code verification. Install, scan, enforce.",
+        epilog=(
+            "Run 'codetrust --help-all' to see all advanced commands "
+            "(governance, compliance, vulnerability scanning, etc.)"
+        ),
     )
     return parser
 
@@ -8148,6 +8152,30 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
     return 0
 
 
+# Commands shown in default `codetrust --help` output. Everything else still
+# works but is hidden to reduce vibe-coder overload. Use --help-all to see all.
+_CORE_COMMANDS: frozenset[str] = frozenset({
+    "init", "scan", "fix", "status", "doctor",
+    "baseline", "login", "logout",
+})
+
+
+def _hide_advanced_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    """Hide non-core subparsers from default --help output listing.
+
+    Commands remain fully functional — only the help listing entries are
+    removed. The metavar is replaced with just the core commands so the
+    usage line is also clean. Use --help-all to see everything.
+    """
+    subparsers._choices_actions = [  # type: ignore[attr-defined]
+        action
+        for action in subparsers._choices_actions  # type: ignore[attr-defined]
+        if action.dest in _CORE_COMMANDS
+    ]
+    # Override metavar so the usage line shows only core commands
+    subparsers.metavar = "{" + ",".join(sorted(_CORE_COMMANDS)) + "}"
+
+
 def main() -> int:
     """CLI entry point."""
     # License check — warn but do not block CLI usage
@@ -8161,6 +8189,11 @@ def main() -> int:
             "  Get a license at https://codetrust.ai\n\n",
         )
 
+    show_all = "--help-all" in sys.argv
+    if show_all:
+        sys.argv = [a for a in sys.argv if a != "--help-all"]
+        sys.argv.append("--help")
+
     parser = _create_main_parser()
     subparsers = parser.add_subparsers(dest="command")
 
@@ -8172,6 +8205,9 @@ def main() -> int:
     _add_governance_policy_audit_subparsers(subparsers)
     _add_shield_subparser(subparsers)
     _add_ai_observability_subparsers(subparsers)
+
+    if not show_all:
+        _hide_advanced_subparsers(subparsers)
 
     args = parser.parse_args()
     return _route_command(args, parser)

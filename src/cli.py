@@ -3998,6 +3998,78 @@ def _scan_validate_signatures(
     return all_findings
 
 
+def _scan_hallucination_taint(
+    targets: list[str],
+    all_findings: list[dict[str, str | int]],
+    args: argparse.Namespace,
+    *,
+    machine_output: bool,
+) -> list[dict[str, str | int]]:
+    """Run hallucination-taint analysis on scanned files.
+
+    Detects fake sanitizer functions in taint chains — AI agents commonly
+    invent functions like sanitize_user_input() that don't exist, breaking
+    the protection chain. Previously this only ran in the MCP server, so
+    CLI users got weaker hallucination detection than MCP users.
+
+    Wired here for parity across surfaces.
+    """
+    if getattr(args, "no_verify_signatures", False):
+        return all_findings
+
+    try:
+        from src.models.enums import Language
+        from src.services.hallucination_taint import HallucinationTaintAnalyzer
+
+        source_files = _scan_collect_source_files(targets)
+        if not source_files:
+            return all_findings
+
+        lang_map = {
+            "python": Language.PYTHON,
+            "javascript": Language.JAVASCRIPT,
+            "typescript": Language.TYPESCRIPT,
+        }
+        analyzer = HallucinationTaintAnalyzer()
+        taint_total = 0
+
+        for fpath, lang in source_files:
+            if lang not in lang_map:
+                continue
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    code = f.read()
+                result = analyzer.analyze(code, lang_map[lang], fpath)
+                for finding in result.findings:
+                    all_findings.append({
+                        "rule_id": finding.rule_id,
+                        "severity": finding.severity.value
+                        if hasattr(finding.severity, "value")
+                        else str(finding.severity),
+                        "message": finding.message,
+                        "file": fpath,
+                        "line": finding.line,
+                        "suggestion": finding.suggestion,
+                    })
+                    taint_total += 1
+            except OSError as exc:
+                logger.debug("taint_scan_read_error", file=str(fpath), error=str(exc))
+                continue
+
+        if not machine_output and taint_total:
+            _echo(
+                f"  {color(f'   Found {taint_total} hallucinated sanitizer(s)', RED)}\n",
+            )
+
+    except Exception as exc:
+        logger.debug(
+            "hallucination_taint_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+    return all_findings
+
+
 _TAINT_CLI_SUPPORTED_LANGUAGES: set[str] = {"python", "javascript", "typescript"}
 
 _TAINT_EXT_LANG: dict[str, str] = {
@@ -4897,6 +4969,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
         )
 
         all_findings = _scan_validate_signatures(
+            targets, all_findings, args, machine_output=machine_output,
+        )
+
+        all_findings = _scan_hallucination_taint(
             targets, all_findings, args, machine_output=machine_output,
         )
 

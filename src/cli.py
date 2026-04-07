@@ -2893,6 +2893,11 @@ def _init_gitignore_and_governance(
                 f.write("\n# CodeTrust\n")
                 for p in new_patterns:
                     f.write(f"{p}\n")
+    else:
+        # Create .gitignore with CT patterns. Required for baseline share
+        # mode and consistent governance file ignoring across new projects.
+        gitignore.write_text("# CodeTrust\n" + "\n".join(patterns_to_add) + "\n")
+        installed.append(".gitignore")
 
     governance_toml = project_dir / ".codetrust.toml"
     if governance_toml.exists() and not force:
@@ -5088,6 +5093,7 @@ def _status_count_blocks_24h(project_dir: Path) -> tuple[int, int]:
 def cmd_baseline(args: argparse.Namespace) -> int:
     """Manage scan baseline (snapshot of accepted legacy findings)."""
     from src.services.baseline import (
+        baseline_exists,
         baseline_metadata,
         reset_baseline,
     )
@@ -5108,6 +5114,13 @@ def cmd_baseline(args: argparse.Namespace) -> int:
         _echo(f"     Accepted findings: {color(str(meta['count']), BOLD)}")
         _echo(f"     Created: {meta['created']}")
         _echo(f"     File: {color('.codetrust/baseline.json', BOLD)}")
+        if _baseline_is_shared(project_dir):
+            _echo(f"     Mode: {color('shared (committed to git)', GREEN)}")
+        else:
+            _echo(f"     Mode: {color('local-only (gitignored)', BLUE)}")
+            _echo(
+                f"     Share with team: {color('codetrust baseline share', BOLD)}",
+            )
         _echo(
             f"     Reset with: {color('codetrust baseline reset', BOLD)}\n",
         )
@@ -5123,9 +5136,75 @@ def cmd_baseline(args: argparse.Namespace) -> int:
         _echo(f"\n  {color('No baseline to reset.', YELLOW)}\n")
         return 0
 
+    if action == "share":
+        if not baseline_exists(project_dir):
+            _echo(f"\n  {color('No baseline to share.', YELLOW)}")
+            _echo(
+                f"  Run {color('codetrust scan', BOLD)} first to establish one.\n",
+            )
+            return 1
+        return _baseline_share(project_dir)
+
     _echo(f"\n  Unknown baseline action: {action}")
-    _echo("  Use 'codetrust baseline status' or 'codetrust baseline reset'\n")
+    _echo(
+        "  Use 'codetrust baseline status', "
+        "'codetrust baseline share', or 'codetrust baseline reset'\n",
+    )
     return 1
+
+
+def _baseline_is_shared(project_dir: Path) -> bool:
+    """Check whether baseline.json is excluded from .gitignore (shared mode)."""
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        return False
+    content = gitignore.read_text(encoding="utf-8", errors="ignore")
+    # Shared mode: explicit unignore line for baseline.json
+    return "!.codetrust/baseline.json" in content
+
+
+def _baseline_share(project_dir: Path) -> int:
+    """Add an unignore rule for baseline.json so it can be committed to git.
+
+    The init command adds .codetrust/ to .gitignore by default. This adds
+    a !.codetrust/baseline.json line below it, which Git interprets as
+    'exclude this specific file from the gitignore rule'.
+    """
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        _echo(
+            f"\n  {color('No .gitignore found.', YELLOW)} "
+            f"Run {color('codetrust init', BOLD)} first.\n",
+        )
+        return 1
+
+    content = gitignore.read_text(encoding="utf-8", errors="ignore")
+    if "!.codetrust/baseline.json" in content:
+        _echo(
+            f"\n  {color('Baseline already shared.', GREEN)} "
+            f"It's tracked by git.\n",
+        )
+        return 0
+
+    if not content.endswith("\n"):
+        content += "\n"
+    content += "\n# Share scan baseline with team\n!.codetrust/baseline.json\n"
+    gitignore.write_text(content, encoding="utf-8")
+
+    _echo(f"\n  {color('✅ Baseline now shared with team.', GREEN)}")
+    _echo("     Added to .gitignore: !.codetrust/baseline.json")
+    _echo()
+    _echo("  Next steps:")
+    _echo(f"    1. Review the baseline: {color('git diff .gitignore', BOLD)}")
+    _echo(
+        f"    2. Add and commit: {color('git add .gitignore .codetrust/baseline.json && git commit', BOLD)}",
+    )
+    _echo("    3. Team members will get the same baseline on next pull.")
+    _echo()
+    _echo(
+        "  Switch back to local-only: remove the !.codetrust/baseline.json line from .gitignore.\n",
+    )
+    return 0
 
 
 def cmd_status(_args: argparse.Namespace) -> int:
@@ -6493,8 +6572,12 @@ def _add_utility_subparsers(
         help="Manage scan baseline (snapshot of accepted legacy findings)",
     )
     baseline_sub = baseline_parser.add_subparsers(dest="baseline_action")
-    baseline_sub.add_parser("status", help="Show baseline metadata (count, date)")
+    baseline_sub.add_parser("status", help="Show baseline metadata (count, date, mode)")
     baseline_sub.add_parser("reset", help="Delete the current baseline")
+    baseline_sub.add_parser(
+        "share",
+        help="Share baseline with team (unignore from .gitignore so it can be committed)",
+    )
 
     doctor_parser = subparsers.add_parser("doctor", help="Diagnose CodeTrust installation")
     doctor_parser.add_argument(

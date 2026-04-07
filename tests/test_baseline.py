@@ -168,3 +168,23 @@ class TestMetadata:
 
     def test_metadata_returns_none_when_missing(self, project: Path) -> None:
         assert baseline_metadata(project) is None
+
+
+class TestBaselineShareMode:
+    """Verify baseline can be toggled between gitignored and shared modes."""
+
+    def test_is_shared_false_when_no_gitignore(self, project: Path) -> None:
+        from src.cli import _baseline_is_shared
+        assert _baseline_is_shared(project) is False
+
+    def test_is_shared_false_when_no_unignore_line(self, project: Path) -> None:
+        from src.cli import _baseline_is_shared
+        (project / ".gitignore").write_text("# CodeTrust\n.codetrust/\n")
+        assert _baseline_is_shared(project) is False
+
+    def test_is_shared_true_when_unignore_line_present(self, project: Path) -> None:
+        from src.cli import _baseline_is_shared
+        (project / ".gitignore").write_text(
+            "# CodeTrust\n.codetrust/\n!.codetrust/baseline.json\n",
+        )
+        assert _baseline_is_shared(project) is True

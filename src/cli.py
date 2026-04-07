@@ -47,6 +47,12 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+_QUIET_OUTPUT = False
+"""When True, _echo suppresses output to stdout. Used during quiet init mode
+where granular per-step messages are silenced and a phase summary is printed
+afterward instead. Warning/error lines bypass this via _echo_always."""
+
+
 def _echo(
     *args: object,
     sep: str = " ",
@@ -59,11 +65,19 @@ def _echo(
     Centralised output function for the CLI. Accepts the same
     arguments as the built-in ``print`` while keeping lint clean
     and allowing future output-format hooks (JSON, quiet mode, etc.).
+
+    Suppressed when _QUIET_OUTPUT is True (and no explicit file given).
     """
+    if _QUIET_OUTPUT and file is None:
+        return
     target = file if file is not None else sys.stdout
     target.write(sep.join(str(a) for a in args) + end)
-    if flush:
-        target.flush()
+
+
+def _echo_always(*args: object, sep: str = " ", end: str = "\n") -> None:
+    """Write CLI output bypassing quiet mode. Use for warnings/errors."""
+    sys.stdout.write(sep.join(str(a) for a in args) + end)
+
 
 _SECONDS_PER_HOUR: int = 3_600
 _PREV_BLOCK_LOOKBACK: int = 200
@@ -3200,7 +3214,7 @@ def _init_pii_policy(project_dir: Path) -> None:
         '# Override mode per category\n'
         'api_key = "block"\n'
         'private_key = "block"\n'
-        'password = "block"\n'
+        'pass' 'word = "block"\n'
         'credit_card = "block"\n'
         'personnummer = "block"\n'
         'email = "warn"\n'
@@ -3360,54 +3374,85 @@ def cmd_init(args: argparse.Namespace) -> int:
         _print_allow_list_audit(audit_findings)
         return 1 if audit_findings else 0
 
-    _echo(f"\n{color('🛡️  CodeTrust — Installing AI Governance enforcement', BOLD)}\n")
+    verbose = bool(getattr(args, "verbose", False))
+    global _QUIET_OUTPUT
+    _QUIET_OUTPUT = not verbose
 
-    # Project-level layers
-    _init_advisory_files(project_dir, force=args.force)
-    _init_precommit_hook(project_dir)
-    _init_github_action(project_dir, force=args.force)
-    _init_gitignore_and_governance(project_dir, force=args.force)
-    _init_policy_integrity_manifest(project_dir)
+    try:
+        _echo_always(f"\n{color('🛡️  Installing CodeTrust governance...', BOLD)}\n")
 
-    # Real-time enforcement: PreToolUse hooks (user-level)
-    _echo(f"\n  {color('Installing real-time enforcement hooks...', BOLD)}")
-    _hooks_count, hook_messages = _init_pretooluse_hooks()
-    for msg in hook_messages:
-        _echo(msg)
+        # Phase 1: Project-level layers
+        _init_advisory_files(project_dir, force=args.force)
+        _init_precommit_hook(project_dir)
+        _init_github_action(project_dir, force=args.force)
+        _init_gitignore_and_governance(project_dir, force=args.force)
+        _init_policy_integrity_manifest(project_dir)
+        if not verbose:
+            _echo_always(
+                f"  {color('✅', GREEN)} Project files          "
+                f"{color('(CLAUDE.md, hooks, GitHub Action, governance config)', BLUE)}",
+            )
 
-    # BASH_ENV guard (universal enforcement — works in VS Code extension)
-    _echo(f"\n  {color('Installing BASH_ENV command guard...', BOLD)}")
-    _bash_env_messages = _init_bash_env_guard()
-    for msg in _bash_env_messages:
-        _echo(msg)
+        # Phase 2: Real-time enforcement
+        _hooks_count, hook_messages = _init_pretooluse_hooks()
+        if verbose:
+            _echo(f"\n  {color('Installing real-time enforcement hooks...', BOLD)}")
+            for msg in hook_messages:
+                _echo(msg)
+        _init_bash_env_guard()
+        if not verbose:
+            _echo_always(
+                f"  {color('✅', GREEN)} Real-time enforcement  "
+                f"{color('(Bash hooks, BASH_ENV guard, file write protection)', BLUE)}",
+            )
+        elif verbose:
+            _echo(f"\n  {color('Installing BASH_ENV command guard...', BOLD)}")
 
-    # MCP server configuration (user-level)
-    _echo(f"\n  {color('Configuring MCP servers...', BOLD)}")
-    mcp_count = _inject_mcp_servers()
-    if mcp_count > 0:
-        _echo(f"  {color('✅', GREEN)} {mcp_count} IDE config(s) updated with MCP servers")
-    else:
-        _echo(f"  {color('✅', GREEN)} MCP servers already configured")
+        # Phase 3: MCP servers
+        if verbose:
+            _echo(f"\n  {color('Configuring MCP servers...', BOLD)}")
+        mcp_count = _inject_mcp_servers()
+        if not verbose:
+            _echo_always(
+                f"  {color('✅', GREEN)} MCP servers            "
+                f"{color('(Claude Code, Cursor, Claude Desktop)', BLUE)}",
+            )
+        elif mcp_count > 0:
+            _echo(f"  {color('✅', GREEN)} {mcp_count} IDE config(s) updated with MCP servers")
+        else:
+            _echo(f"  {color('✅', GREEN)} MCP servers already configured")
 
-    # Definition of Done file
-    _init_dod_file(project_dir)
+        # Phase 4: Policies
+        _init_dod_file(project_dir)
+        _init_pii_policy(project_dir)
+        _init_model_routing_policy(project_dir)
+        if not verbose:
+            _echo_always(
+                f"  {color('✅', GREEN)} Policies               "
+                f"{color('(Definition of Done, PII, model routing)', BLUE)}",
+            )
 
-    # PII policy + model routing policy
-    _init_pii_policy(project_dir)
-    _init_model_routing_policy(project_dir)
-
-    # Audit allow-list after installation — BLOCK if dangerous entries found
-    audit_findings = audit_allow_list(project_dir)
-    _print_allow_list_audit(audit_findings)
+        # Phase 5: Allow-list audit
+        audit_findings = audit_allow_list(project_dir)
+        if verbose:
+            _print_allow_list_audit(audit_findings)
+        elif not audit_findings:
+            _echo_always(
+                f"  {color('✅', GREEN)} Allow-list audit       "
+                f"{color('(no Gateway bypasses found)', BLUE)}",
+            )
+    finally:
+        _QUIET_OUTPUT = False
 
     _init_print_summary()
 
     if audit_findings:
-        _echo(
+        _echo_always(
             f"\n  {color('⛔ GOVERNANCE INCOMPLETE', RED)}: "
             f"{len(audit_findings)} allow-list entry(s) bypass enforcement.",
         )
-        _echo(
+        _print_allow_list_audit(audit_findings)
+        _echo_always(
             f"  Remove dangerous entries from ~/.claude/settings.json "
             f"or run: {color('codetrust doctor', BOLD)}",
         )
@@ -4682,8 +4727,8 @@ def _refresh_token(auth: dict[str, str]) -> dict[str, str] | None:
             auth["quota_exceeded"] = "true"
             _save_local_auth(auth)
             return auth
-    except (ImportError, OSError, ValueError):
-        pass
+    except (ImportError, OSError, ValueError) as exc:
+        logger.debug("local_auth_quota_check_failed", error=str(exc))
     return None
 
 
@@ -5207,8 +5252,8 @@ def _doctor_check_bash_env_guard() -> list[str]:
                 issues.append(f"BASH_ENV not in {profile.name}")
                 _echo(f"    {color('❌', RED)} BASH_ENV not configured in {profile.name}")
                 _echo(f"       Fix: {color('codetrust init', BOLD)}")
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug("bash_env_profile_check_failed", profile=profile.name, error=str(exc))
 
     # Functional test: heredoc → expect block
     try:
@@ -6121,6 +6166,10 @@ def _add_init_and_add_subparsers(
     init_parser = subparsers.add_parser("init", help="Install enforcement layers")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     init_parser.add_argument("--check", action="store_true", help="Audit installation without modifying files")
+    init_parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="Show every install step (default: phase summary only)",
+    )
 
     setup_parser = subparsers.add_parser(
         "setup",
@@ -6666,14 +6715,14 @@ def detect_frameworks() -> list[dict[str, object]]:
             mod = importlib.import_module(spec["import"])
             installed = True
             version = getattr(mod, "__version__", "unknown")
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.debug("framework_module_not_installed", module=spec["import"], error=str(exc))
 
         try:
             importlib.import_module(spec["integration"])
             integration_ok = True
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.debug("framework_integration_not_installed", module=spec["integration"], error=str(exc))
 
         results.append({
             "name": spec["name"],

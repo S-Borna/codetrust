@@ -4604,15 +4604,23 @@ def cmd_login(args: argparse.Namespace) -> int:
 
     if not api_key:
         _echo(f"\n{color('🔑 CodeTrust Login', BOLD)}\n")
-        _echo("  Get your API key at https://app.codetrust.ai\n")
+        _echo("  Get your API key from the dashboard:")
+        _echo(f"    {color('https://app.codetrust.ai/dashboard/settings', BLUE)}\n")
         try:
             import getpass
-            api_key = getpass.getpass("  API key: ").strip()
+            api_key = getpass.getpass("  Paste API key: ").strip()
         except (EOFError, KeyboardInterrupt):
             _echo("\n")
             return 1
         if not api_key:
+            _echo(color("\n  No key provided. Login cancelled.\n", YELLOW))
             return 1
+
+    if not (api_key.startswith("ct_") or api_key.startswith("ck_")):
+        _echo(color("\n  ❌ This doesn't look like a CodeTrust API key.", RED))
+        _echo("     Expected format: ct_live_... or ct_test_...")
+        _echo(f"     Get one at {color('https://app.codetrust.ai/dashboard/settings', BLUE)}\n")
+        return 1
 
     _echo("  Validating API key...")
     try:
@@ -4624,8 +4632,18 @@ def cmd_login(args: argparse.Namespace) -> int:
             headers={"X-API-Key": api_key},
             timeout=10,
         )
+        if profile_resp.status_code == 401:
+            _echo(color("\n  ❌ Invalid API key.", RED))
+            _echo("     The key was rejected by the server.")
+            _echo(f"     Get a valid key at {color('https://app.codetrust.ai/dashboard/settings', BLUE)}\n")
+            return 1
+        if profile_resp.status_code == 403:
+            _echo(color("\n  ❌ API key is valid but lacks permissions.", RED))
+            _echo("     Contact support if this is unexpected.\n")
+            return 1
         if profile_resp.status_code != 200:
-            _echo(color("  ❌ Invalid API key or server error.\n", RED))
+            _echo(color(f"\n  ❌ Server error ({profile_resp.status_code}).", RED))
+            _echo(f"     Try again in a moment, or check {color('https://status.codetrust.ai', BLUE)}\n")
             return 1
 
         profile = profile_resp.json()
@@ -4638,7 +4656,8 @@ def cmd_login(args: argparse.Namespace) -> int:
             timeout=10,
         )
         if token_resp.status_code not in {200, 429}:
-            _echo(color("  ❌ Could not issue scan token.\n", RED))
+            _echo(color(f"\n  ❌ Could not issue scan token ({token_resp.status_code}).", RED))
+            _echo("     The API key was accepted but token issuance failed. Try again.\n")
             return 1
 
         token_data = token_resp.json()
@@ -4659,16 +4678,26 @@ def cmd_login(args: argparse.Namespace) -> int:
 
         _save_local_auth(auth_data)
 
+    except httpx.ConnectError:
+        _echo(color("\n  ❌ Could not reach api.codetrust.ai.", RED))
+        _echo("     Check your internet connection.")
+        _echo(f"     If you're behind a proxy, set {color('HTTPS_PROXY', BOLD)}.\n")
+        return 1
+    except httpx.TimeoutException:
+        _echo(color("\n  ❌ Connection timed out.", RED))
+        _echo(f"     Try again, or check {color('https://status.codetrust.ai', BLUE)}\n")
+        return 1
     except (ImportError, OSError, ValueError) as exc:
-        _echo(color(f"  ❌ Could not reach API: {exc}\n", RED))
+        _echo(color(f"\n  ❌ Login failed: {exc}\n", RED))
         return 1
 
-    _echo(color(f"  ✅ Logged in ({plan} plan)", GREEN))
-    if email:
-        _echo(f"     Account: {email}")
+    _echo()
+    _echo(color(f"  ✅ Logged in as {email or 'authenticated'} ({plan} plan)", GREEN))
     _echo(f"     Scan quota: {quota_limit}/day")
+    if token_data.get("quota_exceeded"):
+        _echo(color("     ⚠ Daily quota already used. Quota resets at midnight UTC.", YELLOW))
     if plan == "free":
-        _echo(color("     Upgrade to Pro for unlimited: https://app.codetrust.ai/pricing", BLUE))
+        _echo(f"     Upgrade to Pro: {color('https://app.codetrust.ai/pricing', BLUE)}")
     _echo()
     return 0
 
@@ -5034,6 +5063,8 @@ def cmd_status(_args: argparse.Namespace) -> int:
     all_ok = active_layers == total_layers
 
     blocks_24h, warns_24h = _status_count_blocks_24h(project_dir)
+    auth = _load_local_auth()
+    logged_in = bool(auth.get("api_key"))
 
     if all_ok:
         status_label = color("✅ Protected", GREEN)
@@ -5056,6 +5087,15 @@ def cmd_status(_args: argparse.Namespace) -> int:
         f"\n  🛡️  {status_label}   |   {layers_str}   |   "
         f"{blocks_str} (24h)   |   {warns_str} (24h)\n",
     )
+
+    # Auth status as a second line
+    if logged_in:
+        email = auth.get("email", "")
+        plan = auth.get("plan", "free")
+        identity = email if email else "authenticated"
+        _echo(f"     {color('●', GREEN)} Logged in: {identity} ({plan})")
+    else:
+        _echo(f"     {color('●', BLUE)} Local-only mode — {color('codetrust login', BOLD)} to sync with dashboard")
 
     if not all_ok:
         missing = [name for name, ok in checks if not ok]

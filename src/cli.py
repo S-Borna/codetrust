@@ -4197,8 +4197,13 @@ def _scan_output_findings_by_severity(
     blocks: list[dict], warns: list[dict], infos: list[dict],
     *,
     is_free_plan: bool = False,
+    verbose: bool = False,
 ) -> None:
-    """Print findings grouped by severity for human output."""
+    """Print findings grouped by severity for human output.
+
+    INFO findings are hidden by default to reduce noise. Pass verbose=True
+    (--verbose flag) to include them.
+    """
     if blocks and not is_free_plan:
         _echo(color("  ✖ BLOCKED — execution stopped:", RED))
         for f in blocks:
@@ -4220,12 +4225,18 @@ def _scan_output_findings_by_severity(
             _echo(f"     ... and {len(warns) - _SCAN_MAX_WARN_DISPLAY} more")
         _echo()
 
-    if infos:
+    if infos and verbose:
         _echo(color("  i  INFO:", BLUE))
         for f in infos[:_SCAN_MAX_INFO_DISPLAY]:
             _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
         if len(infos) > _SCAN_MAX_INFO_DISPLAY:
             _echo(f"     ... and {len(infos) - _SCAN_MAX_INFO_DISPLAY} more")
+        _echo()
+    elif infos and not verbose:
+        _echo(color(
+            f"  i  {len(infos)} suggestion(s) hidden — run with --verbose to see them",
+            BLUE,
+        ))
         _echo()
 
     if not blocks and not warns and not infos:
@@ -4268,6 +4279,8 @@ def _scan_output_human(
     result: dict,
     suppressed_count: int,
     cwd: Path,
+    *,
+    verbose: bool = False,
 ) -> None:
     """Render human-readable scan output to terminal."""
     if _scan_output_api_error(result):
@@ -4313,7 +4326,9 @@ def _scan_output_human(
 
     hints = result.get("upgrade_hints", [])
     is_free = bool(hints)  # upgrade_hints only present for free tier
-    _scan_output_findings_by_severity(blocks, warns, infos, is_free_plan=is_free)
+    _scan_output_findings_by_severity(
+        blocks, warns, infos, is_free_plan=is_free, verbose=verbose,
+    )
 
     if isinstance(hints, list):
         _scan_output_upgrade_hints([str(hint) for hint in hints])
@@ -4678,7 +4693,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
     )
 
     if not machine_output:
-        _scan_output_human(result, suppressed_count, cwd)
+        verbose = bool(getattr(args, "verbose", False))
+        _scan_output_human(result, suppressed_count, cwd, verbose=verbose)
 
     _scan_output_machine(args, result, all_findings, machine_output=machine_output)
 
@@ -5997,6 +6013,10 @@ def _add_scan_subparser(
     scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
     scan_parser.add_argument("--sarif", action="store_true", help="Output as SARIF v2.1.0")
     scan_parser.add_argument("--sarif-file", type=str, default="", help="Write SARIF to file")
+    scan_parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="Show INFO-level findings (hidden by default)",
+    )
     scan_parser.add_argument(
         "--fail-on", dest="fail_on", choices=["never", "warn", "block"],
         default="block", help="Exit non-zero when verdict meets threshold (default: block)",

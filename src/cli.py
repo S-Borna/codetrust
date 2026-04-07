@@ -84,7 +84,7 @@ _SECONDS_PER_HOUR: int = 3_600
 _PREV_BLOCK_LOOKBACK: int = 200
 
 
-def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
+def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str, str]]]:
     """Create empty category buckets for CLI rule routing."""
     return {
         "generic_block": [], "generic_warn": [], "generic_info": [],
@@ -105,9 +105,9 @@ def _init_cli_rule_categories() -> dict[str, list[tuple[str, str, str]]]:
 
 
 def _classify_rule_entry(
-    cats: dict[str, list[tuple[str, str, str]]],
+    cats: dict[str, list[tuple[str, str, str, str]]],
     rule: dict[str, object],
-    entry: tuple[str, str, str],
+    entry: tuple[str, str, str, str],
     severity: str,
 ) -> None:
     """Place a single rule entry into the correct category bucket."""
@@ -149,20 +149,19 @@ def _classify_rule_entry(
         cats.get(f"generic_{sev_lower}", cats["generic_warn"]).append(entry)
 
 
-_TYPED_RULES: dict[str, list[tuple[tuple[str, str, str], set[str]]]] = {}
+_TYPED_RULES: dict[str, list[tuple[tuple[str, str, str, str], set[str]]]] = {}
 
 
-def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
+def _build_cli_rules() -> dict[str, list[tuple[str, str, str, str]]]:
     """Build CLI rule lists from the authoritative backend ANTI_PATTERNS.
 
-    Returns categorized (id, pattern, message) tuples grouped by severity
-    and file_types for the CLI's file-type routing logic.
+    Returns categorized (id, pattern, message, suggestion) tuples grouped
+    by severity and file_types for the CLI's file-type routing logic.
     Rules with special_handler are skipped here — they are implemented
     directly in scan_file() as multi-line / file-level checks.
 
-    Language-specific rules (with file_types not matching a dedicated bucket)
-    go into _TYPED_RULES with their file_types set, and are filtered at
-    scan time by _get_typed_rules_for_ext().
+    Suggestions carry the concrete fix advice (Grade A guidance) all the
+    way to scan output so users see HOW to fix, not just WHAT is wrong.
     """
     cats = _init_cli_rule_categories()
 
@@ -171,21 +170,22 @@ def _build_cli_rules() -> dict[str, list[tuple[str, str, str]]]:
             continue  # CLI does regex-only; skip rules needing Python handlers
 
         severity = str(rule["severity"])  # Severity enum -> str
-        entry = (rule["id"], rule["pattern"], rule["message"])
+        suggestion = str(rule.get("suggestion", "")).strip()
+        entry = (rule["id"], rule["pattern"], rule["message"], suggestion)
         _classify_rule_entry(cats, rule, entry, severity)
 
     return cats
 
 
 def _get_typed_rules_for_ext(ext: str) -> tuple[
-    list[tuple[str, str, str]],
-    list[tuple[str, str, str]],
-    list[tuple[str, str, str]],
+    list[tuple[str, str, str, str]],
+    list[tuple[str, str, str, str]],
+    list[tuple[str, str, str, str]],
 ]:
     """Return typed rules that match a given file extension."""
-    block: list[tuple[str, str, str]] = []
-    warn: list[tuple[str, str, str]] = []
-    info: list[tuple[str, str, str]] = []
+    block: list[tuple[str, str, str, str]] = []
+    warn: list[tuple[str, str, str, str]] = []
+    info: list[tuple[str, str, str, str]] = []
     for entry, ft_set in _TYPED_RULES.get("typed_block", []):
         if ext in ft_set:
             block.append(entry)
@@ -1557,13 +1557,20 @@ def _append_rule_matches(
     skip_rule_id: str = "",
 ) -> None:
     """Append findings for all rules matching a single line."""
-    for rule_id, pattern, message in rules:
+    for rule_entry in rules:
+        # Backward compat: accept 3-tuple or 4-tuple
+        if len(rule_entry) == 4:
+            rule_id, pattern, message, suggestion = rule_entry
+        else:
+            rule_id, pattern, message = rule_entry
+            suggestion = ""
         if skip_rule_id and rule_id == skip_rule_id:
             continue
         if _compiled(pattern).search(line):
             findings.append({
                 "rule_id": rule_id, "severity": severity,
                 "message": message, "file": filepath, "line": line_num,
+                "suggestion": suggestion,
             })
 
 
@@ -1603,11 +1610,17 @@ def _match_line_rules(
         if in_docstring:
             continue
         if _noqa in line or _type_ign in line or _eslint_dis in line:
-            for rule_id, pattern, message in warn_rules:
+            for rule_entry in warn_rules:
+                if len(rule_entry) == 4:
+                    rule_id, pattern, message, suggestion = rule_entry
+                else:
+                    rule_id, pattern, message = rule_entry
+                    suggestion = ""
                 if rule_id == "suppress_lint" and re.search(pattern, line):
                     findings.append({
                         "rule_id": rule_id, "severity": "WARN",
                         "message": message, "file": filepath, "line": line_num,
+                        "suggestion": suggestion,
                     })
             if "noqa" in line:
                 continue
@@ -4303,6 +4316,29 @@ def _scan_emit_telemetry(
         )
 
 
+_DIM = "\033[2m"
+_RESET = "\033[0m"
+
+
+def _wrap_suggestion(text: str, indent: str = "       ", width: int = 80) -> list[str]:
+    """Wrap a suggestion string into indented lines for terminal display."""
+    if not text:
+        return []
+    import textwrap
+    wrapped = textwrap.wrap(text, width=width - len(indent))
+    return [f"{indent}{_DIM}↳ {line}{_RESET}" if i == 0 else f"{indent}{_DIM}  {line}{_RESET}"
+            for i, line in enumerate(wrapped)]
+
+
+def _format_finding_line(f: dict) -> list[str]:
+    """Format a finding as a primary line plus optional suggestion lines."""
+    primary = f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}"
+    suggestion = str(f.get("suggestion", "")).strip()
+    if not suggestion:
+        return [primary]
+    return [primary, *_wrap_suggestion(suggestion)]
+
+
 def _scan_output_findings_by_severity(
     blocks: list[dict], warns: list[dict], infos: list[dict],
     *,
@@ -4313,16 +4349,21 @@ def _scan_output_findings_by_severity(
 
     INFO findings are hidden by default to reduce noise. Pass verbose=True
     (--verbose flag) to include them.
+
+    Each BLOCK and WARN finding shows its suggestion (concrete fix advice)
+    on the line below, dimmed and indented.
     """
     if blocks and not is_free_plan:
         _echo(color("  ✖ BLOCKED — execution stopped:", RED))
         for f in blocks:
-            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            for line in _format_finding_line(f):
+                _echo(line)
         _echo()
     elif blocks and is_free_plan:
         _echo(color("  ⚠️  WARN — issues detected (Free plan):", YELLOW))
         for f in blocks:
-            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            for line in _format_finding_line(f):
+                _echo(line)
         _echo(color("     Execution allowed (Free plan)", YELLOW))
         _echo(color("     🔒 Upgrade to Pro to block before execution → codetrust upgrade", BLUE))
         _echo()
@@ -4330,7 +4371,8 @@ def _scan_output_findings_by_severity(
     if warns:
         _echo(color("  ⚠️  WARN — should fix:", YELLOW))
         for f in warns[:_SCAN_MAX_WARN_DISPLAY]:
-            _echo(f"     {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+            for line in _format_finding_line(f):
+                _echo(line)
         if len(warns) > _SCAN_MAX_WARN_DISPLAY:
             _echo(f"     ... and {len(warns) - _SCAN_MAX_WARN_DISPLAY} more")
         _echo()

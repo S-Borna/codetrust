@@ -536,7 +536,8 @@ class TestRuleImport:
             + CI_WARN_RULES
             + DEVOPS_BLOCK_RULES + DEVOPS_WARN_RULES
         )
-        for rule_id, _, _ in all_cli_rules:
+        for entry in all_cli_rules:
+            rule_id = entry[0]
             assert rule_id in backend_ids, (
                 f"CLI rule '{rule_id}' not found in backend ANTI_PATTERNS"
             )
@@ -551,7 +552,8 @@ class TestRuleImport:
             + CI_WARN_RULES
             + DEVOPS_BLOCK_RULES + DEVOPS_WARN_RULES
         )
-        for rule_id, pattern, _ in all_cli_rules:
+        for entry in all_cli_rules:
+            rule_id, pattern = entry[0], entry[1]
             assert pattern == backend_map[rule_id], (
                 f"CLI pattern for '{rule_id}' differs from backend"
             )
@@ -559,7 +561,8 @@ class TestRuleImport:
     def test_block_rules_are_block_severity(self):
         """Rules in BLOCK lists must have BLOCK severity in the backend."""
         backend_map = {r["id"]: str(r["severity"]) for r in ANTI_PATTERNS}
-        for rule_id, _, _ in BLOCK_RULES + SQL_BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES:
+        for entry in BLOCK_RULES + SQL_BLOCK_RULES + DOCKER_BLOCK_RULES + DEVOPS_BLOCK_RULES:
+            rule_id = entry[0]
             assert backend_map[rule_id] == "BLOCK", (
                 f"'{rule_id}' is in CLI BLOCK list but has '{backend_map[rule_id]}' severity in backend"
             )
@@ -567,7 +570,8 @@ class TestRuleImport:
     def test_warn_rules_are_warn_severity(self):
         """Rules in WARN lists must have WARN severity in the backend."""
         backend_map = {r["id"]: str(r["severity"]) for r in ANTI_PATTERNS}
-        for rule_id, _, _ in WARN_RULES + SQL_WARN_RULES + DOCKER_WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES:
+        for entry in WARN_RULES + SQL_WARN_RULES + DOCKER_WARN_RULES + CI_WARN_RULES + DEVOPS_WARN_RULES:
+            rule_id = entry[0]
             assert backend_map[rule_id] == "WARN", (
                 f"'{rule_id}' is in CLI WARN list but has '{backend_map[rule_id]}' severity in backend"
             )

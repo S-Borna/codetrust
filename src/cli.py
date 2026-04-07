@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import importlib.resources
 import json
 import os
@@ -5452,134 +5453,157 @@ def _doctor_check_mcp_config() -> list[str]:
     return issues
 
 
+def _doctor_layer_line(num: int, name: str, ok: bool, detail: str = "") -> str:
+    """Format a one-line layer status row for doctor summary."""
+    label = f"  Layer {num}: {name}"
+    padded = label.ljust(38)
+    if ok:
+        status = color("✅", GREEN) + " " + (detail or "active")
+    else:
+        status = color("⚠", YELLOW) + " " + (detail or "needs attention")
+    return f"{padded}{status}"
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Run diagnostic checks on CodeTrust AI Governance installation."""
-    _echo(f"\n{color('🛡️  CodeTrust Doctor — AI Governance Verification', BOLD)}\n")
-
-    issues: list[str] = []
+    verbose = bool(getattr(args, "verbose", False))
     project_dir = Path.cwd()
 
+    _echo_always(f"\n{color('🛡️  CodeTrust Doctor — AI Governance Verification', BOLD)}\n")
+
+    issues: list[str] = []
     if not (project_dir / ".git").is_dir():
         issues.append("Not a git repository")
 
-    # Layer 1: BASH_ENV guard (universal real-time enforcement)
-    issues.extend(_doctor_check_bash_env_guard())
+    global _QUIET_OUTPUT
+    _QUIET_OUTPUT = not verbose
 
-    # Layer 2: PreToolUse hooks (CLI real-time enforcement)
-    issues.extend(_doctor_check_pretooluse_hooks())
+    try:
+        # Layer 1: BASH_ENV guard
+        bash_issues = _doctor_check_bash_env_guard()
+        issues.extend(bash_issues)
 
-    # Layer 3: MCP servers
-    issues.extend(_doctor_check_mcp_config())
+        # Layer 2: PreToolUse hooks
+        hook_issues = _doctor_check_pretooluse_hooks()
+        issues.extend(hook_issues)
 
-    # Layer 4: Pre-commit hook
-    _echo(f"\n  {color('Layer 4: Pre-commit Hook (commit gate)', BOLD)}")
-    hooks_path = _doctor_check_hooks_path(project_dir)
-    hooks_path_set = hooks_path == "hooks"
-    if hooks_path_set:
-        _echo(f"    {color('✅', GREEN)} core.hooksPath = hooks")
-    else:
-        _echo(f"    {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
-        _echo(f"       Fix: {color('git config core.hooksPath hooks', BOLD)}")
-    issues.extend(_doctor_check_hook_file(project_dir, hooks_path_set))
+        # Layer 3: MCP servers
+        mcp_issues = _doctor_check_mcp_config()
+        issues.extend(mcp_issues)
 
-    # Layer 5: GitHub Action
-    _echo(f"\n  {color('Layer 5: GitHub Action (PR gate)', BOLD)}")
-    action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
-    if action.exists():
-        _echo(f"    {color('✅', GREEN)} GitHub Action workflow exists")
-    else:
-        issues.append("GitHub Action not found")
-        _echo(f"    {color('❌', RED)} GitHub Action not found")
+        # Layer 4: Pre-commit hook
+        if verbose:
+            _echo(f"\n  {color('Layer 4: Pre-commit Hook (commit gate)', BOLD)}")
+        hooks_path = _doctor_check_hooks_path(project_dir)
+        hooks_path_set = hooks_path == "hooks"
+        if verbose:
+            if hooks_path_set:
+                _echo(f"    {color('✅', GREEN)} core.hooksPath = hooks")
+            else:
+                _echo(f"    {color('⚠️', YELLOW)}  core.hooksPath not set to hooks")
+                _echo(f"       Fix: {color('git config core.hooksPath hooks', BOLD)}")
+        precommit_issues = _doctor_check_hook_file(project_dir, hooks_path_set)
+        issues.extend(precommit_issues)
+        layer4_ok = hooks_path_set and not precommit_issues
 
-    # Layer 6: Advisory files
-    _echo(f"\n  {color('Layer 6: Advisory Files', BOLD)}")
-    issues.extend(_doctor_check_claude_md(project_dir))
+        # Layer 5: GitHub Action
+        if verbose:
+            _echo(f"\n  {color('Layer 5: GitHub Action (PR gate)', BOLD)}")
+        action = project_dir / ".github" / "workflows" / "codetrust-scan.yml"
+        layer5_ok = action.exists()
+        if verbose:
+            if layer5_ok:
+                _echo(f"    {color('✅', GREEN)} GitHub Action workflow exists")
+            else:
+                _echo(f"    {color('❌', RED)} GitHub Action not found")
+        if not layer5_ok:
+            issues.append("GitHub Action not found")
 
-    # Layer 7: Governance config
-    _echo(f"\n  {color('Layer 7: Governance Config', BOLD)}")
-    toml_path = project_dir / ".codetrust.toml"
-    if toml_path.exists():
-        _echo(f"    {color('✅', GREEN)} .codetrust.toml exists")
-    else:
-        issues.append(".codetrust.toml not found")
-        _echo(f"    {color('❌', RED)} .codetrust.toml not found")
+        # Layer 6: Advisory files
+        if verbose:
+            _echo(f"\n  {color('Layer 6: Advisory Files', BOLD)}")
+        advisory_issues = _doctor_check_claude_md(project_dir)
+        issues.extend(advisory_issues)
 
-    # Allow-list audit (advisory — warnings, not blocking)
-    _echo(f"\n  {color('Layer 8: Allow-list Audit', BOLD)}")
-    audit_findings = audit_allow_list(project_dir)
-    if audit_findings:
-        for f in audit_findings:
-            _echo(f"    {color('⚠️', YELLOW)}  {f['entry']} → {f['reason']}")
-        _echo(f"    {color('⚠️', YELLOW)}  {len(audit_findings)} bypass(es) — fix with: codetrust init")
-    else:
-        _echo(f"    {color('✅', GREEN)} No dangerous allow-list entries")
+        # Layer 7: Governance config
+        if verbose:
+            _echo(f"\n  {color('Layer 7: Governance Config', BOLD)}")
+        toml_path = project_dir / ".codetrust.toml"
+        layer7_ok = toml_path.exists()
+        if verbose:
+            if layer7_ok:
+                _echo(f"    {color('✅', GREEN)} .codetrust.toml exists")
+            else:
+                _echo(f"    {color('❌', RED)} .codetrust.toml not found")
+        if not layer7_ok:
+            issues.append(".codetrust.toml not found")
 
-    # Layer 9: Compliance coverage
-    _echo(f"\n  {color('Layer 9: Compliance Coverage', BOLD)}")
-    issues.extend(_doctor_check_compliance())
+        # Layer 8: Allow-list audit
+        if verbose:
+            _echo(f"\n  {color('Layer 8: Allow-list Audit', BOLD)}")
+        audit_findings = audit_allow_list(project_dir)
+        if verbose:
+            if audit_findings:
+                for f in audit_findings:
+                    _echo(f"    {color('⚠️', YELLOW)}  {f['entry']} → {f['reason']}")
+            else:
+                _echo(f"    {color('✅', GREEN)} No dangerous allow-list entries")
 
-    # Data classification + model routing (informational)
-    from src.services.model_router import load_routing_policy
-    routing_policy = load_routing_policy(project_dir)
-    _echo(f"\n  {color('Data Classification + Model Routing', BOLD)}")
-    if routing_policy.get("enabled", True):
-        level_count = len(routing_policy.get("levels", {}))
-        model_lists = routing_policy.get("levels", {})
-        configured_models = set()
-        for lp in model_lists.values():
-            for m in lp.get("allowed_models", []):
-                if m != "*":
-                    configured_models.add(m)
-        _echo(f"    ✅ Enabled ({level_count} sensitivity levels, {len(configured_models)} model patterns configured)")
-    else:
-        _echo("    Data classification disabled")
+        # Layer 9: Compliance coverage
+        compliance_issues = _doctor_check_compliance()
+        issues.extend(compliance_issues)
 
-    # PII policy (informational)
-    from src.services.pii_detector import load_pii_policy
-    pii_policy = load_pii_policy(project_dir)
-    _echo(f"\n  {color('PII Detection', BOLD)}")
-    if pii_policy.get("enabled", True):
-        pii_mode = pii_policy.get("mode", "warn")
-        blocked_cats = [
-            cat for cat, m in pii_policy.get("categories", {}).items() if m == "block"
-        ]
-        _echo(f"    ✅ Enabled (mode: {pii_mode}, {len(blocked_cats)} categories on block)")
-    else:
-        _echo("    PII detection disabled")
+        # Optional features (informational)
+        from src.services.model_router import load_routing_policy
+        routing_policy = load_routing_policy(project_dir)
+        from src.services.pii_detector import load_pii_policy
+        pii_policy = load_pii_policy(project_dir)
+        from src.services.cost_tracker import load_cost_config
+        cost_cfg = load_cost_config(project_dir)
+        detected = detect_frameworks()
+        installed_frameworks = [fw for fw in detected if fw["installed"]]
+    finally:
+        _QUIET_OUTPUT = False
 
-    # Cost tracking (informational)
-    from src.services.cost_tracker import load_cost_config
-    cost_cfg = load_cost_config(project_dir)
-    _echo(f"\n  {color('Cost Tracking', BOLD)}")
-    if cost_cfg.get("enabled", True):
-        budget = cost_cfg.get("budget", {})
-        limit = budget.get("monthly_limit", 0)
-        if limit and limit > 0:
-            _echo(f"    ✅ Enabled (budget ${limit:.0f}/month)")
-        else:
-            _echo("    ✅ Enabled (no budget limit configured)")
-    else:
-        _echo("    Cost tracking disabled")
+    # Quiet-mode summary output
+    if not verbose:
+        _echo_always(_doctor_layer_line(1, "BASH_ENV Guard", not bash_issues))
+        _echo_always(_doctor_layer_line(2, "PreToolUse Hooks", not hook_issues))
+        _echo_always(_doctor_layer_line(3, "MCP Gateway + Guardian", not mcp_issues))
+        _echo_always(_doctor_layer_line(4, "Pre-commit Hook", layer4_ok))
+        _echo_always(_doctor_layer_line(5, "GitHub Action", layer5_ok))
+        _echo_always(_doctor_layer_line(6, "Advisory Files", not advisory_issues))
+        _echo_always(_doctor_layer_line(7, "Governance Config", layer7_ok))
+        _echo_always(_doctor_layer_line(
+            8, "Allow-list Audit", not audit_findings,
+            "no bypasses" if not audit_findings else f"{len(audit_findings)} bypasses",
+        ))
+        _echo_always(_doctor_layer_line(
+            9, "Compliance Coverage", not compliance_issues,
+            "OWASP 10/10 · EU 7/7 · NIST 4/4" if not compliance_issues else "gaps detected",
+        ))
 
-    # Framework integrations (informational — not an enforcement layer)
-    detected = detect_frameworks()
-    installed_frameworks = [fw for fw in detected if fw["installed"]]
-    if installed_frameworks:
-        _echo(f"\n  {color('Framework Integrations (detected)', BOLD)}")
-        for fw in installed_frameworks:
-            _echo(f"    ✅ {fw['name']} v{fw['version']} — governance via {fw['class']}")
-    else:
-        _echo(f"\n  {color('Framework Integrations', BOLD)}")
-        _echo("    No frameworks detected (LangChain, CrewAI, OpenAI Agents)")
-        _echo("    Install with: pip install codetrust[langchain]")
+        # Optional features
+        _echo_always("")
+        _echo_always(f"  {color('Optional features:', BOLD)}")
+        if routing_policy.get("enabled", True):
+            _echo_always(f"    {color('✅', GREEN)} Data Classification + Model Routing")
+        if pii_policy.get("enabled", True):
+            blocked_cats = [c for c, m in pii_policy.get("categories", {}).items() if m == "block"]
+            _echo_always(f"    {color('✅', GREEN)} PII Detection ({len(blocked_cats)} categories on block)")
+        if cost_cfg.get("enabled", True):
+            _echo_always(f"    {color('✅', GREEN)} Cost Tracking")
+        if installed_frameworks:
+            names = ", ".join(fw["name"] for fw in installed_frameworks)
+            _echo_always(f"    {color('✅', GREEN)} Frameworks: {names}")
 
     # Summary
-    _echo(f"\n{'━' * 48}")
+    _echo_always(f"\n{'━' * 48}")
     if not issues:
-        _echo(color("\n  ✅ All layers active — AI Governance enforced.\n", GREEN))
+        _echo_always(color("\n  ✅ All 9 layers active — AI Governance enforced.\n", GREEN))
         return 0
 
-    _echo(f"\n  {len(issues)} issue(s) found.")
+    _echo_always(f"\n  {len(issues)} issue(s) found.")
     return _doctor_handle_issues(args, issues, project_dir)
 
 
@@ -6318,6 +6342,10 @@ def _add_utility_subparsers(
     doctor_parser.add_argument(
         "--yes", action="store_true", help="Apply fixes without prompting (when safe)",
     )
+    doctor_parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="Show every check (default: per-layer summary only)",
+    )
 
     pr_parser = subparsers.add_parser("pr-risk", help="Estimate PR risk based on changed files")
     pr_parser.add_argument("--json", action="store_true", help="Output as JSON")
@@ -6711,18 +6739,14 @@ def detect_frameworks() -> list[dict[str, object]]:
         integration_ok = False
         version = ""
 
-        try:
+        with contextlib.suppress(ImportError):
             mod = importlib.import_module(spec["import"])
             installed = True
             version = getattr(mod, "__version__", "unknown")
-        except ImportError as exc:
-            logger.debug("framework_module_not_installed", module=spec["import"], error=str(exc))
 
-        try:
+        with contextlib.suppress(ImportError):
             importlib.import_module(spec["integration"])
             integration_ok = True
-        except ImportError as exc:
-            logger.debug("framework_integration_not_installed", module=spec["integration"], error=str(exc))
 
         results.append({
             "name": spec["name"],

@@ -823,6 +823,12 @@ def _handle_unknown_function(
     filepath: str,
 ) -> list[Finding]:
     """Handle a call to a function not found in the signature database."""
+    # If the call has a submodule we don't know about (e.g. os.environ.get
+    # where 'environ' isn't in the database), we have no data to validate
+    # against. Stay silent rather than false-flagging the call.
+    if call.submodule and call.submodule not in module_sig.submodules:
+        return []
+
     is_hallucinated = (
         call.function_name in module_sig.common_hallucinated_functions
     )

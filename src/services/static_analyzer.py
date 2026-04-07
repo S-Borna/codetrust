@@ -1291,6 +1291,66 @@ class StaticAnalyzer:
         warn_penalty = min(15, non_halluc_warn * 0.5)
         return max(0, int(100 - halluc_penalty - block_penalty - warn_penalty))
 
+    def scan_with_hallucination_stack(
+        self,
+        code: str,
+        filename: str = "",
+        language: str | None = None,
+    ) -> list[Finding]:
+        """Run the FULL hallucination detection stack on a single file.
+
+        This is the unified entry point that every surface (CLI, API, MCP,
+        direct Python) should call. It combines:
+          1. Static analyzer (anti_patterns rules)
+          2. Signature validator (typed call validation)
+          3. Hallucination taint analyzer (fake sanitizer detection)
+
+        Languages without full stack support fall back to anti_patterns only.
+
+        Args:
+            code: Source code to analyze.
+            filename: File path (used for extension-based rule filtering).
+            language: Language hint ('python', 'javascript', 'typescript').
+                If None, inferred from filename extension.
+
+        Returns:
+            Combined list of Finding objects from all detectors.
+        """
+        findings = self.scan_code(code, filename)
+
+        if language is None:
+            ext = os.path.splitext(filename)[1].lower() if filename else ""
+            language = {
+                ".py": "python", ".js": "javascript", ".ts": "typescript",
+                ".jsx": "javascript", ".tsx": "typescript",
+            }.get(ext, "")
+
+        if language in ("python", "javascript", "typescript"):
+            try:
+                from src.services.signature_validator import validate_signatures
+                findings.extend(validate_signatures(code, language, filename))
+            except Exception as exc:
+                logger.warning("signature_validator_failed", error=str(exc))
+
+        if language in ("python", "javascript", "typescript"):
+            try:
+                from src.models.enums import Language as LangEnum
+                from src.services.hallucination_taint import (
+                    HallucinationTaintAnalyzer,
+                )
+                lang_map = {
+                    "python": LangEnum.PYTHON,
+                    "javascript": LangEnum.JAVASCRIPT,
+                    "typescript": LangEnum.TYPESCRIPT,
+                }
+                analyzer = HallucinationTaintAnalyzer()
+                result = analyzer.analyze(code, lang_map[language], filename)
+                findings.extend(result.findings)
+            except Exception as exc:
+                logger.warning("hallucination_taint_failed", error=str(exc))
+
+        return findings
+
     def calculate_drift_score(self, findings: list[Finding]) -> dict:
         """Calculate AI Drift Score from scan findings.
 

@@ -1228,8 +1228,12 @@ class StaticAnalyzer:
 
     def _compute_category_scores(
         self, findings: list[Finding],
-    ) -> tuple[int, dict[str, dict[str, int | float | str]], int]:
-        """Compute per-category scores and total weight from findings."""
+    ) -> tuple[int, dict[str, dict[str, int | float | str]], int, int, int]:
+        """Compute per-category scores, total weight, and severity counts.
+
+        Returns:
+            (total_weight, cat_scores, halluc_count, non_halluc_block, non_halluc_warn)
+        """
         weights = {Severity.BLOCK: 10, Severity.WARN: 3, Severity.INFO: 1}
         categories: dict[str, dict[str, int | float]] = {
             "anti_hallucination": {"findings": 0, "weight": 0},
@@ -1240,6 +1244,8 @@ class StaticAnalyzer:
             "devops": {"findings": 0, "weight": 0},
         }
         total_weight = 0
+        non_halluc_block = 0
+        non_halluc_warn = 0
         for f in findings:
             w = weights.get(f.severity, 1)
             total_weight += w
@@ -1247,6 +1253,11 @@ class StaticAnalyzer:
             if cat in categories:
                 categories[cat]["findings"] += 1
                 categories[cat]["weight"] += w
+            if cat != "anti_hallucination":
+                if f.severity == Severity.BLOCK:
+                    non_halluc_block += 1
+                elif f.severity == Severity.WARN:
+                    non_halluc_warn += 1
 
         cat_scores: dict[str, dict[str, int | float | str]] = {}
         for cat_name, data in categories.items():
@@ -1260,7 +1271,25 @@ class StaticAnalyzer:
             }
 
         halluc_count = categories["anti_hallucination"]["findings"]
-        return total_weight, cat_scores, int(halluc_count)
+        return total_weight, cat_scores, int(halluc_count), non_halluc_block, non_halluc_warn
+
+    def _compute_trust_score(
+        self, halluc_count: int, non_halluc_block: int, non_halluc_warn: int,
+    ) -> int:
+        """Compute Trust Score: hallucinations (capped) + BLOCKs + capped WARNs.
+
+        Formula:
+          - Hallucinations: -15 each, capped at -50 total
+            (prevents hallucinations from solo-nuking the score)
+          - Non-hallucination BLOCK: -5 each
+          - Non-hallucination WARN: -0.5 each, capped at -15 total
+          - INFO: not counted
+          - Floor at 0
+        """
+        halluc_penalty = min(50, halluc_count * 15)
+        block_penalty = non_halluc_block * 5
+        warn_penalty = min(15, non_halluc_warn * 0.5)
+        return max(0, int(100 - halluc_penalty - block_penalty - warn_penalty))
 
     def calculate_drift_score(self, findings: list[Finding]) -> dict:
         """Calculate AI Drift Score from scan findings.
@@ -1269,11 +1298,13 @@ class StaticAnalyzer:
         Breaks down by category matching CodeTrust's Three Laws.
         Tracks baseline and trend when a project path is available.
         """
-        total_weight, cat_scores, halluc_count = self._compute_category_scores(findings)
+        total_weight, cat_scores, halluc_count, nh_block, nh_warn = (
+            self._compute_category_scores(findings)
+        )
 
         score = max(0, 100 - total_weight)
         grade = self._score_to_grade(score)
-        ai_trust_score = max(0, 100 - halluc_count * 15)
+        ai_trust_score = self._compute_trust_score(halluc_count, nh_block, nh_warn)
 
         return {
             "score": score,
@@ -1282,6 +1313,11 @@ class StaticAnalyzer:
             "ai_trust_score": ai_trust_score,
             "ai_trust_grade": self._score_to_grade(ai_trust_score),
             "categories": cat_scores,
+            "trust_breakdown": {
+                "hallucinations": halluc_count,
+                "block_findings": nh_block,
+                "warn_findings": nh_warn,
+            },
         }
 
     @staticmethod

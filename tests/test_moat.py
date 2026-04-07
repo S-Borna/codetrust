@@ -524,15 +524,52 @@ class TestDriftScoreEnhanced:
         assert drift["ai_trust_score"] == 70
         assert drift["categories"]["anti_hallucination"]["findings"] == 2
 
-    def test_non_hallucination_no_ai_penalty(self, analyzer: StaticAnalyzer) -> None:
+    def test_non_hallucination_lighter_penalty(self, analyzer: StaticAnalyzer) -> None:
+        """Non-hallucination findings reduce trust score, but less than hallucinations."""
         findings = [
             Finding(rule_id="except_swallow", severity=Severity.BLOCK, message="m", file="a.py", line=1),
             Finding(rule_id="bare_except", severity=Severity.WARN, message="m", file="a.py", line=2),
         ]
         drift = analyzer.calculate_drift_score(findings)
-        # No hallucination findings → ai_trust = 100
-        assert drift["ai_trust_score"] == 100
+        # 1 non-halluc BLOCK (-5) + 1 non-halluc WARN (-0.5) = -5.5 → 94
+        assert drift["ai_trust_score"] == 94
         assert drift["categories"]["root_cause"]["findings"] == 2
+
+    def test_warn_penalty_is_capped(self, analyzer: StaticAnalyzer) -> None:
+        """50 WARN findings should cap at -15, not -25."""
+        findings = [
+            Finding(rule_id="bare_except", severity=Severity.WARN, message="m", file="a.py", line=i)
+            for i in range(50)
+        ]
+        drift = analyzer.calculate_drift_score(findings)
+        # 50 WARNs * 0.5 = 25, but capped at 15 → 85
+        assert drift["ai_trust_score"] == 85
+
+    def test_hallucination_penalty_is_capped(self, analyzer: StaticAnalyzer) -> None:
+        """10 hallucinations should cap at -50, not -150."""
+        findings = [
+            Finding(
+                rule_id="hallucinated_import_nonexistent",
+                severity=Severity.BLOCK, message="m", file="a.py", line=i,
+            )
+            for i in range(10)
+        ]
+        drift = analyzer.calculate_drift_score(findings)
+        # 10 halluc * 15 = 150, but capped at 50 → 50
+        assert drift["ai_trust_score"] == 50
+
+    def test_trust_breakdown_exposed(self, analyzer: StaticAnalyzer) -> None:
+        """Trust breakdown shows what's driving the score."""
+        findings = [
+            Finding(rule_id="hallucinated_import_nonexistent", severity=Severity.BLOCK, message="m", file="a.py", line=1),
+            Finding(rule_id="eval_exec", severity=Severity.BLOCK, message="m", file="a.py", line=2),
+            Finding(rule_id="bare_except", severity=Severity.WARN, message="m", file="a.py", line=3),
+        ]
+        drift = analyzer.calculate_drift_score(findings)
+        breakdown = drift["trust_breakdown"]
+        assert breakdown["hallucinations"] == 2  # both eval_exec and hallucinated_import are anti_hallucination
+        assert breakdown["block_findings"] == 0
+        assert breakdown["warn_findings"] == 1
 
     def test_grade_curve_a_plus(self, analyzer: StaticAnalyzer) -> None:
         assert StaticAnalyzer._score_to_grade(100) == "A+"

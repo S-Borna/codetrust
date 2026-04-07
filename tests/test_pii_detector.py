@@ -115,6 +115,25 @@ class TestPhoneDetection:
         cats = [f.category for f in findings]
         assert "phone" in cats
 
+    def test_phone_passes_default_threshold(self) -> None:
+        """Phone with international format should pass min_confidence=0.7."""
+        findings = detect('PHONE = "+46701234567"', min_confidence=0.7)
+        phones = [f for f in findings if f.category == "phone"]
+        assert len(phones) >= 1
+        assert phones[0].confidence >= 0.7
+
+    def test_phone_us_format_passes_threshold(self) -> None:
+        """US format with parens should pass min_confidence=0.7."""
+        findings = detect("Call (555) 123-4567", min_confidence=0.7)
+        phones = [f for f in findings if f.category == "phone"]
+        assert len(phones) >= 1
+
+    def test_random_digits_not_phone(self) -> None:
+        """Bare digit sequences without phone format markers should not match."""
+        findings = detect("commit 1234567890abcdef", min_confidence=0.7)
+        phones = [f for f in findings if f.category == "phone"]
+        assert len(phones) == 0
+
 
 class TestCreditCardDetection:
     """Test credit card detection with Luhn validation."""

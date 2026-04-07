@@ -124,6 +124,26 @@ def _iban_checksum(iban: str) -> bool:
         return False
 
 
+def _validate_phone(phone: str) -> bool:
+    """Validate phone number: 8-15 digits and reasonable format.
+
+    Args:
+        phone: Phone string in any format.
+
+    Returns:
+        True if digit count is in E.164 range (8-15) and has phone-like
+        formatting (+ prefix, parens, dashes, or spaces between groups).
+    """
+    digits = re.sub(r"[^0-9]", "", phone)
+    if not 8 <= len(digits) <= 15:
+        return False
+    # Phone-like format markers: +, parens, dash, or grouped spaces
+    has_format_marker = bool(
+        re.search(r"^\+|\(|\)|\d[\s\-]\d", phone),
+    )
+    return has_format_marker
+
+
 def _validate_personnummer(pnr: str) -> bool:
     """Validate Swedish personnummer with Luhn on last 10 digits.
 
@@ -329,8 +349,12 @@ def _build_patterns() -> list[_PIIPattern]:
             category="passport", regex=_PASSPORT_RE,
             contextual=True, base_confidence=0.5,
         ),
-        # 14. Phone (last among digit-based — most greedy)
-        _PIIPattern(category="phone", regex=_PHONE_RE, base_confidence=0.6),
+        # 14. Phone (last among digit-based — most greedy, validated by length+format)
+        _PIIPattern(
+            category="phone", regex=_PHONE_RE,
+            validator=lambda m: _validate_phone(m),
+            base_confidence=0.6, validated_confidence=0.85,
+        ),
         # ── Contextual patterns (lowest priority) ──
         # 15. Name
         _PIIPattern(

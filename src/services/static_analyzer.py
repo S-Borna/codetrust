@@ -25,6 +25,7 @@ from src.rules.enterprise import (
     RECOMMENDED_FILES,
     REQUIRED_FILES,
 )
+from src.services.rule_delivery import REDUCED_MODE_RULE_IDS
 
 logger = structlog.get_logger()
 
@@ -392,6 +393,8 @@ class StaticAnalyzer:
         code: str,
         filename: str = "",
         custom_rules: list[dict[str, object]] | None = None,
+        *,
+        reduced_mode: bool = False,
     ) -> list[Finding]:
         """Run all anti-pattern rules against a code string.
 
@@ -401,6 +404,13 @@ class StaticAnalyzer:
             custom_rules: Optional user-defined rules from .codetrust-rules.yml.
                           If provided, they are appended to the active rule set
                           for this scan invocation only.
+            reduced_mode: When True, only rules in REDUCED_MODE_RULE_IDS fire.
+                          Used when a free-plan user exhausts daily scan quota:
+                          the scan keeps running (critical safety rules still
+                          trigger) but advanced quality/hallucination/PII rules
+                          are suppressed until midnight UTC. This flag is a
+                          per-call filter — instance state is never mutated,
+                          so concurrent callers with different flags are safe.
         """
         findings: list[Finding] = []
 
@@ -484,6 +494,16 @@ class StaticAnalyzer:
         active_rules = ext_rules
         if custom_rules:
             active_rules = list(ext_rules) + list(custom_rules)
+
+        # Reduced mode: collapse the active rule set to the critical-safety
+        # subset (REDUCED_MODE_RULE_IDS). Custom rules are suppressed too —
+        # in a free-quota-exhausted scan the user should see the same
+        # behavior regardless of whether they have a .codetrust-rules.yml.
+        if reduced_mode:
+            active_rules = [
+                rule for rule in active_rules
+                if str(rule.get("id", "")) in REDUCED_MODE_RULE_IDS
+            ]
 
         for rule in active_rules:
             if self._should_skip_rule(rule, ext, filename):
@@ -1558,6 +1578,8 @@ class StaticAnalyzer:
         code: str,
         filename: str = "",
         language: str | None = None,
+        *,
+        reduced_mode: bool = False,
     ) -> list[Finding]:
         """Run the FULL hallucination detection stack on a single file.
 
@@ -1574,11 +1596,21 @@ class StaticAnalyzer:
             filename: File path (used for extension-based rule filtering).
             language: Language hint ('python', 'javascript', 'typescript').
                 If None, inferred from filename extension.
+            reduced_mode: When True, only the core anti-pattern pass runs and
+                the signature validator + hallucination taint analyzer are
+                skipped. Used to honor a free-plan user's quota exhaustion:
+                the scan still produces critical-safety findings but expensive
+                premium analyses are suppressed until quota resets.
 
         Returns:
             Combined list of Finding objects from all detectors.
         """
-        findings = self.scan_code(code, filename)
+        findings = self.scan_code(code, filename, reduced_mode=reduced_mode)
+
+        # Reduced mode: skip the expensive hallucination/signature phases.
+        # Gateway + file-write hooks are unaffected (separate code path).
+        if reduced_mode:
+            return findings
 
         if language is None:
             ext = os.path.splitext(filename)[1].lower() if filename else ""

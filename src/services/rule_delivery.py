@@ -68,6 +68,41 @@ FREE_TIER_RULE_IDS: frozenset[str] = frozenset({
 FREE_TIER_RULE_COUNT: int = len(FREE_TIER_RULE_IDS)
 
 
+# Rule set used by the CLI when a free-plan user exhausts their daily
+# scan quota. Today it aliases FREE_TIER_RULE_IDS — the same 15 critical
+# rules that gate the cloud API free tier. We expose it under a distinct
+# name because the two concepts can diverge in the future:
+#
+#   FREE_TIER_RULE_IDS     → what a free-plan user gets via cloud API
+#   REDUCED_MODE_RULE_IDS  → what a free-plan user gets locally after
+#                            blowing through their daily quota
+#
+# Keeping them as separate constants means we can tune reduced mode
+# (e.g. add one or two more rules, or swap priorities) without touching
+# cloud API semantics, and vice versa.
+REDUCED_MODE_RULE_IDS: frozenset[str] = FREE_TIER_RULE_IDS
+REDUCED_MODE_RULE_COUNT: int = len(REDUCED_MODE_RULE_IDS)
+
+
+def get_reduced_mode_rule_ids() -> frozenset[str]:
+    """Return the rule IDs that stay active when a scan runs in reduced mode.
+
+    Reduced mode is triggered when a free-plan user exhausts their daily
+    scan quota. The CLI does not refuse to scan — instead it filters the
+    active rule set down to this critical-safety subset so the user
+    continues to get real-time protection while clearly seeing what
+    they'd unlock with a Pro plan.
+
+    The Gateway + file-write hooks run on a separate, hook-driven code
+    path and are unaffected by this filter — protection promises made
+    at install time are never broken by quota exhaustion.
+
+    Returns:
+        Frozen set of rule IDs that must fire even in reduced mode.
+    """
+    return REDUCED_MODE_RULE_IDS
+
+
 class RuleBundle(BaseModel):
     """Signed bundle of premium rules delivered from the server."""
 

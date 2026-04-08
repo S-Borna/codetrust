@@ -25,7 +25,7 @@ import sys
 import time
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import structlog
 
@@ -1485,6 +1485,7 @@ def _scan_text_at_git_ref(
     cwd: Path,
     ref: str,
     rel_path: str,
+    reduced_mode: bool = False,
 ) -> list[dict[str, str | int]]:
     """Scan file content at a git ref (best-effort)."""
     try:
@@ -1498,7 +1499,9 @@ def _scan_text_at_git_ref(
         if out.returncode != 0:
             return []
         from src.services.static_analyzer import StaticAnalyzer
-        return _scan_text_via_analyzer(StaticAnalyzer(), out.stdout, rel_path)
+        return _scan_text_via_analyzer(
+            StaticAnalyzer(), out.stdout, rel_path, reduced_mode=reduced_mode,
+        )
     except Exception:
         return []
 
@@ -3276,9 +3279,15 @@ def _scan_baseline_filter_changed_lines(
 
 def _scan_baseline_collect(
     targets: list[str], baseline_ref: str, args: argparse.Namespace,
-    *, machine_output: bool,
+    *, machine_output: bool, reduced_mode: bool = False,
 ) -> tuple[list[dict[str, str | int]], int]:
-    """Collect findings in baseline (diff) mode — uses StaticAnalyzer for parity."""
+    """Collect findings in baseline (diff) mode — uses StaticAnalyzer for parity.
+
+    When reduced_mode is True, both the HEAD and baseline-ref scans run
+    with the reduced rule set. This keeps the diff meaningful: comparing
+    a reduced HEAD against a full baseline would produce a spurious
+    "fixed" delta as premium rules silently drop off.
+    """
     from src.services.static_analyzer import StaticAnalyzer
 
     cwd = Path.cwd()
@@ -3289,9 +3298,14 @@ def _scan_baseline_collect(
     head_findings: list[dict[str, str | int]] = []
 
     for rel in scan_files:
-        head_findings.extend(_scan_file_via_analyzer(analyzer, Path(rel)))
+        head_findings.extend(_scan_file_via_analyzer(
+            analyzer, Path(rel), reduced_mode=reduced_mode,
+        ))
         baseline_findings.extend(
-            _scan_text_at_git_ref(cwd=cwd, ref=baseline_ref, rel_path=rel),
+            _scan_text_at_git_ref(
+                cwd=cwd, ref=baseline_ref, rel_path=rel,
+                reduced_mode=reduced_mode,
+            ),
         )
 
     if getattr(args, "changed_only", False) and head_findings:
@@ -3305,6 +3319,8 @@ def _scan_baseline_collect(
 
 def _scan_direct_collect(
     targets: list[str],
+    *,
+    reduced_mode: bool = False,
 ) -> tuple[list[dict[str, str | int]], int]:
     """Collect findings by scanning targets directly via StaticAnalyzer.
 
@@ -3312,6 +3328,11 @@ def _scan_direct_collect(
     unified scanner behavior across CLI, API, and MCP surfaces. Legacy
     scanner had an AST line-counting bug (double-newline via '\\n'.join
     of keepends=True lines) that over-reported long_function findings.
+
+    Args:
+        targets: Files/directories to scan.
+        reduced_mode: When True, analyzer only fires rules in the
+            REDUCED_MODE_RULE_IDS subset (quota-exhausted scans).
     """
     from src.services.static_analyzer import StaticAnalyzer
 
@@ -3322,7 +3343,9 @@ def _scan_direct_collect(
     for target in targets:
         target_path = Path(target)
         if target_path.is_file():
-            all_findings.extend(_scan_file_via_analyzer(analyzer, target_path))
+            all_findings.extend(_scan_file_via_analyzer(
+                analyzer, target_path, reduced_mode=reduced_mode,
+            ))
             files_scanned += 1
             continue
         if not target_path.is_dir():
@@ -3334,14 +3357,16 @@ def _scan_direct_collect(
                 if ext not in SOURCE_EXTS:
                     continue
                 fpath = Path(root) / fname
-                all_findings.extend(_scan_file_via_analyzer(analyzer, fpath))
+                all_findings.extend(_scan_file_via_analyzer(
+                    analyzer, fpath, reduced_mode=reduced_mode,
+                ))
                 files_scanned += 1
 
     return all_findings, files_scanned
 
 
 def _scan_file_via_analyzer(
-    analyzer: object, fpath: Path,
+    analyzer: object, fpath: Path, *, reduced_mode: bool = False,
 ) -> list[dict[str, str | int]]:
     """Scan a single file through StaticAnalyzer and convert to dict findings."""
     try:
@@ -3349,16 +3374,20 @@ def _scan_file_via_analyzer(
     except OSError as exc:
         logger.debug("scan_file_read_error", path=str(fpath), error=str(exc))
         return []
-    return _scan_text_via_analyzer(analyzer, code, str(fpath))
+    return _scan_text_via_analyzer(
+        analyzer, code, str(fpath), reduced_mode=reduced_mode,
+    )
 
 
 def _scan_text_via_analyzer(
-    analyzer: object, code: str, filepath: str,
+    analyzer: object, code: str, filepath: str, *, reduced_mode: bool = False,
 ) -> list[dict[str, str | int]]:
     """Scan in-memory code through StaticAnalyzer and convert to dict findings."""
     try:
         # type: ignore[attr-defined] — analyzer is a StaticAnalyzer instance
-        findings = analyzer.scan_code(code, filepath)  # type: ignore[attr-defined]
+        findings = analyzer.scan_code(  # type: ignore[attr-defined]
+            code, filepath, reduced_mode=reduced_mode,
+        )
     except Exception as exc:
         logger.debug("scan_text_analyzer_error", path=filepath, error=str(exc))
         return []
@@ -4183,6 +4212,46 @@ def _scan_delta_story(cwd: Path) -> str:
     return "   " + " ".join(parts)
 
 
+def _scan_output_reduced_mode_banner() -> None:
+    """Render the free-quota-exhausted reduced-mode banner.
+
+    Called from _scan_output_human when result['reduced_mode'] is True.
+    The banner is explicitly honest about what is paused (premium
+    analyses) and what is still active (gateway hooks + critical
+    safety rules), and surfaces the upgrade path without shouting.
+    """
+    from src.rules.anti_patterns import ANTI_PATTERNS
+    from src.services.rule_delivery import REDUCED_MODE_RULE_COUNT
+
+    paused_count = len(ANTI_PATTERNS) - REDUCED_MODE_RULE_COUNT
+
+    _echo("")
+    _echo(color(
+        f"   ℹ Daily free-scan quota exhausted — running "
+        f"{REDUCED_MODE_RULE_COUNT} critical safety rules "
+        f"({paused_count:,} advanced rules paused).",
+        YELLOW,
+    ))
+    _echo("")
+    _echo(color("   Active now:", BOLD))
+    _echo("     ✓ Gateway hooks (rm -rf, git push, heredoc, curl|sh, eval)")
+    _echo("     ✓ File-write hooks (secrets, protected paths)")
+    _echo("     ✓ Critical rules: eval/exec, SQL injection, pickle.load,")
+    _echo("       hardcoded secrets, heredoc")
+    _echo("     ✓ Quality basics: bare except, wildcard import, Any type")
+    _echo("")
+    _echo(color("   Paused until UTC midnight:", BOLD))
+    _echo("     ✗ Hallucination detection (imports, APIs, fake sanitizers)")
+    _echo("     ✗ PII detection (16 categories)")
+    _echo("     ✗ Agent Integrity (4 patterns)")
+    _echo(f"     ✗ {paused_count:,} advanced quality & security rules")
+    _echo("")
+    _echo(
+        f"   Your agents remain governed in real-time. "
+        f"Upgrade anytime: {color('codetrust.ai/pricing', BLUE)}",
+    )
+
+
 def _scan_output_human(
     result: dict,
     suppressed_count: int,
@@ -4238,8 +4307,12 @@ def _scan_output_human(
     blocks = [f for f in findings if f.get("severity") == "BLOCK"]
     warns = [f for f in findings if f.get("severity") == "WARN"]
     infos = [f for f in findings if f.get("severity") == "INFO"]
+    reduced_mode = bool(result.get("reduced_mode", False))
 
-    _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
+    if reduced_mode:
+        _echo(f"\n{color('🛡️  CodeTrust Scan — Reduced mode', BOLD)}")
+    else:
+        _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
 
     # Delta mode subtitle
     is_delta = isinstance(snapshot, dict) and snapshot.get("mode") == "delta"
@@ -4259,21 +4332,35 @@ def _scan_output_human(
         f"   |   {color(f'{len(warns)} should fix', YELLOW if warns else GREEN)}"
         f"   |   {len(infos)} suggestions",
     )
-    trust = drift.get("ai_trust_score", drift.get("score", 100))
-    trust_grade = drift.get("ai_trust_grade", drift.get("grade", "A+"))
-    breakdown = drift.get("trust_breakdown", {})
-    breakdown_parts = []
-    if breakdown.get("hallucinations", 0) > 0:
-        breakdown_parts.append(f"{breakdown['hallucinations']} hallucinated")
-    if breakdown.get("block_findings", 0) > 0:
-        breakdown_parts.append(f"{breakdown['block_findings']} security")
-    if breakdown.get("warn_findings", 0) > 0:
-        breakdown_parts.append(f"{breakdown['warn_findings']} quality")
-    breakdown_str = f" — {', '.join(breakdown_parts)}" if breakdown_parts else ""
-    _echo(f"   Trust Score: {trust}/100 ({trust_grade}){breakdown_str}")
+
+    # Trust Score: only meaningful when the full rule set ran. In reduced
+    # mode the premium categories are suppressed, so a "100/100 (A+)" on a
+    # degraded scan would be actively misleading — mark it n/a instead.
+    if reduced_mode:
+        _echo(f"   Trust Score: {color('n/a', YELLOW)} (reduced rule set — premium checks paused)")
+    else:
+        trust = drift.get("ai_trust_score", drift.get("score", 100))
+        trust_grade = drift.get("ai_trust_grade", drift.get("grade", "A+"))
+        breakdown = drift.get("trust_breakdown", {})
+        breakdown_parts = []
+        if breakdown.get("hallucinations", 0) > 0:
+            breakdown_parts.append(f"{breakdown['hallucinations']} hallucinated")
+        if breakdown.get("block_findings", 0) > 0:
+            breakdown_parts.append(f"{breakdown['block_findings']} security")
+        if breakdown.get("warn_findings", 0) > 0:
+            breakdown_parts.append(f"{breakdown['warn_findings']} quality")
+        breakdown_str = f" — {', '.join(breakdown_parts)}" if breakdown_parts else ""
+        _echo(f"   Trust Score: {trust}/100 ({trust_grade}){breakdown_str}")
+
+    # Reduced-mode banner: honest, scan-blocking-free, explains exactly
+    # what is paused and how to get it back. Rendered between the score
+    # line and the findings list so it sits in the natural visual path
+    # of a user reading from top to bottom.
+    if reduced_mode:
+        _scan_output_reduced_mode_banner()
 
     # Storytelling: when delta+clean, show what CT actually did since baseline
-    if is_delta and not blocks and not warns:
+    if not reduced_mode and is_delta and not blocks and not warns:
         story = _scan_delta_story(cwd)
         if story:
             _echo(story)
@@ -4587,29 +4674,52 @@ def _refresh_token(auth: dict[str, str]) -> dict[str, str] | None:
     return None
 
 
-def _check_local_scan_gate() -> int:
+class ScanGate(NamedTuple):
+    """Result of the local scan quota/auth gate.
+
+    Attributes:
+        exit_code: 0 to proceed, non-zero to abort cmd_scan.
+        degraded: True when the scan should run but in reduced mode.
+                  Implies exit_code == 0. False means either a normal
+                  full scan or a hard block — inspect exit_code to tell.
+    """
+
+    exit_code: int
+    degraded: bool
+
+
+def _check_local_scan_gate() -> ScanGate:
     """Check auth and token before allowing a scan.
 
     No account = no scans. Token is server-signed and validated locally.
     Refreshed once per day. Cannot be fabricated or manipulated.
 
-    Returns 0 to proceed, 1 to block.
+    Returns:
+        ScanGate(exit_code, degraded). Callers must honor both fields:
+          * exit_code != 0 → cmd_scan returns without scanning
+          * exit_code == 0 && degraded is True → reduced-mode scan
+          * exit_code == 0 && degraded is False → normal full scan
+
+    Hard blocks (exit_code=1) are reserved for cases where we literally
+    cannot verify the user's identity. Quota exhaustion is a soft block:
+    the scan runs, the user sees what reduced mode catches, and the
+    upgrade path is surfaced in the output — not in a terminal error.
     """
     # Pre-commit hook and CI bypass scan gate (they use their own auth)
     if os.environ.get("CODETRUST_PRECOMMIT") == "1":
-        return 0
+        return ScanGate(0, False)
     if os.environ.get("CI") == "true":
-        return 0
+        return ScanGate(0, False)
 
     # Environment variable overrides auth.json (master key, CI, dev)
     env_key = os.environ.get("CODETRUST_MASTER_KEY") or os.environ.get("CODETRUST_API_KEY")
     if env_key and env_key != "[I will paste the key myself]":
-        return 0
+        return ScanGate(0, False)
 
     auth = _load_local_auth()
     api_key = auth.get("api_key", "")
 
-    # No account → blocked
+    # No account → hard block. We need identity to enforce per-user quotas.
     if not api_key:
         _echo(color("\n  🔒 Account required to scan.", YELLOW))
         _echo("     Create a free account (25 scans/day):")
@@ -4618,38 +4728,40 @@ def _check_local_scan_gate() -> int:
         _echo("     Get your API key at https://app.codetrust.ai")
         _echo("     Upgrade to Pro for unlimited scans:")
         _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
-        return 1
+        return ScanGate(1, False)
 
     # Token expired or missing → refresh
     if not _token_is_valid(auth) or _token_needs_refresh(auth):
         refreshed = _refresh_token(auth)
         if refreshed is None:
-            # Server unreachable — allow if token was recently valid
+            # Server unreachable — allow if token was recently valid.
+            # We don't know the user's quota state in this case, so we
+            # assume full mode (fail-open for offline users who just
+            # pushed their laptop lid and walked onto a plane).
             if auth.get("token") and auth.get("expires_at"):
                 _echo(color("  i  Server unreachable — using cached token\n", BLUE))
-                return 0
+                return ScanGate(0, False)
             _echo(color("\n  🔒 Could not validate account. Check internet connection.", YELLOW))
             _echo(color("     → codetrust login\n", BOLD))
-            return 1
+            return ScanGate(1, False)
         auth = refreshed
 
-    # Quota exceeded
+    # Quota exceeded → soft block (reduced mode).
+    # The scan still runs; the output layer surfaces the upgrade nudge.
+    # Gateway + file-write hooks keep operating on their own code path
+    # regardless of this branch.
     if auth.get("quota_exceeded") == "true":
-        plan = auth.get("plan", "free")
-        limit = auth.get("quota_limit", "25")
-        _echo(color(f"\n  🔒 Daily scan limit reached ({limit}/day on {plan} plan)", YELLOW))
-        _echo("     Upgrade for higher limits:")
-        _echo(color("     → https://app.codetrust.ai/pricing\n", BLUE))
-        return 1
+        return ScanGate(0, True)
 
-    return 0
+    return ScanGate(0, False)
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
     """Scan files for anti-patterns."""
-    gate_result = _check_local_scan_gate()
-    if gate_result != 0:
-        return gate_result
+    gate = _check_local_scan_gate()
+    if gate.exit_code != 0:
+        return gate.exit_code
+    reduced_mode = gate.degraded
 
     start_time = time.monotonic()
     targets, machine_output, baseline_ref, baseline_mode = _scan_parse_options(args)
@@ -4657,24 +4769,39 @@ def cmd_scan(args: argparse.Namespace) -> int:
     # Snapshot baseline mode (different from git --baseline ref mode):
     # On the first whole-project scan, save findings as accepted legacy.
     # Subsequent scans show only new findings vs that snapshot.
+    #
+    # Reduced mode + no baseline = refuse to establish a new baseline.
+    # A snapshot taken with only the 15 critical-safety rules would
+    # mis-classify every premium-rule finding as "new" on the next
+    # full-mode scan, trapping the user in a permanently stunted baseline.
+    # Instead we skip snapshot mode entirely this run — they'll get a
+    # proper baseline next scan after quota resets.
+    cwd = Path.cwd()
+    baseline_exists = (cwd / ".codetrust" / "baseline.json").exists()
     snapshot_mode = (
         not baseline_mode
         and not bool(getattr(args, "no_baseline", False))
         and _scan_targets_whole_project(targets)
+        and not (reduced_mode and not baseline_exists)
     )
 
     if baseline_mode:
         all_findings, files_scanned = _scan_baseline_collect(
-            targets, baseline_ref, args, machine_output=machine_output,
+            targets, baseline_ref, args,
+            machine_output=machine_output, reduced_mode=reduced_mode,
         )
     else:
-        all_findings, files_scanned = _scan_direct_collect(targets)
+        all_findings, files_scanned = _scan_direct_collect(
+            targets, reduced_mode=reduced_mode,
+        )
 
     # Skip network-dependent checks in CI (no Redis cache, slow registry
     # lookups, tree-sitter compilation).  Regex scan covers the quality gate.
+    # Also skip them in reduced mode — they are expensive premium analyses
+    # and the whole point of reduced mode is to cap resource spend.
     is_ci = os.environ.get("CI") == "true"
 
-    if not is_ci:
+    if not is_ci and not reduced_mode:
         all_findings, hallucinations = _scan_verify_imports(
             targets, all_findings, args, machine_output=machine_output,
         )
@@ -4693,7 +4820,6 @@ def cmd_scan(args: argparse.Namespace) -> int:
     else:
         hallucinations = 0
 
-    cwd = Path.cwd()
     all_findings, suppressed_count = _scan_post_process(
         all_findings, args, cwd, baseline_mode=baseline_mode,
     )
@@ -4712,6 +4838,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
     )
     if snapshot_info:
         result["snapshot_baseline"] = snapshot_info
+    if reduced_mode:
+        result["reduced_mode"] = True
 
     _scan_emit_telemetry(
         args, result, hallucinations, start_time,

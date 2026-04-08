@@ -206,6 +206,11 @@ class _PIIPattern:
     base_confidence: float = 0.7
     validated_confidence: float = 0.95
     contextual: bool = False
+    # If True, validator failure does not drop the finding — instead the
+    # match is kept with base_confidence. Use for patterns where a regex
+    # match alone is strong signal (e.g. Swedish PNR format) and we'd
+    # rather under-validate than misclassify as a less-specific category.
+    accept_unvalidated: bool = False
 
 
 # ── Universal patterns ──
@@ -269,7 +274,10 @@ _PERSONNUMMER_RE = re.compile(
 )
 
 _IBAN_RE = re.compile(
-    r"\b[A-Z]{2}\d{2}\s?(?:\d{4}\s?){2,7}\d{1,4}\b",
+    # Accept both spaced and contiguous IBAN formats. ISO 13616:
+    # 2-letter country + 2 check digits + 11-30 BBAN chars (alphanumeric).
+    # Spaced form allows space every 4 chars for human readability.
+    r"\b[A-Z]{2}\d{2}\s?(?:[A-Z0-9]{4}\s?){2,7}[A-Z0-9]{1,4}\b",
 )
 
 _PASSPORT_RE = re.compile(
@@ -331,10 +339,12 @@ def _build_patterns() -> list[_PIIPattern]:
             category="iban", regex=_IBAN_RE,
             validator=lambda m: _iban_checksum(m),
         ),
-        # 8. Personnummer (Luhn-validated)
+        # 8. Personnummer (Luhn-validated; format alone is strong enough
+        # signal — accept unvalidated to avoid misclassifying as phone).
         _PIIPattern(
             category="personnummer", regex=_PERSONNUMMER_RE,
             validator=lambda m: _validate_personnummer(m),
+            base_confidence=0.6, accept_unvalidated=True,
         ),
         # 9. US SSN (3-2-4 dash format)
         _PIIPattern(category="ssn", regex=_SSN_RE),
@@ -420,6 +430,11 @@ def detect(text: str, min_confidence: float = 0.0) -> list[PIIFinding]:
                     valid = False
                 if valid:
                     confidence = pattern.validated_confidence
+                elif pattern.accept_unvalidated:
+                    # Format match alone is strong enough signal; keep
+                    # the finding at base confidence rather than letting
+                    # a less-specific pattern claim the same span.
+                    confidence = pattern.base_confidence
                 else:
                     continue  # Validator failed → skip
             elif pattern.contextual:

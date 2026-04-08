@@ -410,17 +410,54 @@ def _run_git_blame(filepath: str) -> list[str]:
         return []
 
 
+_COAUTHOR_AI_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"noreply@anthropic", re.IGNORECASE), "claude"),
+    (re.compile(r"\bclaude\b", re.IGNORECASE), "claude"),
+    (re.compile(r"\bcopilot\b", re.IGNORECASE), "github_copilot"),
+    (re.compile(r"\b(?:chat)?gpt\b", re.IGNORECASE), "gpt"),
+    (re.compile(r"\bcursor\b", re.IGNORECASE), "cursor"),
+    (re.compile(r"\baider\b", re.IGNORECASE), "aider"),
+    (re.compile(r"\bcline\b", re.IGNORECASE), "cline"),
+]
+
+
 def _get_ai_model_trailer(commit: str) -> str:
-    """Look up AI-Model trailer on a commit."""
+    """Look up AI authorship for a commit.
+
+    Checks two trailer formats:
+    1. ``AI-Model: <name>`` — explicit format (legacy/internal use)
+    2. ``Co-Authored-By: <ai>`` — community standard used by Claude Code,
+       GitHub Copilot, Cursor, Aider, Cline. Maps the AI name to a
+       canonical model id.
+
+    Returns empty string if no AI signature found (line is human-authored).
+    """
     import subprocess
 
     if not commit or len(commit) < 7:
         return ""
     try:
-        result = subprocess.run(
+        # Try explicit AI-Model trailer first.
+        explicit = subprocess.run(
             ["git", "log", "-1", "--format=%(trailers:key=AI-Model,valueonly)", commit],
             capture_output=True, text=True, timeout=5,
         )
-        return result.stdout.strip()
+        explicit_value = explicit.stdout.strip()
+        if explicit_value:
+            return explicit_value
+
+        # Fall back to scanning Co-Authored-By trailers in the full commit body.
+        body = subprocess.run(
+            ["git", "log", "-1", "--format=%B", commit],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in body.stdout.splitlines():
+            if not line.lower().startswith("co-authored-by:"):
+                continue
+            for pattern, model in _COAUTHOR_AI_PATTERNS:
+                if pattern.search(line):
+                    return model
     except (subprocess.TimeoutExpired, OSError):
         return ""
+
+    return ""

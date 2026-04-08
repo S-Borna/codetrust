@@ -29,6 +29,92 @@ from src.rules.enterprise import (
 logger = structlog.get_logger()
 
 
+# ─────────────────────────────────────────────────────────────────
+#  Language-specific suggestions
+# ─────────────────────────────────────────────────────────────────
+#
+# Some rules apply across many languages but their default suggestion
+# names tools that only exist in one. Map (rule_id, language) → tailored
+# suggestion. Lookup is keyed by file extension; falls back to the rule's
+# default suggestion when no override is registered.
+
+_EXT_TO_LANG: dict[str, str] = {
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".rb": "ruby",
+    ".php": "php",
+    ".go": "go",
+    ".java": "java",
+    ".cs": "csharp",
+    ".rs": "rust",
+}
+
+_LANGUAGE_SUGGESTIONS: dict[str, dict[str, str]] = {
+    "eval_exec": {
+        "python": (
+            "Replace eval and exec with a safe alternative. "
+            "For JSON parsing use json.loads. "
+            "For math expressions use ast.literal_eval. "
+            "For dynamic dispatch use a dict mapping of allowed functions. "
+            "For config use a validated Pydantic model or dataclass."
+        ),
+        "javascript": (
+            "Replace eval and Function with a safe alternative. "
+            "For JSON parsing use JSON.parse. "
+            "For math expressions use a parser like mathjs.evaluate. "
+            "For dynamic dispatch use an object or Map of allowed handlers. "
+            "For templates use template literals or a templating library."
+        ),
+        "typescript": (
+            "Replace eval and Function with a safe alternative. "
+            "For JSON parsing use JSON.parse with a typed schema (zod, io-ts). "
+            "For math expressions use mathjs. "
+            "For dynamic dispatch use a typed Record<string, Handler> map."
+        ),
+        "ruby": (
+            "Replace eval and instance_eval with a safe alternative. "
+            "For JSON use JSON.parse. "
+            "For dynamic dispatch use public_send with an allow-list of method names. "
+            "For configuration use YAML.safe_load or a struct."
+        ),
+        "php": (
+            "Replace eval with a safe alternative. "
+            "For JSON use json_decode. "
+            "For dynamic dispatch use call_user_func with an allow-list. "
+            "For templates use a sandboxed engine like Twig."
+        ),
+    },
+}
+
+
+def _tailor_suggestion(rule: dict[str, object], filename: str) -> str:
+    """Return a language-specific suggestion when one is registered.
+
+    Falls back to the rule's default suggestion when no per-language
+    override exists for the given file extension. Keeps the suggestion
+    accurate when a single rule applies to many languages but its
+    default text only names tools from one of them.
+    """
+    rule_id = str(rule.get("id", ""))
+    overrides = _LANGUAGE_SUGGESTIONS.get(rule_id)
+    default = str(rule.get("suggestion", ""))
+    if not overrides:
+        return default
+
+    ext = ""
+    if "." in filename:
+        ext = filename[filename.rfind("."):].lower()
+    lang = _EXT_TO_LANG.get(ext)
+    if lang and lang in overrides:
+        return overrides[lang]
+    return default
+
+
 class StaticAnalyzer:
     """Regex-based anti-pattern detection. Runs locally, no network calls."""
 
@@ -481,7 +567,7 @@ class StaticAnalyzer:
                     message=rule["message"],
                     file=filename,
                     line=line_num,
-                    suggestion=str(rule.get("suggestion", "")),
+                    suggestion=_tailor_suggestion(rule, filename),
                 ))
         return findings
 
@@ -509,7 +595,7 @@ class StaticAnalyzer:
             message=str(rule["message"]),
             file=filename,
             line=1,
-            suggestion=str(rule.get("suggestion", "")),
+            suggestion=_tailor_suggestion(rule, filename),
         )]
 
     def _check_function_lengths(

@@ -2867,6 +2867,7 @@ def _init_print_summary() -> None:
     _echo(f"    {color('codetrust scan', GREEN)}      — establish baseline (existing code accepted as legacy)")
     _echo(f"    {color('codetrust scan', GREEN)}      — run again: shows only NEW issues from now on")
     _echo(f"    {color('codetrust status', GREEN)}    — quick health check")
+    _echo(f"    {color('codetrust today', GREEN)}     — see what your agents did in the last 24h")
     _echo(f"    {color('codetrust doctor', GREEN)}    — full enforcement details")
     _echo(f"{'━' * 56}\n")
 
@@ -4454,13 +4455,32 @@ def cmd_login(args: argparse.Namespace) -> int:
         _echo(color(f"\n  ❌ Login failed: {exc}\n", RED))
         return 1
 
+    plan_label = {
+        "free": "Free",
+        "pro": "Pro",
+        "team": "Team",
+        "enterprise": "Enterprise",
+    }.get(plan, plan.capitalize())
+
     _echo()
-    _echo(color(f"  ✅ Logged in as {email or 'authenticated'} ({plan} plan)", GREEN))
-    _echo(f"     Scan quota: {quota_limit}/day")
+    _echo(color(f"  ✅ Welcome, {email or 'authenticated user'}", GREEN))
+    _echo(f"     Plan: {color(plan_label, BOLD)}   |   Scan quota: {quota_limit}/day")
     if token_data.get("quota_exceeded"):
-        _echo(color("     ⚠ Daily quota already used. Quota resets at midnight UTC.", YELLOW))
+        _echo(color("     ⚠ Daily quota already used. Resets at midnight UTC.", YELLOW))
+    _echo()
+    _echo(f"  {color('You just unlocked:', BOLD)}")
+    _echo(f"    {color('•', GREEN)} Cloud-synced scan history & trends")
+    _echo(f"    {color('•', GREEN)} Audit log accessible from any machine")
+    _echo(f"    {color('•', GREEN)} Team-wide governance metrics on the dashboard")
     if plan == "free":
-        _echo(f"     Upgrade to Pro: {color('https://app.codetrust.ai/pricing', BLUE)}")
+        _echo(f"    {color('•', BLUE)} {quota_limit} cloud scans per day (local scans are unlimited)")
+    _echo()
+    _echo(f"  {color('Next:', BOLD)}")
+    _echo(f"    {color('codetrust scan', GREEN)}    — your first authenticated scan")
+    _echo(f"    {color('codetrust today', GREEN)}   — see what your agents did")
+    _echo(f"    Dashboard:     {color('https://app.codetrust.ai/dashboard', BLUE)}")
+    if plan == "free":
+        _echo(f"    Upgrade to Pro: {color('https://app.codetrust.ai/pricing', BLUE)}")
     _echo()
     return 0
 
@@ -6012,7 +6032,13 @@ def _audit_show_entries(args: argparse.Namespace, entries: list[AuditEntry]) -> 
             _echo(line)
         return 0
 
-    _echo(f"\n{color(f'📋 Audit Log — Last {args.hours} Hours', BOLD)}\n")
+    since_value = getattr(args, "since", "")
+    if since_value in ("today", "yesterday"):
+        header = f"📋 Audit Log — {since_value.capitalize()}"
+    else:
+        since_label = since_value or f"{args.hours}h"
+        header = f"📋 Audit Log — Last {since_label}"
+    _echo(f"\n{color(header, BOLD)}\n")
 
     if not entries:
         _echo("  No entries found.\n")
@@ -6030,6 +6056,55 @@ def _audit_show_entries(args: argparse.Namespace, entries: list[AuditEntry]) -> 
 
     _echo(f"\n  Showing {len(entries)} entries.\n")
     return 0
+
+
+def _parse_since(value: str) -> float | None:
+    """Parse a human-friendly --since spec into a unix timestamp.
+
+    Accepts:
+      - "30m", "2h", "7d"           — relative duration
+      - "today"                     — start of today (local time)
+      - "yesterday"                 — start of yesterday (local time)
+      - "1h30m", "1d12h"            — combined units
+
+    Returns the resulting unix timestamp, or None if value is unparseable.
+    """
+    import time as _time
+    from datetime import datetime as _dt
+
+    s = value.strip().lower()
+    if not s:
+        return None
+
+    if s == "today":
+        now = _dt.now()
+        return _dt(now.year, now.month, now.day).timestamp()
+    if s == "yesterday":
+        now = _dt.now()
+        return _dt(now.year, now.month, now.day).timestamp() - 86400
+
+    seconds = 0
+    cursor = 0
+    valid = False
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+    while cursor < len(s):
+        # Read a number
+        num_start = cursor
+        while cursor < len(s) and s[cursor].isdigit():
+            cursor += 1
+        if cursor == num_start or cursor >= len(s):
+            return None
+        num = int(s[num_start:cursor])
+        unit = s[cursor]
+        if unit not in units:
+            return None
+        seconds += num * units[unit]
+        cursor += 1
+        valid = True
+
+    if not valid:
+        return None
+    return _time.time() - seconds
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -6052,7 +6127,18 @@ def cmd_audit(args: argparse.Namespace) -> int:
     if args.stats:
         return _audit_handle_stats(audit)
 
-    since = _time.time() - (args.hours * _SECONDS_PER_HOUR)
+    since_value = getattr(args, "since", None)
+    if since_value:
+        since_ts = _parse_since(since_value)
+        if since_ts is None:
+            sys.stderr.write(
+                f"\033[31mInvalid --since value: {since_value!r}. "
+                "Try '30m', '2h', '7d', 'today', or 'yesterday'.\033[0m\n",
+            )
+            return 1
+        since = since_ts
+    else:
+        since = _time.time() - (args.hours * _SECONDS_PER_HOUR)
     entries = audit.get_entries(
         since=since,
         verdict=args.verdict,
@@ -6492,6 +6578,10 @@ def _add_audit_subparser(
     """Register 'audit' subcommand."""
     audit_parser = subparsers.add_parser("audit", help="Query governance audit log")
     audit_parser.add_argument("--hours", type=int, default=24, help="Hours to look back (default: 24)")
+    audit_parser.add_argument(
+        "--since", type=str, default="",
+        help="Look back N units: '30m', '2h', '7d', 'today', 'yesterday' (overrides --hours)",
+    )
     audit_parser.add_argument("--verdict", choices=["ALLOW", "WARN", "BLOCK"], help="Filter by verdict")
     audit_parser.add_argument("--stats", action="store_true", help="Show aggregate statistics")
     audit_parser.add_argument(

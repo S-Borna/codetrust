@@ -4142,6 +4142,46 @@ def _scan_output_api_error(result: dict) -> bool:
     return False
 
 
+def _scan_delta_story(cwd: Path) -> str:
+    """Build a one-line story for delta-mode clean scans.
+
+    Pulls baseline age and 24h gateway activity to remind the user that
+    CodeTrust has been actively protecting them since the baseline was
+    set, even when the scan finds nothing new.
+
+    Returns empty string if there's nothing meaningful to report.
+    """
+    baseline_path = cwd / ".codetrust" / "baseline.json"
+    age_str = ""
+    if baseline_path.exists():
+        try:
+            from datetime import datetime as _dt
+            data = json.loads(baseline_path.read_text(encoding="utf-8"))
+            created = data.get("created", "")
+            if created:
+                created_ts = _dt.fromisoformat(created.replace("Z", "+00:00")).timestamp()
+                hours = (time.time() - created_ts) / 3600
+                if hours < 1:
+                    age_str = "less than an hour"
+                elif hours < 24:
+                    age_str = f"{int(hours)}h ago"
+                else:
+                    age_str = f"{int(hours / 24)}d ago"
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    blocks_24h, _warns_24h = _status_count_blocks_24h(cwd)
+
+    parts: list[str] = []
+    parts.append(color("✅ Clean since baseline", GREEN))
+    if age_str:
+        parts.append(f"({age_str})")
+    if blocks_24h > 0:
+        parts.append(f"— gateway blocked {color(str(blocks_24h), RED)} risky action(s) in the last 24h")
+
+    return "   " + " ".join(parts)
+
+
 def _scan_output_human(
     result: dict,
     suppressed_count: int,
@@ -4201,7 +4241,8 @@ def _scan_output_human(
     _echo(f"\n{color('🛡️  CodeTrust Scan', BOLD)}")
 
     # Delta mode subtitle
-    if isinstance(snapshot, dict) and snapshot.get("mode") == "delta":
+    is_delta = isinstance(snapshot, dict) and snapshot.get("mode") == "delta"
+    if is_delta:
         baseline_count = snapshot.get("baseline_count", 0)
         _echo(
             color(
@@ -4228,7 +4269,14 @@ def _scan_output_human(
     if breakdown.get("warn_findings", 0) > 0:
         breakdown_parts.append(f"{breakdown['warn_findings']} quality")
     breakdown_str = f" — {', '.join(breakdown_parts)}" if breakdown_parts else ""
-    _echo(f"   Trust Score: {trust}/100 ({trust_grade}){breakdown_str}\n")
+    _echo(f"   Trust Score: {trust}/100 ({trust_grade}){breakdown_str}")
+
+    # Storytelling: when delta+clean, show what CT actually did since baseline
+    if is_delta and not blocks and not warns:
+        story = _scan_delta_story(cwd)
+        if story:
+            _echo(story)
+    _echo()
 
     hints = result.get("upgrade_hints", [])
     is_free = bool(hints)  # upgrade_hints only present for free tier
@@ -4899,6 +4947,137 @@ def cmd_status(_args: argparse.Namespace) -> int:
         return 1
 
     _echo(f"     Run {color('codetrust doctor', BOLD)} for full enforcement details.\n")
+    return 0
+
+
+# --- Today command ---
+
+
+def _today_summarize_audit(project_dir: Path) -> dict:
+    """Summarize audit log for the last 24h.
+
+    Returns a dict with keys: reviewed, blocked, warned, top_rules,
+    last_block (most recent block entry or None).
+    """
+    audit_path = project_dir / ".codetrust" / "audit.jsonl"
+    if not audit_path.exists():
+        return {"reviewed": 0, "blocked": 0, "warned": 0, "top_rules": [], "last_block": None}
+
+    cutoff = time.time() - 86400
+    reviewed = 0
+    blocked = 0
+    warned = 0
+    rule_counts: dict[str, int] = {}
+    last_block: dict | None = None
+
+    try:
+        with audit_path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts = entry.get("timestamp", 0)
+                if not isinstance(ts, (int, float)) or ts < cutoff:
+                    continue
+                verdict = entry.get("verdict", "")
+                reviewed += 1
+                if verdict == "BLOCK":
+                    blocked += 1
+                    last_block = entry
+                elif verdict == "WARN":
+                    warned += 1
+                rule_id = entry.get("rule_id", "")
+                if rule_id and verdict in ("BLOCK", "WARN"):
+                    rule_counts[rule_id] = rule_counts.get(rule_id, 0) + 1
+    except OSError:
+        pass
+
+    top_rules = sorted(rule_counts.items(), key=lambda kv: -kv[1])[:3]
+    return {
+        "reviewed": reviewed,
+        "blocked": blocked,
+        "warned": warned,
+        "top_rules": top_rules,
+        "last_block": last_block,
+    }
+
+
+def _today_baseline_status(project_dir: Path) -> str:
+    """Return one-line baseline status (age + accepted count) or empty string."""
+    baseline_path = project_dir / ".codetrust" / "baseline.json"
+    if not baseline_path.exists():
+        return ""
+    try:
+        data = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+    created = data.get("created", "")
+    count = data.get("count", 0)
+    age_str = ""
+    if created:
+        try:
+            from datetime import datetime as _dt
+            created_ts = _dt.fromisoformat(created.replace("Z", "+00:00")).timestamp()
+            hours = (time.time() - created_ts) / 3600
+            age_str = f"{int(hours)}h ago" if hours < 24 else f"{int(hours / 24)}d ago"
+        except (ValueError, TypeError):
+            pass
+
+    return f"{count} legacy issues accepted{' — ' + age_str if age_str else ''}"
+
+
+def cmd_today(_args: argparse.Namespace) -> int:
+    """Daily summary: what CodeTrust did for you in the last 24 hours."""
+    project_dir = Path.cwd()
+    summary = _today_summarize_audit(project_dir)
+
+    _echo(f"\n  🛡️  {color('CodeTrust Today', BOLD)} — last 24 hours\n")
+
+    reviewed = summary["reviewed"]
+    blocked = summary["blocked"]
+    warned = summary["warned"]
+    allowed = reviewed - blocked - warned
+
+    if reviewed == 0:
+        _echo(f"     {color('●', BLUE)} No agent activity recorded yet.")
+        _echo("     CodeTrust is installed and ready — start coding to see protection in action.\n")
+        return 0
+
+    blocks_str = (
+        color(f"{blocked} blocked", RED) if blocked > 0 else f"{blocked} blocked"
+    )
+    warns_str = (
+        color(f"{warned} warned", YELLOW) if warned > 0 else f"{warned} warned"
+    )
+    _echo(
+        f"     {color(str(reviewed), BOLD)} actions reviewed   |   "
+        f"{blocks_str}   |   {warns_str}   |   {allowed} allowed",
+    )
+
+    if summary["top_rules"]:
+        _echo(f"\n     {color('Top rules triggered:', BOLD)}")
+        for rule_id, count in summary["top_rules"]:
+            _echo(f"       {color('•', RED if blocked else YELLOW)} {rule_id} ({count}×)")
+
+    last_block = summary["last_block"]
+    if last_block:
+        action = (last_block.get("original_action") or last_block.get("command") or "")[:70]
+        rule = last_block.get("rule_id", "")
+        if action:
+            _echo(f"\n     {color('Last block:', BOLD)} {rule}")
+            _echo(f"       {action}")
+
+    baseline_line = _today_baseline_status(project_dir)
+    if baseline_line:
+        _echo(f"\n     {color('Baseline:', BOLD)} {baseline_line}")
+
+    _echo(f"\n     Full log: {color('codetrust audit', BOLD)}")
+    _echo(f"     Trends:   {color('codetrust trend', BOLD)}\n")
     return 0
 
 
@@ -6053,10 +6232,15 @@ def _create_main_parser() -> argparse.ArgumentParser:
     """Create the top-level CLI argument parser."""
     parser = argparse.ArgumentParser(
         prog="codetrust",
-        description="CodeTrust — AI code verification. Install, scan, enforce.",
+        description="CodeTrust — AI Governance Platform. Install, scan, enforce.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Run 'codetrust --help-all' to see all advanced commands "
-            "(governance, compliance, vulnerability scanning, etc.)"
+            "More commands (run 'codetrust --help-all' for the full list):\n"
+            "  codetrust audit        — see what your AI agent did (last 24h)\n"
+            "  codetrust pii scan     — find PII in your codebase\n"
+            "  codetrust integrity    — check AI agent integrity\n"
+            "  codetrust compliance   — OWASP / EU AI Act / NIST mappings\n"
+            "  codetrust dod          — definition of done gates\n"
         ),
     )
     return parser
@@ -6204,6 +6388,10 @@ def _add_utility_subparsers(
 ) -> None:
     """Register 'status', 'doctor', 'pr-risk', and 'trust-diff' subcommands."""
     subparsers.add_parser("status", help="Check installed enforcement layers")
+    subparsers.add_parser(
+        "today",
+        help="Daily summary: what CodeTrust did for you in the last 24h",
+    )
 
     baseline_parser = subparsers.add_parser(
         "baseline",
@@ -7940,6 +8128,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_policy(args)
     if args.command == "audit":
         return cmd_audit(args)
+    if args.command == "today":
+        return cmd_today(args)
     if args.command == "shield":
         return cmd_shield(args)
     if args.command == "mcp-audit":
@@ -7992,7 +8182,7 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
 # Commands shown in default `codetrust --help` output. Everything else still
 # works but is hidden to reduce vibe-coder overload. Use --help-all to see all.
 _CORE_COMMANDS: frozenset[str] = frozenset({
-    "init", "scan", "fix", "status", "doctor",
+    "init", "scan", "fix", "status", "today", "doctor",
     "baseline", "login", "logout",
 })
 

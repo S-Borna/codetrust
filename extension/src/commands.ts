@@ -11,6 +11,41 @@ import type { RateLimitInfo } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
 import { scanCodeOffline, isRuleDefinitionFile, EMBEDDED_RULE_COUNT } from "./embedded-scanner";
+import { scanViaCliSubprocess, detectCliAvailability } from "./cli-scanner";
+import type { StaticScanResponse } from "./types";
+
+/**
+ * Run the offline fallback chain: CLI subprocess → embedded scanner.
+ *
+ * Called when the API is unreachable. Tries the local `codetrust` CLI
+ * first (full 2,928 rule parity), falls back to the 120-rule embedded
+ * TypeScript scanner only if the CLI is not installed or fails.
+ *
+ * Returns the scan response plus a tag describing which engine ran —
+ * the caller uses the tag for output channel messages and telemetry.
+ */
+async function runOfflineFallback(
+    deps: CommandDeps,
+    code: string,
+    filename: string,
+): Promise<{ response: StaticScanResponse; engine: "cli" | "embedded" }> {
+    const cliResponse = await scanViaCliSubprocess(code, filename);
+    if (cliResponse) {
+        const availability = await detectCliAvailability();
+        deps.outputChannel.appendLine(
+            `  API unavailable — scanning via local CodeTrust CLI (v${availability.version}, full ruleset)`,
+        );
+        return { response: cliResponse, engine: "cli" };
+    }
+
+    deps.outputChannel.appendLine(
+        `  API unavailable — using embedded scanner (${EMBEDDED_RULE_COUNT} rules)`,
+    );
+    return {
+        response: scanCodeOffline(code, filename),
+        engine: "embedded",
+    };
+}
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
 import { getApiKeySecret, storeApiKeySecret } from "./secrets";
@@ -407,21 +442,22 @@ async function runStaticScan(
     } catch (err) {
         logApiError(deps, err);
         if (err instanceof ApiError && err.statusCode === 429) {
-            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to embedded offline scanner");
+            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to offline scanner");
             showRateLimitBlockedNotification();
         }
-        // Fallback to embedded offline scanner when API is unavailable
-        deps.outputChannel.appendLine(
-            `  API unavailable — using embedded scanner (${EMBEDDED_RULE_COUNT} rules)`,
+        const { response, engine } = await runOfflineFallback(
+            deps,
+            document.getText(),
+            document.fileName,
         );
-        const response = scanCodeOffline(document.getText(), document.fileName);
         deps.diagnostics.setFindingsDiagnostics(
             document.uri,
             response.findings,
             config.severityThreshold,
         );
         deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
-        logScanResult(deps.outputChannel, "Static (offline)", response.verdict, response.findings);
+        const engineLabel = engine === "cli" ? "Static (CLI)" : "Static (offline)";
+        logScanResult(deps.outputChannel, engineLabel, response.verdict, response.findings);
 
         deps.telemetry("scan_completed", {
             scan_type: "static",
@@ -435,6 +471,7 @@ async function runStaticScan(
                 INFO: response.infos,
             },
             offline_used: true,
+            offline_engine: engine,
             duration_ms: Date.now() - startedAtMs,
         });
     }
@@ -515,21 +552,22 @@ async function runDeepScan(
     } catch (err) {
         logApiError(deps, err);
         if (err instanceof ApiError && err.statusCode === 429) {
-            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to embedded offline scanner");
+            deps.outputChannel.appendLine("  API rate limit hit (429) — switching to offline scanner");
             showRateLimitBlockedNotification();
         }
-        // Fallback to embedded offline scanner when API is unavailable
-        deps.outputChannel.appendLine(
-            `  API unavailable — falling back to embedded scanner (${EMBEDDED_RULE_COUNT} rules)`,
+        const { response, engine } = await runOfflineFallback(
+            deps,
+            document.getText(),
+            document.fileName,
         );
-        const response = scanCodeOffline(document.getText(), document.fileName);
         deps.diagnostics.setFindingsDiagnostics(
             document.uri,
             response.findings,
             config.severityThreshold,
         );
         deps.statusBar.setVerdict(response.verdict, response.total_findings, true);
-        logScanResult(deps.outputChannel, "Deep (offline)", response.verdict, response.findings);
+        const engineLabel = engine === "cli" ? "Deep (CLI)" : "Deep (offline)";
+        logScanResult(deps.outputChannel, engineLabel, response.verdict, response.findings);
 
         deps.telemetry("scan_completed", {
             scan_type: "deep",
@@ -543,6 +581,7 @@ async function runDeepScan(
                 INFO: response.infos,
             },
             offline_used: true,
+            offline_engine: engine,
             duration_ms: Date.now() - startedAtMs,
         });
     }

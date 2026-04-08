@@ -6314,6 +6314,34 @@ def cmd_setup(args: argparse.Namespace) -> int:
 # --- Main ---
 
 
+def _resolve_package_version() -> str:
+    """Read the installed package version from package metadata.
+
+    Falls back to reading pyproject.toml when running from a source
+    checkout without the package being installed (dev workflow).
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+        try:
+            return version("codetrust")
+        except PackageNotFoundError:
+            pass
+    except ImportError:
+        pass
+
+    # Dev fallback: read pyproject.toml from the repo root.
+    try:
+        import tomllib
+        pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        if pyproject.is_file():
+            with pyproject.open("rb") as f:
+                data = tomllib.load(f)
+            return str(data.get("project", {}).get("version", "unknown"))
+    except (OSError, KeyError, ValueError):
+        pass
+    return "unknown"
+
+
 def _create_main_parser() -> argparse.ArgumentParser:
     """Create the top-level CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -6328,6 +6356,12 @@ def _create_main_parser() -> argparse.ArgumentParser:
             "  codetrust compliance   — OWASP / EU AI Act / NIST mappings\n"
             "  codetrust dod          — definition of done gates\n"
         ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"codetrust {_resolve_package_version()}",
+        help="Print the installed CodeTrust version and exit",
     )
     return parser
 

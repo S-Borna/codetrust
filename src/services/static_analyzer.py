@@ -123,11 +123,15 @@ class StaticAnalyzer:
     MIN_LINES_FOR_RULE_FILE_SKIP: int = 5000
 
     # Files that contain rule definitions — scanning them is circular and slow.
+    # The VS Code extension's embedded-scanner.ts carries the TypeScript
+    # mirror of our regex rules for the offline fallback; scanning it
+    # would flag every pattern as a real violation.
     RULE_DEFINITION_FILES: frozenset[str] = frozenset({
         "anti_patterns.py",
         "enterprise.py",
         "taint_rules.py",
         "signatures.py",
+        "embedded-scanner.ts",
     })
 
     def __init__(self, premium_rules: list[dict[str, object]] | None = None) -> None:
@@ -429,7 +433,9 @@ class StaticAnalyzer:
         # is circular and causes 27s freezes on 30K-line files.
         # Accept basename alone (MCP callers may omit path prefix).
         # Safety net: only skip large files (>5000 lines) to avoid
-        # suppressing a user's small file that shares the name.
+        # suppressing a user's small file that shares the name —
+        # unless we can confirm the file lives in a known CT rule-source
+        # directory (src/rules/ or extension/src/).
         if basename in self.RULE_DEFINITION_FILES:
             line_count = code.count("\n") + 1
             normalized = filename.replace("\\", "/").lower()
@@ -437,12 +443,20 @@ class StaticAnalyzer:
                 "/src/rules/" in normalized
                 or normalized.startswith("src/rules/")
             )
-            if in_rules_dir or line_count > self.MIN_LINES_FOR_RULE_FILE_SKIP:
+            in_extension_dir = (
+                "/extension/src/" in normalized
+                or normalized.startswith("extension/src/")
+            )
+            if in_rules_dir or in_extension_dir or line_count > self.MIN_LINES_FOR_RULE_FILE_SKIP:
                 logger.info(
                     "skip_rule_definition_file",
                     filename=filename,
                     line_count=line_count,
-                    reason="in_rules_dir" if in_rules_dir else "large_file",
+                    reason=(
+                        "in_rules_dir" if in_rules_dir
+                        else "in_extension_dir" if in_extension_dir
+                        else "large_file"
+                    ),
                 )
                 return []
 

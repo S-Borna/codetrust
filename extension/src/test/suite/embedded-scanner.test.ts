@@ -49,7 +49,7 @@ suite("Embedded Scanner Tests", () => {
         test("detects TODO marker", () => {
             const result = scanCodeOffline("# " + "TO" + "DO: fix this", "app.py");
             const ids = result.findings.map((f) => f.rule_id);
-            assert.ok(ids.includes("todo_marker"), `Expected todo_marker, got: ${ids}`);
+            assert.ok(ids.includes("todo_hack"), `Expected todo_hack, got: ${ids}`);
         });
 
         test("detects console logger call", () => {
@@ -75,7 +75,10 @@ suite("Embedded Scanner Tests", () => {
         test("detects broad except", () => {
             const result = scanCodeOffline("except Exception:", "app.py");
             const ids = result.findings.map((f) => f.rule_id);
-            assert.ok(ids.includes("broad_except"), `Expected broad_except, got: ${ids}`);
+            assert.ok(
+                ids.includes("quality_broad_exception_type"),
+                `Expected quality_broad_exception_type, got: ${ids}`,
+            );
         });
 
         test("detects untyped function", () => {

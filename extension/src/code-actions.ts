@@ -453,7 +453,7 @@ export class CodeTrustCodeActionProvider implements vscode.CodeActionProvider {
     private isDeletableRule(ruleId: string): boolean {
         const deletable = new Set([
             "console_log",
-            "todo_marker",
+            "todo_hack",
             "print_debug",
         ]);
         return deletable.has(ruleId);

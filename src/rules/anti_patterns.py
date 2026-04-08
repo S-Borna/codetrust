@@ -475,6 +475,18 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
     },
     {
+        "id": "sql_drop_table",
+        "pattern": r"(?i)\bDROP\s+(?:TABLE|DATABASE|INDEX|VIEW)\s+(?!IF\s+EXISTS\b)\w+",
+        "message": "DROP without IF EXISTS may fail mid-deploy.",
+        "severity": Severity.BLOCK,
+        "file_types": [".sql"],
+        "suggestion": (
+            "Add IF EXISTS so re-running the migration is idempotent: "
+            "`DROP TABLE IF EXISTS users;`. "
+            "Mid-deploy failures without IF EXISTS leave the schema in an inconsistent state."
+        ),
+    },
+    {
         "id": "sql_update_no_where",
         "pattern": r"(?i)^\s*UPDATE\s+\w+\s+SET\s+(?!.*\bWHERE\b)[^;]*;\s*$",
         "message": "UPDATE without WHERE will modify all rows. Add a WHERE clause.",
@@ -951,6 +963,17 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             ),
         "file_types": [".yml", ".yaml"],
     },
+    {
+        "id": "k8s_host_pid",
+        "pattern": r"(?i)hostPID:\s*true",
+        "message": "hostPID: true shares the host PID namespace — a container escape can see every host process.",
+        "severity": Severity.WARN,
+        "file_types": [".yml", ".yaml"],
+        "suggestion": (
+            "Remove `hostPID: true` unless the workload explicitly needs to observe host processes "
+            "(e.g. node-exporter, cAdvisor). Sharing the host PID namespace makes container escapes trivial."
+        ),
+    },
 
     # ═══════════════════════════════════════════════════════════════
     #  AI AGENT ENFORCEMENT RULES
@@ -1231,6 +1254,17 @@ ANTI_PATTERNS: list[dict[str, str]] = [
         ),
     },
     {
+        "id": "ruby_rescue_all",
+        "pattern": r"rescue\s*$",
+        "message": "Bare rescue catches every StandardError — rescue specific exception classes instead.",
+        "severity": Severity.WARN,
+        "file_types": [".rb"],
+        "suggestion": (
+            "Rescue specific exception classes: `rescue ActiveRecord::RecordNotFound => e`. "
+            "A bare `rescue` masks bugs (NoMethodError, ArgumentError) by swallowing them silently."
+        ),
+    },
+    {
         "id": "ruby_send_public_send",
         "pattern": r"\b(?:send|public_send)\s*\(",
         "message": "Dynamic method dispatch via send/public_send. Verify the method name is trusted.",
@@ -1386,6 +1420,17 @@ ANTI_PATTERNS: list[dict[str, str]] = [
             ),
         "file_types": [".php"],
         "skip_comments": True,
+    },
+    {
+        "id": "php_global_statement",
+        "pattern": r"\bglobal\s+\$",
+        "message": "`global $var` creates hidden dependencies. Use dependency injection or a request context.",
+        "severity": Severity.WARN,
+        "file_types": [".php"],
+        "suggestion": (
+            "Replace global variables with explicit parameters or a DI container: "
+            "`function handle(Request $req, Logger $log)`. Globals break testability and encapsulation."
+        ),
     },
     {
         "id": "php_deprecated_mysql",

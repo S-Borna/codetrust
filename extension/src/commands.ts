@@ -10,7 +10,7 @@ import { ApiClient, ApiError } from "./api-client";
 import type { RateLimitInfo } from "./api-client";
 import { DiagnosticProvider } from "./diagnostics";
 import { StatusBarManager } from "./status-bar";
-import { scanCodeOffline, isRuleDefinitionFile } from "./embedded-scanner";
+import { scanCodeOffline, isRuleDefinitionFile, EMBEDDED_RULE_COUNT } from "./embedded-scanner";
 import { extractImports, extractDockerImages } from "./parsers";
 import { getConfig } from "./config";
 import { getApiKeySecret, storeApiKeySecret } from "./secrets";
@@ -412,7 +412,7 @@ async function runStaticScan(
         }
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
-            `  API unavailable — using embedded scanner (49 rules)`,
+            `  API unavailable — using embedded scanner (${EMBEDDED_RULE_COUNT} rules)`,
         );
         const response = scanCodeOffline(document.getText(), document.fileName);
         deps.diagnostics.setFindingsDiagnostics(
@@ -520,7 +520,7 @@ async function runDeepScan(
         }
         // Fallback to embedded offline scanner when API is unavailable
         deps.outputChannel.appendLine(
-            `  API unavailable — falling back to embedded scanner (49 rules)`,
+            `  API unavailable — falling back to embedded scanner (${EMBEDDED_RULE_COUNT} rules)`,
         );
         const response = scanCodeOffline(document.getText(), document.fileName);
         deps.diagnostics.setFindingsDiagnostics(

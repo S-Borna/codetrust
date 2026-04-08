@@ -89,7 +89,7 @@ const GENERIC_WARN_RULES: Rule[] = [
         severity: "WARN",
     },
     {
-        id: "todo_marker",
+        id: "todo_hack",
         pattern: /(?:#|\/\/)+\s*(todo|hack|fixme|xxx|temp)\b/i,
         message: "Temporary marker found. Resolve before committing.",
         severity: "WARN",
@@ -168,7 +168,7 @@ const GENERIC_WARN_RULES: Rule[] = [
 // --- INFO ---
 const GENERIC_INFO_RULES: Rule[] = [
     {
-        id: "broad_except",
+        id: "quality_broad_exception_type",
         pattern: /except\s+Exception\s*:/,
         message: "Catching base Exception can hide bugs. Prefer narrower exceptions.",
         severity: "INFO",
@@ -1274,6 +1274,69 @@ export function isRuleDefinitionFile(filename: string, lineCount: number): boole
     const base = parts[parts.length - 1]?.toLowerCase() ?? "";
     return RULE_DEFINITION_BASENAMES.has(base) && lineCount > MIN_LINES_FOR_RULE_FILE_SKIP;
 }
+
+/**
+ * Number of rules in the embedded offline scanner.
+ *
+ * This is a dynamic count, not a hardcoded number. It must be kept in
+ * sync with the rules exported above. Exported so that UI messages
+ * (output channel log lines, status bar) can never drift from reality.
+ *
+ * Backend (Python src/rules/anti_patterns.py) has ~2900 rules. This
+ * embedded subset is the offline fallback and covers the most common
+ * anti-patterns across Python, JS/TS, SQL, Docker, K8s, Ruby, PHP,
+ * PowerShell, nginx, Redis, Vault, Bicep, and systemd.
+ */
+export const EMBEDDED_RULE_COUNT: number = (
+    GENERIC_BLOCK_RULES.length +
+    GENERIC_WARN_RULES.length +
+    GENERIC_INFO_RULES.length +
+    HALLUCINATION_BLOCK_RULES.length +
+    HALLUCINATION_WARN_RULES.length +
+    HALLUCINATION_INFO_RULES.length +
+    SQL_BLOCK_RULES.length +
+    SQL_WARN_RULES.length +
+    SQL_INFO_RULES.length +
+    DOCKER_BLOCK_RULES.length +
+    DOCKER_WARN_RULES.length +
+    CI_BLOCK_RULES.length +
+    CI_WARN_RULES.length +
+    CI_ADV_WARN_RULES.length +
+    DEVOPS_BLOCK_RULES.length +
+    DEVOPS_WARN_RULES.length +
+    DEVOPS_INFO_RULES.length +
+    REACT_BLOCK_RULES.length +
+    REACT_WARN_RULES.length +
+    K8S_BLOCK_RULES.length +
+    K8S_WARN_RULES.length +
+    MONITORING_BLOCK_RULES.length +
+    MONITORING_WARN_RULES.length +
+    MONITORING_INFO_RULES.length +
+    COMPOSE_BLOCK_RULES.length +
+    COMPOSE_WARN_RULES.length +
+    COMPOSE_INFO_RULES.length +
+    VAULT_BLOCK_RULES.length +
+    VAULT_WARN_RULES.length +
+    VAULT_INFO_RULES.length +
+    CONFIG_BLOCK_RULES.length +
+    CONFIG_WARN_RULES.length +
+    RUBY_BLOCK_RULES.length +
+    RUBY_WARN_RULES.length +
+    PHP_BLOCK_RULES.length +
+    PHP_WARN_RULES.length +
+    PS_BLOCK_RULES.length +
+    PS_WARN_RULES.length +
+    PS_INFO_RULES.length +
+    NGINX_BLOCK_RULES.length +
+    NGINX_WARN_RULES.length +
+    NGINX_INFO_RULES.length +
+    REDIS_BLOCK_RULES.length +
+    REDIS_WARN_RULES.length +
+    SYSTEMD_WARN_RULES.length +
+    SYSTEMD_INFO_RULES.length +
+    BICEP_BLOCK_RULES.length +
+    BICEP_WARN_RULES.length
+);
 
 export function scanCodeOffline(code: string, filename: string): StaticScanResponse {
     const lines = code.split("\n");

@@ -28,8 +28,15 @@ class TestUniversalRuleCount:
         )
 
     def test_total_rules_unchanged(self) -> None:
-        """Total rule count must stay at 2,924 (added hallucinated_method_buzzword)."""
-        assert len(ANTI_PATTERNS) == 2924
+        """Total rule count pins to 2,928.
+
+        History:
+          - 2,923 baseline
+          - +1 hallucinated_method_buzzword
+          - +4 extension parity: sql_drop_table, k8s_host_pid,
+            ruby_rescue_all, php_global_statement
+        """
+        assert len(ANTI_PATTERNS) == 2928
 
 
 class TestScopedRulesValid:

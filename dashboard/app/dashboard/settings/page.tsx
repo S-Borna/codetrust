@@ -1,9 +1,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { SettingsForm } from "@/components/settings-form";
+import { fetchUserQuota } from "@/lib/dashboard-api";
 
 export default async function SettingsPage() {
     const session = await getServerSession(authOptions);
+    const apiKey = session?.user?.apiKey || "";
+    const quota = await fetchUserQuota(apiKey);
 
     return (
         <div className="space-y-8">
@@ -18,8 +21,9 @@ export default async function SettingsPage() {
 
             <SettingsForm
                 user={session?.user}
-                apiKey={session?.user?.apiKey || ""}
+                apiKey={apiKey}
                 trialEnd={session?.user?.trialEnd || null}
+                quota={quota}
             />
         </div>
     );

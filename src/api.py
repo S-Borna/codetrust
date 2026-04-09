@@ -4615,9 +4615,12 @@ async def oidc_login(
     request: Request,
     state: str = Query(default=""),
 ) -> dict:
-    """Redirect URL for OIDC/SSO login.
+    """Redirect URL for OIDC/SSO login (CSRF-protected with state param).
 
-    Returns the authorization URL to redirect the browser to the IdP.
+    Generates a random state token (or uses a client-supplied one),
+    stores it server-side for callback validation, and returns an
+    authorization URL bound to that state so the flow is protected
+    against CSRF per RFC 6749 §10.12.
     Requires OIDC to be configured via CODETRUST_OIDC_* env vars.
     """
     if not settings.oidc_enabled:
@@ -4681,6 +4684,68 @@ async def oidc_callback(
 
 
 # --- GDPR Data Export / Delete ---
+
+
+@app.get("/v1/user/quota")
+async def get_user_quota(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict:
+    """Return the current user's scan quota state.
+
+    Used by the dashboard settings page to render a live quota widget
+    (scans used / limit, reduced-mode badge when exhausted). Does NOT
+    mint a JWT — use /v1/auth/token for that. This endpoint is a
+    pure read so it's safe to call on every settings page render.
+
+    Degrades gracefully when the database is unavailable: instead of
+    returning 503, it reports used=0 and lets the dashboard show
+    "you haven't scanned today" rather than an error state. The
+    dashboard widget is optional UX — it must never take the
+    settings page down.
+
+    Response shape (stable contract for dashboard consumption):
+        {
+            "plan":       "free" | "pro" | "team" | "enterprise",
+            "used":       <int>,
+            "limit":      <int>,
+            "exceeded":   <bool>,
+            "resets_at":  "<ISO-8601 next UTC midnight>"
+        }
+    """
+    from datetime import UTC as _UTC
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
+
+    plan = auth.plan
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS.get("free", 25))
+
+    # Read db directly from app.state instead of via _get_db so that
+    # a missing database produces a graceful used=0 response rather
+    # than a 503 from the dependency layer.
+    db = getattr(request.app.state, "db", None)
+    used = 0
+    if db is not None:
+        try:
+            used = await db.get_daily_usage(auth.user_id)
+        except Exception as exc:
+            logger.warning(
+                "user_quota_db_read_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            used = 0
+
+    now = _dt.now(tz=_UTC)
+    tomorrow_midnight = _dt(now.year, now.month, now.day, tzinfo=_UTC) + _td(days=1)
+
+    return {
+        "plan": plan,
+        "used": used,
+        "limit": limit,
+        "exceeded": used >= limit,
+        "resets_at": tomorrow_midnight.isoformat(),
+    }
 
 
 @app.get("/v1/user/export")
@@ -4981,8 +5046,11 @@ async def dashboard_alerts(
                     "severity": level,
                     "message": cost_report.budget_status.get("message", ""),
                 })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "alerts_budget_check_failed",
+            error=str(exc), error_type=type(exc).__name__,
+        )
 
     # Cost anomalies
     try:
@@ -4995,8 +5063,11 @@ async def dashboard_alerts(
                 "severity": "warn",
                 "message": anomaly.get("detail", ""),
             })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "alerts_cost_anomaly_check_failed",
+            error=str(exc), error_type=type(exc).__name__,
+        )
 
     # Compliance check
     try:
@@ -5011,7 +5082,10 @@ async def dashboard_alerts(
                     "severity": "alert",
                     "message": f"{fw_id}: {partial} risk(s) not at full coverage",
                 })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "alerts_compliance_check_failed",
+            error=str(exc), error_type=type(exc).__name__,
+        )
 
     return {"alert_count": len(alerts), "alerts": alerts}

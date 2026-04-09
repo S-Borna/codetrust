@@ -33,6 +33,41 @@ async function dashboardFetch<T>(
     return res.json() as Promise<T>;
 }
 
+/**
+ * Live scan quota state for a single user.
+ *
+ * Fetched by the settings page server component to render the reduced
+ * mode widget. Matches the response shape of GET /v1/user/quota.
+ */
+export interface UserQuota {
+    plan: string;
+    used: number;
+    limit: number;
+    exceeded: boolean;
+    resets_at: string;
+}
+
+/**
+ * Fetch the current user's scan quota from the backend API.
+ *
+ * Returns null (rather than throwing) on any failure so that the
+ * settings page can render a graceful fallback instead of erroring
+ * out if the backend is briefly unreachable.
+ */
+export async function fetchUserQuota(apiKey: string): Promise<UserQuota | null> {
+    if (!apiKey) {
+        return null;
+    }
+    try {
+        return await dashboardFetch<UserQuota>("/v1/user/quota", {
+            apiKey,
+            revalidate: 60,
+        });
+    } catch {
+        return null;
+    }
+}
+
 export interface DashboardOverview {
     enforcement: {
         layers_active: number;

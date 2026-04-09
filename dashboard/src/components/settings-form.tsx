@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { UserQuota } from "@/lib/dashboard-api";
 
 /** Allowed redirect hosts for billing flows. */
 const SAFE_REDIRECT_HOSTS = new Set([
@@ -25,7 +26,145 @@ interface UserInfo {
     plan?: string;
 }
 
-export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | null; apiKey?: string; trialEnd?: string | null }) {
+interface SettingsFormProps {
+    user?: UserInfo | null;
+    apiKey?: string;
+    trialEnd?: string | null;
+    quota?: UserQuota | null;
+}
+
+/**
+ * Formats a UTC ISO-8601 timestamp as a short local-time label.
+ * Used for the "resets at" line on the quota card.
+ */
+function formatResetTime(isoTs: string): string {
+    try {
+        const date = new Date(isoTs);
+        if (Number.isNaN(date.getTime())) return "midnight UTC";
+        // Show hours until reset when it's imminent, otherwise the
+        // absolute local time. Users trust "in 3 hours" more than
+        // "at 01:00" when they're staring at a reduced-mode banner.
+        const hoursUntil = Math.max(
+            0,
+            Math.round((date.getTime() - Date.now()) / 3_600_000),
+        );
+        if (hoursUntil <= 12) {
+            return `in ${hoursUntil} hour${hoursUntil === 1 ? "" : "s"}`;
+        }
+        return date.toLocaleString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZoneName: "short",
+        });
+    } catch {
+        return "midnight UTC";
+    }
+}
+
+/**
+ * Live scan quota card with reduced-mode awareness.
+ *
+ * Three states, each with its own visual treatment:
+ *
+ *   1. Healthy:   used / limit < 80%    — neutral
+ *   2. Near:      80% ≤ used / limit < 100% — warning tint
+ *   3. Exceeded:  used >= limit          — red tint + "reduced mode"
+ *                                          badge + upgrade CTA
+ *
+ * Never fabricates numbers — if `quota` is null we render nothing
+ * (the parent already guards this but double-check for safety).
+ */
+function ScanQuotaCard({ quota }: { quota: UserQuota }): React.ReactElement | null {
+    const limit = Math.max(1, quota.limit);
+    const pct = Math.min(100, Math.round((quota.used / limit) * 100));
+    const exceeded = quota.exceeded || quota.used >= limit;
+    const nearLimit = !exceeded && pct >= 80;
+
+    const barColor = exceeded
+        ? "bg-red-500"
+        : nearLimit
+            ? "bg-yellow-500"
+            : "bg-brand-600";
+
+    const borderColor = exceeded
+        ? "border-red-200 dark:border-red-800"
+        : nearLimit
+            ? "border-yellow-200 dark:border-yellow-800"
+            : "border-gray-200 dark:border-gray-700";
+
+    return (
+        <div
+            className={`rounded-xl border ${borderColor} bg-white dark:bg-gray-900 p-6`}
+        >
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Scan quota
+                </h3>
+                {exceeded && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-900/40 px-3 py-1 text-xs font-semibold text-yellow-800 dark:text-yellow-300">
+                        Reduced mode active
+                    </span>
+                )}
+            </div>
+
+            <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {quota.used.toLocaleString()}
+                        <span className="text-base font-normal text-gray-500 dark:text-gray-400">
+                            {" / "}
+                            {quota.limit.toLocaleString()} today
+                        </span>
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                        {quota.plan} plan
+                    </p>
+                </div>
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div
+                        className={`h-full rounded-full transition-all ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                    />
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Resets {formatResetTime(quota.resets_at)}
+                </p>
+
+                {exceeded && (
+                    <div className="mt-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 p-4 text-sm">
+                        <p className="font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+                            Running in reduced mode
+                        </p>
+                        <p className="text-yellow-800 dark:text-yellow-300 mb-3">
+                            Your daily free scans are used. CodeTrust is still
+                            active in real time — gateway hooks block destructive
+                            commands and 15 critical safety rules still fire on
+                            every scan. Advanced analyses are paused until quota
+                            resets:
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-yellow-800 dark:text-yellow-300">
+                            <li>Hallucination detection (imports, APIs, sanitizers)</li>
+                            <li>PII detection across 16 categories</li>
+                            <li>Agent integrity patterns</li>
+                            <li>2,913 advanced quality & security rules</li>
+                        </ul>
+                    </div>
+                )}
+
+                {nearLimit && !exceeded && (
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                        Approaching daily limit — {limit - quota.used} scan
+                        {limit - quota.used === 1 ? "" : "s"} remaining.
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function SettingsForm({ user, apiKey, trialEnd, quota }: SettingsFormProps) {
     const plan = user?.plan || "free";
     const [upgrading, setUpgrading] = useState(false);
     const [error, setError] = useState("");
@@ -191,6 +330,9 @@ export function SettingsForm({ user, apiKey, trialEnd }: { user?: UserInfo | nul
                     </div>
                 </div>
             )}
+
+            {/* Scan quota + reduced mode widget */}
+            {quota && <ScanQuotaCard quota={quota} />}
 
             {/* Subscription */}
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

@@ -100,3 +100,6 @@ src/Roadmap E-Blocks/
 scripts/pre_publish_gate.py
 CC_PROMPT_*.md
 PREFERENCES.md
+
+# TypeScript incremental build cache (regenerated on every tsc run)
+*.tsbuildinfo

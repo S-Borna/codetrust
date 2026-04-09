@@ -25,7 +25,7 @@ import sys
 import time
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import structlog
 
@@ -36,6 +36,7 @@ from src.rules.anti_patterns import (
     SQL_EXTENSIONS,
 )
 from src.services.rule_catalog import RULE_CATALOG
+from src.services.rule_delivery import REDUCED_MODE_RULE_IDS
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -871,8 +872,28 @@ def _collect_fix_targets(targets: list[str], project_dir: Path) -> list[Path]:
 def _apply_fixes_to_files(
     files: list[Path],
     apply: bool,
+    *,
+    reduced_mode: bool = False,
 ) -> tuple[int, int]:
-    """Run autofix on files. Returns (changed_files_count, changed_lines_count)."""
+    """Run autofix on files. Returns (changed_files_count, changed_lines_count).
+
+    Each recipe is tagged with the rule_id it addresses. When
+    reduced_mode is True, recipes whose rule_id is outside
+    REDUCED_MODE_RULE_IDS are skipped. Today's single recipe targets
+    ``print_debug`` which is in the reduced set, so current behavior
+    is unchanged — the filter exists so that future premium recipes
+    cannot be used to side-step quota enforcement.
+    """
+    # (rule_id, recipe_callable). Add new recipes here.
+    recipes: list[tuple[str, Any]] = [
+        ("print_debug", _autofix_print_debug_python),
+    ]
+    if reduced_mode:
+        recipes = [
+            (rule_id, fn) for rule_id, fn in recipes
+            if rule_id in REDUCED_MODE_RULE_IDS
+        ]
+
     changed_files = 0
     changed_lines = 0
     for fp in files:
@@ -881,9 +902,17 @@ def _apply_fixes_to_files(
         except OSError as exc:
             logger.debug("fix_read_failed", path=str(fp), error=str(exc))
             continue
-        new_code, changed = _autofix_print_debug_python(code)
-        if not changed:
+
+        new_code = code
+        file_changed = False
+        for _rule_id, recipe in recipes:
+            candidate, did_change = recipe(new_code)
+            if did_change:
+                new_code = candidate
+                file_changed = True
+        if not file_changed:
             continue
+
         changed_files += 1
         changed_lines += sum(
             1
@@ -925,7 +954,24 @@ def _report_fix_telemetry(
 
 
 def cmd_fix(args: argparse.Namespace) -> int:
-    """Apply safe deterministic autofix recipes to files."""
+    """Apply safe deterministic autofix recipes to files.
+
+    Runs through the same scan gate as cmd_scan: a quota-exhausted
+    free user can still run fix (with reduced-mode recipes), but a
+    user without an account is hard-blocked — fixing presupposes
+    scanning and we need identity to enforce per-user quotas.
+
+    Recipes that target rules outside REDUCED_MODE_RULE_IDS are
+    silently skipped when reduced_mode is True. Today's only recipe
+    (print_debug → logging.info) targets a rule that IS in the
+    reduced set, so in practice nothing is skipped; the machinery
+    exists so that future premium recipes honor the quota contract.
+    """
+    gate = _check_local_scan_gate()
+    if gate.exit_code != 0:
+        return gate.exit_code
+    reduced_mode = gate.degraded
+
     targets = getattr(args, "targets", []) or ["."]
     apply = bool(getattr(args, "apply", False))
     project_dir = Path.cwd()
@@ -935,7 +981,16 @@ def cmd_fix(args: argparse.Namespace) -> int:
         _echo("No files to fix.")
         return 0
 
-    changed_files, changed_lines = _apply_fixes_to_files(files, apply)
+    if reduced_mode:
+        _echo(color(
+            "  ℹ Running in reduced mode (daily scan quota exhausted). "
+            "Only recipes for critical-safety rules are applied.",
+            YELLOW,
+        ))
+
+    changed_files, changed_lines = _apply_fixes_to_files(
+        files, apply, reduced_mode=reduced_mode,
+    )
 
     if apply:
         _echo(f"Applied fixes to {changed_files} file(s).")
@@ -4948,10 +5003,31 @@ def cmd_baseline(args: argparse.Namespace) -> int:
         _echo(f"     Accepted findings: {color(str(meta['count']), BOLD)}")
         _echo(f"     Created: {meta['created']}")
         _echo(f"     File: {color('.codetrust/baseline.json', BOLD)}")
-        if _baseline_is_shared(project_dir):
-            _echo(f"     Mode: {color('shared (committed to git)', GREEN)}")
+
+        # Rule-set mode: which rule set was active when the baseline
+        # was established. Today this should always be "full" — the
+        # CLI refuses to establish in reduced mode. A "reduced" value
+        # here would indicate a baseline from an older build or a
+        # hand-edited file.
+        ruleset_mode = str(meta.get("mode", "full"))
+        if ruleset_mode == "full":
+            _echo(
+                f"     Ruleset: {color('full', GREEN)} "
+                f"(all 2,928 rules were active)",
+            )
         else:
-            _echo(f"     Mode: {color('local-only (gitignored)', BLUE)}")
+            _echo(
+                f"     Ruleset: {color('reduced', YELLOW)} "
+                f"(only 15 critical safety rules were active). "
+                f"Reset + re-establish on a full-quota day for "
+                f"complete coverage.",
+            )
+
+        # Sharing mode: git-committed vs gitignored
+        if _baseline_is_shared(project_dir):
+            _echo(f"     Sharing: {color('shared (committed to git)', GREEN)}")
+        else:
+            _echo(f"     Sharing: {color('local-only (gitignored)', BLUE)}")
             _echo(
                 f"     Share with team: {color('codetrust baseline share', BOLD)}",
             )
@@ -5179,12 +5255,67 @@ def _today_baseline_status(project_dir: Path) -> str:
     return f"{count} legacy issues accepted{' — ' + age_str if age_str else ''}"
 
 
+def _today_quota_line(auth: dict[str, str]) -> str | None:
+    """Build a one-line scan quota summary for cmd_today output.
+
+    Reads quota_used / quota_limit / quota_exceeded from the locally
+    cached auth.json. Returns None when the user is not logged in or
+    the quota fields are absent — we never invent numbers, and
+    master-key / CI bypass users shouldn't see a quota line at all
+    (they have no meaningful quota state).
+
+    The returned string is the content of a single line, without
+    leading indentation; the caller renders it.
+    """
+    api_key = auth.get("api_key", "")
+    if not api_key:
+        return None
+
+    # Missing quota fields → CI / master-key use, or a very old auth.json
+    raw_used = auth.get("quota_used", "")
+    raw_limit = auth.get("quota_limit", "")
+    if not raw_used or not raw_limit:
+        return None
+
+    try:
+        used = int(raw_used)
+        limit = int(raw_limit)
+    except (ValueError, TypeError):
+        return None
+    if limit <= 0:
+        return None
+
+    plan = auth.get("plan", "free")
+    exceeded = auth.get("quota_exceeded") == "true"
+
+    if exceeded or used >= limit:
+        usage_str = color(f"{used}/{limit}", RED)
+        badge = color("reduced mode active", YELLOW)
+        suffix = f" — {badge} · resets at UTC midnight"
+    elif used >= int(limit * 0.8):
+        usage_str = color(f"{used}/{limit}", YELLOW)
+        remaining = limit - used
+        suffix = f" — {remaining} remaining on {plan} plan"
+    else:
+        usage_str = f"{used}/{limit}"
+        suffix = f" on {plan} plan"
+
+    return f"Scans today: {usage_str}{suffix}"
+
+
 def cmd_today(_args: argparse.Namespace) -> int:
     """Daily summary: what CodeTrust did for you in the last 24 hours."""
     project_dir = Path.cwd()
     summary = _today_summarize_audit(project_dir)
+    auth = _load_local_auth()
 
     _echo(f"\n  🛡️  {color('CodeTrust Today', BOLD)} — last 24 hours\n")
+
+    quota_line = _today_quota_line(auth)
+    reduced_active = bool(
+        quota_line
+        and (auth.get("quota_exceeded") == "true"),
+    )
 
     reviewed = summary["reviewed"]
     blocked = summary["blocked"]
@@ -5193,7 +5324,16 @@ def cmd_today(_args: argparse.Namespace) -> int:
 
     if reviewed == 0:
         _echo(f"     {color('●', BLUE)} No agent activity recorded yet.")
-        _echo("     CodeTrust is installed and ready — start coding to see protection in action.\n")
+        _echo("     CodeTrust is installed and ready — start coding to see protection in action.")
+        if quota_line:
+            _echo(f"     {quota_line}")
+        if reduced_active:
+            _echo(
+                f"\n     {color('Upgrade to Pro:', BOLD)} "
+                f"unlock 10,000 scans/day + hallucination detection + "
+                f"PII + integrity → {color('codetrust.ai/pricing', BLUE)}",
+            )
+        _echo()
         return 0
 
     blocks_str = (
@@ -5206,6 +5346,8 @@ def cmd_today(_args: argparse.Namespace) -> int:
         f"     {color(str(reviewed), BOLD)} actions reviewed   |   "
         f"{blocks_str}   |   {warns_str}   |   {allowed} allowed",
     )
+    if quota_line:
+        _echo(f"     {quota_line}")
 
     if summary["top_rules"]:
         _echo(f"\n     {color('Top rules triggered:', BOLD)}")
@@ -5223,6 +5365,13 @@ def cmd_today(_args: argparse.Namespace) -> int:
     baseline_line = _today_baseline_status(project_dir)
     if baseline_line:
         _echo(f"\n     {color('Baseline:', BOLD)} {baseline_line}")
+
+    if reduced_active:
+        _echo(
+            f"\n     {color('Upgrade to Pro:', BOLD)} "
+            f"unlock 10,000 scans/day + hallucination detection + "
+            f"PII + integrity → {color('codetrust.ai/pricing', BLUE)}",
+        )
 
     _echo(f"\n     Full log: {color('codetrust audit', BOLD)}")
     _echo(f"     Trends:   {color('codetrust trend', BOLD)}\n")

@@ -28,13 +28,13 @@ const FEATURES = [
     {
         title: "Commit & Repo Guards",
         description:
-            "Pre-commit hook scans 2,924 rules. BLOCK = rejected. Governance files protected — agents cannot change their own rules.",
+            "Pre-commit hook scans 2,928 rules. BLOCK = rejected. Governance files protected — agents cannot change their own rules.",
         icon: "🔒",
     },
     {
-        title: "8 Enforcement Layers",
+        title: "9 Enforcement Layers",
         description:
-            "BASH_ENV, PreToolUse hooks, MCP Gateway, pre-commit, GitHub Action, advisory files, governance config, allow-list audit. All verified by codetrust doctor.",
+            "BASH_ENV, PreToolUse hooks, MCP Gateway, pre-commit, GitHub Action, advisory files, governance config, allow-list audit, compliance frameworks. All verified by codetrust doctor.",
         icon: "📊",
     },
 ];

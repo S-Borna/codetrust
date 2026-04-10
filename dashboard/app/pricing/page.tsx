@@ -8,7 +8,7 @@ const PLANS = [
         period: "forever",
         features: [
             "25 scans / day",
-            "Static analysis (2,924 rules)",
+            "Static analysis (2,928 rules)",
             "MCP server (local)",
             "Registry verification (WARN only)",
             "CLI + VS Code extension",
@@ -75,8 +75,6 @@ const PLANS = [
         highlight: false,
     },
 ];
-
-/* Prices marked for manual confirmation — verify against Stripe config before launch */
 
 export default function PricingPage() {
     return (

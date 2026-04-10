@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const BENEFITS = [
     "25 scans/day on free tier (detection only)",
-    "8 enforcement layers auto-installed",
+    "9 enforcement layers auto-installed",
     "Hallucination detection against 8 registries",
     "AI attribution — know which model wrote what",
     "GitHub Action support for PR gates",

@@ -238,7 +238,7 @@ export default function DashboardPricingPage() {
             </div>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                All plans use the same 3,006 rule engine. Pro includes a 14-day free trial.
+                All plans use the same 2,928 rule engine. Pro includes a 14-day free trial.
             </p>
         </div>
     );

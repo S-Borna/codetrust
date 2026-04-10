@@ -52,7 +52,7 @@ export default function HomePage() {
                         <span className="text-emerald-500">CodeTrust stopped it before it executed.</span>
                     </h1>
                     <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-                        AI governance enforcement platform. 3,006 rules, 8 enforcement layers,
+                        AI governance enforcement platform. 2,928 rules, 9 enforcement layers,
                         39 MCP tools. Blocks destructive commands, catches hallucinated packages,
                         tracks which AI model wrote every line — before damage happens.
                     </p>

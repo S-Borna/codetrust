@@ -148,7 +148,7 @@ export default function PricingPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         Free detects locally. Pro enforces in CI. Team governs across repos.
                         <br />
-                        All plans use the same 3,006 rule engine.
+                        All plans use the same 2,928 rule engine.
                     </p>
                     <Link
                         href="https://codetrust.ai"

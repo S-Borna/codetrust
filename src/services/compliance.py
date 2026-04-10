@@ -200,7 +200,7 @@ _OWASP_ASI_2026: list[RiskMapping] = [
         codetrust_coverage=[
             "Session action-count limiter — configurable per-session tool invocation cap",
             "Commit Policy Engine — allowed_models, models_blocked, max_ai_ratio enforcement",
-            "codetrust doctor — verifies all 8 enforcement layers are active",
+            "codetrust doctor — verifies all 9 enforcement layers are active",
             "Trusted Session mechanism — explicit human approval for elevated actions",
             "Pre-action validation — checks plans before code is written",
         ],

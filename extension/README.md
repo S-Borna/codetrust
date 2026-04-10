@@ -6,7 +6,7 @@ GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3 — these models write code, run c
 
 **CodeTrust is the governance layer that controls what AI agents can do — before they do it.**
 
-3,006 rules. 8 enforcement layers. Real-time interception. One command: `pip install codetrust && codetrust init`
+2,928 rules. 9 enforcement layers. Real-time interception. One command: `pip install codetrust && codetrust init`
 
 Works with **Claude Code**, **Cursor**, **Windsurf**, **GitHub Copilot**, and any AI coding assistant.
 
@@ -30,7 +30,7 @@ Learn more at [codetrust.ai](https://codetrust.ai)
 ## What's New in 4.0.6
 
 - **BASH_ENV guard** — OS-level enforcement for VS Code extension. Blocks dangerous commands at bash level regardless of IDE hook support. 26ms overhead. Zero dependencies. Cannot be bypassed by the agent.
-- **8 enforcement layers** — BASH_ENV guard, PreToolUse hooks, MCP Gateway, pre-commit hook, GitHub Action, advisory files, governance config, allow-list audit. All verified by `codetrust doctor`.
+- **9 enforcement layers** — BASH_ENV guard, PreToolUse hooks, MCP Gateway, pre-commit hook, GitHub Action, advisory files, governance config, allow-list audit. All verified by `codetrust doctor`.
 - **AI Attribution** — per-line model tracking. GPT-5.3, Claude Opus 4.6, Gemini 3, Codex 5.3. Shadow AI detection flags unregistered models.
 - **AI Policy Engine** — model allowlist/blocklist. Max AI ratio per commit. The CTO decides, CodeTrust enforces.
 - **Repo Guard** — agent cannot modify CLAUDE.md, .cursorrules, .codetrust.toml or 10 other governance paths.
@@ -103,7 +103,7 @@ Live import verification against 8 registries. Signature validation: 50 modules,
 |--------|-------|
 | Scan rules | 2,924 |
 | Gateway rules | 82 |
-| Total rules | 3,006 |
+| Total rules | 2,928 |
 | Enforcement layers | 8 |
 | Guided remediation | 2,924 |
 | Taint definitions | 323 across 7 languages |

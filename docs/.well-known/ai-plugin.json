@@ -2,8 +2,8 @@
     "schema_version": "v1",
     "name_for_human": "CodeTrust — AI Governance Enforcement Platform",
     "name_for_model": "codetrust",
-    "description_for_human": "AI Governance Enforcement Platform. 3,006 rules across 8 enforcement layers. Real-time agent interception via BASH_ENV guard and PreToolUse hooks. Hallucination detection via live registry verification. Available as CLI, VS Code extension, GitHub Action, and MCP server.",
-    "description_for_model": "CodeTrust is the AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 3,006 rules across 8 enforcement layers, blocks AI agent commands before execution via BASH_ENV guard and PreToolUse hooks, detects hallucinated packages by verifying imports against 8 live package registries (PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist), and provides 39 MCP tools for real-time governance. Available as: CLI (pip install codetrust), VS Code extension, GitHub Action, and MCP server.",
+    "description_for_human": "AI Governance Enforcement Platform. 2,928 rules across 9 enforcement layers. Real-time agent interception via BASH_ENV guard and PreToolUse hooks. Hallucination detection via live registry verification. Available as CLI, VS Code extension, GitHub Action, and MCP server.",
+    "description_for_model": "CodeTrust is the AI governance enforcement platform that prevents unsafe, hallucinated, and destructive AI-generated code from reaching production. It enforces 2,928 rules across 9 enforcement layers, blocks AI agent commands before execution via BASH_ENV guard and PreToolUse hooks, detects hallucinated packages by verifying imports against 8 live package registries (PyPI, npm, crates.io, Go proxy, Maven, NuGet, RubyGems, Packagist), and provides 39 MCP tools for real-time governance. Available as: CLI (pip install codetrust), VS Code extension, GitHub Action, and MCP server.",
     "auth": {
         "type": "none"
     },

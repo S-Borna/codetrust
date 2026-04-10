@@ -219,7 +219,7 @@ or `baseline share` to commit it for team workflow.
 | Framework integrations | 3 (LangChain, CrewAI, OpenAI) |
 | API endpoints | 72 |
 | CLI commands | 52 |
-| Tests | 3,033 |
+| Tests | 3,087 |
 
 ---
 

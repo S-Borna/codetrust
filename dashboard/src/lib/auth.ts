@@ -103,7 +103,7 @@ export const authOptions: NextAuthOptions = {
             // library requires an issuer value even for non-OIDC providers.
             // Without this, NextAuth 4.24.8+ throws "issuer must be
             // configured on the issuer" on every OAuth callback.
-            issuer: "https://github.com",
+            issuer: "https://github.com/login/oauth",
             checks: ["state"],
         }),
     ],

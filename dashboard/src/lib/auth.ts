@@ -99,10 +99,11 @@ export const authOptions: NextAuthOptions = {
         GithubProvider({
             clientId: process.env.GITHUB_CLIENT_ID || "",
             clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-            // GitHub OAuth does not support OIDC discovery. NextAuth 4.24.8+
-            // enforces issuer validation by default which breaks GitHub login
-            // with "issuer must be configured on the issuer". Disable the
-            // check explicitly — GitHub uses OAuth2, not OpenID Connect.
+            // GitHub uses OAuth2, not OpenID Connect. The openid-client
+            // library requires an issuer value even for non-OIDC providers.
+            // Without this, NextAuth 4.24.8+ throws "issuer must be
+            // configured on the issuer" on every OAuth callback.
+            issuer: "https://github.com",
             checks: ["state"],
         }),
     ],

@@ -122,49 +122,7 @@
             "https://pypi.org/project/codetrust/",
             "https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust",
             "https://pypi.org/project/codetrust/",
-            "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety"
         ]
-    }
-    </script>
-
-    <!-- JSON-LD: BrowserExtension for Chrome Web Store -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "CodeTrust — AI Governance Enforcement Scanner",
-        "description": "Chrome extension that scans code for AI hallucinations, security vulnerabilities, and unsafe patterns on GitHub, Stack Overflow, and any code page. 2,928 rules across 9 enforcement layers. Live registry verification against 8 package registries. Trust Score with drift tracking.",
-        "applicationCategory": "BrowserApplication",
-        "applicationSubCategory": "Developer Tools",
-        "operatingSystem": "Chrome",
-        "browserRequirements": "Google Chrome 88+",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        },
-        "author": {
-            "@type": "Person",
-            "name": "Said Borna"
-        },
-        "softwareVersion": "4.1.0",
-        "downloadUrl": "https://chrome.google.com/webstore/detail/codetrust-ai-code-safety",
-        "featureList": [
-            "Scan code blocks on GitHub, GitLab, Stack Overflow",
-            "Detect AI-hallucinated package imports",
-            "2,928 rules across 9 enforcement layers",
-            "Live registry verification against 8 package registries",
-            "Right-click context menu scanning",
-            "Inline results overlay",
-            "Trust Score calculation",
-            "16 programming languages supported"
-        ],
-        "screenshot": "https://codetrust.ai/chrome-extension-screenshot.png",
-        "isPartOf": {
-            "@type": "SoftwareApplication",
-            "name": "CodeTrust",
-            "url": "https://codetrust.ai"
-        }
     }
     </script>
 
@@ -235,7 +193,7 @@
                 "name": "How do I install CodeTrust?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) Chrome extension from Chrome Web Store, (4) GitHub Action via pip install codetrust in CI workflow, and (5) MCP server for direct integration with Claude Code, Cursor, and Windsurf."
+                    "text": "CodeTrust is available as: (1) CLI via pip install codetrust, (2) VS Code extension from the marketplace, (3) GitHub Action via pip install codetrust in CI workflow, (4) MCP server for direct integration with Claude Code, Cursor, and Windsurf, and (5) governance dashboard at app.codetrust.ai."
                 }
             }
         ]
@@ -422,7 +380,7 @@
                 <h3>MCP Servers</h3>
                 <p>Claude Code, Cursor, Claude Desktop &mdash; all configured. Gateway + Guardian registered in every
                     IDE automatically.</p>
-                <span class="layer-tag layer-tag-indigo">39 MCP tools</span>
+                <span class="layer-tag layer-tag-indigo">43 MCP tools</span>
             </div>
             <div class="layer-card" style="--glow-color: var(--amber)">
                 <div class="layer-number">03</div>
@@ -1178,9 +1136,9 @@
                         <line x1="12" y1="17" x2="12" y2="21" />
                     </svg>
                 </div>
-                <h3>Chrome Extension</h3>
-                <code>Chrome Web Store</code>
-                <p class="install-surface-desc">Scan code on GitHub, GitLab, Stack Overflow.</p>
+                <h3>Dashboard</h3>
+                <code>app.codetrust.ai</code>
+                <p class="install-surface-desc">Scan quota, enforcement metrics, compliance status.</p>
             </div>
         </div>
 
@@ -1711,7 +1669,7 @@
         <h3>Distribution</h3>
         <p>Available as: CLI (pip install codetrust), VS Code extension (marketplace.visualstudio.com), GitHub Action
             (pip install codetrust in CI workflow), and MCP server for Claude Code and Cursor integration. 70
-            REST API endpoints. 39 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
+            REST API endpoints. 43 MCP tools. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C#, C++,
             Shell/Bash, Terraform/HCL, HTML, SQL, and YAML.</p>
 
         <h3>How CodeTrust Differs From Other Tools</h3>

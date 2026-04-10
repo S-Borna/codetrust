@@ -229,9 +229,9 @@ or `baseline share` to commit it for team workflow.
 |---------|---------|--------------|
 | **CLI** | `pip install codetrust` | Full scan + enforcement |
 | **VS Code** | [Marketplace](https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust) | Scan on save, diagnostics, governance |
-| **Chrome** | Chrome Web Store | Browser-side scans on GitHub |
 | **GitHub Action** | `pip install codetrust` in CI | PR gate with SARIF upload |
-| **MCP Server** | 2 servers | Governance for Claude Code / Cursor / Windsurf |
+| **MCP Server** | 2 servers (43 tools) | Governance for Claude Code / Cursor / Windsurf |
+| **Dashboard** | [app.codetrust.ai](https://app.codetrust.ai) | Quota, enforcement, compliance |
 | **REST API** | [api.codetrust.ai](https://api.codetrust.ai/docs) | 72 endpoints |
 
 ---
@@ -353,8 +353,8 @@ PII detection (16 categories, GDPR compliance). Data classification with model r
 |---------|---------|
 | **PyPI** | `pip install codetrust` |
 | **VS Code** | `code --install-extension SaidBorna.codetrust` |
-| **Chrome** | Chrome Web Store |
 | **GitHub Action** | `pip install codetrust` in CI |
+| **Dashboard** | [app.codetrust.ai](https://app.codetrust.ai) |
 | **API** | [api.codetrust.ai](https://api.codetrust.ai/docs) |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 

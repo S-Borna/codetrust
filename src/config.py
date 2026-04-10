@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     dashboard_url: str = "https://codetrust.ai"
 
     # --- Feedback Intake ---
-    feedback_recipient_email: str = "said@saidborna.com"
+    feedback_recipient_email: str = "contact@codetrust.ai"
     feedback_smtp_host: str = ""
     feedback_smtp_port: int = 587
     feedback_smtp_username: str = ""

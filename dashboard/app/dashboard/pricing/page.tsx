@@ -27,7 +27,7 @@ const PLANS = [
         period: "forever",
         features: [
             "25 scans / day",
-            "Static analysis (2,924 rules)",
+            "Static analysis (2,928 rules)",
             "MCP server (local)",
             "Registry verification (WARN only)",
             "CLI + VS Code extension",

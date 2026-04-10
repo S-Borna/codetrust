@@ -1831,7 +1831,7 @@ def _feedback_recipient_email() -> str:
     recipient = settings.feedback_recipient_email.strip()
     if recipient:
         return recipient
-    return "said@saidborna.com"
+    return "contact@codetrust.ai"
 
 
 def _append_feedback_report_sink(payload: dict[str, object]) -> None:
@@ -4521,7 +4521,7 @@ async def user_profile(
     if auth.is_admin:
         return UserProfileResponse(
             id=auth.user_id,
-            email="said@saidborna.com",
+            email="admin@codetrust.ai",
             name="Admin",
             avatar_url="",
             plan="enterprise",

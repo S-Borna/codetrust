@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>v4.0.6</code> &middot; <code>2,924 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>3,033 tests</code>
+  <code>v4.1.0</code> &middot; <code>2,928 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>3,087 tests</code>
 </p>
 
 <p align="center">
@@ -140,7 +140,7 @@ CodeTrust's file-write guard protects 14 governance file paths. Any attempt to m
 
 ### 5. Commit Guards — Nothing Unsafe Reaches Main
 
-Every commit passes through CodeTrust's pre-commit hook. 2,924 rules scanned against staged files. BLOCK findings reject the commit. Every event logged to an append-only audit trail.
+Every commit passes through CodeTrust's pre-commit hook. 2,928 rules scanned against staged files. BLOCK findings reject the commit. Every event logged to an append-only audit trail.
 
 The pre-commit hook runs at OS level — it works regardless of which IDE, agent, or terminal triggered the commit. The GitHub Action provides a second gate at PR time.
 
@@ -175,14 +175,14 @@ LangChain (`CodeTrustGovernance` callback handler), CrewAI (`CodeTrustCrew` gove
 ### 13. Real-time Governance Dashboard
 6-section overview (enforcement, compliance, PII, classification, cost, integrity). Live polling every 30s. Timeline, alerts, per-framework detail pages. `app.codetrust.ai`.
 
-### 14. Guided Remediation — 2,924 Individual Suggestions
+### 14. Guided Remediation — 2,928 Individual Suggestions
 Every BLOCK finding includes root cause, exact fix, CVE references. 17 special handlers. The agent reads the suggestion and self-corrects. Zero templates.
 
 ---
 
 ## Scan Coverage
 
-Static analysis (2,924 rules, 89 extensions), AST structural analysis (10 tree-sitter checks), cross-language taint (7 languages), container/IaC hardening, live import verification (8 registries), and real-time AI governance gateway (44 BLOCK patterns).
+Static analysis (2,928 rules, 89 extensions), AST structural analysis (10 tree-sitter checks), cross-language taint (7 languages), container/IaC hardening, live import verification (8 registries), and real-time AI governance gateway (44 BLOCK patterns).
 
 ---
 
@@ -209,10 +209,10 @@ or `baseline share` to commit it for team workflow.
 
 | Metric | Value |
 |--------|-------|
-| Scan rules | 2,924 (89 file extensions) |
+| Scan rules | 2,928 (89 file extensions) |
 | Gateway interceptor | 62 rules (44 BLOCK) |
 | Enforcement layers | 9 (verified by `codetrust doctor`) |
-| Guided remediation | 2,924 individual suggestions |
+| Guided remediation | 2,928 individual suggestions |
 | PII detection | 16 categories with validators |
 | Compliance frameworks | 3 (OWASP 10/10, EU 7/7, NIST 4/4) |
 | Cost tracking models | 20 across 4 providers |
@@ -236,21 +236,19 @@ or `baseline share` to commit it for team workflow.
 
 ---
 
-## What's New
+## What's New in 4.1.0
 
-- **First-scan baseline mode** — existing code accepted as legacy automatically; subsequent scans show only NEW issues. `codetrust baseline share` for team workflow.
-- **Hallucination detection 95%** — measured against ground-truth dataset (was ~55% baseline), unified across CLI/API/MCP surfaces.
-- **Grade A suggestions** — every BLOCK and WARN finding now ships with concrete fix guidance (2,924 individual recommendations) directly in scan output.
-- **Vibe-coder UX** — `init` 50→25 lines, `doctor` 66→21 lines, `status` one line, `scan` summary leads with "X must fix | Y should fix" instead of total count, INFO hidden by default.
-- **PII Detection** — 16 categories, Luhn/IBAN validators, auto-redaction, policy enforcement
-- **Data Classification + Model Routing** — 4 sensitivity levels, per-model access control
-- **LLM Cost Tracking** — 20 models, per-developer budgets, anomaly detection
-- **Compliance** — OWASP ASI 10/10, EU AI Act 7/7, NIST AI RMF 4/4
-- **Agent Integrity** — 4 behavioral patterns, calibrated against real incidents
-- **Framework Integrations** — LangChain, CrewAI, OpenAI Agents SDK
-- **Governance Dashboard** — core/pro layout, live polling, no fake compliance badges
-- **Rule scoping** — universal rules 1,680 → 78 (95% reduction, 10% faster scans)
-- **Definition of Done** — external enforcement gate, `codetrust dod`
+- **Hallucination detection at 95%** — verified against a ground-truth dataset with 0% false positives. Covers fake packages, misspelled imports, invented APIs, fake sanitizers, and hallucinated configuration options.
+- **Scan baseline** — first scan accepts existing code as legacy. Subsequent scans show only new issues. Share baselines across teams with `codetrust baseline share`.
+- **Reduced mode** — when the free daily scan quota is exhausted, scans continue with critical safety rules instead of stopping. Gateway protection stays active at all times.
+- **Language-aware remediation** — scan findings recommend fixes in the language you're writing (Python, JavaScript, TypeScript, Ruby, PHP).
+- **`codetrust today`** — daily summary of governance activity, scan quota, and top rules triggered.
+- **PII Detection** — 16 categories with Luhn, IBAN checksum, and format validation. Auto-redaction and per-category policy controls.
+- **Compliance** — OWASP ASI 2026 (10/10), EU AI Act (7/7), NIST AI RMF 1.0 (4/4) with evidence-linked mappings.
+- **Agent Integrity** — detects sycophantic retractions, unsubstantiated claims, and contradictory positions in AI agent sessions.
+- **Governance Dashboard** — scan quota widget, enforcement overview, compliance status, and PII metrics at `app.codetrust.ai`.
+- **VS Code extension parity** — offline scans now use the full rule set when the CLI is installed locally.
+- **Definition of Done** — configurable acceptance gates in TOML, enforced at pre-commit and in CI.
 
 ---
 
@@ -258,18 +256,18 @@ or `baseline share` to commit it for team workflow.
 
 ```bash
 codetrust init                     # Install governance
-codetrust doctor                   # Verify 9 layers
-codetrust scan app.py              # Scan a file
+codetrust scan .                   # Scan your project
+codetrust today                    # Daily governance summary
+codetrust doctor                   # Verify 9 enforcement layers
+codetrust status                   # Quick protection check
+codetrust baseline status          # View scan baseline
+codetrust fix --apply              # Auto-fix detected issues
+codetrust audit --since today      # Governance audit trail
+codetrust pii scan src/            # PII detection
 codetrust compliance --framework owasp-asi-2026  # Compliance report
-codetrust pii scan app.py          # PII detection
-codetrust classify src/ --model gpt-4o  # Data classification + routing
-codetrust cost                     # LLM cost report
-codetrust integrity --session f.json  # Agent integrity analysis
-codetrust integrations             # Framework status
+codetrust integrity                # Agent integrity analysis
 codetrust dod                      # Definition of Done gate
-codetrust audit --hours 24         # Audit trail
-codetrust pr-risk                  # PR risk summary
-codetrust vuln                     # CVE scan
+codetrust --help-all               # All 40+ commands
 ```
 
 ---

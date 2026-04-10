@@ -7,39 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### What's Coming
+### Planned
 
 - Policy packs for SOC 2 / ISO 27001 / PCI-DSS presets
 - Org-level governance alerting for drift and repeat BLOCK events
+- Scheduled scans with Slack/email notifications
 
-## [Unreleased — 4.1.0]
+## [4.1.0] - 2026-04-10
 
-### Added
-- **PII Detection Engine** — 16 categories (email, phone, credit card with Luhn, personnummer, API keys, JWT, IBAN, private keys, passwords, URLs with credentials, SSN, passport, name, address, DOB). Auto-redaction. Per-category policy (block/warn/redact/off). CLI: `codetrust pii scan|redact|policy|report`. MCP tool: `pii_scan`. API: `POST /v1/pii/scan`.
-- **Data Classification + Model Routing** — 4 sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED). Path + content + PII-based classification. Per-level model routing with wildcard patterns. Auto-redact restricted data. CLI: `codetrust classify`. MCP tools: `classify_data`, `check_model_routing`.
-- **LLM Cost Tracking** — 20 models across 4 providers (Claude 4.x, GPT-4.1/o3/o4, Gemini 2.x, Llama 4). Per-developer/team/model aggregation. Budget enforcement (warn at 80%, alert at 95%, block at 100%). Anomaly detection (3x 7-day avg, 50% team concentration). CLI: `codetrust cost`. MCP tool: `cost_report`.
-- **Compliance Frameworks** — OWASP ASI 2026 (10/10), EU AI Act (7/7), NIST AI RMF (4/4). All full coverage verified by `codetrust dod`. CLI: `codetrust compliance --framework <id>`.
-- **Agent Integrity Verification** — 4 behavioral patterns: sycophantic retraction, unsubstantiated claims, unverified references, contradictory positions. Calibrated against 20 real session incidents (100% detection). CLI: `codetrust integrity`.
-- **Definition of Done Engine** — External enforcement gate. 6 checks in TOML. Protected by file-write hook. Pre-commit blocks on failure. CLI: `codetrust dod`.
-- **Framework Integrations** — LangChain (`CodeTrustGovernance`), CrewAI (`CodeTrustCrew`), OpenAI Agents SDK (`governed_agent`). `pip install codetrust[langchain|crewai|openai-agents]`.
-- **Real-time Governance Dashboard** — 3 API endpoints (overview, timeline, alerts). 7 Next.js pages with live data polling. Enforcement, compliance, PII, classification, cost, integrity views.
-- **Completion Hallucination Detection** — 9 marker patterns, 4 evidence categories. Detects agent claims without verification evidence. MCP tool: `verify_claim`.
-- **9 EU/NIST gap-closure modules** — risk_register, privacy, conformity_assessment, red_team, governance_report, risk_map, metrics_report, treatment_plan, per-line attribution.
+### Highlights
 
-### Changed
-- **Universal rule scoping** — 1,680 universal rules reduced to 78 (95.4% reduction). 10% faster Python scans. CLI rule routing fixed for multi-language rules.
-- **Enforcement layers** — 8 to 9 (compliance coverage added as Layer 9).
-- **Agent Integrity scoring** — weights calibrated from real incident data: unsubstantiated -2 to -3, sycophantic -3 to -4.
-- **verify_claim output** — backward-compatible top-level `claims_detected` and `results` aliases added.
-- **TOML escaping** — robust handling of control characters, \b, \f, \uXXXX per TOML v1.0 spec.
-- **`codetrust init`** — now creates `pii-policy.toml` and `model-routing.toml` with sensible defaults.
-- **`codetrust --last`** — returns exit 1 with explanation when 0 claims found (no false TRUSTWORTHY).
-- **CLAUDE.md philosophy** — enforcement handles compliance, text gives context. No mandatory tool-calls.
+CodeTrust 4.1.0 delivers comprehensive AI governance in a single command. Install, scan, and enforce — with real-time protection that works even offline.
 
-### Fixed
-- **Telemetry blocks counter** — counted from findings list instead of empty severity dict.
-- **owasp-asi-2026.md** — 10 stale evidence references corrected against actual code.
-- **Copilot PR review** — 14 findings resolved (TOML escaping, sycophancy detector, unused imports, etc.).
+### New capabilities
+
+- **PII Detection** — 16 categories including email, phone, credit card (Luhn-validated), IBAN, Swedish personnummer, API keys, JWT, private keys, and more. Auto-redaction and per-category policy controls. CLI: `codetrust pii scan`.
+- **Agent Integrity Verification** — detects sycophantic retractions, unsubstantiated claims, unverified references, and contradictory positions in AI agent sessions. CLI: `codetrust integrity`.
+- **Compliance Mapping** — OWASP Agentic Security Initiative 2026 (10/10), EU AI Act (7/7), NIST AI RMF 1.0 (4/4). Evidence-linked mappings with file-level references. CLI: `codetrust compliance --framework <id>`.
+- **Definition of Done Engine** — configurable acceptance criteria in TOML, enforced at pre-commit and in CI. CLI: `codetrust dod`.
+- **Data Classification + Model Routing** — 4 sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) with per-level model routing rules.
+- **LLM Cost Tracking** — usage aggregation across models and providers with budget enforcement and anomaly detection. CLI: `codetrust cost`.
+- **AI Model Attribution** — per-line attribution via git trailers (Co-Authored-By, AI-Model) and IDE hook data. EU AI Act Article 52 transparency support.
+- **Governance Dashboard** — real-time enforcement view, compliance status, PII metrics, cost tracking, and agent integrity scoring at `app.codetrust.ai`.
+- **Scan Quota Widget** — live quota visualization on the dashboard settings page with reduced-mode awareness.
+- **Framework Integrations** — LangChain, CrewAI, and OpenAI Agents SDK. `pip install codetrust[langchain|crewai|openai-agents]`.
+
+### New CLI commands
+
+- `codetrust today` — daily summary of governance activity, scan quota status, and top rules triggered.
+- `codetrust audit --since 30m|2h|today|yesterday` — flexible time-range filtering for the governance audit log.
+- `codetrust --version` — print the installed version.
+- `codetrust baseline share` — share the scan baseline with your team via git.
+
+### Scanning improvements
+
+- **Hallucination detection at 95%** across 20 ground-truth test cases with 0% false positives. Combines regex patterns, live registry verification (8 registries: PyPI, npm, Go, crates.io, RubyGems, Packagist, Maven, NuGet), signature validation, and taint analysis.
+- **Language-aware suggestions** — scan findings now recommend fixes in the language you're writing (Python, JavaScript, TypeScript, Ruby, PHP), not generic alternatives.
+- **Scan baseline** — first scan on a project accepts existing findings as legacy. Subsequent scans show only new issues, eliminating the "graded on old code" problem.
+- **2,928 scan rules** across 89 file extensions with individually crafted remediation guidance.
+
+### Reduced mode (free plan)
+
+When the daily free-scan quota (25/day) is exhausted, scans continue running with 15 critical safety rules instead of stopping. Gateway hooks and file-write protection remain fully active at all times. The scan output clearly shows which analyses are active and which are paused until quota resets at midnight UTC.
+
+### VS Code extension
+
+- Extension and CLI now share the same rule IDs — findings are consistent regardless of whether the scan ran online, via CLI, or in the embedded offline scanner.
+- When the `codetrust` CLI is installed locally, the extension delegates to it for offline scans — providing full rule coverage without an API connection.
+
+### Enforcement
+
+- **9 enforcement layers** verified by `codetrust doctor`: BASH_ENV guard, PreToolUse hooks (Bash + file-write), MCP Gateway, pre-commit hook, GitHub Action, advisory files, governance config, allow-list audit, compliance frameworks.
+- `codetrust fix` now respects the scan gate and reduced mode. Autofix recipes are tagged with their target rule so they honor quota restrictions.
+
+### Dashboard
+
+- Core/Pro navigation separation — essential features are front-and-center, advanced features accessible but not overwhelming.
+- Honest compliance page — maps CodeTrust capabilities to framework requirements with evidence links.
+- PII and integrity views with CLI cross-references.
+
+### CLI experience
+
+- `codetrust init` — concise phase summary with clear next steps.
+- `codetrust doctor` — per-layer summary by default, `--verbose` for details.
+- `codetrust status` — single-line protection status.
+- `codetrust scan` — delta storytelling when clean ("Clean since baseline"), Trust Score breakdown.
+- `codetrust login` — welcoming success flow with plan details and next steps.
+- `codetrust --help` — 9 core commands by default, 40+ available via `--help-all`.
 
 ## [4.0.6] - 2026-03-29
 

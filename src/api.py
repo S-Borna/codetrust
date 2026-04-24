@@ -563,11 +563,18 @@ async def _init_http_client() -> httpx.AsyncClient:
 
 
 async def _init_database() -> DatabaseService | None:
-    """Initialize the database, returning None if unavailable."""
+    """Initialize the database, returning None if unavailable.
+
+    Schema-mismatch errors (RuntimeError from _verify_counter_snapshots_schema)
+    are NOT swallowed — they must crash startup so Railway alerts instead of
+    silently running with a broken snapshot worker.
+    """
     try:
         db = DatabaseService(settings.database_url, echo=settings.database_echo)
         await db.create_tables()
         return db
+    except RuntimeError:
+        raise
     except Exception as exc:
         logger.warning(
             "database_init_skipped",

@@ -3,7 +3,10 @@
 import datetime
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from src.models.database import CounterSnapshot
 from src.services.database import DatabaseService, _hash_key
 
 
@@ -330,3 +333,42 @@ class TestHashKey:
         """SHA-256 hash is 64 hex characters."""
         h = _hash_key("any_key")
         assert len(h) == 64
+
+
+class TestCounterSnapshotSchema:
+    """Guardrails for counter_snapshots schema — the bug that lost our telemetry."""
+
+    async def test_orm_roundtrip_on_fresh_schema(self, db_service: DatabaseService) -> None:
+        """Create a snapshot via ORM, read it back — baseline that schema matches."""
+        async with db_service._session_factory() as session:
+            session.add(CounterSnapshot(key="ct:test:roundtrip", value=42))
+            await session.commit()
+
+        latest = await db_service.get_latest_counter_snapshots(("ct:test:roundtrip",))
+        assert latest == {"ct:test:roundtrip": 42}
+
+    async def test_create_tables_rejects_legacy_schema(self, tmp_path) -> None:
+        """A pre-existing counter_snapshots table with the legacy (id, counter_key)
+        shape must cause create_tables to raise — not silently continue. This is
+        the exact condition that masked a 19-day snapshot-write outage in prod.
+        """
+        db_path = tmp_path / "legacy.db"
+        url = f"sqlite+aiosqlite:///{db_path}"
+
+        # Seed a legacy counter_snapshots table before ORM create_all runs.
+        engine = create_async_engine(url)
+        async with engine.begin() as conn:
+            await conn.execute(text(
+                "CREATE TABLE counter_snapshots ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                " counter_key TEXT NOT NULL,"
+                " value BIGINT NOT NULL DEFAULT 0,"
+                " snapshot_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                ")"
+            ))
+        await engine.dispose()
+
+        db = DatabaseService(url)
+        with pytest.raises(RuntimeError, match="counter_snapshots schema does not match"):
+            await db.create_tables()
+        await db.close()

@@ -184,10 +184,37 @@ class DatabaseService:
         )
 
     async def create_tables(self) -> None:
-        """Create all tables if they don't exist."""
+        """Create all tables if they don't exist, then verify critical schemas match the ORM."""
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("database_tables_created")
+        await self._verify_counter_snapshots_schema()
+
+    async def _verify_counter_snapshots_schema(self) -> None:
+        """Roundtrip an ORM INSERT/SELECT/DELETE against counter_snapshots.
+
+        Guards against a legacy schema (id + counter_key column) that create_all
+        silently leaves in place. A mismatch here must crash startup so snapshot
+        writes aren't swallowed by the background worker.
+        """
+        probe_key = "ct:probe:schema_verify"
+        async with self._session_factory() as session:
+            try:
+                session.add(CounterSnapshot(key=probe_key, value=0))
+                await session.flush()
+                await session.execute(
+                    CounterSnapshot.__table__.delete().where(
+                        CounterSnapshot.key == probe_key,
+                    ),
+                )
+                await session.commit()
+            except Exception as exc:
+                await session.rollback()
+                raise RuntimeError(
+                    "counter_snapshots schema does not match ORM model. "
+                    "Run `alembic upgrade head` before starting the API. "
+                    f"Underlying error: {type(exc).__name__}: {exc}",
+                ) from exc
 
     async def close(self) -> None:
         """Dispose of the engine connection pool."""

@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 """
-CodeTrust pre-commit hook — MANDATORY quality gate.
-Scans staged files for anti-patterns before allowing a commit.
+CodeTrust pre-commit hook — warn-first quality companion.
 
-Install (recommended — version-controlled, cannot be deleted):
+By default this hook is advisory: it scans staged files and shows what it
+finds, but it never blocks your commit. Flip the project to a strict gate
+only when you want it:
+
+    codetrust enforce              # commit_gate = "enforce"
+    codetrust enforce --off        # back to warn-first
+
+Override per-commit without editing config:
+    CODETRUST_COMMIT_GATE=enforce git commit ...
+
+Install (recommended — version-controlled):
     git config core.hooksPath hooks
 
-Legacy install (copies to .git/hooks — can be deleted):
+Legacy install (copies to .git/hooks):
     cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 """
 
@@ -14,6 +23,28 @@ import os
 import re
 import subprocess
 import sys
+
+
+def read_commit_gate() -> str:
+    """Return the commit gate (warn|enforce|off). Default warn-first.
+
+    Reads CODETRUST_COMMIT_GATE first, then commit_gate from .codetrust.toml.
+    Stdlib-only and tolerant so the hook never crashes on a malformed config.
+    """
+    env = os.environ.get("CODETRUST_COMMIT_GATE", "").strip().lower()
+    if env in ("warn", "enforce", "off"):
+        return env
+    for name in (".codetrust.toml", "codetrust.toml"):
+        try:
+            with open(name, encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.split("#", 1)[0].strip()
+                    m = re.match(r"""commit_gate\s*=\s*['"]?(\w+)['"]?""", stripped)
+                    if m and m.group(1).lower() in ("warn", "enforce", "off"):
+                        return m.group(1).lower()
+        except OSError:
+            continue
+    return "warn"
 
 BLOCK_PATTERNS: list[tuple[str, str]] = [
     (r"<<[-']?\w+", "Heredoc detected — use template files instead"),
@@ -118,13 +149,22 @@ def _try_cli_scan(files: list[str]) -> int | None:
                 warnings = int(data.get("warnings", 0) or 0)
                 infos = int(data.get("infos", 0) or 0)
 
+                gate = read_commit_gate()
                 if blocks > 0:
-                    print(f"\n\U0001f6ab CodeTrust BLOCKED ({blocks} issues, {total} total)")
+                    enforcing = gate == "enforce"
+                    icon = "\U0001f6ab" if enforcing else "\u26a0\ufe0f "
+                    label = "BLOCKED" if enforcing else "flagged critical findings"
+                    print(f"\n{icon} CodeTrust {label} ({blocks} critical, {total} total)")
                     for f in data.get("findings", []):
                         if f.get("severity") == "BLOCK":
-                            print(f"  \U0001f6ab {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
-                    print("\nFix the issues above before committing.\n")
-                    return 1
+                            print(f"  {icon} {f['file']}:{f['line']} [{f['rule_id']}] {f['message']}")
+                    if enforcing:
+                        print("\nFix the issues above before committing "
+                              "(or `CODETRUST_COMMIT_GATE=warn git commit` to bypass once).\n")
+                        return 1
+                    print("\nNot blocking (warn-first). "
+                          "Run `codetrust enforce` to gate commits on these.\n")
+                    return 0
 
                 if warnings > 0 or infos > 0:
                     info_part = f", {infos} info" if infos else ""
@@ -208,10 +248,16 @@ def main() -> int:
         print("\n".join(all_warns))
 
     if all_blocks:
-        print("\n\U0001f6ab CodeTrust BLOCKED this commit:")
+        if read_commit_gate() == "enforce":
+            print("\n\U0001f6ab CodeTrust BLOCKED this commit:")
+            print("\n".join(all_blocks))
+            print("\nFix the issues above before committing "
+                  "(or `CODETRUST_COMMIT_GATE=warn git commit` to bypass once).\n")
+            return 1
+        print("\n\u26a0\ufe0f  CodeTrust flagged critical findings (not blocking \u2014 warn-first):")
         print("\n".join(all_blocks))
-        print("\nFix the issues above before committing.\n")
-        return 1
+        print("\nRun `codetrust enforce` to gate commits on these.\n")
+        return 0
 
     if not all_blocks and not all_warns:
         print("\u2705 CodeTrust: All checks passed.")

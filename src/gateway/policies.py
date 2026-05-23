@@ -61,6 +61,15 @@ class GovernanceConfig:
     enabled: bool = True
     mode: GovernanceMode = GovernanceMode.ENFORCE
 
+    # Commit/scan gate — separate from `mode` (command interception). Controls
+    # whether code-quality findings reject a commit / fail CI. Defaults to
+    # warn-first so the scanner never breaks a developer's flow uninvited;
+    # blocking the genuinely dangerous commands stays governed by `mode`.
+    #   warn    — show findings, never block a commit/CI run (default)
+    #   enforce — reject commits / fail CI on BLOCK findings
+    #   off     — skip the commit/scan gate entirely
+    commit_gate: str = "warn"
+
     # Terminal command governance
     block_heredoc: bool = True
     block_eval: bool = True
@@ -345,6 +354,10 @@ class PolicyEngine:
         with contextlib.suppress(ValueError):
             config.mode = GovernanceMode(mode_str)
 
+        gate = str(gov.get("commit_gate", config.commit_gate)).lower()
+        if gate in ("warn", "enforce", "off"):
+            config.commit_gate = gate
+
         PolicyEngine._apply_terminal_config(config, gov.get("terminal", {}))
         PolicyEngine._apply_resource_config(config, gov)
 
@@ -358,6 +371,10 @@ class PolicyEngine:
         if env_mode:
             with contextlib.suppress(ValueError):
                 config.mode = GovernanceMode(env_mode.lower())
+
+        env_gate = os.environ.get("CODETRUST_COMMIT_GATE")
+        if env_gate and env_gate.lower() in ("warn", "enforce", "off"):
+            config.commit_gate = env_gate.lower()
 
         env_enabled = os.environ.get("CODETRUST_GOVERNANCE_ENABLED")
         if env_enabled is not None:
@@ -392,6 +409,7 @@ class PolicyEngine:
             "[codetrust.governance]",
             f'enabled = {str(self._config.enabled).lower()}',
             f'mode = "{self._config.mode.value}"',
+            f'commit_gate = "{self._config.commit_gate}"',
             "",
             "[codetrust.governance.terminal]",
             f"block_heredoc = {str(self._config.block_heredoc).lower()}",

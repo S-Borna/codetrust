@@ -42,12 +42,15 @@ from src.cli import (
     _normalize_path_for_git,
     _scan_output_api_error,
     _scan_resolve_output_options,
+    _commit_gate_to_fail_on,
+    _scan_exit_code,
     _sort_findings,
     _suppress_lint_covered_findings,
     _trend_read,
     _trend_snapshot,
     _trend_write,
     cmd_add,
+    cmd_enforce,
     cmd_policy,
     cmd_scan,
     scan_file,
@@ -236,6 +239,102 @@ class TestBaselineGating:
         finally:
             os.chdir(old_cwd)
             _safe_rmtree(tmp_dir)
+
+
+class TestWarnFirstCommitGate:
+    """Warn-first is the default: findings shown, commit never blocked."""
+
+    @staticmethod
+    def _args(**kw: object) -> object:
+        args = type("Args", (), {})()
+        args.fail_on = None
+        args.fail_on_new = "BLOCK"
+        for k, v in kw.items():
+            setattr(args, k, v)
+        return args
+
+    def test_gate_to_fail_on_mapping(self) -> None:
+        assert _commit_gate_to_fail_on("warn") == "never"
+        assert _commit_gate_to_fail_on("off") == "never"
+        assert _commit_gate_to_fail_on("enforce") == "block"
+
+    def test_block_verdict_does_not_fail_in_warn_first_default(self) -> None:
+        """No config, no --fail-on → BLOCK findings must not fail the run."""
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        try:
+            os.chdir(tmp)  # empty dir → no .codetrust.toml → default warn
+            findings = [{"severity": "BLOCK", "rule_id": "eval_exec",
+                         "file": "a.py", "line": 1, "message": "x"}]
+            rc = _scan_exit_code("BLOCK", self._args(), findings, baseline_mode=False)
+            assert rc == 0
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_enforce_via_env_fails_on_block(self) -> None:
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        os.environ["CODETRUST_COMMIT_GATE"] = "enforce"
+        try:
+            os.chdir(tmp)
+            findings = [{"severity": "BLOCK", "rule_id": "eval_exec",
+                         "file": "a.py", "line": 1, "message": "x"}]
+            rc = _scan_exit_code("BLOCK", self._args(), findings, baseline_mode=False)
+            assert rc == 1
+        finally:
+            del os.environ["CODETRUST_COMMIT_GATE"]
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_explicit_fail_on_block_overrides_warn_first(self) -> None:
+        """An explicit --fail-on block (e.g. CI) still fails even in warn-first."""
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        try:
+            os.chdir(tmp)
+            findings = [{"severity": "BLOCK", "rule_id": "eval_exec",
+                         "file": "a.py", "line": 1, "message": "x"}]
+            rc = _scan_exit_code("BLOCK", self._args(fail_on="block"),
+                                 findings, baseline_mode=False)
+            assert rc == 1
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_enforce_command_toggles_commit_gate_in_config(self) -> None:
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        try:
+            (tmp / ".codetrust.toml").write_text(
+                "[codetrust.governance]\nenabled = true\nmode = \"enforce\"\n"
+                "commit_gate = \"warn\"\n",
+                encoding="utf-8",
+            )
+            os.chdir(tmp)
+            assert cmd_enforce(self._args(off=False)) == 0
+            assert 'commit_gate = "enforce"' in (tmp / ".codetrust.toml").read_text()
+            assert cmd_enforce(self._args(off=True)) == 0
+            assert 'commit_gate = "warn"' in (tmp / ".codetrust.toml").read_text()
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_enforce_command_inserts_gate_when_missing(self) -> None:
+        """Configs created before warn-first have no commit_gate line — insert it."""
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        try:
+            (tmp / ".codetrust.toml").write_text(
+                "[codetrust.governance]\nenabled = true\nmode = \"enforce\"\n",
+                encoding="utf-8",
+            )
+            os.chdir(tmp)
+            assert cmd_enforce(self._args(off=False)) == 0
+            assert 'commit_gate = "enforce"' in (tmp / ".codetrust.toml").read_text()
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
 
 
 class TestAutofix:

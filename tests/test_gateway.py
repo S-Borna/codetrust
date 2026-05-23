@@ -448,6 +448,16 @@ class TestPolicyEngine:
         assert 'mode = "enforce"' in toml
         assert "block_heredoc = true" in toml
 
+    def test_commit_gate_defaults_to_warn(self) -> None:
+        """Warn-first: the commit gate must default to warn, independent of mode."""
+        config = GovernanceConfig()
+        assert config.commit_gate == "warn"
+        assert config.mode == GovernanceMode.ENFORCE  # command interception stays strict
+
+    def test_commit_gate_serialized_to_toml(self) -> None:
+        toml = PolicyEngine().to_toml_section()
+        assert 'commit_gate = "warn"' in toml
+
 
 class TestPolicyEngineFromWorkspace:
     """Test loading config from TOML files."""
@@ -456,6 +466,22 @@ class TestPolicyEngineFromWorkspace:
         engine = PolicyEngine.from_workspace(tmp_path)
         assert engine.config.enabled is True
         assert engine.config.mode == GovernanceMode.ENFORCE
+        assert engine.config.commit_gate == "warn"
+
+    def test_commit_gate_loaded_from_toml(self, tmp_path: Path) -> None:
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nmode = "enforce"\ncommit_gate = "enforce"\n',
+        )
+        engine = PolicyEngine.from_workspace(tmp_path)
+        assert engine.config.commit_gate == "enforce"
+
+    def test_commit_gate_env_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        (tmp_path / ".codetrust.toml").write_text(
+            '[codetrust.governance]\ncommit_gate = "warn"\n',
+        )
+        monkeypatch.setenv("CODETRUST_COMMIT_GATE", "enforce")
+        engine = PolicyEngine.from_workspace(tmp_path)
+        assert engine.config.commit_gate == "enforce"
 
     def test_from_codetrust_toml(self, tmp_path: Path) -> None:
         toml_content = """

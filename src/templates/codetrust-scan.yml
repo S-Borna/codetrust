@@ -9,6 +9,12 @@ permissions:
   contents: read
   pull-requests: write
 
+# Warn-first by default: the scan reports findings but does not fail the check.
+# To gate merges on BLOCK findings, set this variable to "enforce"
+# (Settings → Secrets and variables → Actions → Variables) or change the value here.
+env:
+  CODETRUST_COMMIT_GATE: ${{ vars.CODETRUST_COMMIT_GATE || 'warn' }}
+
 jobs:
   codetrust:
     name: CodeTrust Quality Gate

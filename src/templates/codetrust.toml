@@ -5,12 +5,20 @@
 #  This file controls how CodeTrust governs AI agent behavior
 #  in your workspace. All settings can be toggled per-project.
 #
-#  Modes:
-#    enforce  — Block violations, log everything (default)
-#    audit    — Allow all actions, but log violations for review
-#    off      — Disable governance entirely
+#  Two independent controls:
 #
-#  Override via env: CODETRUST_GOVERNANCE_MODE=audit
+#  mode — how dangerous TERMINAL COMMANDS are handled (rm -rf, curl|sh, …):
+#    enforce  — block dangerous commands, log everything (default)
+#    audit    — allow all, but log for review
+#    off       — disable command interception entirely
+#    Override via env: CODETRUST_GOVERNANCE_MODE=audit
+#
+#  commit_gate — whether code-quality FINDINGS reject a commit / fail CI:
+#    warn     — show findings, never block your commit (default, warn-first)
+#    enforce  — reject commits / fail CI on BLOCK findings
+#    off       — skip the commit/scan gate entirely
+#    Toggle with: codetrust enforce   (revert: codetrust enforce --off)
+#    Override per-run via env: CODETRUST_COMMIT_GATE=enforce
 
 [codetrust]
 exclude_paths = ["migrations/", "vendor/", "node_modules/"]
@@ -19,6 +27,7 @@ ignore_rules = []
 [codetrust.governance]
 enabled = true
 mode = "enforce"
+commit_gate = "warn"
 
 # ───────────────────────────────────────────────────────────────
 #  Terminal Command Governance

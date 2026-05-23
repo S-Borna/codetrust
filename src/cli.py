@@ -1974,6 +1974,9 @@ def _governance_config_for_profile(profile: str) -> GovernanceConfig:
     from src.gateway.policies import GovernanceConfig, GovernanceMode
 
     cfg = GovernanceConfig()
+    # commit_gate stays warn-first (the GovernanceConfig default) for every
+    # profile except enterprise — only the strictest profile gates commits by
+    # default. Everyone else opts in deliberately with `codetrust enforce`.
     if profile == "startup":
         cfg.mode = GovernanceMode.AUDIT
         cfg.block_sudo = False
@@ -1983,6 +1986,7 @@ def _governance_config_for_profile(profile: str) -> GovernanceConfig:
     elif profile == "enterprise":
         cfg.mode = GovernanceMode.ENFORCE
         cfg.block_sudo = True
+        cfg.commit_gate = "enforce"
     else:
         raise ValueError(f"Unknown profile: {profile}")
 
@@ -1995,6 +1999,7 @@ def _render_governance_terminal_lines(root: str, cfg: GovernanceConfig) -> list[
         f"[{root}.governance]",
         f"enabled = {str(bool(cfg.enabled)).lower()}",
         f'mode = "{cfg.mode.value}"',
+        f'commit_gate = "{cfg.commit_gate}"',
         "",
         f"[{root}.governance.terminal]",
         f"block_heredoc = {str(bool(cfg.block_heredoc)).lower()}",
@@ -2920,6 +2925,10 @@ def _init_print_summary() -> None:
     _echo("    × Install hallucinated packages (verified against 8 registries)")
     _echo("    × Write secrets to files (API keys, private keys, passwords)")
     _echo("    × Bypass security checks via heredoc or shell tricks")
+    _echo()
+    _echo()
+    _echo(f"  {color('🌱 Commit gate: WARN-FIRST', YELLOW)} — findings are shown, never block your commit.")
+    _echo(f"     Ready to gate strictly? {color('codetrust enforce', BOLD)} (revert: codetrust enforce --off)")
     _echo()
     _echo(f"  {color('Next:', BOLD)}")
     _echo(f"    {color('codetrust scan', GREEN)}      — establish baseline (existing code accepted as legacy)")
@@ -4464,6 +4473,21 @@ def _scan_should_fail(verdict: str, fail_on: str) -> bool:
     return fail_on == "warn" and verdict in ("BLOCK", "WARN")
 
 
+def _load_commit_gate(cwd: Path) -> str:
+    """Return the project's commit gate (warn|enforce|off), defaulting to warn."""
+    try:
+        from src.gateway.policies import PolicyEngine
+
+        return PolicyEngine.from_workspace(cwd).config.commit_gate
+    except Exception:
+        return "warn"
+
+
+def _commit_gate_to_fail_on(gate: str) -> str:
+    """Map a commit gate to the equivalent --fail-on threshold."""
+    return "block" if gate == "enforce" else "never"
+
+
 def _scan_exit_code(
     verdict: str,
     args: argparse.Namespace,
@@ -4480,8 +4504,12 @@ def _scan_exit_code(
         )
         return 1 if fail else 0
 
-    fail_on = str(getattr(args, "fail_on", "block"))
-    return 1 if _scan_should_fail(verdict, fail_on) else 0
+    # Explicit --fail-on wins; otherwise the project commit gate decides.
+    # Default is warn-first: findings are shown but never fail the run.
+    fail_on = getattr(args, "fail_on", None)
+    if fail_on is None:
+        fail_on = _commit_gate_to_fail_on(_load_commit_gate(Path.cwd()))
+    return 1 if _scan_should_fail(verdict, str(fail_on)) else 0
 
 
 def _scan_parse_options(
@@ -4907,9 +4935,26 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     _scan_output_machine(args, result, all_findings, machine_output=machine_output)
 
-    return _scan_exit_code(
+    exit_code = _scan_exit_code(
         str(result["verdict"]), args, all_findings, baseline_mode=baseline_mode,
     )
+
+    # Warn-first transparency: when findings exist but the gate let the run pass,
+    # tell the developer how to make the gate strict — without blocking them now.
+    if (
+        not machine_output
+        and exit_code == 0
+        and str(result["verdict"]) == "BLOCK"
+        and getattr(args, "fail_on", None) is None
+        and not baseline_mode
+    ):
+        _echo(color(
+            "\n  ℹ Warn-first mode: critical findings shown above but not blocking. "
+            "Run `codetrust enforce` to gate commits on them.\n",
+            YELLOW,
+        ))
+
+    return exit_code
 
 
 # --- Status command ---
@@ -6208,6 +6253,50 @@ def _governance_set_mode(project_dir: Path, mode: str) -> int:
     return 0
 
 
+def _governance_set_commit_gate(project_dir: Path, gate: str) -> int:
+    """Set the commit gate (warn|enforce|off) in .codetrust.toml.
+
+    Inserts the key under [codetrust.governance] if it isn't present yet so
+    older configs created before warn-first still upgrade cleanly.
+    """
+    toml_path = project_dir / ".codetrust.toml"
+    if not toml_path.is_file():
+        _echo(f"  {color('❌', RED)} No .codetrust.toml found. Run: codetrust init")
+        return 1
+    content = toml_path.read_text()
+    import re as _re
+
+    if _re.search(r'commit_gate\s*=\s*"[^"]*"', content):
+        content = _re.sub(r'commit_gate\s*=\s*"[^"]*"', f'commit_gate = "{gate}"', content)
+    else:
+        # Insert right after the mode line in the governance table.
+        content = _re.sub(
+            r'(mode\s*=\s*"[^"]*"\n)',
+            rf'\1commit_gate = "{gate}"\n',
+            content,
+            count=1,
+        )
+    toml_path.write_text(content)
+    return 0
+
+
+def cmd_enforce(args: argparse.Namespace) -> int:
+    """Toggle the commit gate between warn-first and strict enforcement."""
+    project_dir = Path.cwd()
+    gate = "warn" if getattr(args, "off", False) else "enforce"
+    rc = _governance_set_commit_gate(project_dir, gate)
+    if rc != 0:
+        return rc
+    if gate == "enforce":
+        _echo(f"\n  {color('🔒 Commit gate: ENFORCE', GREEN)}")
+        _echo("     Commits and CI now fail on BLOCK findings.")
+        _echo(f"     Back to warn-first anytime: {color('codetrust enforce --off', BOLD)}\n")
+    else:
+        _echo(f"\n  {color('🌱 Commit gate: WARN-FIRST', YELLOW)}")
+        _echo("     Findings are shown but never block your commit.\n")
+    return 0
+
+
 def _governance_show_status(engine: PolicyEngine) -> int:
     """Display current governance status and policies."""
     config = engine.config
@@ -6215,8 +6304,10 @@ def _governance_show_status(engine: PolicyEngine) -> int:
     enabled = sum(1 for p in policies if p.enabled)
     disabled = sum(1 for p in policies if not p.enabled)
 
+    gate = getattr(config, "commit_gate", "warn")
     _echo(f"\n{color('🛡️  CodeTrust Governance Status', BOLD)}\n")
-    _echo(f"  Mode:     {color(config.mode.value.upper(), GREEN if config.mode.value == 'enforce' else YELLOW)}")
+    _echo(f"  Mode:        {color(config.mode.value.upper(), GREEN if config.mode.value == 'enforce' else YELLOW)}")
+    _echo(f"  Commit gate: {color(gate.upper(), GREEN if gate == 'enforce' else YELLOW)}")
     _echo(f"  Enabled:  {config.enabled}")
     _echo(f"  Policies: {enabled} active, {disabled} disabled")
     _echo(f"  Audit:    {config.audit_path}")
@@ -6721,7 +6812,9 @@ def _add_scan_subparser(
     )
     scan_parser.add_argument(
         "--fail-on", dest="fail_on", choices=["never", "warn", "block"],
-        default="block", help="Exit non-zero when verdict meets threshold (default: block)",
+        default=None,
+        help="Exit non-zero when verdict meets threshold. Overrides the project "
+             "commit_gate (default: warn-first, never fails the run).",
     )
     scan_parser.add_argument(
         "--no-verify-imports", action="store_true",
@@ -6761,6 +6854,15 @@ def _add_fix_vuln_license_subparsers(
     subparsers: argparse._SubParsersAction,
 ) -> None:
     """Register 'fix', 'vuln', and 'license' subcommands."""
+    enforce_parser = subparsers.add_parser(
+        "enforce",
+        help="Gate commits/CI on BLOCK findings (opt in to strict). --off reverts to warn-first.",
+    )
+    enforce_parser.add_argument(
+        "--off", action="store_true",
+        help="Revert to warn-first (commits never blocked by findings)",
+    )
+
     fix_parser = subparsers.add_parser("fix", help="Apply safe deterministic autofix recipes")
     fix_parser.add_argument("targets", nargs="*", default=["."], help="Files or directories")
     fix_parser.add_argument("--apply", action="store_true", help="Write changes to disk (default: preview only)")
@@ -8505,6 +8607,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_logout(args)
     if args.command == "scan":
         return cmd_scan(args)
+    if args.command == "enforce":
+        return cmd_enforce(args)
     if args.command == "fix":
         return cmd_fix(args)
     if args.command == "vuln":

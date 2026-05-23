@@ -636,11 +636,20 @@ async def _init_telemetry_tasks(
         )
         app.state.counter_snapshot_task = None
         if db is not None:
-            restored = await warm_up_redis_counters(r=redis_client, db=db)
-            startup_logger.info(f"STARTUP COMPLETE: Redis connected, {restored} counters restored")
-            app.state.counter_snapshot_task = asyncio.create_task(
-                counter_snapshot_worker(r=redis_client, db=db, stop=app.state.telemetry_stop),
-            )
+            # Warmup reads the full telemetry history and can take tens of seconds
+            # as the tables grow. Running it inline blocks the health check, so a
+            # restart on a large dataset would time out and crash-loop. Run it in
+            # the background; Redis keeps its existing counters until it finishes,
+            # then the snapshot worker starts.
+            async def _warmup_then_snapshot() -> None:
+                restored = await warm_up_redis_counters(r=redis_client, db=db)
+                startup_logger.info(f"STARTUP WARMUP DONE: {restored} counters restored")
+                app.state.counter_snapshot_task = asyncio.create_task(
+                    counter_snapshot_worker(r=redis_client, db=db, stop=app.state.telemetry_stop),
+                )
+
+            app.state.warmup_task = asyncio.create_task(_warmup_then_snapshot())
+            startup_logger.info("STARTUP COMPLETE: Redis connected, warmup running in background")
         else:
             startup_logger.info("STARTUP COMPLETE: Redis connected, 0 counters restored")
     else:

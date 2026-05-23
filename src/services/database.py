@@ -873,29 +873,35 @@ class DatabaseService:
             await session.commit()
 
     async def get_latest_counter_snapshots(self, keys: tuple[str, ...]) -> dict[str, int]:
-        """Return latest snapshot value per counter key for the requested keys."""
+        """Return latest snapshot value per counter key for the requested keys.
+
+        Fetches only the most-recent row per key via a max(snapshot_at) subquery
+        instead of pulling the full history and filtering in Python. The
+        counter_snapshots table grows unbounded (one row per key every 5 min), so
+        the naive approach got slow enough to stall startup warmup.
+        """
         if not keys:
             return {}
 
-        async with self._session_factory() as session:
-            stmt = (
-                select(
-                    CounterSnapshot.key,
-                    CounterSnapshot.value,
-                    CounterSnapshot.snapshot_at,
-                )
-                .where(CounterSnapshot.key.in_(keys))
-                .order_by(CounterSnapshot.key.asc(), CounterSnapshot.snapshot_at.desc())
+        latest_at = (
+            select(
+                CounterSnapshot.key.label("key"),
+                func.max(CounterSnapshot.snapshot_at).label("max_at"),
             )
+            .where(CounterSnapshot.key.in_(keys))
+            .group_by(CounterSnapshot.key)
+            .subquery()
+        )
+        stmt = select(CounterSnapshot.key, CounterSnapshot.value).join(
+            latest_at,
+            (CounterSnapshot.key == latest_at.c.key)
+            & (CounterSnapshot.snapshot_at == latest_at.c.max_at),
+        )
+
+        async with self._session_factory() as session:
             rows = (await session.execute(stmt)).all()
 
-        latest: dict[str, int] = {}
-        for key, value, _snapshot_at in rows:
-            key_str = str(key)
-            if key_str in latest:
-                continue
-            latest[key_str] = _payload_int(value)
-        return latest
+        return {str(key): _payload_int(value) for key, value in rows}
 
     async def get_redis_warmup_counters(self) -> dict[str, int]:
         """Return aggregate counters needed to warm up Redis after a restart.

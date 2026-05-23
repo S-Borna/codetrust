@@ -602,30 +602,32 @@ async def warm_up_redis_counters(r: redis.Redis, db: DatabaseService) -> int:
             if batch:
                 await r.delete(*batch)
 
+        # Batch every counter write into one pipeline. Issuing ~600 separate
+        # round-trips here was slow enough on a cold start to risk the health
+        # check timing out.
         restored = 0
         baseline_keys: dict[str, int] = dict(BASELINES)
-        for key, baseline in baseline_keys.items():
+        today_ttl = _end_of_day_ttl_seconds()
+        pipe = r.pipeline(transaction=False)
+
+        for key in baseline_keys:
             db_value = int(db_counters.get(key, 0))
-            final_value = _additive_baseline_value(key, db_value)
-            await r.set(key, final_value)
-            logger.info("warmup_counter_set", counter=key, db=db_value, base=baseline, final=final_value)
+            pipe.set(key, _additive_baseline_value(key, db_value))
             if key == SCANS_TODAY_KEY:
-                await r.expire(key, _end_of_day_ttl_seconds())
+                pipe.expire(key, today_ttl)
             restored += 1
 
         for key, db_raw in db_counters.items():
             if key in baseline_keys:
                 continue
-            db_value = int(db_raw)
-            final_value = max(db_value, 0)
-            await r.set(key, final_value)
-            logger.info("warmup_counter_set", counter=key, db=db_value, base=0, final=final_value)
+            pipe.set(key, max(int(db_raw), 0))
             if key == SCANS_TODAY_KEY:
-                await r.expire(key, _end_of_day_ttl_seconds())
+                pipe.expire(key, today_ttl)
             restored += 1
 
         if restored:
-            await r.delete(STATS_CACHE_KEY)  # force fresh build on next request
+            pipe.delete(STATS_CACHE_KEY)  # force fresh build on next request
+        await pipe.execute()
 
         logger.info(
             "redis_warmup_complete",

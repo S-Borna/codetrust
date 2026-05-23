@@ -6551,6 +6551,127 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return _audit_show_entries(args, entries)
 
 
+# --- Sessions command ---
+
+
+def _fmt_duration(seconds: float) -> str:
+    """Human duration: 45s, 12m, 1h03m."""
+    s = int(seconds)
+    if s < 60:
+        return f"{s}s"
+    if s < 3600:
+        return f"{s // 60}m"
+    return f"{s // 3600}h{(s % 3600) // 60:02d}m"
+
+
+def _fmt_ts(ts: float) -> str:
+    """Local short timestamp."""
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+
+
+def _sessions_load(project_dir: Path) -> list[object]:
+    """Load audit entries and group them into sessions (newest first)."""
+    from src.gateway.audit import AuditLogger
+    from src.gateway.policies import PolicyEngine
+    from src.gateway.sessions import group_into_sessions
+
+    engine = PolicyEngine.from_workspace(str(project_dir))
+    audit = AuditLogger(
+        project_dir / engine.config.audit_path,
+        enabled=engine.config.audit_enabled,
+    )
+    return group_into_sessions(audit._parse_all_entries())
+
+
+def _sessions_render_list(sessions: list[object], limit: int) -> None:
+    """Render the session list view."""
+    _echo(f"\n{color('🛡️  CodeTrust — Agent sessions', BOLD)}\n")
+    if not sessions:
+        _echo(color("  No sessions yet. Activity appears here once agents act in this workspace.\n", BLUE))
+        return
+    header = f"  {'id':<14}{'when':<18}{'dur':<7}{'actions':<9}allow/warn/block"
+    _echo(color(header, BOLD))
+    for s in sessions[:limit]:
+        mark = "~" if s.synthetic else " "
+        sid = f"{mark}{s.session_id[:12]}"
+        warns = color(str(s.warned), YELLOW) if s.warned else "0"
+        blocks = color(str(s.blocked), RED) if s.blocked else "0"
+        _echo(
+            f"  {sid:<14}{_fmt_ts(s.start):<18}"
+            f"{_fmt_duration(s.duration_seconds):<7}{s.total:<9}"
+            f"{s.allowed}/{warns}/{blocks}",
+        )
+    _echo(color("\n  ~ = grouped locally by idle gap (no agent session id).", BLUE))
+    _echo(f"  Detail: {color('codetrust sessions <id>', BOLD)}\n")
+
+
+def _sessions_render_detail(project_dir: Path, session: object) -> None:
+    """Render a single session's summary and its findings timeline."""
+    from src.gateway.audit import AuditLogger
+    from src.gateway.policies import PolicyEngine
+
+    _echo(f"\n{color('🛡️  Session ' + session.session_id, BOLD)}\n")
+    _echo(f"  When:     {_fmt_ts(session.start)} → {_fmt_ts(session.end)} "
+          f"({_fmt_duration(session.duration_seconds)})")
+    _echo(f"  Actions:  {session.total}  "
+          f"(allow {session.allowed}, "
+          f"{color('warn ' + str(session.warned), YELLOW)}, "
+          f"{color('block ' + str(session.blocked), RED)})")
+    if session.agents:
+        _echo(f"  Agents:   {', '.join(session.agents)}")
+    if session.top_rules:
+        top = ", ".join(f"{r} ({c})" for r, c in session.top_rules)
+        _echo(f"  Top:      {top}")
+
+    engine = PolicyEngine.from_workspace(str(project_dir))
+    audit = AuditLogger(
+        project_dir / engine.config.audit_path,
+        enabled=engine.config.audit_enabled,
+    )
+    entries = [
+        e for e in audit._parse_all_entries()
+        if e.verdict in ("BLOCK", "WARN")
+        and session.start <= e.timestamp <= session.end
+        and (session.synthetic or e.session_id == session.session_id)
+    ]
+    if entries:
+        _echo(f"\n  {color('Flagged actions:', BOLD)}")
+        for e in entries:
+            tag = color("BLOCK", RED) if e.verdict == "BLOCK" else color("WARN", YELLOW)
+            _echo(f"    [{tag}] {_fmt_ts(e.timestamp)} [{e.rule_id}] {e.message}")
+    _echo()
+
+
+def cmd_sessions(args: argparse.Namespace) -> int:
+    """List and review AI-agent governance sessions."""
+    project_dir = Path.cwd()
+    sessions = _sessions_load(project_dir)
+
+    session_id = getattr(args, "session_id", None)
+    if getattr(args, "json", False):
+        from src.gateway.sessions import find_session
+
+        if session_id:
+            match = find_session(sessions, session_id)
+            _echo(json.dumps(match.to_dict() if match else {}, indent=2))
+        else:
+            _echo(json.dumps([s.to_dict() for s in sessions], indent=2))
+        return 0
+
+    if session_id:
+        from src.gateway.sessions import find_session
+
+        match = find_session(sessions, session_id)
+        if match is None:
+            _echo(color(f"\n  No session matching '{session_id}'.\n", YELLOW))
+            return 1
+        _sessions_render_detail(project_dir, match)
+        return 0
+
+    _sessions_render_list(sessions, int(getattr(args, "limit", 20) or 20))
+    return 0
+
+
 # --- Agent Optimizer (setup command) ---
 
 SETUP_VSCODE_DIR: str = ".vscode"
@@ -7044,6 +7165,18 @@ def _add_audit_subparser(
         "--purge", action="store_true",
         help="Purge entries older than retention_days (default: 90 days)",
     )
+
+    sessions_parser = subparsers.add_parser(
+        "sessions", help="List and review AI-agent governance sessions",
+    )
+    sessions_parser.add_argument(
+        "session_id", nargs="?", default=None,
+        help="Show detail for one session (id or unique prefix). Omit to list.",
+    )
+    sessions_parser.add_argument(
+        "--limit", type=int, default=20, help="Max sessions to list (default: 20)",
+    )
+    sessions_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
 
 def _add_compliance_subparser(
@@ -8688,6 +8821,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_policy(args)
     if args.command == "audit":
         return cmd_audit(args)
+    if args.command == "sessions":
+        return cmd_sessions(args)
     if args.command == "today":
         return cmd_today(args)
     if args.command == "shield":

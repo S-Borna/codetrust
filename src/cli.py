@@ -306,6 +306,31 @@ _SCAN_MAX_INFO_DISPLAY: int = 10
 _SCAN_MAX_GATES_DISPLAY: int = 4
 _SCAN_MAX_RULES_TELEMETRY: int = 50
 _SCAN_MAX_FINDINGS_TELEMETRY: int = 50
+
+# Display priority within a severity group: surface security/correctness
+# findings before style nags so the (capped) list leads with what matters.
+# Only affects human output ordering — machine output stays _sort_findings-stable.
+_CATEGORY_DISPLAY_PRIORITY: dict[str, int] = {
+    "secrets_exposure": 0,
+    "injection_attacks": 1,
+    "destructive_commands": 2,
+    "hallucinations": 3,
+    "supply_chain": 4,
+    "unsafe_config": 5,
+    "other": 6,
+}
+
+
+def _finding_display_priority(f: dict) -> tuple[int, str, int]:
+    """Order key that puts high-signal categories first, then file/line."""
+    from src.services.impact_categories import get_rule_category
+
+    cat = get_rule_category(str(f.get("rule_id", "")))
+    return (
+        _CATEGORY_DISPLAY_PRIORITY.get(cat, 6),
+        str(f.get("file", "")),
+        int(f.get("line", 0) or 0),
+    )
 _AUDIT_ENTRY_LIMIT: int = 50
 _AUDIT_TOP_RULES_DISPLAY: int = 5
 
@@ -4153,20 +4178,29 @@ def _scan_output_findings_by_severity(
     *,
     is_free_plan: bool = False,
     verbose: bool = False,
+    commit_gate: str = "warn",
 ) -> None:
     """Print findings grouped by severity for human output.
 
-    INFO findings are hidden by default to reduce noise. Pass verbose=True
-    (--verbose flag) to include them.
-
-    Each BLOCK and WARN finding shows its suggestion (concrete fix advice)
-    on the line below, dimmed and indented.
+    Within each severity, findings are ordered by category so security and
+    correctness issues lead and style nags fall to the bottom — important when
+    the list is capped. INFO is hidden unless verbose. The BLOCK header reflects
+    the commit gate: it only claims to block when the gate is actually enforcing.
     """
+    blocks = sorted(blocks, key=_finding_display_priority)
+    warns = sorted(warns, key=_finding_display_priority)
+    infos = sorted(infos, key=_finding_display_priority)
+
     if blocks and not is_free_plan:
-        _echo(color("  ✖ BLOCKED — execution stopped:", RED))
+        if commit_gate == "enforce":
+            _echo(color("  ✖ BLOCKED — must fix before commit:", RED))
+        else:
+            _echo(color("  ● CRITICAL — review (warn-first: not blocking):", RED))
         for f in blocks:
             for line in _format_finding_line(f):
                 _echo(line)
+        if commit_gate != "enforce":
+            _echo(color("     Gate these with `codetrust enforce`.", BLUE))
         _echo()
     elif blocks and is_free_plan:
         _echo(color("  ⚠️  WARN — issues detected (Free plan):", YELLOW))
@@ -4434,6 +4468,7 @@ def _scan_output_human(
     is_free = bool(hints)  # upgrade_hints only present for free tier
     _scan_output_findings_by_severity(
         blocks, warns, infos, is_free_plan=is_free, verbose=verbose,
+        commit_gate=_load_commit_gate(cwd),
     )
 
     if isinstance(hints, list):

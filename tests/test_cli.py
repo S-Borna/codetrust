@@ -43,7 +43,9 @@ from src.cli import (
     _scan_output_api_error,
     _scan_resolve_output_options,
     _commit_gate_to_fail_on,
+    _finding_display_priority,
     _scan_exit_code,
+    _scan_output_findings_by_severity,
     _sort_findings,
     _suppress_lint_covered_findings,
     _trend_read,
@@ -335,6 +337,39 @@ class TestWarnFirstCommitGate:
         finally:
             os.chdir(old)
             _safe_rmtree(tmp)
+
+
+class TestFindingSignalToNoise:
+    """High-signal findings lead; output is honest about whether it blocks."""
+
+    def test_security_findings_sort_before_style(self) -> None:
+        style = {"rule_id": "magic_number", "file": "a.py", "line": 1}
+        secret = {"rule_id": "hardcoded_secret", "file": "a.py", "line": 99}
+        injection = {"rule_id": "eval_exec", "file": "a.py", "line": 50}
+        ordered = sorted([style, secret, injection], key=_finding_display_priority)
+        assert [f["rule_id"] for f in ordered] == [
+            "hardcoded_secret", "eval_exec", "magic_number",
+        ]
+
+    def test_block_header_warn_first_does_not_claim_to_block(
+        self, capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        blocks = [{"severity": "BLOCK", "rule_id": "hardcoded_secret",
+                   "file": "a.py", "line": 1, "message": "secret", "suggestion": ""}]
+        _scan_output_findings_by_severity(blocks, [], [], commit_gate="warn")
+        out = capsys.readouterr().out
+        assert "CRITICAL" in out
+        assert "execution stopped" not in out
+        assert "codetrust enforce" in out
+
+    def test_block_header_enforce_says_must_fix(
+        self, capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        blocks = [{"severity": "BLOCK", "rule_id": "hardcoded_secret",
+                   "file": "a.py", "line": 1, "message": "secret", "suggestion": ""}]
+        _scan_output_findings_by_severity(blocks, [], [], commit_gate="enforce")
+        out = capsys.readouterr().out
+        assert "must fix before commit" in out
 
 
 class TestAutofix:

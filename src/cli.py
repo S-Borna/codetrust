@@ -8243,6 +8243,11 @@ def _add_ai_observability_subparsers(
     bench_p.add_argument(
         "--json", action="store_true", help="Output as JSON",
     )
+    bench_p.add_argument(
+        "--detection", action="store_true",
+        help="Run the detection benchmark: recall + false-positive rate on a "
+             "labeled corpus of AI-generated vulnerable and safe code samples.",
+    )
 
     # --- hook ---
     hook_p = subparsers.add_parser(
@@ -8445,7 +8450,22 @@ def cmd_risk_profile(args: argparse.Namespace) -> int:
 
 
 def cmd_benchmark(args: argparse.Namespace) -> int:
-    """Show LLM code quality benchmarks."""
+    """Show LLM code quality benchmarks (or the detection benchmark)."""
+    if getattr(args, "detection", False):
+        from src.services.detection_benchmark import (
+            format_report,
+            run_detection_benchmark,
+        )
+
+        report = run_detection_benchmark()
+        if getattr(args, "json", False):
+            import json as _json
+
+            _echo(_json.dumps(report.to_dict(), indent=2))
+        else:
+            _echo(format_report(report))
+        return 0
+
     from src.services.llm_benchmark import LLMBenchmarkService
 
     workspace = Path(args.workspace).resolve()

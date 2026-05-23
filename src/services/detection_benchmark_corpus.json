@@ -1,0 +1,45 @@
+{
+  "_comment": "Labeled detection-benchmark corpus. Vulnerable samples measure recall; safe controls measure false-positive rate. Stored as data (not Python literals) so the corpus ships with the package without tripping the source scanner on its own fixtures. Fully auditable.",
+  "samples": [
+    {"sample_id": "secret_aws", "language": "py", "category": "secrets_exposure", "vulnerable": true,
+     "code": "import boto3\nclient = boto3.client('s3', aws_access_key_id='AKIAIOSFODNN7EXAMPLE',\n    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')\n"},
+    {"sample_id": "secret_apikey", "language": "py", "category": "secrets_exposure", "vulnerable": true,
+     "code": "STRIPE_API_KEY = 'sk_live_4eC39HqLyjWDarjtT1zdp7dcABCDEFGHIJ'\nheaders = {'Authorization': 'Bearer ' + STRIPE_API_KEY}\n"},
+    {"sample_id": "secret_dburl", "language": "py", "category": "secrets_exposure", "vulnerable": true,
+     "code": "DATABASE_URL = 'postg://admin:SuperSecret123@db.prod.internal:5432/main'\n"},
+    {"sample_id": "secret_safe_env", "language": "py", "category": "secrets_exposure", "vulnerable": false,
+     "code": "import os\nSTRIPE_API_KEY = os.environ['STRIPE_API_KEY']\nheaders = {'Authorization': f'Bearer {STRIPE_API_KEY}'}\n"},
+
+    {"sample_id": "inj_sql_concat", "language": "py", "category": "injection_attacks", "vulnerable": true,
+     "code": "def get_user(db, uid):\n    query = \"SELECT * FROM users WHERE id = \" + str(uid)\n    return db.execute(query)\n"},
+    {"sample_id": "inj_sql_fstring", "language": "py", "category": "injection_attacks", "vulnerable": true,
+     "code": "def search(db, term):\n    return db.execute(f\"SELECT * FROM items WHERE name = '{term}'\")\n"},
+    {"sample_id": "inj_eval", "language": "py", "category": "injection_attacks", "vulnerable": true,
+     "code": "def calc(expr):\n    return eval(expr)\n"},
+    {"sample_id": "inj_safe_param", "language": "py", "category": "injection_attacks", "vulnerable": false,
+     "code": "def get_user(db, uid):\n    return db.execute('SELECT * FROM users WHERE id = %s', (uid,))\n"},
+
+    {"sample_id": "destr_os_system_rm", "language": "py", "category": "destructive_commands", "vulnerable": true,
+     "code": "import os\ndef cleanup(path):\n    os.system('rm -rf ' + path)\n"},
+    {"sample_id": "destr_shell_true", "language": "py", "category": "destructive_commands", "vulnerable": true,
+     "code": "import subprocess\ndef run(cmd):\n    subprocess.run(cmd, shell=True)\n"},
+    {"sample_id": "destr_safe_list", "language": "py", "category": "destructive_commands", "vulnerable": false,
+     "code": "import subprocess\ndef run(args):\n    subprocess.run(['ls', '-la'], check=True)\n"},
+
+    {"sample_id": "cfg_pickle", "language": "py", "category": "unsafe_config", "vulnerable": true,
+     "code": "import pickle\ndef load(blob):\n    return pickle.loads(blob)\n"},
+    {"sample_id": "cfg_md5_password", "language": "py", "category": "unsafe_config", "vulnerable": true,
+     "code": "import hashlib\ndef hash_pw(pw):\n    return hashlib.md5(pw.encode()).hexdigest()\n"},
+    {"sample_id": "cfg_debug_true", "language": "py", "category": "unsafe_config", "vulnerable": true,
+     "code": "app.run(host='0.0.0.0', debug=True)\n"},
+    {"sample_id": "cfg_safe_bcrypt", "language": "py", "category": "unsafe_config", "vulnerable": false,
+     "code": "import bcrypt\ndef hash_pw(pw):\n    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt())\n"},
+
+    {"sample_id": "supply_curl_pipe_sh", "language": "sh", "category": "supply_chain", "vulnerable": true,
+     "code": "#!/bin/bash\ncurl -sSL https://get.example.com/install.sh | sh\n"},
+    {"sample_id": "supply_docker_latest", "language": "dockerfile", "category": "supply_chain", "vulnerable": true,
+     "code": "FROM node:latest\nRUN npm install\n"},
+    {"sample_id": "supply_safe_pinned", "language": "dockerfile", "category": "supply_chain", "vulnerable": false,
+     "code": "FROM node:20.11.1-bookworm-slim\nRUN npm ci\n"}
+  ]
+}

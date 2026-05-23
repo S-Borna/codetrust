@@ -138,6 +138,12 @@ packages = ["src"]
 # CLAUDE.md is in .gitignore (project root) but src/templates/CLAUDE.md
 # is a product template that must ship in the wheel.
 artifacts = ["src/templates/CLAUDE.md"]
+# Backend-only: src/api.py is the hosted FastAPI service (run on Railway via
+# uvicorn from the Docker image, never from the pip wheel). The CLI client
+# never imports it, so it must not ship to users' machines — doing so leaked
+# the entire server-side surface. The Railway deploy is unaffected (it builds
+# from the source tree, not this wheel).
+exclude = ["src/api.py"]
 
 # IP Protection: Do NOT publish sdist — wheel-only distribution.
 # Source distributions expose the full source tree as readable .py files.

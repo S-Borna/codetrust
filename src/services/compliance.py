@@ -16,6 +16,7 @@ SUPPORTED_FRAMEWORKS: dict[str, str] = {
     "owasp-asi-2026": "OWASP Agentic Security Initiative Top 10 (2026)",
     "eu-ai-act": "EU AI Act — High-Risk AI System Requirements",
     "nist-ai-rmf": "NIST AI Risk Management Framework 1.0",
+    "nis2": "NIS2 Directive (EU 2022/2555) — Art. 21 Cybersecurity Risk-Management Measures",
 }
 
 
@@ -830,6 +831,172 @@ _NIST_AI_RMF: list[RiskMapping] = [
 
 
 # ---------------------------------------------------------------------------
+# NIS2 Directive (EU 2022/2555), Article 21(2) cybersecurity risk-management
+# measures. Folded in from the Guardian DevSecOps work (built for a Telia
+# regulatory context). Honest scope: CodeTrust covers the technical
+# secure-development measures (d, e, f) well; organizational measures —
+# incident reporting to CSIRTs, business continuity, MFA, training — are
+# process obligations, not code, and are marked as gaps rather than claimed.
+_NIS2: list[RiskMapping] = [
+    RiskMapping(
+        risk_id="NIS2-21d",
+        risk_name="Supply chain security",
+        description=(
+            "Art. 21(2)(d): security related to supply chains, including the "
+            "relationship between each entity and its direct suppliers/providers."
+        ),
+        codetrust_coverage=[
+            "Live import verification against 8 package registries (PyPI, npm, crates.io, Go, Maven, NuGet, RubyGems, Packagist)",
+            "Hallucinated-package detection — blocks dependencies that do not exist on any registry",
+            "Dependency vulnerability scanning (CVE/GHSA) via codetrust vuln",
+        ],
+        coverage_level="full",
+        evidence=[
+            EvidenceItem(
+                file="src/services/import_verifier.py",
+                function_or_component="import verification",
+                detail="Verifies every import against live registries; NOT_FOUND packages are flagged",
+            ),
+            EvidenceItem(
+                file="src/services/vulnerability.py",
+                function_or_component="dependency CVE/GHSA scan",
+                detail="codetrust vuln — known-vulnerability scan of declared dependencies",
+            ),
+        ],
+        gap="",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21e",
+        risk_name="Security in development and vulnerability handling",
+        description=(
+            "Art. 21(2)(e): security in network and information systems acquisition, "
+            "development and maintenance, including vulnerability handling and disclosure."
+        ),
+        codetrust_coverage=[
+            "Static analysis engine (2,928 rules) covering injection, secrets, unsafe config, destructive operations",
+            "Pre-commit and CI gates enforce findings at commit/PR time (opt-in via commit_gate)",
+            "Reproducible detection benchmark with measured recall and false-positive rate",
+        ],
+        coverage_level="full",
+        evidence=[
+            EvidenceItem(
+                file="src/services/static_analyzer.py",
+                function_or_component="StaticAnalyzer.scan_code()",
+                detail="Canonical detection engine; severities BLOCK/WARN/INFO",
+            ),
+            EvidenceItem(
+                file="src/services/detection_benchmark.py",
+                function_or_component="run_detection_benchmark()",
+                detail="Honest recall + false-positive measurement on a labeled corpus",
+            ),
+        ],
+        gap="Coordinated vulnerability disclosure intake is an organizational process, not provided by the tool.",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21f",
+        risk_name="Effectiveness assessment",
+        description=(
+            "Art. 21(2)(f): policies and procedures to assess the effectiveness of "
+            "cybersecurity risk-management measures."
+        ),
+        codetrust_coverage=[
+            "Definition of Done gates (codetrust dod) run compliance, tests, and lint as pass/fail acceptance criteria",
+            "codetrust doctor verifies enforcement layers are active",
+            "Detection benchmark quantifies engine effectiveness",
+        ],
+        coverage_level="full",
+        evidence=[
+            EvidenceItem(
+                file="src/services/compliance.py",
+                function_or_component="get_compliance_report()",
+                detail="Framework coverage mapping with per-control evidence",
+            ),
+            EvidenceItem(
+                file="src/services/detection_benchmark.py",
+                function_or_component="run_detection_benchmark()",
+                detail="Measured recall/false-positive rate as an effectiveness metric",
+            ),
+        ],
+        gap="",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21a",
+        risk_name="Risk analysis and security policies",
+        description=(
+            "Art. 21(2)(a): policies on risk analysis and information system security."
+        ),
+        codetrust_coverage=[
+            "Policy-as-code in .codetrust.toml with SHA-256 integrity verification",
+            "Governance configuration with auditable, version-controlled policy",
+        ],
+        coverage_level="partial",
+        evidence=[
+            EvidenceItem(
+                file="src/gateway/policies.py",
+                function_or_component="GovernanceConfig / PolicyEngine",
+                detail="Declarative, version-controlled security policy enforced at runtime",
+            ),
+        ],
+        gap="Organization-wide risk-analysis methodology and sign-off remain a management process.",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21b",
+        risk_name="Incident handling",
+        description="Art. 21(2)(b): incident handling.",
+        codetrust_coverage=[
+            "Append-only audit log of every allowed/warned/blocked agent action",
+            "Session view groups activity into reviewable units (codetrust sessions)",
+            "Gateway interception detects and blocks dangerous actions before execution",
+        ],
+        coverage_level="partial",
+        evidence=[
+            EvidenceItem(
+                file="src/gateway/audit.py",
+                function_or_component="AuditLogger",
+                detail="JSONL audit trail for detection, forensics, and review",
+            ),
+            EvidenceItem(
+                file="src/gateway/sessions.py",
+                function_or_component="group_into_sessions()",
+                detail="Per-session activity review with verdict breakdown",
+            ),
+        ],
+        gap="Mandatory incident reporting to national CSIRTs (Art. 23) is an organizational obligation, not automated by the tool.",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21h",
+        risk_name="Cryptography and access control",
+        description=(
+            "Art. 21(2)(h)+(i): use of cryptography/encryption; human-resources "
+            "security, access-control policies and asset management."
+        ),
+        codetrust_coverage=[
+            "Detection of weak cryptography and plaintext secrets in code",
+            "Hardcoded-credential and secret-exposure rules",
+            "Protected-path policy for sensitive files (e.g. .env, keys)",
+        ],
+        coverage_level="partial",
+        evidence=[
+            EvidenceItem(
+                file="src/services/static_analyzer.py",
+                function_or_component="crypto/secret rules",
+                detail="Flags weak ciphers, plaintext passwords, hardcoded secrets",
+            ),
+        ],
+        gap="Key management, MFA, and identity/access provisioning are infrastructure controls outside the tool's scope.",
+    ),
+    RiskMapping(
+        risk_id="NIS2-21c",
+        risk_name="Business continuity",
+        description="Art. 21(2)(c): business continuity, backup management, crisis management.",
+        codetrust_coverage=[],
+        coverage_level="planned",
+        evidence=[],
+        gap="Out of scope — business continuity and backup are operational/infrastructure measures, not code governance.",
+    ),
+]
+
+
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -837,6 +1004,7 @@ _FRAMEWORK_REGISTRY: dict[str, list[RiskMapping]] = {
     "owasp-asi-2026": _OWASP_ASI_2026,
     "eu-ai-act": _EU_AI_ACT,
     "nist-ai-rmf": _NIST_AI_RMF,
+    "nis2": _NIS2,
 }
 
 

@@ -43,6 +43,49 @@ class TestListFrameworks:
         result = list_frameworks()
         assert len(result) >= 3
 
+    def test_contains_nis2(self) -> None:
+        """NIS2 (folded in from Guardian) is a supported framework."""
+        result = list_frameworks()
+        assert "nis2" in result
+
+
+class TestNIS2Framework:
+    """NIS2 is mapped honestly — technical measures covered, org measures gapped."""
+
+    def test_report_generates(self) -> None:
+        report = get_compliance_report("nis2")
+        assert report.framework_id == "nis2"
+        assert len(report.risks) >= 5
+
+    def test_every_risk_has_valid_coverage(self) -> None:
+        report = get_compliance_report("nis2")
+        for r in report.risks:
+            assert r.coverage_level in ("full", "partial", "planned")
+
+    def test_not_claimed_fully_compliant(self) -> None:
+        """NIS2 is largely organizational — we must NOT claim full compliance."""
+        assert is_fully_compliant("nis2") is False
+
+    def test_supply_chain_and_dev_are_full(self) -> None:
+        """The technical measures CodeTrust genuinely covers map to full."""
+        report = get_compliance_report("nis2")
+        full_ids = {r.risk_id for r in report.risks if r.coverage_level == "full"}
+        assert "NIS2-21d" in full_ids  # supply chain
+        assert "NIS2-21e" in full_ids  # secure development
+
+    def test_organizational_measures_are_gapped(self) -> None:
+        """Incident reporting / continuity must carry honest gaps, not false claims."""
+        report = get_compliance_report("nis2")
+        by_id = {r.risk_id: r for r in report.risks}
+        assert by_id["NIS2-21c"].coverage_level == "planned"
+        assert by_id["NIS2-21c"].gap  # non-empty gap note
+
+    def test_full_coverage_risks_have_evidence(self) -> None:
+        report = get_compliance_report("nis2")
+        for r in report.risks:
+            if r.coverage_level == "full":
+                assert r.evidence, f"{r.risk_id} claims full coverage without evidence"
+
 
 class TestGetComplianceReport:
     """Tests for compliance report generation."""

@@ -6642,6 +6642,37 @@ def _sessions_render_detail(project_dir: Path, session: object) -> None:
     _echo()
 
 
+def cmd_intel(args: argparse.Namespace) -> int:
+    """Show threat intelligence aggregated from this workspace's agent activity."""
+    import time as _time
+
+    from src.gateway.audit import AuditLogger
+    from src.gateway.policies import PolicyEngine
+    from src.services.threat_intel import (
+        DEFAULT_RECENT_WINDOW_SECONDS,
+        compute_threat_intel,
+        format_threat_intel,
+    )
+
+    project_dir = Path.cwd()
+    engine = PolicyEngine.from_workspace(str(project_dir))
+    audit = AuditLogger(
+        project_dir / engine.config.audit_path,
+        enabled=engine.config.audit_enabled,
+    )
+    days = int(getattr(args, "days", 7) or 7)
+    intel = compute_threat_intel(
+        audit._parse_all_entries(),
+        now=_time.time(),
+        recent_window_seconds=days * 86_400 if days else DEFAULT_RECENT_WINDOW_SECONDS,
+    )
+    if getattr(args, "json", False):
+        _echo(json.dumps(intel.to_dict(), indent=2))
+    else:
+        _echo(format_threat_intel(intel))
+    return 0
+
+
 def cmd_sessions(args: argparse.Namespace) -> int:
     """List and review AI-agent governance sessions."""
     project_dir = Path.cwd()
@@ -7177,6 +7208,15 @@ def _add_audit_subparser(
         "--limit", type=int, default=20, help="Max sessions to list (default: 20)",
     )
     sessions_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    intel_parser = subparsers.add_parser(
+        "intel", help="Threat intelligence aggregated from agent activity (top/emerging/novel)",
+    )
+    intel_parser.add_argument(
+        "--days", type=int, default=7,
+        help="Recent-window size in days for emerging-threat detection (default: 7)",
+    )
+    intel_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
 
 def _add_compliance_subparser(
@@ -8847,6 +8887,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_audit(args)
     if args.command == "sessions":
         return cmd_sessions(args)
+    if args.command == "intel":
+        return cmd_intel(args)
     if args.command == "today":
         return cmd_today(args)
     if args.command == "shield":

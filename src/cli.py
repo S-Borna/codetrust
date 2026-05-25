@@ -7196,6 +7196,10 @@ def _add_compliance_subparser(
         help="List all supported compliance frameworks",
     )
     comp_parser.add_argument(
+        "--scan", type=str, default="", metavar="PATH",
+        help="Scan PATH and map findings to the regulation articles they implicate",
+    )
+    comp_parser.add_argument(
         "--json", action="store_true", dest="json_output",
         help="Output as JSON instead of Markdown",
     )
@@ -7209,6 +7213,22 @@ def _add_compliance_subparser(
     )
 
 
+def _compliance_scan_posture(scan_path: str, use_json: bool) -> int:
+    """Scan a path and map findings to the regulation articles they implicate."""
+    from src.services.compliance import (
+        format_compliance_impact,
+        map_findings_to_regulations,
+    )
+
+    findings, _files = _scan_direct_collect([scan_path])
+    impact = map_findings_to_regulations(findings)
+    if use_json:
+        sys.stdout.write(json.dumps(impact.to_dict(), indent=2) + "\n")
+    else:
+        _echo(format_compliance_impact(impact))
+    return 0
+
+
 def cmd_compliance(args: argparse.Namespace) -> int:
     """Handle the 'compliance' CLI command."""
     from src.services.compliance import (
@@ -7217,6 +7237,10 @@ def cmd_compliance(args: argparse.Namespace) -> int:
         is_fully_compliant,
         list_frameworks,
     )
+
+    scan_path: str = getattr(args, "scan", "") or ""
+    if scan_path:
+        return _compliance_scan_posture(scan_path, getattr(args, "json_output", False))
 
     if getattr(args, "list_frameworks", False):
         frameworks = list_frameworks()

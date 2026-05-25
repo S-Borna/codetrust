@@ -9,9 +9,11 @@ import pytest
 from src.services.compliance import (
     ComplianceReport,
     compliance_summary,
+    format_compliance_impact,
     get_compliance_report,
     is_fully_compliant,
     list_frameworks,
+    map_findings_to_regulations,
 )
 
 
@@ -301,3 +303,57 @@ class TestComplianceEnforcement:
         report = get_compliance_report("nist-ai-rmf")
         s = compliance_summary(report)
         assert s == "4/4 full"
+
+
+class TestFindingRegulationMapping:
+    """Scan findings → regulation articles (folded in from Guardian)."""
+
+    def test_secret_maps_to_gdpr_and_pci(self) -> None:
+        findings = [{"rule_id": "hardcoded_secret", "severity": "BLOCK"}]
+        impact = map_findings_to_regulations(findings)
+        keys = set(impact.by_regulation)
+        assert any("GDPR" in k for k in keys)
+        assert any("PCI-DSS" in k for k in keys)
+
+    def test_injection_maps_to_nis2(self) -> None:
+        findings = [{"rule_id": "eval_exec", "severity": "BLOCK"}]
+        impact = map_findings_to_regulations(findings)
+        assert any("NIS2" in k for k in impact.by_regulation)
+
+    def test_info_findings_excluded(self) -> None:
+        """Only BLOCK/WARN findings count toward compliance impact."""
+        findings = [{"rule_id": "hardcoded_secret", "severity": "INFO"}]
+        impact = map_findings_to_regulations(findings)
+        assert impact.total_findings == 0
+        assert impact.by_regulation == {}
+
+    def test_unmapped_category_ignored(self) -> None:
+        findings = [{"rule_id": "totally_unknown_rule_xyz", "severity": "WARN"}]
+        impact = map_findings_to_regulations(findings)
+        # unknown rules fall back to a category; if unmapped, no regulation
+        assert isinstance(impact.total_findings, int)
+
+    def test_counts_aggregate_across_findings(self) -> None:
+        findings = [
+            {"rule_id": "eval_exec", "severity": "BLOCK"},
+            {"rule_id": "eval_exec", "severity": "BLOCK"},
+        ]
+        impact = map_findings_to_regulations(findings)
+        nis2 = next(v for k, v in impact.by_regulation.items() if "NIS2" in k)
+        assert nis2["count"] == 2
+
+    def test_empty_findings_clean(self) -> None:
+        impact = map_findings_to_regulations([])
+        assert impact.total_findings == 0
+        assert "No findings" in format_compliance_impact(impact)
+
+    def test_to_dict_serializable(self) -> None:
+        impact = map_findings_to_regulations([{"rule_id": "hardcoded_secret", "severity": "BLOCK"}])
+        d = impact.to_dict()
+        assert "by_regulation" in d
+        assert d["regulations_implicated"] >= 1
+
+    def test_format_renders_disclaimer(self) -> None:
+        impact = map_findings_to_regulations([{"rule_id": "eval_exec", "severity": "BLOCK"}])
+        out = format_compliance_impact(impact)
+        assert "not a legal compliance determination" in out

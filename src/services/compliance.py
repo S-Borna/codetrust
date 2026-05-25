@@ -1077,3 +1077,128 @@ def is_fully_compliant(framework_id: str) -> bool:
     """
     report = get_compliance_report(framework_id)
     return all(r.coverage_level == "full" for r in report.risks)
+
+
+# ---------------------------------------------------------------------------
+# Finding → regulation mapping
+# ---------------------------------------------------------------------------
+# Turns live scan findings into compliance evidence: which regulation articles
+# a given class of finding implicates. Folded in from the Guardian DevSecOps
+# work (which mapped CWEs → GDPR/PCI-DSS/NIS2/PTS); translated here to
+# CodeTrust's impact categories so it rides on the existing scan engine.
+#
+# This is a judgment mapping of "what regulation does this kind of issue touch",
+# not a legal determination. It surfaces exposure for review — it does not
+# certify compliance or non-compliance.
+
+
+@dataclass(frozen=True)
+class RegulationRef:
+    """A regulation article a finding category implicates."""
+
+    framework: str
+    citation: str
+    rationale: str
+
+
+CATEGORY_REGULATION_MAP: dict[str, list[RegulationRef]] = {
+    "secrets_exposure": [
+        RegulationRef("GDPR", "Art. 32", "Security of processing — exposed credentials risk unauthorized access to personal data"),
+        RegulationRef("PCI-DSS", "Req. 3 & 6.5", "Protect stored credentials; secure coding against exposure"),
+        RegulationRef("NIS2", "Art. 21(2)(h)(i)", "Cryptography and access-control measures"),
+    ],
+    "injection_attacks": [
+        RegulationRef("NIS2", "Art. 21(2)(e)", "Security in development — vulnerability handling"),
+        RegulationRef("PCI-DSS", "Req. 6.5.1", "Injection flaws in secure coding"),
+        RegulationRef("GDPR", "Art. 32", "Security of processing against unauthorized access"),
+    ],
+    "destructive_commands": [
+        RegulationRef("NIS2", "Art. 21(2)(e)", "Secure development and maintenance against destructive operations"),
+    ],
+    "supply_chain": [
+        RegulationRef("NIS2", "Art. 21(2)(d)", "Supply-chain security — dependency integrity"),
+    ],
+    "hallucinations": [
+        RegulationRef("NIS2", "Art. 21(2)(d)", "Supply-chain security — non-existent/fabricated dependencies"),
+    ],
+    "unsafe_config": [
+        RegulationRef("NIS2", "Art. 21(2)(e)", "Security in development and maintenance"),
+        RegulationRef("GDPR", "Art. 32", "Security of processing — misconfiguration risk"),
+    ],
+}
+
+_IMPACT_SEVERITIES: frozenset[str] = frozenset({"BLOCK", "WARN"})
+
+
+@dataclass
+class ComplianceImpact:
+    """Aggregate of which regulations a set of scan findings implicates."""
+
+    total_findings: int
+    by_regulation: dict[str, dict[str, object]]  # "GDPR Art. 32" -> {count, citation, framework, rationale}
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "total_findings": self.total_findings,
+            "regulations_implicated": len(self.by_regulation),
+            "by_regulation": self.by_regulation,
+        }
+
+
+def map_findings_to_regulations(
+    findings: list[dict[str, object]],
+) -> ComplianceImpact:
+    """Map scan findings to the regulation articles they implicate.
+
+    Only BLOCK/WARN findings count. Each finding's rule is resolved to an
+    impact category, then to the regulation references for that category.
+    """
+    from src.services.impact_categories import get_rule_category
+
+    by_reg: dict[str, dict[str, object]] = {}
+    counted = 0
+    for f in findings:
+        severity = str(f.get("severity", "")).upper()
+        if severity not in _IMPACT_SEVERITIES:
+            continue
+        rule_id = str(f.get("rule_id", ""))
+        category = get_rule_category(rule_id)
+        refs = CATEGORY_REGULATION_MAP.get(category)
+        if not refs:
+            continue
+        counted += 1
+        for ref in refs:
+            key = f"{ref.framework} {ref.citation}"
+            entry = by_reg.setdefault(key, {
+                "framework": ref.framework,
+                "citation": ref.citation,
+                "rationale": ref.rationale,
+                "count": 0,
+            })
+            entry["count"] = int(entry["count"]) + 1
+
+    ranked = dict(
+        sorted(by_reg.items(), key=lambda kv: int(kv[1]["count"]), reverse=True),
+    )
+    return ComplianceImpact(total_findings=counted, by_regulation=ranked)
+
+
+def format_compliance_impact(impact: ComplianceImpact) -> str:
+    """Render a compliance-posture summary from mapped findings."""
+    lines = [
+        "",
+        "  Compliance impact — regulations implicated by current findings",
+        "  ──────────────────────────────────────────────────────────────",
+    ]
+    if not impact.by_regulation:
+        lines.append("  No findings implicate mapped regulations. ✅")
+        lines.append("")
+        return "\n".join(lines)
+    lines.append(f"  {impact.total_findings} finding(s) touch {len(impact.by_regulation)} regulation article(s):")
+    lines.append("")
+    for _key, e in impact.by_regulation.items():
+        lines.append(f"    {e['framework']} {e['citation']:<18} {e['count']:>4} finding(s)  — {e['rationale']}")
+    lines.append("")
+    lines.append("  Note: surfaces regulatory exposure for review; not a legal compliance determination.")
+    lines.append("")
+    return "\n".join(lines)

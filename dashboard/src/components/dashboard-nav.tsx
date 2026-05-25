@@ -29,6 +29,7 @@ interface NavUser {
 
 const CORE_LINKS = [
     { href: "/dashboard", label: "Overview" },
+    { href: "/dashboard/intel", label: "Threat Intel" },
     { href: "/dashboard/enforcement", label: "Enforcement" },
     { href: "/dashboard/pii", label: "PII" },
     { href: "/dashboard/integrity", label: "Integrity" },

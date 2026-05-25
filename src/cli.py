@@ -6905,11 +6905,17 @@ def _create_main_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "More commands (run 'codetrust --help-all' for the full list):\n"
-            "  codetrust audit        — see what your AI agent did (last 24h)\n"
-            "  codetrust pii scan     — find PII in your codebase\n"
-            "  codetrust integrity    — check AI agent integrity\n"
-            "  codetrust compliance   — OWASP / EU AI Act / NIST mappings\n"
-            "  codetrust dod          — definition of done gates\n"
+            "\n"
+            "  Govern your AI agents:\n"
+            "    codetrust enforce             — gate commits on findings (default: warn-first)\n"
+            "    codetrust sessions            — review what your AI agent did, per session\n"
+            "    codetrust audit               — full audit log of agent actions\n"
+            "\n"
+            "  Prove security & compliance:\n"
+            "    codetrust compliance --scan . — map findings to NIS2 / GDPR / PCI / OWASP\n"
+            "    codetrust intel               — threat intelligence: top, emerging, novel\n"
+            "    codetrust pii scan            — find PII in your codebase\n"
+            "    codetrust dod                 — definition-of-done gates\n"
         ),
     )
     parser.add_argument(

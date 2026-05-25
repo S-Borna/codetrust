@@ -5059,6 +5059,97 @@ def _status_count_blocks_24h(project_dir: Path) -> tuple[int, int]:
     return blocks, warns
 
 
+def cmd_overview(args: argparse.Namespace) -> int:
+    """One screen: the whole governance posture — protection, compliance, activity, intel."""
+    import time as _time
+
+    from src.gateway.audit import AuditLogger
+    from src.gateway.policies import PolicyEngine
+    from src.gateway.sessions import group_into_sessions
+    from src.services.baseline import baseline_metadata
+    from src.services.compliance import map_findings_to_regulations
+    from src.services.threat_intel import compute_threat_intel
+
+    project_dir = Path.cwd()
+    engine = PolicyEngine.from_workspace(str(project_dir))
+    gate = getattr(engine.config, "commit_gate", "warn")
+
+    # Protection layers (reuse status logic)
+    checks = _status_collect_checks(project_dir)
+    hooks_path_set = _status_check_hooks_path(project_dir)
+    total_layers = len(checks) + 1
+    active_layers = sum(1 for _, ok in checks if ok) + (1 if hooks_path_set else 0)
+
+    # Audit-derived activity, compliance exposure, sessions, intel (fast — no scan)
+    audit = AuditLogger(
+        project_dir / engine.config.audit_path,
+        enabled=engine.config.audit_enabled,
+    )
+    entries = audit._parse_all_entries()
+    finding_dicts = [
+        {"rule_id": e.rule_id, "severity": e.verdict}
+        for e in entries if e.verdict in ("BLOCK", "WARN") and e.rule_id
+    ]
+    impact = map_findings_to_regulations(finding_dicts)
+    sessions = group_into_sessions(entries)
+    intel = compute_threat_intel(entries, now=_time.time())
+
+    if getattr(args, "json", False):
+        payload = {
+            "protection": {"active_layers": active_layers, "total_layers": total_layers,
+                           "commit_gate": gate},
+            "compliance_exposure": impact.to_dict(),
+            "sessions_recent": [s.to_dict() for s in sessions[:3]],
+            "threat_intel": intel.to_dict(),
+        }
+        _echo(json.dumps(payload, indent=2))
+        return 0
+
+    layer_color = GREEN if active_layers == total_layers else YELLOW
+    gate_color = GREEN if gate == "enforce" else YELLOW
+    _echo(f"\n{color('🛡️  CodeTrust — Governance overview', BOLD)}")
+    _echo(f"   {color(project_dir.name, BOLD)}\n")
+
+    # 1. Protection
+    _echo(f"  {color('Protection', BOLD)}")
+    _echo(f"    Enforcement layers : {color(f'{active_layers}/{total_layers} active', layer_color)}")
+    _echo(f"    Commit gate        : {color(gate.upper(), gate_color)}"
+          + ("  (findings shown, commits not blocked)" if gate != "enforce" else "  (commits gated on BLOCK)"))
+    meta = baseline_metadata(project_dir)
+    base_str = f"{meta['count']} accepted legacy findings" if meta else "not established — run codetrust scan"
+    _echo(f"    Scan baseline      : {base_str}")
+
+    # 2. Compliance exposure
+    _echo(f"\n  {color('Compliance exposure', BOLD)}  (from recorded activity)")
+    if impact.by_regulation:
+        for _k, e in list(impact.by_regulation.items())[:5]:
+            _echo(f"    {e['framework']} {e['citation']:<18} {e['count']:>4} finding(s)")
+    else:
+        _echo(color("    No recorded findings implicate mapped regulations. ✅", GREEN))
+
+    # 3. Recent sessions
+    _echo(f"\n  {color('Recent agent sessions', BOLD)}")
+    if sessions:
+        for s in sessions[:3]:
+            when = _fmt_ts(s.start)
+            blk = color(str(s.blocked), RED) if s.blocked else "0"
+            _echo(f"    {s.session_id[:12]:<13} {when}   {s.total} actions   block {blk}")
+    else:
+        _echo("    No sessions recorded yet.")
+
+    # 4. Threat intel
+    _echo(f"\n  {color('Top threats', BOLD)}")
+    if intel.top_threats:
+        for t in intel.top_threats[:3]:
+            _echo(f"    {t.rule_id:<30} {t.count:>4}  [{t.category}]")
+    else:
+        _echo("    No threat signal yet.")
+
+    _echo(f"\n  Dig deeper: {color('codetrust compliance --scan .', BOLD)} · "
+          f"{color('codetrust sessions', BOLD)} · {color('codetrust intel', BOLD)}\n")
+    return 0
+
+
 def cmd_baseline(args: argparse.Namespace) -> int:
     """Manage scan baseline (snapshot of accepted legacy findings)."""
     from src.services.baseline import (
@@ -6906,6 +6997,8 @@ def _create_main_parser() -> argparse.ArgumentParser:
         epilog=(
             "More commands (run 'codetrust --help-all' for the full list):\n"
             "\n"
+            "  codetrust overview              — the whole governance posture on one screen\n"
+            "\n"
             "  Govern your AI agents:\n"
             "    codetrust enforce             — gate commits on findings (default: warn-first)\n"
             "    codetrust sessions            — review what your AI agent did, per session\n"
@@ -7223,6 +7316,11 @@ def _add_audit_subparser(
         help="Recent-window size in days for emerging-threat detection (default: 7)",
     )
     intel_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    overview_parser = subparsers.add_parser(
+        "overview", help="One screen: protection, compliance, sessions, and threats",
+    )
+    overview_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
 
 def _add_compliance_subparser(
@@ -8895,6 +8993,8 @@ def _route_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         return cmd_sessions(args)
     if args.command == "intel":
         return cmd_intel(args)
+    if args.command == "overview":
+        return cmd_overview(args)
     if args.command == "today":
         return cmd_today(args)
     if args.command == "shield":

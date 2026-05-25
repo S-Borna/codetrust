@@ -32,20 +32,20 @@ from src.cli import (
     SQL_WARN_RULES,
     WARN_RULES,
     _autofix_print_debug_python,
+    _commit_gate_to_fail_on,
     _compute_pr_risk,
     _compute_trust_diff,
     _dedupe_findings,
     _detect_verify_gates,
     _filter_findings_to_changed_lines,
+    _finding_display_priority,
     _findings_to_sarif,
     _get_git_changed_files,
     _normalize_path_for_git,
-    _scan_output_api_error,
-    _scan_resolve_output_options,
-    _commit_gate_to_fail_on,
-    _finding_display_priority,
     _scan_exit_code,
+    _scan_output_api_error,
     _scan_output_findings_by_severity,
+    _scan_resolve_output_options,
     _sort_findings,
     _suppress_lint_covered_findings,
     _trend_read,
@@ -53,6 +53,7 @@ from src.cli import (
     _trend_write,
     cmd_add,
     cmd_enforce,
+    cmd_overview,
     cmd_policy,
     cmd_scan,
     scan_file,
@@ -370,6 +371,73 @@ class TestFindingSignalToNoise:
         _scan_output_findings_by_severity(blocks, [], [], commit_gate="enforce")
         out = capsys.readouterr().out
         assert "must fix before commit" in out
+
+
+class TestOverview:
+    """The unified governance overview ties the consolidated modules together."""
+
+    @staticmethod
+    def _workspace_with_audit() -> Path:
+        tmp = Path(tempfile.mkdtemp())
+        ct = tmp / ".codetrust"
+        ct.mkdir(parents=True, exist_ok=True)
+        (tmp / ".codetrust.toml").write_text(
+            '[codetrust.governance]\nmode="enforce"\ncommit_gate="warn"\n',
+            encoding="utf-8",
+        )
+        now = time.time()
+        rows = [
+            json.dumps({"timestamp": now - 100, "action_type": "bash", "verdict": "BLOCK",
+                        "rule_id": "hardcoded_secret", "original_action": "x", "message": "m",
+                        "suggestion": "", "session_id": "S1", "agent_id": "claude",
+                        "workspace": str(tmp), "metadata": {}}),
+            json.dumps({"timestamp": now - 90, "action_type": "bash", "verdict": "BLOCK",
+                        "rule_id": "eval_exec", "original_action": "x", "message": "m",
+                        "suggestion": "", "session_id": "S1", "agent_id": "claude",
+                        "workspace": str(tmp), "metadata": {}}),
+        ]
+        (ct / "audit.jsonl").write_text("\n".join(rows) + "\n", encoding="utf-8")
+        return tmp
+
+    def test_overview_json_aggregates_modules(self) -> None:
+        tmp = self._workspace_with_audit()
+        old = Path.cwd()
+        try:
+            os.chdir(tmp)
+            args = type("Args", (), {})()
+            args.json = True
+            assert cmd_overview(args) == 0
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_overview_text_runs_clean(self, capsys: pytest.CaptureFixture[str]) -> None:
+        tmp = self._workspace_with_audit()
+        old = Path.cwd()
+        try:
+            os.chdir(tmp)
+            args = type("Args", (), {})()
+            args.json = False
+            assert cmd_overview(args) == 0
+            out = capsys.readouterr().out
+            assert "Governance overview" in out
+            assert "Compliance exposure" in out
+            assert "Top threats" in out
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
+
+    def test_overview_empty_workspace_no_crash(self) -> None:
+        tmp = Path(tempfile.mkdtemp())
+        old = Path.cwd()
+        try:
+            os.chdir(tmp)
+            args = type("Args", (), {})()
+            args.json = False
+            assert cmd_overview(args) == 0
+        finally:
+            os.chdir(old)
+            _safe_rmtree(tmp)
 
 
 class TestAutofix:

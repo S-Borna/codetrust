@@ -28,6 +28,13 @@ const FRAMEWORKS = [
         covered: 4,
         description: "AI Risk Management Framework — govern, map, measure, manage.",
     },
+    {
+        id: "nis2",
+        name: "NIS2 Directive",
+        risks: 7,
+        covered: 3,
+        description: "EU 2022/2555 Art. 21 — technical measures (supply chain, secure development, effectiveness) mapped; organizational measures (incident reporting, continuity, MFA) are out of scope.",
+    },
 ];
 
 export default function CompliancePage() {
@@ -50,17 +57,22 @@ export default function CompliancePage() {
                 </p>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-                {FRAMEWORKS.map((fw) => (
-                    <div key={fw.id} className="rounded-lg border p-6">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{fw.name}</p>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{fw.description}</p>
-                        <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
-                            {fw.covered}/{fw.risks}
-                            <span className="ml-2 text-xs font-normal text-gray-400">risks mapped</span>
-                        </p>
-                    </div>
-                ))}
+            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {FRAMEWORKS.map((fw) => {
+                    const partial = fw.covered < fw.risks;
+                    return (
+                        <div key={fw.id} className="rounded-lg border p-6">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{fw.name}</p>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{fw.description}</p>
+                            <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
+                                {fw.covered}/{fw.risks}
+                                <span className="ml-2 text-xs font-normal text-gray-400">
+                                    {partial ? "measures mapped (partial)" : "risks mapped"}
+                                </span>
+                            </p>
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="mt-8">

@@ -197,8 +197,8 @@ def format_report(report: BenchmarkReport) -> str:
     """Render a human-readable benchmark summary."""
     lines = [
         "",
-        "  CodeTrust Detection Benchmark",
-        "  ─────────────────────────────",
+        "  🛡️  CodeTrust — Detection Benchmark",
+        "",
         f"  Recall (vulnerable caught):   {report.detected_total}/{report.vulnerable_total} "
         f"({report.recall * 100:.0f}%)",
         f"  False positives (safe code):  {len(report.false_positives)}/{report.safe_total} "

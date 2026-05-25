@@ -2956,11 +2956,10 @@ def _init_print_summary() -> None:
     _echo(f"     Ready to gate strictly? {color('codetrust enforce', BOLD)} (revert: codetrust enforce --off)")
     _echo()
     _echo(f"  {color('Next:', BOLD)}")
-    _echo(f"    {color('codetrust scan', GREEN)}      — establish baseline (existing code accepted as legacy)")
-    _echo(f"    {color('codetrust scan', GREEN)}      — run again: shows only NEW issues from now on")
-    _echo(f"    {color('codetrust status', GREEN)}    — quick health check")
-    _echo(f"    {color('codetrust today', GREEN)}     — see what your agents did in the last 24h")
-    _echo(f"    {color('codetrust doctor', GREEN)}    — full enforcement details")
+    _echo(f"    {color('codetrust scan', GREEN)}             — establish baseline; run again to see only NEW issues")
+    _echo(f"    {color('codetrust overview', GREEN)}         — the whole governance picture on one screen")
+    _echo(f"    {color('codetrust compliance --scan .', GREEN)}  — map findings to NIS2 / GDPR / PCI / OWASP")
+    _echo(f"    {color('codetrust doctor', GREEN)}           — full enforcement details")
     _echo(f"{'━' * 56}\n")
 
 

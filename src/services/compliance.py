@@ -1187,8 +1187,9 @@ def format_compliance_impact(impact: ComplianceImpact) -> str:
     """Render a compliance-posture summary from mapped findings."""
     lines = [
         "",
-        "  Compliance impact — regulations implicated by current findings",
-        "  ──────────────────────────────────────────────────────────────",
+        "  🛡️  CodeTrust — Compliance impact",
+        "     regulations implicated by current findings",
+        "",
     ]
     if not impact.by_regulation:
         lines.append("  No findings implicate mapped regulations. ✅")

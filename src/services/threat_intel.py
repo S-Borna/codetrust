@@ -158,8 +158,8 @@ def format_threat_intel(intel: ThreatIntel) -> str:
     days = intel.window_seconds // 86_400
     lines = [
         "",
-        "  CodeTrust Threat Intelligence",
-        "  ─────────────────────────────",
+        "  🛡️  CodeTrust — Threat Intelligence",
+        "",
         f"  {intel.total_events} signal event(s) analyzed   |   recent window: {days}d",
         "",
     ]

@@ -1,12 +1,12 @@
 name: CodeQL
 
-# Paused: code scanning requires GitHub Advanced Security, which isn't
-# purchased for this private repo ("Advanced security has not been
-# purchased.", verified via the repos API 2026-08-15). GHAS is free and
-# activates automatically once this repo is made public — re-enable the
-# push/pull_request/schedule triggers below at that point, no other
-# change needed.
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"
   workflow_dispatch: {}
 
 permissions:

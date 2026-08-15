@@ -14,7 +14,6 @@
   <a href="https://pypi.org/project/codetrust/"><img src="https://img.shields.io/pypi/v/codetrust?style=flat-square&color=38d8fd" alt="PyPI"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust"><img src="https://img.shields.io/visual-studio-marketplace/v/SaidBorna.codetrust?style=flat-square&color=5bca78" alt="VS Code Marketplace"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-333?style=flat-square" alt="License"></a>
-  <a href="https://globaldex.ai/domain/codetrust.ai"><img src="https://globaldex.ai/api/v1/badge?domain=codetrust.ai" alt="GlobalDex Score" height="20"></a>
 </p>
 
 <p align="center">
@@ -191,11 +190,18 @@ Static analysis (2,928 rules, 89 extensions), AST structural analysis (10 tree-s
 ```bash
 pip install codetrust
 cd your-project
-codetrust init          # Installs 9 enforcement layers
-codetrust scan .        # First scan: establishes baseline (existing code accepted)
-codetrust scan .        # Second scan: shows only NEW issues from now on
-codetrust status        # One-line health check
+codetrust init           # Installs 9 enforcement layers, works fully offline
+codetrust login          # Free account, 25 scans/day — required for codetrust scan
+codetrust scan .         # First scan: establishes baseline (existing code accepted)
+codetrust scan .         # Second scan: shows only NEW issues from now on
+codetrust status         # One-line health check
 ```
+
+**Why login for scanning?** `codetrust init` and the real-time enforcement
+layers (BASH_ENV guard, PreToolUse hooks, MCP servers) run fully offline —
+nothing is sent anywhere. `codetrust scan` calls the cloud API to run the full
+2,928-rule set and Trust Score, which needs a free account. Get an API key at
+[app.codetrust.ai](https://app.codetrust.ai), then `codetrust login --api-key <key>`.
 
 **Why two scans?** CodeTrust accepts your existing codebase as "baseline" on
 the first scan and then only flags NEW issues introduced after that. You don't

@@ -5,7 +5,7 @@
 
 ## Overview
 
-CodeTrust is an AI Governance Enforcement Platform (v4.1.0). It controls what AI agents can do before they do it — intercepting commands, scanning code, detecting hallucinations, and enforcing governance in real time.
+CodeTrust is an AI Governance Enforcement Platform (v4.2.0). It controls what AI agents can do before they do it — intercepting commands, scanning code, detecting hallucinations, and enforcing governance in real time.
 
 ## Capabilities
 

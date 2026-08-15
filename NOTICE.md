@@ -29,10 +29,12 @@ licenses for compliance.
 
 ## VS Code Extension
 
-Bundled JavaScript dependencies and their licenses are listed in
-`extension/package.json` and its `package-lock.json`. The published `.vsix`
-ships a minified, obfuscated bundle of first-party code plus these
-third-party packages under their respective licenses (predominantly MIT).
+The extension has no runtime dependencies (`extension/package.json` has an
+empty `dependencies` field) — the published `.vsix` ships a minified,
+obfuscated bundle of first-party CodeTrust code only, no third-party runtime
+code. `extension/package.json` and its `package-lock.json` list build-time
+tooling only (esbuild, TypeScript, vsce, mocha, and similar), used to produce
+the bundle but never shipped in it.
 
 ## Dashboard
 

@@ -64,6 +64,9 @@ dependencies = [
 Homepage = "https://codetrust.ai"
 Documentation = "https://codetrust.ai"
 Support = "https://codetrust.ai"
+Repository = "https://github.com/S-Borna/codetrust"
+Changelog = "https://github.com/S-Borna/codetrust/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/S-Borna/codetrust/issues"
 
 [project.optional-dependencies]
 dev = [

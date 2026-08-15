@@ -42,7 +42,7 @@ def check_readme(metrics: dict) -> list[str]:
         expected = metrics[key]
         match = re.search(pattern, readme)
         if match:
-            found = int(match.group(1))
+            found = int(match.group(1).replace(",", ""))
             if found != expected:
                 errors.append(
                     f"  {key}: README says {found}, source has {expected}"

@@ -20,7 +20,7 @@
 <p align="center">
   <a href="https://codetrust.ai">Website</a> &middot;
   <a href="https://codetrust.ai/demo">Live Demo</a> &middot;
-  <a href="https://api.codetrust.ai/docs">API Docs</a> &middot;
+  <a href="docs/openapi.json">API Docs</a> &middot;
   <a href="https://pypi.org/project/codetrust/">PyPI</a> &middot;
   <a href="https://marketplace.visualstudio.com/items?itemName=SaidBorna.codetrust">VS Code</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
@@ -232,7 +232,7 @@ or `baseline share` to commit it for team workflow.
 | **GitHub Action** | `pip install codetrust` in CI | PR gate with SARIF upload |
 | **MCP Server** | 2 servers (43 tools) | Governance for Claude Code / Cursor / Windsurf |
 | **Dashboard** | [app.codetrust.ai](https://app.codetrust.ai) | Quota, enforcement, compliance |
-| **REST API** | [api.codetrust.ai](https://api.codetrust.ai/docs) | 72 endpoints |
+| **REST API** | [api.codetrust.ai](https://api.codetrust.ai) ([spec](docs/openapi.json)) | 72 endpoints |
 
 ---
 
@@ -355,7 +355,7 @@ PII detection (16 categories, GDPR compliance). Data classification with model r
 | **VS Code** | `code --install-extension SaidBorna.codetrust` |
 | **GitHub Action** | `pip install codetrust` in CI |
 | **Dashboard** | [app.codetrust.ai](https://app.codetrust.ai) |
-| **API** | [api.codetrust.ai](https://api.codetrust.ai/docs) |
+| **API** | [api.codetrust.ai](https://api.codetrust.ai) ([spec](docs/openapi.json)) |
 | **Website** | [codetrust.ai](https://codetrust.ai) |
 
 ---

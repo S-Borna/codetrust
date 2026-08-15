@@ -3,7 +3,7 @@
   "info": {
     "title": "CodeTrust API",
     "description": "AI code verification platform",
-    "version": "2.9.0"
+    "version": "4.1.0"
   },
   "paths": {
     "/v1/status": {
@@ -73,6 +73,36 @@
         "summary": "Public Stats",
         "description": "Public aggregate stats for landing page — no auth required.",
         "operationId": "public_stats_v1_stats_public_get",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Force uncached stats rebuild",
+              "default": false,
+              "title": "Refresh"
+            },
+            "description": "Force uncached stats rebuild"
+          },
+          {
+            "name": "_bust",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": " Bust"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -83,6 +113,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -90,7 +130,7 @@
     "/v1/telemetry": {
       "post": {
         "summary": "Ingest Telemetry",
-        "description": "Accept anonymous telemetry.\n\nReturns immediately (202). Processing is best-effort and must never block.",
+        "description": "Accept telemetry from all users (including anonymous extension users).\n\nReturns immediately (202). Processing is best-effort and must never block.",
         "operationId": "ingest_telemetry_v1_telemetry_post",
         "requestBody": {
           "content": {
@@ -644,16 +684,6 @@
         "summary": "Vuln Scan",
         "description": "Scan packages for known vulnerabilities (CVE/GHSA) via OSV database.",
         "operationId": "vuln_scan_v1_vuln_scan_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VulnScanRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -663,16 +693,6 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Vuln Scan V1 Vuln Scan Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -690,16 +710,6 @@
         "summary": "License Scan",
         "description": "Check package licenses for compliance (copyleft detection).",
         "operationId": "license_scan_v1_license_scan_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LicenseScanRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -712,6 +722,48 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/compliance/{framework}": {
+      "get": {
+        "summary": "Compliance Report",
+        "description": "Generate a compliance mapping report for a security framework.\n\nMaps CodeTrust governance capabilities to recognized frameworks.\nSupported: owasp-asi-2026, eu-ai-act, nist-ai-rmf.",
+        "operationId": "compliance_report_v1_compliance__framework__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "framework",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Framework"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Compliance Report V1 Compliance  Framework  Get"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -719,6 +771,27 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrity/check": {
+      "post": {
+        "summary": "Integrity Check",
+        "description": "Analyze agent session for behavioral integrity patterns.\n\nDetects sycophantic retraction, unsubstantiated claims,\nunverified references, and contradictory positions.",
+        "operationId": "integrity_check_v1_integrity_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Integrity Check V1 Integrity Check Post"
                 }
               }
             }
@@ -736,16 +809,6 @@
         "summary": "Sbom Generate",
         "description": "Generate CycloneDX and SPDX SBOM outputs for dependency inventories.",
         "operationId": "sbom_generate_v1_sbom_generate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SbomGenerateRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -753,16 +816,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SbomGenerateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -780,11 +833,37 @@
         "summary": "Cross File Scan",
         "description": "Analyze import dependency graph across multiple files.",
         "operationId": "cross_file_scan_v1_scan_cross_file_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Cross File Scan V1 Scan Cross File Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/scan/taint/verified": {
+      "post": {
+        "summary": "Taint Verified Scan",
+        "description": "Run taint analysis with runtime exploit verification.\n\nPerforms static taint analysis, then attempts to confirm each\nfinding by executing proof-of-concept exploits in an isolated\nDocker sandbox. Verified findings have high confidence (~0.95).",
+        "operationId": "taint_verified_scan_v1_scan_taint_verified_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CrossFileScanRequest"
+                "$ref": "#/components/schemas/TaintVerifiedRequest"
               }
             }
           },
@@ -796,9 +875,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Cross File Scan V1 Scan Cross File Post"
+                  "$ref": "#/components/schemas/TaintVerifiedResponse"
                 }
               }
             }
@@ -1359,6 +1436,74 @@
             }
           }
         }
+      }
+    },
+    "/v1/admin/dashboard/bootstrap-api-key": {
+      "post": {
+        "summary": "Admin Dashboard Bootstrap Api Key",
+        "description": "Bootstrap a user-scoped API key using server-side master-key auth.",
+        "operationId": "admin_dashboard_bootstrap_api_key_v1_admin_dashboard_bootstrap_api_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardBootstrapApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardBootstrapApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/adoption/overview": {
+      "get": {
+        "summary": "Admin Adoption Overview",
+        "description": "Return high-level platform adoption metrics for admins.",
+        "operationId": "admin_adoption_overview_v1_admin_adoption_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAdoptionOverviewResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/api-keys": {
@@ -2323,6 +2468,32 @@
         }
       }
     },
+    "/v1/auth/token": {
+      "post": {
+        "summary": "Issue Scan Token",
+        "description": "Issue a scan token for CLI usage.\n\nReturns a signed JWT with plan, quota limit, and daily usage.\nCLI stores this locally and validates offline. Refreshed once/day.",
+        "operationId": "issue_scan_token_v1_auth_token_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Issue Scan Token V1 Auth Token Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
     "/v1/auth/logout": {
       "post": {
         "summary": "Logout",
@@ -2378,7 +2549,7 @@
     "/v1/auth/oidc/login": {
       "get": {
         "summary": "Oidc Login",
-        "description": "Redirect URL for OIDC/SSO login.\n\nReturns the authorization URL to redirect the browser to the IdP.\nRequires OIDC to be configured via CODETRUST_OIDC_* env vars.",
+        "description": "Redirect URL for OIDC/SSO login (CSRF-protected with state param).\n\nGenerates a random state token (or uses a client-supplied one),\nstores it server-side for callback validation, and returns an\nauthorization URL bound to that state so the flow is protected\nagainst CSRF per RFC 6749 §10.12.\nRequires OIDC to be configured via CODETRUST_OIDC_* env vars.",
         "operationId": "oidc_login_v1_auth_oidc_login_get",
         "parameters": [
           {
@@ -2457,6 +2628,32 @@
         }
       }
     },
+    "/v1/user/quota": {
+      "get": {
+        "summary": "Get User Quota",
+        "description": "Return the current user's scan quota state.\n\nUsed by the dashboard settings page to render a live quota widget\n(scans used / limit, reduced-mode badge when exhausted). Does NOT\nmint a JWT — use /v1/auth/token for that. This endpoint is a\npure read so it's safe to call on every settings page render.\n\nDegrades gracefully when the database is unavailable: instead of\nreturning 503, it reports used=0 and lets the dashboard show\n\"you haven't scanned today\" rather than an error state. The\ndashboard widget is optional UX — it must never take the\nsettings page down.\n\nResponse shape (stable contract for dashboard consumption):\n    {\n        \"plan\":       \"free\" | \"pro\" | \"team\" | \"enterprise\",\n        \"used\":       <int>,\n        \"limit\":      <int>,\n        \"exceeded\":   <bool>,\n        \"resets_at\":  \"<ISO-8601 next UTC midnight>\"\n    }",
+        "operationId": "get_user_quota_v1_user_quota_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get User Quota V1 User Quota Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
     "/v1/user/export": {
       "get": {
         "summary": "Gdpr Export",
@@ -2508,6 +2705,106 @@
           }
         ]
       }
+    },
+    "/v1/dashboard/overview": {
+      "get": {
+        "summary": "Dashboard Overview",
+        "description": "Real-time governance dashboard overview.\n\nReturns aggregated data from all enterprise modules:\nenforcement, compliance, PII, classification, cost, integrity.",
+        "operationId": "dashboard_overview_v1_dashboard_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Dashboard Overview V1 Dashboard Overview Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/dashboard/timeline": {
+      "get": {
+        "summary": "Dashboard Timeline",
+        "description": "Event timeline for the governance dashboard.\n\nReturns chronological events: blocks, warns, PII findings,\ncost events, integrity issues.\n\nArgs:\n    hours: Number of hours to look back (default 24).",
+        "operationId": "dashboard_timeline_v1_dashboard_timeline_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Dashboard Timeline V1 Dashboard Timeline Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/dashboard/alerts": {
+      "get": {
+        "summary": "Dashboard Alerts",
+        "description": "Active governance alerts.\n\nReturns alerts for: budget thresholds, anomalies, PII in restricted\ncontext, unreliable integrity scores, compliance degradation.",
+        "operationId": "dashboard_alerts_v1_dashboard_alerts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Dashboard Alerts V1 Dashboard Alerts Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2534,6 +2831,55 @@
         ],
         "title": "AddMemberRequest",
         "description": "Request to add a member to an organization."
+      },
+      "AdminAdoptionOverviewResponse": {
+        "properties": {
+          "total_users": {
+            "type": "integer",
+            "title": "Total Users"
+          },
+          "free_users": {
+            "type": "integer",
+            "title": "Free Users"
+          },
+          "pro_users": {
+            "type": "integer",
+            "title": "Pro Users"
+          },
+          "enterprise_users": {
+            "type": "integer",
+            "title": "Enterprise Users"
+          },
+          "total_api_keys": {
+            "type": "integer",
+            "title": "Total Api Keys"
+          },
+          "active_api_keys": {
+            "type": "integer",
+            "title": "Active Api Keys"
+          },
+          "active_users_30d": {
+            "type": "integer",
+            "title": "Active Users 30D"
+          },
+          "total_scans_30d": {
+            "type": "integer",
+            "title": "Total Scans 30D"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_users",
+          "free_users",
+          "pro_users",
+          "enterprise_users",
+          "total_api_keys",
+          "active_api_keys",
+          "active_users_30d",
+          "total_scans_30d"
+        ],
+        "title": "AdminAdoptionOverviewResponse",
+        "description": "Admin adoption metrics across users, keys, and recent activity."
       },
       "ApiKeyCreatedResponse": {
         "properties": {
@@ -2794,25 +3140,74 @@
         "title": "CreateOrgRequest",
         "description": "Request to create a new organization."
       },
-      "CrossFileScanRequest": {
+      "DashboardBootstrapApiKeyRequest": {
         "properties": {
-          "files": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Files",
-            "description": "Map of filename -> file content"
+          "user_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "User Id"
+          },
+          "github_id": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Github Id",
+            "default": ""
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Email",
+            "default": ""
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Name",
+            "default": ""
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "files"
+          "user_id"
         ],
-        "title": "CrossFileScanRequest",
-        "description": "Request for cross-file import graph analysis."
+        "title": "DashboardBootstrapApiKeyRequest",
+        "description": "Request to bootstrap a per-user dashboard API key."
+      },
+      "DashboardBootstrapApiKeyResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "plan": {
+            "type": "string",
+            "title": "Plan"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "plan",
+          "api_key",
+          "key_id",
+          "prefix"
+        ],
+        "title": "DashboardBootstrapApiKeyResponse",
+        "description": "Response for dashboard API key bootstrap."
       },
       "DeepScanRequest": {
         "properties": {
@@ -2928,6 +3323,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/VerifyDockerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taint_scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AstScanResponse"
               },
               {
                 "type": "null"
@@ -3091,32 +3496,12 @@
           "report_id": {
             "type": "string",
             "title": "Report Id"
-          },
-          "current_usage": {
-            "type": "integer",
-            "title": "Current Usage"
-          },
-          "daily_limit": {
-            "type": "integer",
-            "title": "Daily Limit"
-          },
-          "plan": {
-            "type": "string",
-            "title": "Plan"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
           }
         },
         "type": "object",
         "required": [
           "status",
-          "report_id",
-          "current_usage",
-          "daily_limit",
-          "plan",
-          "message"
+          "report_id"
         ],
         "title": "FeedbackReportResponse",
         "description": "Response for user-submitted feedback reports."
@@ -4273,35 +4658,12 @@
           "html",
           "terraform",
           "ruby",
+          "kotlin",
           "php",
           "powershell"
         ],
         "title": "Language",
         "description": "Supported programming languages."
-      },
-      "LicenseScanRequest": {
-        "properties": {
-          "language": {
-            "$ref": "#/components/schemas/Language"
-          },
-          "packages": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 200,
-            "minItems": 1,
-            "title": "Packages"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "language",
-          "packages"
-        ],
-        "title": "LicenseScanRequest",
-        "description": "Request to check package licenses for compliance."
       },
       "OIDCCallbackRequest": {
         "properties": {
@@ -4494,6 +4856,37 @@
         "title": "PublicStatsFindingsBySeverityResponse",
         "description": "Findings grouped by severity."
       },
+      "PublicStatsImpactCategoryResponse": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count",
+          "last_seen"
+        ],
+        "title": "PublicStatsImpactCategoryResponse",
+        "description": "Single impact category stats entry."
+      },
       "PublicStatsImpactResponse": {
         "properties": {
           "hallucinations_caught": {
@@ -4551,6 +4944,20 @@
           "ci_gates_failed": {
             "type": "integer",
             "title": "Ci Gates Failed"
+          },
+          "categories": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicStatsImpactCategoryResponse"
+            },
+            "type": "object",
+            "title": "Categories"
+          },
+          "top_rules": {
+            "items": {
+              "$ref": "#/components/schemas/PublicStatsImpactTopRuleResponse"
+            },
+            "type": "array",
+            "title": "Top Rules"
           }
         },
         "type": "object",
@@ -4568,10 +4975,36 @@
           "pr_gates_failed",
           "ci_runs_total",
           "ci_gates_passed",
-          "ci_gates_failed"
+          "ci_gates_failed",
+          "categories",
+          "top_rules"
         ],
         "title": "PublicStatsImpactResponse",
         "description": "Impact section of public telemetry."
+      },
+      "PublicStatsImpactTopRuleResponse": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule",
+          "count",
+          "category"
+        ],
+        "title": "PublicStatsImpactTopRuleResponse",
+        "description": "Single impact leaderboard entry."
       },
       "PublicStatsNestedResponse": {
         "properties": {
@@ -4965,45 +5398,6 @@
         "title": "SandboxResponse",
         "description": "Response for sandbox code execution."
       },
-      "SbomGenerateRequest": {
-        "properties": {
-          "language": {
-            "$ref": "#/components/schemas/Language"
-          },
-          "packages": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 500,
-            "minItems": 1,
-            "title": "Packages"
-          },
-          "versions": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Versions",
-            "description": "Optional package -> version mapping for deterministic output"
-          },
-          "document_name": {
-            "type": "string",
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Document Name",
-            "default": "codetrust-sbom"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "language",
-          "packages"
-        ],
-        "title": "SbomGenerateRequest",
-        "description": "Request to generate SBOM outputs in CycloneDX and SPDX formats."
-      },
       "SbomGenerateResponse": {
         "properties": {
           "ecosystem": {
@@ -5270,6 +5664,13 @@
           "verdict": {
             "type": "string",
             "title": "Verdict"
+          },
+          "upgrade_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Upgrade Hints"
           }
         },
         "type": "object",
@@ -5297,6 +5698,92 @@
         ],
         "title": "StatusResponse",
         "description": "Generic status response."
+      },
+      "TaintVerifiedRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 500000,
+            "minLength": 0,
+            "title": "Code"
+          },
+          "filename": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Filename",
+            "default": "untitled"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Language is required for taint analysis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "language"
+        ],
+        "title": "TaintVerifiedRequest",
+        "description": "Request for taint analysis with runtime exploit verification."
+      },
+      "TaintVerifiedResponse": {
+        "properties": {
+          "taint_findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Taint Findings",
+            "description": "Original taint findings"
+          },
+          "verified_findings": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFindingResponse"
+            },
+            "type": "array",
+            "title": "Verified Findings",
+            "description": "Findings with verification metadata"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total taint findings",
+            "default": 0
+          },
+          "verified_count": {
+            "type": "integer",
+            "title": "Verified Count",
+            "description": "Findings confirmed exploitable",
+            "default": 0
+          },
+          "unverified_count": {
+            "type": "integer",
+            "title": "Unverified Count",
+            "description": "Findings not confirmed",
+            "default": 0
+          },
+          "sandbox_unavailable": {
+            "type": "boolean",
+            "title": "Sandbox Unavailable",
+            "description": "Whether sandbox was available",
+            "default": false
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict",
+            "description": "PASS, WARN, or BLOCK",
+            "default": "PASS"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "TaintVerifiedResponse",
+        "description": "Response for POST /v1/scan/taint/verified."
       },
       "TokenResponse": {
         "properties": {
@@ -5545,6 +6032,44 @@
         ],
         "title": "ValidationError"
       },
+      "VerifiedFindingResponse": {
+        "properties": {
+          "finding": {
+            "$ref": "#/components/schemas/Finding"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "description": "Whether exploit was confirmed in sandbox",
+            "default": false
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0.0
+          },
+          "exploit_payload": {
+            "type": "string",
+            "title": "Exploit Payload",
+            "description": "Payload used for verification",
+            "default": ""
+          },
+          "verification_method": {
+            "type": "string",
+            "title": "Verification Method",
+            "description": "How verification was performed",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding"
+        ],
+        "title": "VerifiedFindingResponse",
+        "description": "A taint finding enriched with runtime verification metadata."
+      },
       "VerifyDockerRequest": {
         "properties": {
           "images": {
@@ -5685,38 +6210,6 @@
         ],
         "title": "VerifyStatus",
         "description": "Status of a package or image verification."
-      },
-      "VulnScanRequest": {
-        "properties": {
-          "language": {
-            "$ref": "#/components/schemas/Language"
-          },
-          "packages": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 200,
-            "minItems": 1,
-            "title": "Packages"
-          },
-          "versions": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Versions",
-            "description": "Optional package -> version mapping for precise matching"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "language",
-          "packages"
-        ],
-        "title": "VulnScanRequest",
-        "description": "Request to scan packages for known vulnerabilities (CVE/GHSA)."
       }
     },
     "securitySchemes": {

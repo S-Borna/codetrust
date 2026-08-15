@@ -38,6 +38,7 @@ CODETRUST_API_KEY
 htmlcov/
 .coverage
 coverage.xml
+.pytest-last.txt
 
 # Docker
 docker-compose.override.yml
@@ -84,6 +85,7 @@ scan_all_projects.py
 IP_HANDOVER.md
 PLAN.md
 SPEC.md
+VACK-UNDERLAG.md
 
 # Claude Code internal state
 .claude/

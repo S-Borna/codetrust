@@ -39,7 +39,7 @@ function buildCsp(): string {
 
 const CSP_HEADER = buildCsp();
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
     const response = NextResponse.next();
     const headers = response.headers;
 

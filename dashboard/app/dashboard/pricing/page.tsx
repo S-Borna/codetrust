@@ -114,6 +114,7 @@ export default function DashboardPricingPage() {
             }
             const data = await res.json();
             if (data.url && isSafeRedirectUrl(data.url)) {
+                // eslint-disable-next-line react-hooks/immutability -- inside an async event handler, not render
                 window.location.href = data.url;
             } else if (data.url) {
                 setError("Received an untrusted redirect URL. Checkout aborted.");

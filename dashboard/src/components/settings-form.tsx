@@ -343,6 +343,7 @@ export function SettingsForm({ user, apiKey, trialEnd, quota }: SettingsFormProp
                     if (!trialEnd) return null;
                     const trialEndDate = new Date(trialEnd);
                     if (trialEndDate <= new Date()) return null;
+                    // eslint-disable-next-line react-hooks/purity -- trial countdown may render stale until refetch, acceptable
                     const daysRemaining = Math.ceil((trialEndDate.getTime() - Date.now()) / 86_400_000);
                     const isEndingSoon = daysRemaining <= 3;
                     return (

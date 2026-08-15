@@ -11,6 +11,7 @@ const VALID_APPROVAL_ROLES = ["owner", "admin", "security"] as const;
 type ApprovalRole = typeof VALID_APPROVAL_ROLES[number];
 
 function TimeAgo({ timestamp }: { timestamp: number }) {
+    // eslint-disable-next-line react-hooks/purity -- label may render stale until refetch, fine for a "Xm ago" display
     const seconds = Math.floor(Date.now() / 1000 - timestamp);
     if (seconds < 60) return <span>{seconds}s ago</span>;
     const minutes = Math.floor(seconds / 60);
@@ -20,6 +21,7 @@ function TimeAgo({ timestamp }: { timestamp: number }) {
 }
 
 function TimeRemaining({ expiresAt }: { expiresAt: number }) {
+    // eslint-disable-next-line react-hooks/purity -- intentional, see TimeAgo above
     const remaining = Math.max(0, Math.floor(expiresAt - Date.now() / 1000));
     if (remaining <= 0) return <span className="text-red-500">Expired</span>;
     const minutes = Math.floor(remaining / 60);

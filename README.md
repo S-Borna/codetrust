@@ -360,6 +360,6 @@ PII detection (16 categories, GDPR compliance). Data classification with model r
 
 ---
 
-**Support:** [codetrust.ai/report.html](https://codetrust.ai/report.html) · **Security:** [SECURITY.md](SECURITY.md)
+**Support:** [codetrust.ai/report.html](https://codetrust.ai/report.html) · **Security:** [SECURITY.md](SECURITY.md) · **Third-party licenses:** [NOTICE.md](NOTICE.md)
 
 **License** — Proprietary. Copyright (c) 2026 Said Borna. All rights reserved.

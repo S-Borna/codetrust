@@ -91,12 +91,16 @@ def count_mcp_tools_gateway() -> int:
 
 
 def count_api_endpoints() -> int:
-    """Count public REST API endpoints from OpenAPI paths."""
+    """Count public REST API endpoints (method+path operations, not unique paths)."""
     try:
         from src.api import app
 
         schema = app.openapi()
-        return len(schema.get("paths", {}))
+        methods = {"get", "post", "put", "delete", "patch"}
+        return sum(
+            len(methods & set(operations))
+            for operations in schema.get("paths", {}).values()
+        )
     except Exception:
         # Fallback to decorator counting if OpenAPI generation fails.
         return count_pattern(

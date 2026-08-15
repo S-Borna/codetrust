@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """CodeTrust File Write Hook for Claude Code.
 
 PreToolUse hook that validates Write/Edit/MultiEdit operations.

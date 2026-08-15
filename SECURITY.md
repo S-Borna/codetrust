@@ -4,11 +4,10 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 2.7.x   | :white_check_mark: |
-| 2.6.x   | :white_check_mark: |
-| 2.5.x   | :x:                |
-| 2.4.x   | :x:                |
-| < 2.4   | :x:                |
+| 4.2.x   | :white_check_mark: |
+| 4.1.x   | :white_check_mark: |
+| 4.0.x   | :x:                |
+| < 4.0   | :x:                |
 
 ## Reporting a Vulnerability
 

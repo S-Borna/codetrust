@@ -32,9 +32,9 @@ def check_readme(metrics: dict) -> list[str]:
     errors = []
 
     checks = [
-        ("total_rules", r"(\d[\d,]+) rules"),
-        ("mcp_tools", r"(\d+) MCP tools"),
-        ("tests_collected", r"# (\d+) tests"),
+        ("scan_rules", r"(\d[\d,]+) scan rules"),
+        ("mcp_tools", r"\((\d+) tools\)"),
+        ("tests_collected", r"(\d[\d,]+) tests"),
         ("api_endpoints", r"(\d+) endpoints"),
     ]
 
@@ -66,7 +66,7 @@ def main() -> None:
         sys.exit(1)
     else:
         print(f"All README numbers match source (v{metrics['version']})")
-        print(f"  total_rules: {metrics['total_rules']}")
+        print(f"  scan_rules: {metrics['scan_rules']}")
         print(f"  mcp_tools: {metrics['mcp_tools']}")
         print(f"  api_endpoints: {metrics['api_endpoints']}")
         print(f"  tests_collected: {metrics['tests_collected']}")

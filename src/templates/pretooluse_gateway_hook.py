@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Said Borna. All rights reserved.
+# Proprietary — see LICENSE for terms.
 """CodeTrust Gateway Hook for Claude Code.
 
 PreToolUse hook that validates Bash commands against Gateway rules

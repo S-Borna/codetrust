@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>v4.1.0</code> &middot; <code>2,928 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>3,087 tests</code>
+  <code>v4.2.0</code> &middot; <code>2,928 scan rules</code> &middot; <code>9 enforcement layers</code> &middot; <code>3,162 tests</code>
 </p>
 
 <p align="center">
@@ -217,9 +217,9 @@ or `baseline share` to commit it for team workflow.
 | Compliance frameworks | 3 (OWASP 10/10, EU 7/7, NIST 4/4) |
 | Cost tracking models | 20 across 4 providers |
 | Framework integrations | 3 (LangChain, CrewAI, OpenAI) |
-| API endpoints | 72 |
+| API endpoints | 71 |
 | CLI commands | 52 |
-| Tests | 3,087 |
+| Tests | 3,162 |
 
 ---
 
@@ -232,11 +232,11 @@ or `baseline share` to commit it for team workflow.
 | **GitHub Action** | `pip install codetrust` in CI | PR gate with SARIF upload |
 | **MCP Server** | 2 servers (43 tools) | Governance for Claude Code / Cursor / Windsurf |
 | **Dashboard** | [app.codetrust.ai](https://app.codetrust.ai) | Quota, enforcement, compliance |
-| **REST API** | [api.codetrust.ai](https://api.codetrust.ai) ([spec](docs/openapi.json)) | 72 endpoints |
+| **REST API** | [api.codetrust.ai](https://api.codetrust.ai) ([spec](docs/openapi.json)) | 71 endpoints |
 
 ---
 
-## What's New in 4.1.0
+## What's New in 4.2.0
 
 - **Hallucination detection at 95%** — verified against a ground-truth dataset with 0% false positives. Covers fake packages, misspelled imports, invented APIs, fake sanitizers, and hallucinated configuration options.
 - **Scan baseline** — first scan accepts existing code as legacy. Subsequent scans show only new issues. Share baselines across teams with `codetrust baseline share`.

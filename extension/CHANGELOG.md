@@ -12,6 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Additional governance disruption telemetry for faster root-cause diagnosis in mixed IDE environments.
 - Expanded startup checks for first-run IDE profile bootstrap scenarios.
 
+## [4.2.0] - 2026-08-15
+
+### Changed
+
+- Extension version now tracks the unified platform version (CLI, API, Action, MCP) instead
+  of its own independent numbering. `package.json` had already moved to 4.1.0 for the 2026-04-10
+  platform release without a matching changelog entry; this entry closes that gap. No
+  extension-specific functional changes in this release — see root CHANGELOG.md for what shipped
+  across the platform since 2.9.0.
+
 ## [2.9.0] - 2026-03-15
 
 ### What's New (since 2.8.6)

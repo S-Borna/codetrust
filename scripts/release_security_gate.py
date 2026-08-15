@@ -218,8 +218,9 @@ def gate_s7_no_secrets() -> tuple[str, str]:
     # Scan Python source
     for py_file in SRC.rglob("*.py"):
         rel = py_file.relative_to(ROOT)
-        # Skip test files and example files
-        if "test_" in py_file.name or ".example" in py_file.name:
+        # Skip test files, example files, and rule definitions (which legitimately
+        # contain example secret patterns as detection-rule text, not real secrets)
+        if "test_" in py_file.name or ".example" in py_file.name or "src/rules/" in str(rel):
             continue
         text = py_file.read_text(errors="replace")
         for i, line in enumerate(text.splitlines(), 1):

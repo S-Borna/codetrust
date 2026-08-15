@@ -2,7 +2,7 @@
     "name": "codetrust",
     "displayName": "CodeTrust",
     "description": "AI Governance Enforcement Platform — real-time agent interception, 2,928 scan rules, 9 enforcement layers, guided remediation. Intercepts AI agent actions BEFORE execution. Hallucination detection, PII protection, agent integrity verification.",
-    "version": "4.1.0",
+    "version": "4.2.0",
     "publisher": "SaidBorna",
     "license": "SEE LICENSE IN LICENSE",
     "icon": "images/icon.png",

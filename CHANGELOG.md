@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Org-level governance alerting for drift and repeat BLOCK events
 - Scheduled scans with Slack/email notifications
 
+## [4.2.0] - 2026-08-15
+
+### Added
+
+- **NIS2 compliance mapping** — findings mapped to NIS2 regulation articles, surfaced in `codetrust compliance` and the dashboard compliance page
+- **Threat Intelligence aggregation** — cross-agent threat signal aggregation, with a dedicated dashboard page (fleet-level threat overview)
+- **Session view** — review AI agent activity per session (`codetrust sessions`)
+- **`codetrust overview`** — full governance state on a single screen
+- **Detection benchmark** — reproducible recall and false-positive measurement against a ground-truth dataset
+
+### Changed
+
+- Commit gate defaults to warn-first instead of blocking unprompted; `codetrust enforce` opts in to strict blocking
+- Scan output reordered to surface security findings before noise, with an honest gate-aware header
+- Onboarding and first-touch help updated to point at the new capabilities above
+
+### Fixed
+
+- Stopped leaking the backend (`src/api.py`) into the published PyPI wheel — it now ships wheel-only, backend-excluded
+- Silent snapshot-worker failure that emptied telemetry counters to zero
+- Telemetry warmup made non-blocking so a large snapshot table can't crash startup
+- Dashboard OAuth issuer mismatch against GitHub's actual issuer URL
+- `mcp[cli]` dependency had no upper bound; a fresh install could resolve `mcp` 2.0.0, which moved `fastmcp` and broke the MCP Guardian server on import. Pinned to `<2.0.0`.
+
 ## [4.1.0] - 2026-04-10
 
 ### Highlights
